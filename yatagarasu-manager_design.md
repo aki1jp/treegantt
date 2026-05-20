@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.1 |
+| バージョン | 1.2 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -15,6 +15,7 @@
 |-----------|------|---------|
 | 1.0 | 2025年 | 初版作成 |
 | 1.1 | 2026年5月 | CRDT構造修正・サービス統合・データモデル拡張・ガントチャート改善・Prisma Studio評価 |
+| 1.2 | 2026年5月 | Docker構築フェーズを除外（既存Docker環境で開発）・Section 8をインフラ参照に縮小 |
 
 ---
 
@@ -27,7 +28,7 @@
 5. [REST API設計](#5-rest-api設計)
 6. [リアルタイム同期設計](#6-リアルタイム同期設計)
 7. [フロントエンド設計](#7-フロントエンド設計)
-8. [Docker / インフラ構成](#8-docker--インフラ構成)
+8. [インフラ参照](#8-インフラ参照)
 9. [認証設計（将来拡張）](#9-認証設計将来拡張)
 10. [依存パッケージ](#10-依存パッケージ)
 11. [実装フェーズ](#11-実装フェーズ)
@@ -622,90 +623,11 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
 
 ---
 
-## 8. Docker / インフラ構成
+## 8. インフラ参照
 
-### 8.1 `docker-compose.yml`（開発）
+> Docker環境は既存のものをそのまま使用する。本セクションは起動時の環境変数リファレンスとして残す。
 
-```yaml
-services:
-  frontend:
-    build: ./frontend
-    ports:
-      - '3000:3000'
-    volumes:
-      - ./frontend/src:/app/src
-    environment:
-      - VITE_API_URL=http://localhost:4000
-      - VITE_WS_URL=ws://localhost:4001
-    depends_on:
-      api:
-        condition: service_healthy
-
-  api:
-    build: ./api
-    ports:
-      - '4000:4000'
-      - '4001:4001'
-    volumes:
-      - ./api/data:/app/data
-    environment:
-      - DB_PATH=/app/data/taskflow.db
-      - PORT=4000
-      - WS_PORT=4001
-      - LDAP_ENABLED=false
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-```
-
-> ※ `version:` キーは Docker Compose v2 以降では非推奨のため削除。
-
-### 8.2 `docker-compose.prod.yml`（本番上書き）
-
-```yaml
-services:
-  frontend:
-    build:
-      context: ./frontend
-      target: production  # nginx静的配信ステージ
-    restart: unless-stopped
-
-  api:
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-          cpus: '1.0'
-```
-
-### 8.3 各Dockerfile（共通パターン）
-
-開発・本番でステージを分離するマルチステージビルドを採用する。
-
-```dockerfile
-# --- ビルドステージ ---
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# --- 実行ステージ ---
-FROM node:20-alpine AS production
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY --from=builder /app/dist ./dist
-EXPOSE <PORT>
-CMD ["node", "dist/index.js"]
-```
-
-### 8.4 環境変数一覧
+### 8.1 環境変数一覧
 
 | 変数名 | サービス | デフォルト | 説明 |
 |--------|---------|-----------|------|
@@ -791,7 +713,7 @@ export async function authPlugin(fastify: FastifyInstance) {
 
 | Phase | 内容 | 成果物 |
 |-------|------|--------|
-| Phase 1-A | Docker環境構築・Fastify + SQLite CRUD + `/health` | APIが動作するコンテナ（2サービス構成） |
+| Phase 1-A | Fastify + SQLite CRUD + `/health` | APIが動作する状態（既存Docker環境で起動確認） |
 | Phase 1-B | React雛形・TodoListビュー・Zustand・フィルタ・ソート | タスクCRUD UI |
 | Phase 1-C | Y.js（ネストY.Map）+ Hocuspocus接続・接続状態バッジ | リアルタイム同時編集動作確認 |
 | Phase 1-D | ガントチャート・ズームレベル・依存矢印・イナズマライン | ガント表示完成 |
