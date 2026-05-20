@@ -2,10 +2,19 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.0 |
-| 作成日 | 2025年 |
+| バージョン | 1.1 |
+| 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
-| ステータス | ドラフト |
+| ステータス | レビュー済みドラフト |
+
+---
+
+## 変更履歴
+
+| バージョン | 日付 | 変更内容 |
+|-----------|------|---------|
+| 1.0 | 2025年 | 初版作成 |
+| 1.1 | 2026年5月 | CRDT構造修正・サービス統合・データモデル拡張・ガントチャート改善・Prisma Studio評価 |
 
 ---
 
@@ -23,6 +32,7 @@
 10. [依存パッケージ](#10-依存パッケージ)
 11. [実装フェーズ](#11-実装フェーズ)
 12. [非機能要件](#12-非機能要件)
+13. [Prisma Studio 採用評価](#13-prisma-studio-採用評価)
 
 ---
 
@@ -35,9 +45,10 @@
 ### 1.2 スコープ
 
 - TODOリスト・ガントチャートによるタスク管理
+- タスク優先度（4段階）・進捗率管理
 - 先行・後続タスクの依存関係管理
-- イナズマライン表示（進捗基準線）
-- 担当者・ステータス等による並び替え
+- イナズマライン表示（実績と計画の境界線）
+- 担当者・ステータス・優先度等による並び替え・フィルタリング
 - JSON / CSV Import / Export
 - WebSocketを用いたリアルタイム同時編集（〜10人同時）
 - SQLiteによるファイルベース永続化
@@ -62,32 +73,33 @@
 
 TaskFlowはSPA（シングルページアプリケーション）＋WebSocketサーバーの2層構成をDockerコンテナで提供する。
 
+**v1.1変更点:** `api` サービスと `ws` サービスを統合した。SQLiteファイルを2プロセスが共有することによる書き込み競合を排除し、コンテナ構成を簡素化する。
+
 | レイヤー | 技術 | 役割 |
 |----------|------|------|
 | フロントエンド | React 18 + TypeScript + Vite | UI・ガントチャート・CRDT操作 |
 | リアルタイム同期 | Y.js (CRDT) + Hocuspocus | WebSocket経由のリアルタイム共同編集 |
-| バックエンドAPI | Node.js 20 + Fastify | REST API・認証スタブ・ファイルI/O |
-| 永続化 | SQLite (better-sqlite3) | タスクデータ・ユーザーデータ保存 |
+| バックエンドAPI | Node.js 20 + Fastify | REST API・認証スタブ・Hocuspocus統合 |
+| 永続化 | SQLite (better-sqlite3) | タスクデータ・Y.jsスナップショット保存 |
 | コンテナ | Docker + docker-compose | サービス分離・ポート管理 |
 
 ### 2.2 コンテナ構成
 
-`docker-compose.yml` で以下の3サービスを定義する。
+`docker-compose.yml` で以下の **2サービス** を定義する（v1.0の3サービスから統合）。
 
 | サービス名 | イメージ | ポート | 役割 |
 |-----------|---------|--------|------|
-| frontend | node:20-alpine (build) | 3000:3000 | Vite dev / Nginx static（本番） |
-| api | node:20-alpine | 4000:4000 | Fastify REST API + SQLite |
-| ws | node:20-alpine | 4001:4001 | Hocuspocus WebSocketサーバー |
+| frontend | node:20-alpine (build) / nginx (prod) | 3000:3000 | Vite dev / Nginx static |
+| api | node:20-alpine | 4000:4000, 4001:4001 | Fastify REST API + Hocuspocus WebSocket + SQLite |
 
-> ※ 開発時はfrontendコンテナでVite devサーバーを起動する。本番ビルドではNginxで静的ファイルを配信する。
+> ※ v1.0 では `ws` サービスが `api/data` ボリュームを直接共有していたが、同一SQLiteファイルへの並行書き込みは WAL モードでも競合リスクがある。v1.1 では Hocuspocus を Fastify プロセスに統合し、単一プロセスから SQLite に書き込む構成とした。
 
 ### 2.3 データフロー
 
-1. ユーザー操作 → Y.js Document に対するCRDT操作
-2. Y.js → WebSocket（Hocuspocus）→ 他クライアントに即時ブロードキャスト
-3. Hocuspocusの `onStoreDocument` コールバック → Fastify API → SQLite へ永続化
-4. ページロード時: Fastify API → SQLite からスナップショットを取得 → Y.js Documentに適用
+1. ユーザー操作 → Y.js Document に対するCRDT操作（ネスト `Y.Map` 単位）
+2. Y.js → WebSocket（Hocuspocus, port 4001）→ 他クライアントに即時ブロードキャスト
+3. Hocuspocusの `onStoreDocument` コールバック → 同プロセス内の SQLite へ永続化
+4. ページロード時: Fastify API → SQLite からスナップショットを取得 → Y.js Document に適用
 
 ---
 
@@ -104,13 +116,14 @@ taskflow/
 │   ├── tsconfig.json
 │   ├── index.html
 │   └── src/
-│       ├── main.tsx              # エントリーポイント
+│       ├── main.tsx
 │       ├── App.tsx
 │       ├── types/
 │       │   └── task.ts           # 共通型定義
 │       ├── store/
 │       │   ├── yjsStore.ts       # Y.js Document管理
-│       │   └── taskStore.ts      # Zustandストア
+│       │   ├── taskStore.ts      # Zustandストア（タスク・ソート・ズーム）
+│       │   └── connectionStore.ts # WebSocket接続状態
 │       ├── components/
 │       │   ├── TodoList/
 │       │   │   ├── TodoList.tsx
@@ -122,40 +135,40 @@ taskflow/
 │       │   │   └── LightningLine.tsx
 │       │   ├── TaskModal/
 │       │   │   └── TaskModal.tsx
-│       │   └── Toolbar/
-│       │       └── Toolbar.tsx
+│       │   ├── Toolbar/
+│       │   │   └── Toolbar.tsx
+│       │   └── ConnectionBadge/
+│       │       └── ConnectionBadge.tsx  # 接続状態表示
 │       ├── hooks/
 │       │   ├── useYjs.ts         # Y.js接続フック
 │       │   └── useTasks.ts       # タスク操作フック
 │       └── utils/
-│           ├── ganttCalc.ts      # ガントチャート計算
+│           ├── ganttCalc.ts      # ガントチャート計算・ズームレベル
 │           ├── importExport.ts   # Import/Export
-│           └── sort.ts           # 並び替えロジック
-├── api/
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── src/
-│   │   ├── index.ts              # Fastifyサーバー起動
-│   │   ├── db/
-│   │   │   ├── client.ts         # better-sqlite3接続
-│   │   │   └── migrations/
-│   │   │       └── 001_init.sql
-│   │   ├── routes/
-│   │   │   ├── tasks.ts          # タスクCRUD
-│   │   │   ├── projects.ts       # プロジェクト
-│   │   │   └── importExport.ts   # Import/Export
-│   │   ├── services/
-│   │   │   ├── taskService.ts
-│   │   │   └── authService.ts    # LDAPスタブ
-│   │   └── plugins/
-│   │       └── auth.ts           # 認証プラグイン（将来用）
-│   └── data/
-│       └── taskflow.db           # SQLiteファイル（永続化）
-└── ws/
+│           └── sort.ts           # 並び替え・フィルタロジック
+└── api/
     ├── Dockerfile
     ├── package.json
-    └── src/
-        └── index.ts              # Hocuspocusサーバー
+    ├── src/
+    │   ├── index.ts              # Fastify + Hocuspocus サーバー起動
+    │   ├── db/
+    │   │   ├── client.ts         # better-sqlite3接続・WAL設定
+    │   │   └── migrations/
+    │   │       └── 001_init.sql
+    │   ├── routes/
+    │   │   ├── health.ts         # GET /health
+    │   │   ├── tasks.ts          # タスクCRUD・並び替え・フィルタ
+    │   │   ├── projects.ts       # プロジェクトCRUD
+    │   │   └── importExport.ts   # Import/Export
+    │   ├── services/
+    │   │   ├── taskService.ts
+    │   │   └── authService.ts    # LDAPスタブ
+    │   ├── ws/
+    │   │   └── hocuspocus.ts     # Hocuspocusサーバー設定（apiプロセスに統合）
+    │   └── plugins/
+    │       └── auth.ts           # 認証プラグイン（将来用）
+    └── data/
+        └── taskflow.db           # SQLiteファイル（永続化）
 ```
 
 ---
@@ -164,28 +177,33 @@ taskflow/
 
 ### 4.1 型定義 (TypeScript)
 
-`frontend/src/types/task.ts` に以下を定義する。すべてのコンポーネントがこの型を参照する。
+`frontend/src/types/task.ts` に定義する。すべてのコンポーネントがこの型を参照する。
 
 ```typescript
-// タスクステータス
-export type TaskStatus = 'todo' | 'wip' | 'done' | 'wait';
+export type TaskStatus   = 'todo' | 'wip' | 'done' | 'wait';
+export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
+export type ZoomLevel    = 'day' | 'week' | 'month';
 
 export interface Task {
   id:           string;        // UUID v4
   projectId:    string;        // 所属プロジェクトID
   title:        string;        // タイトル（必須, max 200文字）
-  detail:       string;        // 詳細（1行サマリ）
+  summary:      string;        // 1行サマリ（旧 detail）
   description:  string;        // 長文説明（Markdown可）
   status:       TaskStatus;
+  priority:     TaskPriority;  // 優先度（追加）
+  progress:     number;        // 進捗率 0–100（追加）
   assignee:     string;        // 担当者名
   startDate:    string | null; // ISO 8601 date (YYYY-MM-DD)
   endDate:      string | null; // ISO 8601 date (YYYY-MM-DD)
   predecessors: string[];      // 先行タスクID配列
-  successors:   string[];      // 後続タスクID配列（計算値）
   order:        number;        // 表示順
   createdAt:    string;        // ISO 8601 datetime
   updatedAt:    string;        // ISO 8601 datetime
 }
+
+// APIレスポンス専用: successors は task_deps JOIN で計算して付与する
+export type TaskWithSuccessors = Task & { successors: string[] };
 
 export interface Project {
   id:        string;
@@ -194,11 +212,20 @@ export interface Project {
 }
 ```
 
+> **v1.0からの変更点**
+> - `detail` → `summary` にリネーム（役割を明確化）
+> - `successors` を `Task` から除外。後続タスクはDB側で計算する派生値であり、`Task` 本体に含めると Y.js 経由で保存・更新する際に整合性が崩れる。APIレスポンスには `TaskWithSuccessors` を使用する。
+> - `priority`・`progress` フィールドを追加
+> - `ZoomLevel` 型を追加（ガントチャートのズーム管理に使用）
+
 ### 4.2 SQLiteスキーマ
 
 `api/src/db/migrations/001_init.sql` に定義する。
 
 ```sql
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE IF NOT EXISTS projects (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL,
@@ -209,10 +236,14 @@ CREATE TABLE IF NOT EXISTS tasks (
   id          TEXT PRIMARY KEY,
   project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   title       TEXT NOT NULL,
-  detail      TEXT NOT NULL DEFAULT '',
+  summary     TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
   status      TEXT NOT NULL DEFAULT 'todo'
               CHECK(status IN ('todo','wip','done','wait')),
+  priority    TEXT NOT NULL DEFAULT 'medium'
+              CHECK(priority IN ('critical','high','medium','low')),
+  progress    INTEGER NOT NULL DEFAULT 0
+              CHECK(progress BETWEEN 0 AND 100),
   assignee    TEXT NOT NULL DEFAULT '',
   start_date  TEXT,
   end_date    TEXT,
@@ -228,14 +259,21 @@ CREATE TABLE IF NOT EXISTS task_deps (
 );
 
 -- 更新日時自動更新トリガー
-CREATE TRIGGER update_tasks_updated_at
+CREATE TRIGGER IF NOT EXISTS update_tasks_updated_at
   AFTER UPDATE ON tasks
   BEGIN
     UPDATE tasks SET updated_at = datetime('now') WHERE id = NEW.id;
   END;
+
+-- タスク検索用インデックス
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status   ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(project_id, assignee);
+CREATE INDEX IF NOT EXISTS idx_tasks_dates    ON tasks(project_id, start_date, end_date);
 ```
 
-> ※ `successors` は `task_deps` を JOIN して計算するため、DBには保存しない。
+> ※ `successors` は `task_deps` を JOIN して計算するためDBには保存しない。
+> ※ `PRAGMA journal_mode = WAL` と `PRAGMA foreign_keys = ON` は `client.ts` で接続時にも実行する。
 
 ---
 
@@ -252,28 +290,59 @@ CREATE TRIGGER update_tasks_updated_at
 
 | メソッド | パス | 説明 |
 |---------|------|------|
+| GET | `/health` | ヘルスチェック（Docker healthcheck用） |
 | GET | `/projects` | プロジェクト一覧取得 |
 | POST | `/projects` | プロジェクト作成 |
-| GET | `/projects/:id/tasks` | タスク一覧取得（deps含む） |
+| DELETE | `/projects/:id` | プロジェクト削除（タスク含むCASCADE） |
+| GET | `/projects/:id/tasks` | タスク一覧取得（deps含む）※フィルタ対応 |
 | POST | `/projects/:id/tasks` | タスク作成 |
+| PATCH | `/projects/:id/tasks/reorder` | タスク並び替え（`ord` 一括更新） |
 | GET | `/tasks/:id` | タスク単体取得 |
 | PATCH | `/tasks/:id` | タスク部分更新 |
 | DELETE | `/tasks/:id` | タスク削除 |
 | POST | `/projects/:id/import` | JSONインポート |
 | GET | `/projects/:id/export/json` | JSONエクスポート |
 | GET | `/projects/:id/export/csv` | CSVエクスポート |
-| POST | `/ws/store` | Hocuspocusからの永続化コールバック（内部） |
 
-### 5.3 タスク作成 `POST /projects/:id/tasks`
+> ※ v1.0 にあった `POST /ws/store`（内部永続化コールバック）は削除。Hocuspocus が `api` プロセスに統合されたため不要。
+
+### 5.3 タスク一覧取得 `GET /projects/:id/tasks`
+
+クエリパラメータでフィルタリング可能。
+
+```
+GET /projects/:id/tasks?status=todo&assignee=田中&priority=high&limit=100&offset=0
+```
+
+| パラメータ | 型 | 説明 |
+|-----------|-----|------|
+| `status` | TaskStatus | ステータスでフィルタ |
+| `assignee` | string | 担当者名でフィルタ（部分一致） |
+| `priority` | TaskPriority | 優先度でフィルタ |
+| `limit` | number | 取得件数（デフォルト: 500） |
+| `offset` | number | オフセット（デフォルト: 0） |
+
+**レスポンス 200**
+
+```json
+{
+  "tasks": [ ...TaskWithSuccessors[] ],
+  "total": 42
+}
+```
+
+### 5.4 タスク作成 `POST /projects/:id/tasks`
 
 **リクエストボディ**
 
 ```json
 {
   "title":        "フロントエンド実装",
-  "detail":       "React + TypeScript",
+  "summary":      "React + TypeScript",
   "description":  "## 詳細\n...",
   "status":       "todo",
+  "priority":     "high",
+  "progress":     0,
   "assignee":     "田中",
   "startDate":    "2025-05-01",
   "endDate":      "2025-05-15",
@@ -284,29 +353,45 @@ CREATE TRIGGER update_tasks_updated_at
 **レスポンス 201**
 
 ```json
-{ "task": { ...Task } }
+{ "task": { ...TaskWithSuccessors } }
 ```
 
-### 5.4 Import / Export仕様
+### 5.5 並び替え `PATCH /projects/:id/tasks/reorder`
+
+ドラッグ&ドロップ操作後に複数タスクの `ord` を一括更新する。
+
+```json
+{
+  "orders": [
+    { "id": "uuid-1", "order": 0 },
+    { "id": "uuid-2", "order": 1 },
+    { "id": "uuid-3", "order": 2 }
+  ]
+}
+```
+
+### 5.6 Import / Export仕様
 
 **JSON形式**
 
 ```json
 {
-  "version":    "1.0",
-  "exportedAt": "2025-05-01T12:00:00Z",
+  "version":    "1.1",
+  "exportedAt": "2026-05-01T12:00:00Z",
   "project":    { "id": "...", "name": "..." },
   "tasks":      [ ...Task[] ]
 }
 ```
 
+> ※ インポート時に同一 `id` のタスクが存在する場合は上書き更新、存在しない場合は新規作成（upsert）とする。
+
 **CSV形式（列順固定）**
 
 ```
-id, title, detail, description, status, assignee, startDate, endDate, predecessors
+id, title, summary, description, status, priority, progress, assignee, startDate, endDate, predecessors
 ```
 
-> ※ `predecessors` はセミコロン区切りのIDリストとする。例: `"uuid-1;uuid-2"`
+> ※ `predecessors` はセミコロン区切りのIDリスト。例: `"uuid-1;uuid-2"`
 
 ---
 
@@ -314,44 +399,80 @@ id, title, detail, description, status, assignee, startDate, endDate, predecesso
 
 ### 6.1 Y.js CRDT戦略
 
-Y.js の `Y.Map` を使い、タスクIDをキー・Task オブジェクトをバリューとするネスト構造を採用する。
+**v1.0の問題点:** `Y.Map<Task>` にプレーンオブジェクトを格納すると、2ユーザーが同一タスクの異なるフィールドを同時編集した場合に **後発の変更がオブジェクト全体を上書き** し、先発の編集が消失する。これはCRDTの利点を活かせていない。
+
+**v1.1の修正:** タスクごとに `Y.Map` をネストさせ、フィールド単位でCRDTマージが行われるようにする。
 
 ```typescript
 // Y.js Document構造
-const ydoc = new Y.Doc();
-const yTasks = ydoc.getMap<Task>('tasks');  // key: taskId, value: Task
-const yMeta  = ydoc.getMap('meta');          // key: "updatedAt" 等のメタ情報
+const ydoc  = new Y.Doc();
+const yTasks = ydoc.getMap<Y.Map<unknown>>('tasks'); // key: taskId, value: Y.Map
+const yMeta  = ydoc.getMap<string>('meta');
 ```
 
 ### 6.2 操作フロー
 
-| 操作 | Y.js呼び出し |
-|------|-------------|
-| 作成 | `yTasks.set(task.id, task)` |
-| 更新 | `yTasks.set(task.id, { ...yTasks.get(task.id), ...patch })` |
-| 削除 | `yTasks.delete(task.id)` |
-| 変更検知 | `yTasks.observe(event => { /* Zustandストア更新 */ })` |
+```typescript
+// 作成
+ydoc.transact(() => {
+  const yTask = new Y.Map<unknown>();
+  Object.entries(task).forEach(([k, v]) => yTask.set(k, v));
+  yTasks.set(task.id, yTask);
+});
 
-### 6.3 Hocuspocusサーバー設定 (`ws/src/index.ts`)
+// フィールド単位の更新（他フィールドへの影響なし）
+ydoc.transact(() => {
+  yTasks.get(task.id)?.set('status', newStatus);
+  yTasks.get(task.id)?.set('progress', newProgress);
+});
+
+// 削除
+ydoc.transact(() => {
+  yTasks.delete(task.id);
+});
+
+// 変更検知 → Zustandストア更新
+yTasks.observeDeep(() => {
+  const tasks = Array.from(yTasks.entries()).map(([, yTask]) =>
+    Object.fromEntries(yTask.entries()) as Task
+  );
+  useTaskStore.getState().setTasks(tasks);
+});
+```
+
+> **なぜ `transact` で囲むか:** 複数フィールドの更新を単一のアンドゥ操作として扱うため。`transact` 外で複数の `set` を呼ぶと、各 `set` が独立したCRDT操作となり、他クライアントへの送信粒度が細かくなりすぎる。
+
+### 6.3 Hocuspocusサーバー設定（`api` に統合）
+
+`api/src/ws/hocuspocus.ts` で設定し、`api/src/index.ts` でFastifyと同一プロセス内に起動する。
 
 ```typescript
+// api/src/ws/hocuspocus.ts
 import { Server } from '@hocuspocus/server';
 import { SQLite } from '@hocuspocus/extension-sqlite';
 
-Server.configure({
+export const hocuspocus = Server.configure({
   port: 4001,
   extensions: [
-    new SQLite({ database: '/data/taskflow.db' }),
+    new SQLite({ database: process.env.DB_PATH ?? '/app/data/taskflow.db' }),
   ],
-  async onAuthenticate(data) {
+  async onAuthenticate(_data) {
     // Phase 2: LDAPトークン検証をここに実装
-    return true; // Phase 1は常に許可
+    return true;
   },
-  async onStoreDocument(data) {
-    // Y.jsスナップショットをSQLiteに永続化
-    // Fastify APIの /ws/store に投げてもよい
-  },
-}).listen();
+});
+```
+
+```typescript
+// api/src/index.ts（起動部分）
+import Fastify from 'fastify';
+import { hocuspocus } from './ws/hocuspocus.js';
+
+const fastify = Fastify();
+// ... プラグイン・ルート登録 ...
+
+await fastify.listen({ port: 4000, host: '0.0.0.0' });
+hocuspocus.listen(); // 4001ポートでWebSocket起動
 ```
 
 ### 6.4 フロントエンド接続 (`hooks/useYjs.ts`)
@@ -359,20 +480,27 @@ Server.configure({
 ```typescript
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
+import { useConnectionStore } from '../store/connectionStore';
 
 export function useYjs(projectId: string) {
   const ydoc = useMemo(() => new Y.Doc(), []);
-  const provider = useMemo(() =>
-    new HocuspocusProvider({
-      url: `ws://localhost:4001`,
-      name: projectId,   // ドキュメント名 = プロジェクトID
-      document: ydoc,
-    }), [projectId]);
 
-  const yTasks = ydoc.getMap<Task>('tasks');
+  const provider = useMemo(() => new HocuspocusProvider({
+    url: import.meta.env.VITE_WS_URL,
+    name: projectId,
+    document: ydoc,
+    onStatus: ({ status }) => {
+      // 'connected' | 'connecting' | 'disconnected'
+      useConnectionStore.getState().setStatus(status);
+    },
+  }), [projectId]);
+
+  const yTasks = ydoc.getMap<Y.Map<unknown>>('tasks');
   return { ydoc, provider, yTasks };
 }
 ```
+
+> ※ Y.js はオフライン中の操作をバッファリングし、再接続時に自動マージする。`ConnectionBadge` コンポーネントで接続状態を常時表示することを推奨する。
 
 ---
 
@@ -380,52 +508,78 @@ export function useYjs(projectId: string) {
 
 ### 7.1 状態管理
 
-Zustand ストアを使用する。Y.js の `observe` で変更を受信し、ストアを更新することでUIに反映する。
+Zustand ストアを用途別に分割する。Y.js の `observeDeep` で変更を受信し `taskStore` を更新することでUIに反映する。
 
 ```typescript
 // store/taskStore.ts
 interface TaskStore {
-  tasks:      Task[];
-  sortKey:    keyof Task | '';
-  sortDir:    'asc' | 'desc';
-  activeTab:  'todo' | 'gantt';
-  setSortKey: (key: keyof Task) => void;
-  setTasks:   (tasks: Task[]) => void;
+  tasks:         Task[];
+  sortKey:       keyof Task | '';
+  sortDir:       'asc' | 'desc';
+  filterStatus:  TaskStatus | '';
+  filterAssignee: string;
+  activeTab:     'todo' | 'gantt';
+  zoomLevel:     ZoomLevel;         // ガントチャートのズームレベル
+  setSortKey:    (key: keyof Task) => void;
+  setTasks:      (tasks: Task[]) => void;
+  setFilter:     (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee'>>) => void;
+  setZoomLevel:  (z: ZoomLevel) => void;
+}
+
+// store/connectionStore.ts
+interface ConnectionStore {
+  status: 'connected' | 'connecting' | 'disconnected';
+  setStatus: (s: ConnectionStore['status']) => void;
 }
 ```
 
 ### 7.2 ガントチャート実装仕様
 
-#### 座標計算ロジック (`utils/ganttCalc.ts`)
+#### ズームレベルと座標計算 (`utils/ganttCalc.ts`)
 
 ```typescript
-const DAY_WIDTH_PX = 28; // 1日あたりのピクセル幅
-const ROW_HEIGHT_PX = 36;
+import type { ZoomLevel } from '../types/task';
 
-export function dateToX(date: string, minDate: Date): number {
+export const ZOOM_CONFIG: Record<ZoomLevel, { dayWidth: number; headerFormat: string }> = {
+  day:   { dayWidth: 28, headerFormat: 'M/D' },   // 1日 = 28px
+  week:  { dayWidth: 8,  headerFormat: '[W]w' },  // 1日 = 8px（週単位ヘッダー）
+  month: { dayWidth: 3,  headerFormat: 'YYYY-MM' },
+};
+
+export const ROW_HEIGHT_PX = 36;
+
+export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
+  const { dayWidth } = ZOOM_CONFIG[zoom];
   const d = new Date(date);
-  return Math.round((d.getTime() - minDate.getTime()) / 86400000) * DAY_WIDTH_PX;
+  return Math.round((d.getTime() - minDate.getTime()) / 86400000) * dayWidth;
 }
 
 export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
-  // 全タスクのstartDate/endDateを収集してパディング付きで返す
-  // min: 最小日付 -3日, max: 最大日付 +5日
+  const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
+  const times = dates.map(d => new Date(d).getTime());
+  return {
+    min: new Date(Math.min(...times) - 3 * 86400000),  // -3日パディング
+    max: new Date(Math.max(...times) + 5 * 86400000),  // +5日パディング
+  };
 }
 ```
 
 #### イナズマライン (Lightning Line) の定義
 
-イナズマラインはプロジェクトの「計画基準日」を示す縦線である。
-具体的には「完了していないタスクの中で最も早い `startDate`」のX座標に描画する。
+**v1.0の問題点:** 「未完了タスクの中で最も早い `startDate`」だとプロジェクト開始直後は全タスクが未完了のため常に最初のタスク位置を示し、意味を持たない。
 
-| 線の種類 | 色 | 表示条件 |
-|---------|-----|---------|
-| 今日ライン | `#E24B4A`（赤） | 常に表示 |
-| イナズマライン | `#D4537E`（ピンク） | 未完了タスクが存在する場合のみ |
+**v1.1の定義（実績と計画の境界線）:**
+
+| 線の種類 | 色 | X座標 | 表示条件 |
+|---------|-----|-------|---------|
+| 今日ライン | `#E24B4A`（赤） | 今日の日付 | 常に表示 |
+| イナズマライン | `#D4537E`（ピンク） | `done` タスクの最大 `endDate` と `wip/todo` タスクの最小 `startDate` の中間 | 完了・未完了タスクが混在する場合のみ |
+
+> イナズマラインが今日ラインより左にある場合は遅延傾向、右にある場合は進行良好を示す。
 
 #### 依存関係矢印の描画
 
-先行タスクの右端から後続タスクの左端へ、SVGのベジェ曲線（cubic-bezier）で結ぶ。
+先行タスクの右端から後続タスクの左端へ、SVGのcubic-bezierで結ぶ。ズームレベルに応じてコントロールポイントのオフセットを調整する。
 
 ```typescript
 // DependencyArrow.tsx
@@ -433,31 +587,38 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
 // stroke='#378ADD' strokeWidth={1.5} markerEnd='url(#arrowhead)'
 ```
 
-### 7.3 並び替え仕様
+### 7.3 並び替え・フィルタリング仕様
+
+**ソートキー**
 
 | ソートキー | 対象フィールド | 備考 |
 |-----------|--------------|------|
 | タイトル | `title` | ロケール昇順 |
 | ステータス | `status` | `todo→wip→done→wait` の固定順 |
+| 優先度 | `priority` | `critical→high→medium→low` の固定順 |
 | 担当者 | `assignee` | ロケール昇順 |
 | 開始日 | `startDate` | 日付昇順、null末尾 |
 | 終了日 | `endDate` | 日付昇順、null末尾 |
+| 進捗率 | `progress` | 数値昇順 |
 | デフォルト | `order` | DBの `ord` フィールド順 |
 
-> ※ ソートはフロントエンドのメモリ上で行い、APIへの問い合わせは不要。
+**フィルタリング:** ステータス・担当者・優先度をフロントエンドのメモリ上でフィルタリングする。APIへの追加問い合わせは不要。
+
+> ソート・フィルタはいずれもフロントエンドのメモリ上で行う。
 
 ### 7.4 コンポーネント責務一覧
 
 | コンポーネント | 責務 |
 |--------------|------|
-| `Toolbar` | タブ切替・ソート選択・Import/Export・タスク追加ボタン |
-| `TodoList` | タスク一覧テーブル。ソート済み `tasks[]` を受け取り表示 |
+| `Toolbar` | タブ切替・ソート選択・フィルタ・ズーム切替・Import/Export・タスク追加ボタン |
+| `ConnectionBadge` | WebSocket接続状態（connected / connecting / disconnected）をバッジで常時表示 |
+| `TodoList` | タスク一覧テーブル。フィルタ・ソート済み `tasks[]` を受け取り表示 |
 | `TaskRow` | 1行分。セルクリックでインライン編集またはモーダル起動 |
-| `GanttChart` | 日付ヘッダー・バーエリアのスクロールコンテナ管理 |
+| `GanttChart` | 日付ヘッダー・バーエリアのスクロールコンテナ管理。ズームレベルを受け取る |
 | `GanttBar` | 1タスク分のバー。クリックでモーダル起動 |
-| `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate` |
+| `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
 | `LightningLine` | イナズマラインSVG縦線 |
-| `TaskModal` | 新規作成・編集フォーム。先行タスクのmulti-select含む |
+| `TaskModal` | 新規作成・編集フォーム。先行タスクのmulti-select・進捗率スライダー含む |
 
 ---
 
@@ -466,7 +627,6 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
 ### 8.1 `docker-compose.yml`（開発）
 
 ```yaml
-version: '3.9'
 services:
   frontend:
     build: ./frontend
@@ -477,43 +637,75 @@ services:
     environment:
       - VITE_API_URL=http://localhost:4000
       - VITE_WS_URL=ws://localhost:4001
-    depends_on: [api, ws]
+    depends_on:
+      api:
+        condition: service_healthy
 
   api:
     build: ./api
     ports:
       - '4000:4000'
+      - '4001:4001'
     volumes:
-      - ./api/data:/app/data  # SQLiteファイル永続化
+      - ./api/data:/app/data
     environment:
       - DB_PATH=/app/data/taskflow.db
       - PORT=4000
-      - LDAP_ENABLED=false
-
-  ws:
-    build: ./ws
-    ports:
-      - '4001:4001'
-    volumes:
-      - ./api/data:/data  # apiと同じボリュームを共有
-    environment:
       - WS_PORT=4001
+      - LDAP_ENABLED=false
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 ```
 
-### 8.2 各Dockerfile（共通パターン）
+> ※ `version:` キーは Docker Compose v2 以降では非推奨のため削除。
+
+### 8.2 `docker-compose.prod.yml`（本番上書き）
+
+```yaml
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: production  # nginx静的配信ステージ
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
+```
+
+### 8.3 各Dockerfile（共通パターン）
+
+開発・本番でステージを分離するマルチステージビルドを採用する。
 
 ```dockerfile
-FROM node:20-alpine
+# --- ビルドステージ ---
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
+
+# --- 実行ステージ ---
+FROM node:20-alpine AS production
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=builder /app/dist ./dist
 EXPOSE <PORT>
 CMD ["node", "dist/index.js"]
 ```
 
-### 8.3 環境変数一覧
+### 8.4 環境変数一覧
 
 | 変数名 | サービス | デフォルト | 説明 |
 |--------|---------|-----------|------|
@@ -521,7 +713,7 @@ CMD ["node", "dist/index.js"]
 | `VITE_WS_URL` | frontend | `ws://localhost:4001` | WebSocketのURL |
 | `DB_PATH` | api | `/app/data/taskflow.db` | SQLiteファイルパス |
 | `PORT` | api | `4000` | APIポート |
-| `WS_PORT` | ws | `4001` | WebSocketポート |
+| `WS_PORT` | api | `4001` | WebSocketポート |
 | `LDAP_ENABLED` | api | `false` | LDAP認証の有効化フラグ |
 | `LDAP_URL` | api | （未設定） | `ldap://...` 形式 |
 | `LDAP_BASE_DN` | api | （未設定） | LDAP検索ベースDN |
@@ -532,8 +724,7 @@ CMD ["node", "dist/index.js"]
 
 ### 9.1 方針
 
-Phase 1リリースでは認証を無効化し、`LDAP_ENABLED=false` で動作する。
-Phase 2でLDAP認証を有効化できるよう、プラグイン構造で実装する。
+Phase 1リリースでは認証を無効化し、`LDAP_ENABLED=false` で動作する。Phase 2でLDAP認証を有効化できるよう、プラグイン構造で実装する。
 
 ### 9.2 Phase 2 LDAP認証フロー
 
@@ -549,7 +740,6 @@ Phase 2でLDAP認証を有効化できるよう、プラグイン構造で実装
 // api/src/plugins/auth.ts
 export async function authPlugin(fastify: FastifyInstance) {
   if (process.env.LDAP_ENABLED !== 'true') {
-    // 認証バイパス: リクエストにguestユーザーを付与
     fastify.addHook('preHandler', async (req) => {
       req.user = { id: 'guest', name: 'Guest' };
     });
@@ -580,23 +770,20 @@ export async function authPlugin(fastify: FastifyInstance) {
 | `uuid` | ^10 | UUID生成 |
 | `papaparse` | ^5.4 | CSV Parse/Stringify |
 
-### 10.2 api
+### 10.2 api（REST API + WebSocket統合）
 
 | パッケージ | バージョン | 用途 |
 |-----------|-----------|------|
 | `fastify` | ^4.27 | HTTPサーバー |
 | `better-sqlite3` | ^9.4 | SQLiteドライバー |
 | `@fastify/cors` | ^9.0 | CORSミドルウェア |
+| `@hocuspocus/server` | ^2.13 | WebSocket + CRDT管理（統合） |
+| `@hocuspocus/extension-sqlite` | ^2.13 | Y.jsスナップショットSQLite保存 |
 | `uuid` | ^10 | UUID生成 |
 | `ldapjs` | ^3.0 | LDAP認証（Phase 2） |
 | `fast-jwt` | ^3.3 | JWT発行・検証（Phase 2） |
 
-### 10.3 ws
-
-| パッケージ | バージョン | 用途 |
-|-----------|-----------|------|
-| `@hocuspocus/server` | ^2.13 | WebSocket + CRDT管理 |
-| `@hocuspocus/extension-sqlite` | ^2.13 | Y.jsスナップショットSQLite保存 |
+> ※ v1.0 で独立していた `ws` サービスのパッケージを `api` に統合。
 
 ---
 
@@ -604,11 +791,11 @@ export async function authPlugin(fastify: FastifyInstance) {
 
 | Phase | 内容 | 成果物 |
 |-------|------|--------|
-| Phase 1-A | Docker環境構築・Fastify + SQLite CRUD | APIが動作するコンテナ |
-| Phase 1-B | React雛形・TodoListビュー・Zustand | タスクCRUD UI |
-| Phase 1-C | Y.js + Hocuspocus接続・リアルタイム同期 | 同時編集動作確認 |
-| Phase 1-D | ガントチャート・依存矢印・イナズマライン | ガント表示完成 |
-| Phase 1-E | Import/Export (JSON/CSV) | ファイルI/O |
+| Phase 1-A | Docker環境構築・Fastify + SQLite CRUD + `/health` | APIが動作するコンテナ（2サービス構成） |
+| Phase 1-B | React雛形・TodoListビュー・Zustand・フィルタ・ソート | タスクCRUD UI |
+| Phase 1-C | Y.js（ネストY.Map）+ Hocuspocus接続・接続状態バッジ | リアルタイム同時編集動作確認 |
+| Phase 1-D | ガントチャート・ズームレベル・依存矢印・イナズマライン | ガント表示完成 |
+| Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ファイルI/O |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 |
 
 ---
@@ -618,7 +805,54 @@ export async function authPlugin(fastify: FastifyInstance) {
 | 項目 | 目標値 | 手段 |
 |------|--------|------|
 | 同時接続数 | 最大10名 | Hocuspocus / Node.js |
-| レスポンス（REST） | 95%ile < 100ms | SQLite インデックス |
+| レスポンス（REST） | 95%ile < 100ms | SQLite インデックス（status・assignee・dates） |
 | リアルタイム遅延 | < 200ms | Y.js CRDT + WebSocket |
-| データ保全 | WALモード有効 | `PRAGMA journal_mode=WAL` |
+| データ保全 | WALモード有効 | `PRAGMA journal_mode=WAL`（接続時・マイグレーション時の両方で実行） |
 | バックアップ | 手動 / cronによるSQLiteコピー | Dockerボリュームマウント |
+| ヘルスチェック | `/health` 200応答 | Docker `healthcheck` 設定済み |
+
+---
+
+## 13. Prisma Studio 採用評価
+
+### 13.1 Prisma Studio とは
+
+Prisma Studio は Prisma ORM に付属するブラウザベースのDB GUIツールである。`npx prisma studio` で起動し、テーブルデータの閲覧・編集ができる。
+
+### 13.2 採用しない理由
+
+本プロジェクトでは **Prisma を採用せず、`better-sqlite3` + 生SQLマイグレーションを維持する**。
+
+| 観点 | Prisma を採用する場合 | 現行設計（better-sqlite3） |
+|------|---------------------|--------------------------|
+| 型安全 | Prismaクライアントで自動生成 | TypeScriptの型定義で手動管理 |
+| マイグレーション | `prisma migrate dev` で管理 | SQLファイルで直接管理（シンプル） |
+| SQLiteとの相性 | サポートあり、一部制約あり | ネイティブ対応・高速（同期API） |
+| スキーマの二重管理 | `schema.prisma` と SQLが乖離しない | SQLのみで一元管理 |
+| Hocuspocus SQLite拡張との共存 | `@hocuspocus/extension-sqlite` は better-sqlite3 を直接使用。Prismaと混在すると接続管理が複雑化 | 問題なし |
+| 開発中のDB確認 | Prisma Studio（ブラウザGUI） | 下記代替ツールを使用 |
+
+Hocuspocus の SQLite 拡張が `better-sqlite3` に依存しており、同一DBファイルに Prisma クライアントと Hocuspocus が混在すると接続管理が複雑になる。スケール（最大10ユーザー）とシンプルさを優先し、現行設計を維持する。
+
+### 13.3 開発中のDB確認方法（代替手段）
+
+Prisma Studio の代わりに以下を使用する。
+
+| ツール | 用途 | 使い方 |
+|--------|------|--------|
+| [DB Browser for SQLite](https://sqlitebrowser.org/) | ローカルGUI。SQLiteファイルを直接開いて閲覧・編集 | `api/data/taskflow.db` を開く |
+| `sqlite3` CLI | ターミナルから即座にクエリ実行 | `sqlite3 api/data/taskflow.db` |
+| `sqlite-web`（開発docker-composeに追加可） | ブラウザGUI。Prisma Studioと同等の使い勝手 | 下記参照 |
+
+開発時に `sqlite-web` が必要な場合、`docker-compose.yml` に追加する：
+
+```yaml
+  db-ui:
+    image: coleifer/sqlite-web
+    ports:
+      - '8888:8080'
+    volumes:
+      - ./api/data:/data
+    command: sqlite_web --host 0.0.0.0 /data/taskflow.db
+    profiles: ["dev-tools"]  # 通常起動時は除外、必要時に --profile dev-tools で起動
+```
