@@ -1,0 +1,174 @@
+import { useState, useEffect } from 'react';
+import type { Task, TaskStatus, TaskPriority } from '../../types/task';
+
+interface Props {
+  task: Task | null;
+  allTasks: Task[];
+  onSave: (data: Partial<Task> & { title: string }) => void;
+  onClose: () => void;
+}
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: 'TODO', wip: '進行中', done: '完了', wait: '待機',
+};
+const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  critical: '最高', high: '高', medium: '中', low: '低',
+};
+
+const FIELD: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 };
+const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#555' };
+const INPUT: React.CSSProperties = {
+  padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, fontSize: 14, width: '100%',
+};
+
+export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
+  const [title, setTitle]             = useState(task?.title ?? '');
+  const [summary, setSummary]         = useState(task?.summary ?? '');
+  const [description, setDescription] = useState(task?.description ?? '');
+  const [status, setStatus]           = useState<TaskStatus>(task?.status ?? 'todo');
+  const [priority, setPriority]       = useState<TaskPriority>(task?.priority ?? 'medium');
+  const [progress, setProgress]       = useState(task?.progress ?? 0);
+  const [assignee, setAssignee]       = useState(task?.assignee ?? '');
+  const [startDate, setStartDate]     = useState(task?.startDate ?? '');
+  const [endDate, setEndDate]         = useState(task?.endDate ?? '');
+  const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
+
+  useEffect(() => {
+    setTitle(task?.title ?? '');
+    setSummary(task?.summary ?? '');
+    setDescription(task?.description ?? '');
+    setStatus(task?.status ?? 'todo');
+    setPriority(task?.priority ?? 'medium');
+    setProgress(task?.progress ?? 0);
+    setAssignee(task?.assignee ?? '');
+    setStartDate(task?.startDate ?? '');
+    setEndDate(task?.endDate ?? '');
+    setPredecessors(task?.predecessors ?? []);
+  }, [task]);
+
+  const selectableTasks = allTasks.filter(t => t.id !== task?.id);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSave({
+      title: title.trim(),
+      summary,
+      description,
+      status,
+      priority,
+      progress,
+      assignee,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      predecessors,
+    });
+  }
+
+  function togglePredecessor(id: string) {
+    setPredecessors(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+    }} onClick={onClose}>
+      <div style={{
+        background: '#fff', borderRadius: 8, padding: 24, width: 540, maxHeight: '90vh',
+        overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.2)',
+      }} onClick={e => e.stopPropagation()}>
+        <h2 style={{ marginBottom: 16, fontSize: 18 }}>
+          {task ? 'タスク編集' : 'タスク作成'}
+        </h2>
+
+        <form onSubmit={handleSubmit}>
+          <div style={FIELD}>
+            <label style={LABEL}>タイトル *</label>
+            <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} />
+          </div>
+
+          <div style={FIELD}>
+            <label style={LABEL}>サマリ</label>
+            <input style={INPUT} value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} />
+          </div>
+
+          <div style={FIELD}>
+            <label style={LABEL}>説明（Markdown可）</label>
+            <textarea style={{ ...INPUT, minHeight: 80, resize: 'vertical' }}
+              value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={FIELD}>
+              <label style={LABEL}>ステータス</label>
+              <select style={INPUT} value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>
+                {Object.entries(STATUS_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </div>
+            <div style={FIELD}>
+              <label style={LABEL}>優先度</label>
+              <select style={INPUT} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}>
+                {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div style={FIELD}>
+            <label style={LABEL}>進捗率: {progress}%</label>
+            <input type="range" min={0} max={100} value={progress}
+              onChange={e => setProgress(Number(e.target.value))} style={{ width: '100%' }} />
+          </div>
+
+          <div style={FIELD}>
+            <label style={LABEL}>担当者</label>
+            <input style={INPUT} value={assignee} onChange={e => setAssignee(e.target.value)} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div style={FIELD}>
+              <label style={LABEL}>開始日</label>
+              <input style={INPUT} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+            <div style={FIELD}>
+              <label style={LABEL}>終了日</label>
+              <input style={INPUT} type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+            </div>
+          </div>
+
+          {selectableTasks.length > 0 && (
+            <div style={FIELD}>
+              <label style={LABEL}>先行タスク（複数選択可）</label>
+              <div style={{ border: '1px solid #ddd', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto' }}>
+                {selectableTasks.map(t => (
+                  <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
+                    <input type="checkbox" checked={predecessors.includes(t.id)}
+                      onChange={() => togglePredecessor(t.id)} />
+                    <span style={{ fontSize: 13 }}>{t.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" onClick={onClose}
+              style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+              キャンセル
+            </button>
+            <button type="submit"
+              style={{ padding: '8px 16px', border: 'none', borderRadius: 4, background: '#4f46e5', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+              保存
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
