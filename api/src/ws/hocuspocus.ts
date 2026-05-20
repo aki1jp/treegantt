@@ -1,7 +1,10 @@
 import { Server } from '@hocuspocus/server';
 import { SQLite } from '@hocuspocus/extension-sqlite';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const dbPath = process.env.DB_PATH ?? '/app/data/taskflow.db';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dbPath = process.env.DB_PATH ?? join(__dirname, '../../data/taskflow.db');
 
 export const hocuspocus = Server.configure({
   port: parseInt(process.env.WS_PORT ?? '4001', 10),

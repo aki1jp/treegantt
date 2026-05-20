@@ -10,9 +10,8 @@
 
 ## プロジェクト概要
 
-設計書: `/workspace/yatagarasu-manager_design.md`  
-プロジェクトルート: `/workspace/taskflow/`  
-（`/workspace/api/` はroot所有のため書き込み不可 → `/workspace/taskflow/` を使用）
+設計書: `/workspace/yatagarasu-manager_design.md`
+プロジェクトルート: `/workspace/` (`api/`, `frontend/`, `docker-compose.yml`)
 
 ---
 
@@ -25,23 +24,56 @@
 | Phase 1-C | Y.js（ネストY.Map）+ Hocuspocus + 接続バッジ | ✅ 完了 |
 | Phase 1-D | ガントチャート・ズーム・依存矢印・イナズマライン | ✅ 完了 |
 | Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ✅ 完了 |
+| ユニットテスト | vitest 46テスト全合格 | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
+
+---
+
+## テスト
+
+```bash
+cd /workspace/api
+npm test                # 全46テスト実行（約600ms）
+npm run test:coverage   # カバレッジ付き
+```
+
+**テストファイル:**
+- `src/__tests__/helpers.ts` — インメモリSQLite生成ヘルパー
+- `src/__tests__/sort.test.ts` — ソート・フィルタロジックのpure関数テスト (10件)
+- `src/__tests__/taskService.test.ts` — CRUD・依存関係・reorderの単体テスト (17件)
+- `src/__tests__/routes.test.ts` — Fastify inject による統合テスト health/projects/tasks/import/export (19件)
+
+---
+
+## 動作確認
+
+```bash
+# API起動
+cd /workspace/api && npm install && npm run dev
+# → http://localhost:4000/health  (REST API)
+# → ws://localhost:4001           (Hocuspocus WebSocket)
+
+# フロントエンド起動（別ターミナル）
+cd /workspace/frontend && npm install && npm run dev
+# → http://localhost:3000
+```
 
 ---
 
 ## 全完成ファイル一覧
 
-### API (`/workspace/taskflow/api/`)
-- `package.json`, `tsconfig.json`, `Dockerfile`
+### API (`/workspace/api/`)
+- `package.json`, `tsconfig.json`, `vitest.config.ts`, `Dockerfile`
 - `src/types/task.ts`
 - `src/db/migrations/001_init.sql`, `src/db/client.ts`
 - `src/services/taskService.ts`
 - `src/routes/health.ts`, `projects.ts`, `tasks.ts`, `importExport.ts`
 - `src/plugins/auth.ts`
-- `src/ws/hocuspocus.ts`
+- `src/ws/hocuspocus.ts`（パス修正済み）
 - `src/index.ts`
+- `src/__tests__/helpers.ts`, `sort.test.ts`, `taskService.test.ts`, `routes.test.ts`
 
-### フロントエンド (`/workspace/taskflow/frontend/`)
+### フロントエンド (`/workspace/frontend/`)
 - `package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`, `Dockerfile`
 - `src/types/task.ts`
 - `src/store/connectionStore.ts`, `taskStore.ts`, `yjsStore.ts`
@@ -55,21 +87,14 @@
 - `src/App.tsx`, `src/main.tsx`
 
 ### インフラ
-- `docker-compose.yml`, `.env.example`
-
----
-
-## 次のステップ
-
-- Phase 2: LDAP認証（`api/src/plugins/auth.ts` に実装）
-- 動作確認: `cd /workspace/taskflow/api && npm install && npm run dev`
+- `docker-compose.yml`, `.env.example`, `.gitignore`
 
 ---
 
 ## アーキテクチャメモ
 
-- `/workspace/api/` (root所有) → 使用不可。`/workspace/taskflow/` を新規作成して使用
 - APIポート: 4000 (REST), 4001 (WebSocket)
-- SQLite: `/workspace/taskflow/api/data/taskflow.db`
+- SQLite: `/workspace/api/data/taskflow.db`
 - Y.js: タスクごとにネストY.Mapを使用（フィールド単位CRDT）
 - Hocuspocusは Fastify と同一プロセス（port 4001）
+- テストはインメモリSQLiteを使用（DB依存の副作用なし）
