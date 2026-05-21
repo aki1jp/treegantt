@@ -11,6 +11,7 @@ import {
 import { GanttBar } from './GanttBar';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine } from './LightningLine';
+import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 
 dayjs.extend(weekOfYear);
 
@@ -124,6 +125,8 @@ function GanttLeftRow({
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
+  const [editStartVal, setEditStartVal] = useState('');  // 編集開始時点のY.js値
+  const [conflict, setConflict] = useState<{ field: string; theirVal: string; myVal: string } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -138,10 +141,32 @@ function GanttLeftRow({
     return () => window.removeEventListener('click', close);
   }, [ctxMenu]);
 
-  function startEdit(field: string, val: string) { setEditField(field); setEditVal(val); }
-  function commit(field: string, val: string | number | null) {
-    onInlineUpdate(task.id, { [field]: val });
+  function startEdit(field: string, val: string) {
+    setEditField(field);
+    setEditVal(val);
+    setEditStartVal(val);  // 編集開始時点の値を記録
+  }
+
+  function commit(field: string, myVal: string | number | null) {
+    // 編集中に別ユーザーが同フィールドを変更したか確認
+    const currentYjsVal = String(task[field as keyof Task] ?? '');
+    if (currentYjsVal !== editStartVal) {
+      setConflict({ field, theirVal: currentYjsVal, myVal: String(myVal ?? '') });
+      setEditField(null);
+      return;
+    }
+    onInlineUpdate(task.id, { [field]: myVal });
     setEditField(null);
+  }
+
+  function resolveConflict(useTheirs: boolean) {
+    if (!conflict) return;
+    if (!useTheirs) {
+      // 自分の変更を適用
+      const parsed = isNaN(Number(conflict.myVal)) ? conflict.myVal : Number(conflict.myVal);
+      onInlineUpdate(task.id, { [conflict.field]: parsed });
+    }
+    setConflict(null);
   }
   function onKey(e: React.KeyboardEvent, field: string, val: string | null) {
     if (e.key === 'Enter') commit(field, val);
@@ -304,6 +329,16 @@ function GanttLeftRow({
           </span>
         )}
       </div>
+
+      {/* 競合解決ダイアログ */}
+      {conflict && (
+        <ConflictDialog
+          field={conflict.field}
+          theirVal={conflict.theirVal}
+          myVal={conflict.myVal}
+          onResolve={resolveConflict}
+        />
+      )}
 
       {/* 右クリックメニュー */}
       {ctxMenu && (

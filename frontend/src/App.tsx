@@ -28,7 +28,7 @@ export default function App() {
 
   const { tasks, setTasks } = useTaskStore();
 
-  const { yTasks } = useYjs(currentProject?.id ?? '_none');
+  const { yTasks, synced } = useYjs(currentProject?.id ?? '_none');
   const { createTask, updateTask, deleteTask } = useTasks(yTasks, currentProject?.id ?? '');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +42,17 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentProject) return;
+    if (!currentProject || !synced) return;
+
+    // Hocuspocus同期完了後、Y.jsにデータがあればそのまま使う（上書きしない）
+    if (yTasks.size > 0) {
+      const tasks = Array.from(yTasks.entries())
+        .map(([, m]) => Object.fromEntries(m.entries()) as unknown as Task);
+      setTasks(tasks);
+      return;
+    }
+
+    // Y.jsが空（初回 or Hocuspocusデータなし）のときだけREST APIで初期化
     apiFetch(`/projects/${currentProject.id}/tasks`).then(d => {
       setTasks(d.tasks);
       const ydoc = yTasks.doc!;
@@ -54,7 +64,7 @@ export default function App() {
         }
       });
     });
-  }, [currentProject]);
+  }, [currentProject, synced]);
 
   async function handleCreateProject() {
     const name = prompt('プロジェクト名を入力してください');

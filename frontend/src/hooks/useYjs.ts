@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { useConnectionStore } from '../store/connectionStore';
@@ -14,8 +14,17 @@ interface YjsInstance {
   yTasks: Y.Map<Y.Map<unknown>>;
 }
 
-// Module-level cache so StrictMode double-invocation doesn't destroy the provider
+// Module-level cache: StrictModeの二重マウントでproviderが破棄されないよう保持
 const instanceCache = new Map<string, YjsInstance>();
+// 同期完了フラグのキャッシュ（再マウント時にonSyncedを再待ちしないため）
+const syncedCache = new Map<string, boolean>();
+// syncedキャッシュ変更を購読するリスナー
+const syncedListeners = new Map<string, Set<() => void>>();
+
+function notifySynced(projectId: string) {
+  syncedCache.set(projectId, true);
+  syncedListeners.get(projectId)?.forEach(fn => fn());
+}
 
 function getOrCreate(projectId: string): YjsInstance {
   const cached = instanceCache.get(projectId);
@@ -29,9 +38,13 @@ function getOrCreate(projectId: string): YjsInstance {
     document: ydoc,
     onStatus: ({ status }) => {
       const mapped =
-        status === 'connected' ? 'connected' :
-        status === 'connecting' ? 'connecting' : 'disconnected';
+        status === 'connected'    ? 'connected'    :
+        status === 'connecting'   ? 'connecting'   : 'disconnected';
       useConnectionStore.getState().setStatus(mapped);
+    },
+    onSynced: ({ state }) => {
+      // state=true: Hocuspocusとの初回同期完了
+      if (state) notifySynced(projectId);
     },
   });
 
@@ -43,10 +56,26 @@ function getOrCreate(projectId: string): YjsInstance {
 export function useYjs(projectId: string) {
   const instanceRef = useRef<YjsInstance>(getOrCreate(projectId));
 
-  // Switch instance when projectId changes
   if (instanceRef.current.projectId !== projectId) {
     instanceRef.current = getOrCreate(projectId);
   }
+
+  // 同期完了フラグ（キャッシュ済みなら即true）
+  const [synced, setSynced] = useState(() => syncedCache.get(projectId) ?? false);
+
+  useEffect(() => {
+    // プロジェクトが変わったらフラグをリセット
+    setSynced(syncedCache.get(projectId) ?? false);
+
+    // 未完了なら完了を待つ
+    if (syncedCache.get(projectId)) return;
+
+    const listeners = syncedListeners.get(projectId) ?? new Set();
+    const handler = () => setSynced(true);
+    listeners.add(handler);
+    syncedListeners.set(projectId, listeners);
+    return () => { listeners.delete(handler); };
+  }, [projectId]);
 
   useEffect(() => {
     const { yTasks } = instanceRef.current;
@@ -59,14 +88,13 @@ export function useYjs(projectId: string) {
     };
 
     yTasks.observeDeep(handler);
-    return () => {
-      yTasks.unobserveDeep(handler);
-    };
+    return () => { yTasks.unobserveDeep(handler); };
   }, [projectId]);
 
   return {
-    ydoc: instanceRef.current.ydoc,
+    ydoc:     instanceRef.current.ydoc,
     provider: instanceRef.current.provider,
-    yTasks: instanceRef.current.yTasks,
+    yTasks:   instanceRef.current.yTasks,
+    synced,
   };
 }

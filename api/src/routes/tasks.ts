@@ -1,3 +1,4 @@
+import * as Y from 'yjs';
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -8,6 +9,24 @@ import {
   deleteTask,
   reorderTasks,
 } from '../services/taskService.js';
+import { hocuspocus } from '../ws/hocuspocus.js';
+import type { Task } from '../types/task.js';
+
+// Y.js ドキュメントを直接更新するヘルパー。
+// 接続中クライアントがいない場合も openDirectConnection は動作するが、
+// テスト環境等でエラーになってもDB更新は完了済みのため握りつぶす。
+async function syncToYjs(
+  projectId: string,
+  fn: (yTasks: Y.Map<Y.Map<unknown>>) => void,
+): Promise<void> {
+  try {
+    const conn = await hocuspocus.openDirectConnection(projectId, {});
+    await conn.transact(doc => fn(doc.getMap<Y.Map<unknown>>('tasks')));
+    await conn.disconnect();
+  } catch {
+    // Y.js 同期失敗は致命的ではない（次回接続時に onLoadDocument で復元）
+  }
+}
 
 export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get<{
@@ -63,6 +82,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
           endDate: req.body.endDate as string | null | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
         });
+        await syncToYjs(req.params.id, yTasks => {
+          const yTask = new Y.Map<unknown>();
+          for (const [k, v] of Object.entries(task as unknown as Task)) yTask.set(k, v);
+          yTasks.set(task.id, yTask);
+        });
         reply.code(201).send({ task });
       },
     }
@@ -92,6 +116,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
       },
       async handler(req) {
         reorderTasks(req.body.orders);
+        await syncToYjs(req.params.id, yTasks => {
+          for (const { id, order } of req.body.orders) {
+            yTasks.get(id)?.set('order', order);
+          }
+        });
         return { ok: true };
       },
     }
@@ -141,14 +170,26 @@ export async function taskRoutes(fastify: FastifyInstance) {
           order:        req.body.order as number | undefined,
         });
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+        await syncToYjs(task.projectId, yTasks => {
+          const yTask = yTasks.get(task.id);
+          if (yTask) {
+            for (const [k, v] of Object.entries(task as unknown as Task)) yTask.set(k, v);
+          } else {
+            const newYTask = new Y.Map<unknown>();
+            for (const [k, v] of Object.entries(task as unknown as Task)) newYTask.set(k, v);
+            yTasks.set(task.id, newYTask);
+          }
+        });
         return { task };
       },
     }
   );
 
   fastify.delete<{ Params: { id: string } }>('/tasks/:id', async (req, reply) => {
-    const deleted = deleteTask(req.params.id);
-    if (!deleted) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+    const task = getTask(req.params.id);
+    if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+    deleteTask(req.params.id);
+    await syncToYjs(task.projectId, yTasks => { yTasks.delete(req.params.id); });
     reply.code(204).send();
   });
 }

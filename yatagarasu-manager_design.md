@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.4 |
+| バージョン | 1.5 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -18,6 +18,7 @@
 | 1.2 | 2026年5月 | Docker構築フェーズを除外（既存Docker環境で開発）・Section 8をインフラ参照に縮小 |
 | 1.3 | 2026年5月 | 親タスク追加・インライン編集・分割レイアウト・フィルタUX改善・ガント3ヶ月表示・リアルタイム同期修正 |
 | 1.4 | 2026年5月 | CSVインポート対応・統合ガントビュー（MSProject風左固定列+タイムライン同一行）・TodoList分離廃止 |
+| 1.5 | 2026年5月 | Y.js主体アーキテクチャへ刷新・リアルタイム同期修正・競合解決UI・フロントエンドテスト追加 |
 
 ---
 
@@ -97,12 +98,41 @@ TaskFlowはSPA（シングルページアプリケーション）＋WebSocketサ
 
 > ※ v1.0 では `ws` サービスが `api/data` ボリュームを直接共有していたが、同一SQLiteファイルへの並行書き込みは WAL モードでも競合リスクがある。v1.1 では Hocuspocus を Fastify プロセスに統合し、単一プロセスから SQLite に書き込む構成とした。
 
-### 2.3 データフロー
+### 2.3 データフロー（★v1.5 Y.js主体アーキテクチャ）
 
-1. ユーザー操作 → Y.js Document に対するCRDT操作（ネスト `Y.Map` 単位）
-2. Y.js → WebSocket（Hocuspocus, port 4001）→ 他クライアントに即時ブロードキャスト
-3. Hocuspocusの `onStoreDocument` コールバック → 同プロセス内の SQLite へ永続化
-4. ページロード時: Fastify API → SQLite からスナップショットを取得 → Y.js Document に適用
+**真の状態は Y.js ドキュメント。tasks テーブルは Y.js の写し（キャッシュ）。**
+
+**【インライン更新】ブラウザ → Y.js 直接書き込み**
+```
+useTasks.updateTask() → yTask.set(field, value)
+  → Hocuspocus が全接続ブラウザへ即時ブロードキャスト
+  → onStoreDocument → tasks テーブルを upsert
+```
+
+**【タスク作成・削除】REST API 経由（ID生成・カスケード削除のため）**
+```
+REST POST/DELETE → tasks テーブル更新
+  → syncToYjs(openDirectConnection) → Y.js 更新
+  → Hocuspocus が全接続ブラウザへブロードキャスト
+```
+
+**【外部 REST PATCH】（外部ツール・将来の連携）**
+```
+PATCH /tasks/:id → tasks テーブル更新 + syncToYjs → 全ブラウザへ即時反映
+```
+
+**【ブラウザ接続時の初期化】**
+```
+HocuspocusProvider 接続 → onSynced 発火
+  → Y.js にデータあり: そのまま表示（上書きなし）
+  → Y.js が空（初回）: REST API から取得 → Y.js に書き込み
+```
+
+**【Hocuspocus 起動時の復元】**
+```
+onLoadDocument: @hocuspocus/extension-sqlite がバイナリ復元
+  → それでも空なら tasks テーブルからブートストラップ
+```
 
 ---
 
@@ -821,6 +851,7 @@ export async function authPlugin(fastify: FastifyInstance) {
 | Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ファイルI/O | ✅ 完了 |
 | Phase 1-F | UI改善（インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正） | ★v1.3実装内容 | ✅ 完了 |
 | Phase 1-G | CSVインポート対応・統合ガントビュー（MSProject風・TodoList廃止） | ★v1.4実装内容 | ✅ 完了 |
+| Phase 1-H | Y.js主体アーキテクチャ・リアルタイム同期修正・競合解決UI・フロントエンドテスト | ★v1.5実装内容 | ✅ 完了 |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
 
 ---
