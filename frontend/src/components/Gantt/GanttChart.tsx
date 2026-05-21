@@ -18,6 +18,7 @@ const HEADER_H = 32;
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
+  { key: 'order',     label: '#',          width: 36,  sortable: true  },
   { key: 'title',     label: 'タイトル',   width: 180, sortable: true  },
   { key: 'status',    label: 'ST',         width: 66,  sortable: true  },
   { key: 'priority',  label: '優先',       width: 56,  sortable: true  },
@@ -25,7 +26,6 @@ const LEFT_COLS = [
   { key: 'assignee',  label: '担当',       width: 76,  sortable: true  },
   { key: 'startDate', label: '開始',       width: 88,  sortable: true  },
   { key: 'endDate',   label: '終了',       width: 88,  sortable: true  },
-  { key: '_del',      label: '',           width: 40,  sortable: false },
 ] as const;
 
 const LEFT_TOTAL = LEFT_COLS.reduce((s, c) => s + c.width, 0);
@@ -166,6 +166,11 @@ function GanttLeftRow({
       style={{ display: 'flex', background: rowBg, borderBottom: '1px solid #f3f4f6' }}
       onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
     >
+      {/* # (order) */}
+      <div style={{ ...CELL, width: 36, justifyContent: 'center', color: '#9ca3af', userSelect: 'none' }}>
+        {task.order}
+      </div>
+
       {/* タイトル */}
       <div style={{ ...CELL, width: 180, paddingLeft: 6 + indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
@@ -300,15 +305,6 @@ function GanttLeftRow({
         )}
       </div>
 
-      {/* 削除 */}
-      <div style={{ ...CELL, width: 40, justifyContent: 'center' }}>
-        <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{
-          width: 22, height: 22, border: '1px solid #fca5a5', borderRadius: 4,
-          background: '#fff', color: '#ef4444', cursor: 'pointer', fontSize: 11,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>✕</button>
-      </div>
-
       {/* 右クリックメニュー */}
       {ctxMenu && (
         <div style={{
@@ -404,7 +400,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate }: Props) 
                   ...TH, width: col.width,
                   cursor: col.sortable ? 'pointer' : 'default',
                 }}
-                onClick={() => col.sortable && col.key !== '_del' && setSortKey(col.key as keyof Task)}
+                onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
               >
                 {col.label}
                 {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}

@@ -86,6 +86,18 @@ export default function App() {
     }
   }
 
+  async function handleDeleteProject(project: Project) {
+    if (!confirm(`プロジェクト「${project.name}」を削除しますか？\n\n※ このプロジェクトのタスクもすべて削除されます。この操作は取り消せません。`)) return;
+    try {
+      await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
+      const remaining = projects.filter(p => p.id !== project.id);
+      setProjects(remaining);
+      setCurrentProject(remaining.length > 0 ? remaining[0] : null);
+    } catch (err) {
+      alert('削除に失敗しました: ' + (err as Error).message);
+    }
+  }
+
   async function handleDeleteTask(id: string) {
     if (!confirm('このタスクを削除しますか？')) return;
     await deleteTask(id);
@@ -138,13 +150,23 @@ export default function App() {
         <span style={{ fontWeight: 700, fontSize: 16 }}>TaskFlow</span>
         <div style={{ marginLeft: 16, display: 'flex', gap: 8 }}>
           {projects.map(p => (
-            <button key={p.id} onClick={() => setCurrentProject(p)} style={{
-              padding: '4px 12px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 13,
-              background: currentProject?.id === p.id ? '#4f46e5' : 'transparent',
-              color: '#fff',
-            }}>
-              {p.name}
-            </button>
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', borderRadius: 4,
+              background: currentProject?.id === p.id ? '#4f46e5' : 'transparent' }}>
+              <button onClick={() => setCurrentProject(p)} style={{
+                padding: '4px 10px', border: 'none', cursor: 'pointer', fontSize: 13,
+                background: 'transparent', color: '#fff', borderRadius: 4,
+              }}>
+                {p.name}
+              </button>
+              <button onClick={() => handleDeleteProject(p)} title="プロジェクトを削除" style={{
+                padding: '2px 5px', border: 'none', background: 'transparent', color: 'rgba(255,255,255,.5)',
+                cursor: 'pointer', fontSize: 11, borderRadius: 4, lineHeight: 1,
+              }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#fca5a5')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.5)')}>
+                ✕
+              </button>
+            </div>
           ))}
           <button onClick={handleCreateProject} style={{
             padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(255,255,255,.3)',
