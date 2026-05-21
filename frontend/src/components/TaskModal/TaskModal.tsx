@@ -31,6 +31,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
   const [assignee, setAssignee]       = useState(task?.assignee ?? '');
   const [startDate, setStartDate]     = useState(task?.startDate ?? '');
   const [endDate, setEndDate]         = useState(task?.endDate ?? '');
+  const [parentId, setParentId]       = useState<string>(task?.parentId ?? '');
   const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
 
   useEffect(() => {
@@ -43,9 +44,11 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
     setAssignee(task?.assignee ?? '');
     setStartDate(task?.startDate ?? '');
     setEndDate(task?.endDate ?? '');
+    setParentId(task?.parentId ?? '');
     setPredecessors(task?.predecessors ?? []);
   }, [task]);
 
+  // Cannot select itself or its descendants as parent
   const selectableTasks = allTasks.filter(t => t.id !== task?.id);
 
   function handleSubmit(e: React.FormEvent) {
@@ -61,6 +64,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
       assignee,
       startDate: startDate || null,
       endDate: endDate || null,
+      parentId: parentId || null,
       predecessors,
     });
   }
@@ -77,7 +81,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }} onClick={onClose}>
       <div style={{
-        background: '#fff', borderRadius: 8, padding: 24, width: 540, maxHeight: '90vh',
+        background: '#fff', borderRadius: 8, padding: 24, width: 560, maxHeight: '90vh',
         overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.2)',
       }} onClick={e => e.stopPropagation()}>
         <h2 style={{ marginBottom: 16, fontSize: 18 }}>
@@ -142,6 +146,18 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
             </div>
           </div>
 
+          {/* 親タスク */}
+          <div style={FIELD}>
+            <label style={LABEL}>親タスク</label>
+            <select style={INPUT} value={parentId} onChange={e => setParentId(e.target.value)}>
+              <option value="">なし（ルートタスク）</option>
+              {selectableTasks.map(t => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 先行タスク */}
           {selectableTasks.length > 0 && (
             <div style={FIELD}>
               <label style={LABEL}>先行タスク（複数選択可）</label>

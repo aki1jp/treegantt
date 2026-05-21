@@ -19,6 +19,12 @@ const PRIMARY_BTN: React.CSSProperties = {
 const SELECT: React.CSSProperties = {
   padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, fontSize: 13,
 };
+const LABEL: React.CSSProperties = {
+  fontSize: 12, color: '#6b7280', fontWeight: 500,
+};
+const FILTER_GROUP: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 4,
+};
 
 const STATUS_OPTIONS: { value: TaskStatus | ''; label: string }[] = [
   { value: '', label: 'すべて' },
@@ -36,55 +42,48 @@ const PRIORITY_OPTIONS: { value: TaskPriority | ''; label: string }[] = [
 ];
 
 export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Props) {
-  const { activeTab, zoomLevel, filterStatus, filterAssignee, filterPriority,
-          setActiveTab, setZoomLevel, setFilter } = useTaskStore();
+  const { zoomLevel, filterStatus, filterAssignee, filterPriority,
+          setZoomLevel, setFilter } = useTaskStore();
 
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8,
       padding: '10px 16px', background: '#fff', borderBottom: '1px solid #e5e7eb',
     }}>
-      {/* タブ */}
-      <div style={{ display: 'flex', gap: 2, background: '#f3f4f6', borderRadius: 6, padding: 2 }}>
-        {(['todo', 'gantt'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
-            padding: '4px 12px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 13,
-            background: activeTab === tab ? '#fff' : 'transparent',
-            fontWeight: activeTab === tab ? 600 : 400,
-            boxShadow: activeTab === tab ? '0 1px 3px rgba(0,0,0,.12)' : 'none',
-          }}>
-            {tab === 'todo' ? 'TODOリスト' : 'ガントチャート'}
-          </button>
-        ))}
+      {/* フィルタ */}
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>ステータス</span>
+        <select style={SELECT} value={filterStatus}
+          onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' })}>
+          {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>優先度</span>
+        <select style={SELECT} value={filterPriority}
+          onChange={e => setFilter({ filterPriority: e.target.value })}>
+          {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>担当者</span>
+        <input style={{ ...SELECT, width: 100 }} placeholder="絞り込み" value={filterAssignee}
+          onChange={e => setFilter({ filterAssignee: e.target.value })} />
       </div>
 
       <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
 
-      {/* フィルタ */}
-      <select style={SELECT} value={filterStatus}
-        onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' })}>
-        {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-
-      <select style={SELECT} value={filterPriority}
-        onChange={e => setFilter({ filterPriority: e.target.value })}>
-        {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-
-      <input style={SELECT} placeholder="担当者" value={filterAssignee}
-        onChange={e => setFilter({ filterAssignee: e.target.value })} />
-
-      {activeTab === 'gantt' && (
-        <>
-          <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
-          <select style={SELECT} value={zoomLevel}
-            onChange={e => setZoomLevel(e.target.value as ZoomLevel)}>
-            <option value="day">日</option>
-            <option value="week">週</option>
-            <option value="month">月</option>
-          </select>
-        </>
-      )}
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>ガント表示</span>
+        <select style={SELECT} value={zoomLevel}
+          onChange={e => setZoomLevel(e.target.value as ZoomLevel)}>
+          <option value="day">日</option>
+          <option value="week">週</option>
+          <option value="month">月</option>
+        </select>
+      </div>
 
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
         <ConnectionBadge />

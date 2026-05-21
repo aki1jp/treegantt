@@ -14,14 +14,31 @@ export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
   return Math.round((d.getTime() - minDate.getTime()) / 86400000) * dayWidth;
 }
 
+const THREE_MONTHS_MS = 90 * 86400000;
+
 export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
+  const today = Date.now();
   const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
-  if (dates.length === 0) return null;
-  const times = dates.map(d => new Date(d).getTime());
-  return {
-    min: new Date(Math.min(...times) - 3 * 86400000),
-    max: new Date(Math.max(...times) + 5 * 86400000),
-  };
+
+  let minTime: number;
+  let maxTime: number;
+
+  if (dates.length === 0) {
+    // No tasks with dates — show today ± 45 days
+    minTime = today - 7 * 86400000;
+    maxTime = today + THREE_MONTHS_MS;
+  } else {
+    const times = dates.map(d => new Date(d).getTime());
+    minTime = Math.min(...times) - 3 * 86400000;
+    maxTime = Math.max(...times) + 5 * 86400000;
+  }
+
+  // Ensure at least 3 months are shown
+  if (maxTime - minTime < THREE_MONTHS_MS) {
+    maxTime = minTime + THREE_MONTHS_MS;
+  }
+
+  return { min: new Date(minTime), max: new Date(maxTime) };
 }
 
 export function calcTodayX(minDate: Date, zoom: ZoomLevel): number {

@@ -8,13 +8,11 @@ interface TaskStore {
   filterStatus:   TaskStatus | '';
   filterAssignee: string;
   filterPriority: string;
-  activeTab:      'todo' | 'gantt';
   zoomLevel:      ZoomLevel;
   setTasks:       (tasks: Task[]) => void;
   setSortKey:     (key: keyof Task) => void;
   toggleSortDir:  () => void;
   setFilter:      (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority'>>) => void;
-  setActiveTab:   (tab: 'todo' | 'gantt') => void;
   setZoomLevel:   (z: ZoomLevel) => void;
 }
 
@@ -25,7 +23,6 @@ export const useTaskStore = create<TaskStore>((set) => ({
   filterStatus:   '',
   filterAssignee: '',
   filterPriority: '',
-  activeTab:      'todo',
   zoomLevel:      'week',
   setTasks:       (tasks) => set({ tasks }),
   setSortKey:     (key) =>
@@ -35,6 +32,5 @@ export const useTaskStore = create<TaskStore>((set) => ({
     })),
   toggleSortDir:  () => set((s) => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' })),
   setFilter:      (filter) => set((s) => ({ ...s, ...filter })),
-  setActiveTab:   (activeTab) => set({ activeTab }),
   setZoomLevel:   (zoomLevel) => set({ zoomLevel }),
 }));

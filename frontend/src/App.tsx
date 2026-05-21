@@ -27,7 +27,7 @@ export default function App() {
   const [modalTask, setModalTask]       = useState<Task | null | undefined>(undefined);
   const [loading, setLoading]           = useState(true);
 
-  const { activeTab, tasks, setTasks } = useTaskStore();
+  const { tasks, setTasks } = useTaskStore();
 
   const { yTasks } = useYjs(currentProject?.id ?? '_none');
   const { createTask, updateTask, deleteTask } = useTasks(yTasks, currentProject?.id ?? '');
@@ -46,7 +46,6 @@ export default function App() {
     if (!currentProject) return;
     apiFetch(`/projects/${currentProject.id}/tasks`).then(d => {
       setTasks(d.tasks);
-      // Y.js に既存タスクを同期
       const ydoc = yTasks.doc!;
       ydoc.transact(() => {
         for (const task of d.tasks as Task[]) {
@@ -77,6 +76,14 @@ export default function App() {
       setModalTask(undefined);
     } catch (err) {
       alert('保存に失敗しました: ' + (err as Error).message);
+    }
+  }
+
+  async function handleInlineUpdate(id: string, patch: Partial<Task>) {
+    try {
+      await updateTask(id, patch);
+    } catch (err) {
+      alert('更新に失敗しました: ' + (err as Error).message);
     }
   }
 
@@ -126,7 +133,7 @@ export default function App() {
       {/* プロジェクト選択ヘッダー */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
-        background: '#1e1b4b', color: '#fff',
+        background: '#1e1b4b', color: '#fff', flexShrink: 0,
       }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>TaskFlow</span>
         <div style={{ marginLeft: 16, display: 'flex', gap: 8 }}>
@@ -157,17 +164,21 @@ export default function App() {
             onExportCsv={handleExportCsv}
           />
 
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            {activeTab === 'todo' ? (
-              <div style={{ height: '100%', overflowY: 'auto' }}>
-                <TodoList
-                  onEditTask={(task) => setModalTask(task)}
-                  onDeleteTask={handleDeleteTask}
-                />
-              </div>
-            ) : (
+          {/* 左：TODOリスト ／ 右：ガントチャート */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            <div style={{
+              width: '42%', minWidth: 320, borderRight: '2px solid #e5e7eb',
+              overflowY: 'auto', display: 'flex', flexDirection: 'column',
+            }}>
+              <TodoList
+                onEditTask={(task) => setModalTask(task)}
+                onDeleteTask={handleDeleteTask}
+                onInlineUpdate={handleInlineUpdate}
+              />
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
               <GanttChart onEditTask={(task) => setModalTask(task)} />
-            )}
+            </div>
           </div>
         </>
       ) : (
@@ -182,7 +193,6 @@ export default function App() {
         </div>
       )}
 
-      {/* タスクモーダル */}
       {modalTask !== undefined && (
         <TaskModal
           task={modalTask}

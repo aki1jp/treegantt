@@ -25,6 +25,7 @@
 | Phase 1-D | ガントチャート・ズーム・依存矢印・イナズマライン | ✅ 完了 |
 | Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ✅ 完了 |
 | ユニットテスト | vitest 46テスト全合格 | ✅ 完了 |
+| Phase 1-F | インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正 | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
 
 ---
@@ -65,7 +66,7 @@ cd /workspace/frontend && npm install && npm run dev
 ### API (`/workspace/api/`)
 - `package.json`, `tsconfig.json`, `vitest.config.ts`, `Dockerfile`
 - `src/types/task.ts`
-- `src/db/migrations/001_init.sql`, `src/db/client.ts`
+- `src/db/migrations/001_init.sql`, `src/db/migrations/002_parent.sql`, `src/db/client.ts`
 - `src/services/taskService.ts`
 - `src/routes/health.ts`, `projects.ts`, `tasks.ts`, `importExport.ts`
 - `src/plugins/auth.ts`

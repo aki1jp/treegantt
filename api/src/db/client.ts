@@ -16,3 +16,13 @@ const migrationSql = readFileSync(
   'utf-8'
 );
 db.exec(migrationSql);
+
+try {
+  const migration002 = readFileSync(
+    join(__dirname, 'migrations/002_parent.sql'),
+    'utf-8'
+  );
+  db.exec(migration002);
+} catch {
+  // duplicate column name — migration already applied
+}

@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.2 |
+| バージョン | 1.3 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -16,6 +16,7 @@
 | 1.0 | 2025年 | 初版作成 |
 | 1.1 | 2026年5月 | CRDT構造修正・サービス統合・データモデル拡張・ガントチャート改善・Prisma Studio評価 |
 | 1.2 | 2026年5月 | Docker構築フェーズを除外（既存Docker環境で開発）・Section 8をインフラ参照に縮小 |
+| 1.3 | 2026年5月 | 親タスク追加・インライン編集・分割レイアウト・フィルタUX改善・ガント3ヶ月表示・リアルタイム同期修正 |
 
 ---
 
@@ -155,7 +156,8 @@ taskflow/
     │   ├── db/
     │   │   ├── client.ts         # better-sqlite3接続・WAL設定
     │   │   └── migrations/
-    │   │       └── 001_init.sql
+    │   │       ├── 001_init.sql
+    │   │       └── 002_parent.sql    # ★v1.3: parent_id カラム追加
     │   ├── routes/
     │   │   ├── health.ts         # GET /health
     │   │   ├── tasks.ts          # タスクCRUD・並び替え・フィルタ
@@ -188,12 +190,13 @@ export type ZoomLevel    = 'day' | 'week' | 'month';
 export interface Task {
   id:           string;        // UUID v4
   projectId:    string;        // 所属プロジェクトID
+  parentId:     string | null; // 親タスクID（null = ルートタスク）★v1.3追加
   title:        string;        // タイトル（必須, max 200文字）
   summary:      string;        // 1行サマリ（旧 detail）
   description:  string;        // 長文説明（Markdown可）
   status:       TaskStatus;
-  priority:     TaskPriority;  // 優先度（追加）
-  progress:     number;        // 進捗率 0–100（追加）
+  priority:     TaskPriority;  // 優先度
+  progress:     number;        // 進捗率 0–100
   assignee:     string;        // 担当者名
   startDate:    string | null; // ISO 8601 date (YYYY-MM-DD)
   endDate:      string | null; // ISO 8601 date (YYYY-MM-DD)
@@ -218,10 +221,15 @@ export interface Project {
 > - `successors` を `Task` から除外。後続タスクはDB側で計算する派生値であり、`Task` 本体に含めると Y.js 経由で保存・更新する際に整合性が崩れる。APIレスポンスには `TaskWithSuccessors` を使用する。
 > - `priority`・`progress` フィールドを追加
 > - `ZoomLevel` 型を追加（ガントチャートのズーム管理に使用）
+>
+> **v1.3追加**
+> - `parentId` フィールド追加。ツリー構造タスクを実現する。循環参照防止はアプリケーション層で担保する。
 
 ### 4.2 SQLiteスキーマ
 
-`api/src/db/migrations/001_init.sql` に定義する。
+マイグレーションは `api/src/db/client.ts` 起動時に順に実行される。既存カラムの追加は `try/catch` でべき等に処理する。
+
+**`001_init.sql`** — 初期スキーマ
 
 ```sql
 PRAGMA journal_mode = WAL;
@@ -259,20 +267,21 @@ CREATE TABLE IF NOT EXISTS task_deps (
   PRIMARY KEY (predecessor_id, successor_id)
 );
 
--- 更新日時自動更新トリガー
-CREATE TRIGGER IF NOT EXISTS update_tasks_updated_at
-  AFTER UPDATE ON tasks
-  BEGIN
-    UPDATE tasks SET updated_at = datetime('now') WHERE id = NEW.id;
-  END;
-
--- タスク検索用インデックス
-CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
+CREATE TRIGGER IF NOT EXISTS update_tasks_updated_at ...;
+CREATE INDEX IF NOT EXISTS idx_tasks_project  ON tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status   ON tasks(project_id, status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(project_id, assignee);
 CREATE INDEX IF NOT EXISTS idx_tasks_dates    ON tasks(project_id, start_date, end_date);
 ```
 
+**`002_parent.sql`** — 親タスク対応（★v1.3追加）
+
+```sql
+ALTER TABLE tasks ADD COLUMN parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL;
+```
+
+> 親タスクが削除された場合、子タスクの `parent_id` は `NULL` にリセットされる（CASCADE削除ではなくルートへの昇格）。
+>
 > ※ `successors` は `task_deps` を JOIN して計算するためDBには保存しない。
 > ※ `PRAGMA journal_mode = WAL` と `PRAGMA foreign_keys = ON` は `client.ts` で接続時にも実行する。
 
@@ -338,6 +347,7 @@ GET /projects/:id/tasks?status=todo&assignee=田中&priority=high&limit=100&offs
 
 ```json
 {
+  "parentId":     "uuid-parent",
   "title":        "フロントエンド実装",
   "summary":      "React + TypeScript",
   "description":  "## 詳細\n...",
@@ -350,6 +360,8 @@ GET /projects/:id/tasks?status=todo&assignee=田中&priority=high&limit=100&offs
   "predecessors": ["uuid-1", "uuid-2"]
 }
 ```
+
+> `parentId` は省略または `null` でルートタスクとして登録される。`PATCH /tasks/:id` でも同様に更新可能。
 
 **レスポンス 201**
 
@@ -478,26 +490,36 @@ hocuspocus.listen(); // 4001ポートでWebSocket起動
 
 ### 6.4 フロントエンド接続 (`hooks/useYjs.ts`)
 
+**★v1.3変更：React 18 StrictMode によるリアルタイム同期バグ修正**
+
+React 18 StrictMode は開発環境でエフェクトを二重実行する。旧実装では `useMemo` で作成した `HocuspocusProvider` が `useEffect` クリーンアップ時に `destroy()` され、2度目の実行時には切断済みのプロバイダーが使われたまま再接続されない問題があった。
+
+**修正方針：** `provider`/`ydoc` をモジュールレベルキャッシュ（`Map`）に保持し、`useEffect` クリーンアップでは destroy しない。`projectId` 変更時のみ旧インスタンスを破棄して新規生成する。
+
 ```typescript
-import * as Y from 'yjs';
-import { HocuspocusProvider } from '@hocuspocus/provider';
-import { useConnectionStore } from '../store/connectionStore';
+// モジュールレベルキャッシュ（StrictMode二重実行対策）
+const instanceCache = new Map<string, { ydoc, provider, yTasks }>();
+
+function getOrCreate(projectId: string) {
+  if (instanceCache.has(projectId)) return instanceCache.get(projectId)!;
+  const ydoc = new Y.Doc();
+  const provider = new HocuspocusProvider({ url: WS_URL, name: projectId, document: ydoc, ... });
+  instanceCache.set(projectId, { ydoc, provider, yTasks: ydoc.getMap('tasks') });
+  return instanceCache.get(projectId)!;
+}
 
 export function useYjs(projectId: string) {
-  const ydoc = useMemo(() => new Y.Doc(), []);
-
-  const provider = useMemo(() => new HocuspocusProvider({
-    url: import.meta.env.VITE_WS_URL,
-    name: projectId,
-    document: ydoc,
-    onStatus: ({ status }) => {
-      // 'connected' | 'connecting' | 'disconnected'
-      useConnectionStore.getState().setStatus(status);
-    },
-  }), [projectId]);
-
-  const yTasks = ydoc.getMap<Y.Map<unknown>>('tasks');
-  return { ydoc, provider, yTasks };
+  const instanceRef = useRef(getOrCreate(projectId));
+  if (instanceRef.current.projectId !== projectId) {
+    instanceRef.current = getOrCreate(projectId);
+  }
+  useEffect(() => {
+    const { yTasks } = instanceRef.current;
+    const handler = () => { /* yTasks → setTasks */ };
+    yTasks.observeDeep(handler);
+    return () => yTasks.unobserveDeep(handler); // destroyしない
+  }, [projectId]);
+  return instanceRef.current;
 }
 ```
 
@@ -511,20 +533,22 @@ export function useYjs(projectId: string) {
 
 Zustand ストアを用途別に分割する。Y.js の `observeDeep` で変更を受信し `taskStore` を更新することでUIに反映する。
 
+**★v1.3変更：** `activeTab`（TodoList / Gantt の切替状態）を削除。画面は常に分割レイアウトで両方を表示する。
+
 ```typescript
 // store/taskStore.ts
 interface TaskStore {
-  tasks:         Task[];
-  sortKey:       keyof Task | '';
-  sortDir:       'asc' | 'desc';
-  filterStatus:  TaskStatus | '';
+  tasks:          Task[];
+  sortKey:        keyof Task | '';
+  sortDir:        'asc' | 'desc';
+  filterStatus:   TaskStatus | '';
   filterAssignee: string;
-  activeTab:     'todo' | 'gantt';
-  zoomLevel:     ZoomLevel;         // ガントチャートのズームレベル
-  setSortKey:    (key: keyof Task) => void;
-  setTasks:      (tasks: Task[]) => void;
-  setFilter:     (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee'>>) => void;
-  setZoomLevel:  (z: ZoomLevel) => void;
+  filterPriority: string;
+  zoomLevel:      ZoomLevel;  // ガントチャートのズームレベル（activeTab は廃止）
+  setSortKey:     (key: keyof Task) => void;
+  setTasks:       (tasks: Task[]) => void;
+  setFilter:      (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority'>>) => void;
+  setZoomLevel:   (z: ZoomLevel) => void;
 }
 
 // store/connectionStore.ts
@@ -555,13 +579,31 @@ export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
   return Math.round((d.getTime() - minDate.getTime()) / 86400000) * dayWidth;
 }
 
-export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
+// ★v1.3変更：最低90日（約3ヶ月）の表示幅を保証
+export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
+  const THREE_MONTHS_MS = 90 * 86400000;
+  const today = Date.now();
   const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
-  const times = dates.map(d => new Date(d).getTime());
-  return {
-    min: new Date(Math.min(...times) - 3 * 86400000),  // -3日パディング
-    max: new Date(Math.max(...times) + 5 * 86400000),  // +5日パディング
-  };
+
+  let minTime: number;
+  let maxTime: number;
+
+  if (dates.length === 0) {
+    // タスクに日付がない場合は今日を基準に3ヶ月表示
+    minTime = today - 7 * 86400000;
+    maxTime = today + THREE_MONTHS_MS;
+  } else {
+    const times = dates.map(d => new Date(d).getTime());
+    minTime = Math.min(...times) - 3 * 86400000;
+    maxTime = Math.max(...times) + 5 * 86400000;
+  }
+
+  // タスク範囲が3ヶ月未満でも最低3ヶ月表示する
+  if (maxTime - minTime < THREE_MONTHS_MS) {
+    maxTime = minTime + THREE_MONTHS_MS;
+  }
+
+  return { min: new Date(minTime), max: new Date(maxTime) };
 }
 ```
 
@@ -607,19 +649,67 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
 
 > ソート・フィルタはいずれもフロントエンドのメモリ上で行う。
 
-### 7.4 コンポーネント責務一覧
+### 7.4 画面レイアウト（★v1.3変更）
+
+**旧設計（v1.2以前）：** TODOリストとガントチャートを「タブ」で切り替える。一度に片方しか見えない。
+
+**新設計（v1.3）：** 左右分割レイアウト。常時両方表示。
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ ヘッダー（プロジェクト選択）                                        │
+├──────────────────────────────────────────────────────────────────┤
+│ Toolbar（フィルタ・ズーム・Import/Export・タスク追加）                │
+├──────────────────────────────────────────────────────────────────┤
+│ TodoList（左 42%）              │ GanttChart（右 58%）            │
+│  ツリー表示・インライン編集        │  3ヶ月以上のタイムライン          │
+│  右クリック→コンテキストメニュー   │  常時表示                       │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 7.5 コンポーネント責務一覧
 
 | コンポーネント | 責務 |
 |--------------|------|
-| `Toolbar` | タブ切替・ソート選択・フィルタ・ズーム切替・Import/Export・タスク追加ボタン |
+| `Toolbar` | フィルタ（ラベル付きセレクト）・ガント表示切替・Import/Export・タスク追加ボタン。★タブ切替は廃止 |
 | `ConnectionBadge` | WebSocket接続状態（connected / connecting / disconnected）をバッジで常時表示 |
-| `TodoList` | タスク一覧テーブル。フィルタ・ソート済み `tasks[]` を受け取り表示 |
-| `TaskRow` | 1行分。セルクリックでインライン編集またはモーダル起動 |
-| `GanttChart` | 日付ヘッダー・バーエリアのスクロールコンテナ管理。ズームレベルを受け取る |
+| `TodoList` | タスク一覧テーブル。`parentId` を使ってツリー構造を構築し、折りたたみ状態を管理する |
+| `TaskRow` | 1行分。**セルクリックでインライン編集**（タイトル・ステータス・優先度・進捗・担当者・日付）。**右クリックでコンテキストメニュー**（編集詳細 / 削除）。`depth` による視覚的インデント |
+| `GanttChart` | 日付ヘッダー・バーエリアのスクロールコンテナ管理。常時表示 |
 | `GanttBar` | 1タスク分のバー。クリックでモーダル起動 |
 | `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
 | `LightningLine` | イナズマラインSVG縦線 |
-| `TaskModal` | 新規作成・編集フォーム。先行タスクのmulti-select・進捗率スライダー含む |
+| `TaskModal` | 新規作成・編集フォーム。**★親タスク選択セレクト**・先行タスクのmulti-select・進捗率スライダー含む |
+
+### 7.6 インライン編集仕様（★v1.3追加）
+
+| 操作 | 動作 |
+|------|------|
+| セルをクリック | そのセルが編集モードになる（入力フィールドまたはセレクトボックス） |
+| Enter / フォーカスアウト | 変更を `PATCH /tasks/:id` で即時保存 |
+| Escape | 変更を破棄して表示モードに戻る |
+| 右クリック | コンテキストメニューを表示（「編集（詳細）」「削除」） |
+| 「編集（詳細）」選択 | TaskModal を開き、全フィールドを編集可能 |
+
+**インライン編集できるフィールド：** タイトル、ステータス（セレクト）、優先度（セレクト）、進捗（数値入力）、担当者、開始日、終了日
+
+**TaskModal でのみ編集できるフィールド：** サマリ、説明、親タスク、先行タスク
+
+### 7.7 ツリー表示仕様（★v1.3追加）
+
+`TodoList` は `parentId` を元にツリーノードを構築し、フラット化してテーブル行として描画する。
+
+```
+親タスクA                （depth=0）
+  ▼ 子タスクA-1          （depth=1, インデント 20px）
+      └ 孫タスクA-1-1    （depth=2, インデント 40px）
+  ▼ 子タスクA-2          （depth=1）
+親タスクB                （depth=0）
+```
+
+- `depth > 0` のルートノードには `▶ / ▼` の折りたたみボタンを表示
+- 子タスクの行の深さに応じて行背景色を微妙に変えて視覚的に区別する
+- 親タスクが削除されると、子タスクの `parent_id` は `NULL`（ルートに昇格）になる
 
 ---
 
@@ -711,14 +801,15 @@ export async function authPlugin(fastify: FastifyInstance) {
 
 ## 11. 実装フェーズ
 
-| Phase | 内容 | 成果物 |
-|-------|------|--------|
-| Phase 1-A | Fastify + SQLite CRUD + `/health` | APIが動作する状態（既存Docker環境で起動確認） |
-| Phase 1-B | React雛形・TodoListビュー・Zustand・フィルタ・ソート | タスクCRUD UI |
-| Phase 1-C | Y.js（ネストY.Map）+ Hocuspocus接続・接続状態バッジ | リアルタイム同時編集動作確認 |
-| Phase 1-D | ガントチャート・ズームレベル・依存矢印・イナズマライン | ガント表示完成 |
-| Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ファイルI/O |
-| Phase 2 | LDAP認証組み込み | 認証付き本番稼働 |
+| Phase | 内容 | 成果物 | 状態 |
+|-------|------|--------|----- |
+| Phase 1-A | Fastify + SQLite CRUD + `/health` | APIが動作する状態（既存Docker環境で起動確認） | ✅ 完了 |
+| Phase 1-B | React雛形・TodoListビュー・Zustand・フィルタ・ソート | タスクCRUD UI | ✅ 完了 |
+| Phase 1-C | Y.js（ネストY.Map）+ Hocuspocus接続・接続状態バッジ | リアルタイム同時編集動作確認 | ✅ 完了 |
+| Phase 1-D | ガントチャート・ズームレベル・依存矢印・イナズマライン | ガント表示完成 | ✅ 完了 |
+| Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ファイルI/O | ✅ 完了 |
+| Phase 1-F | UI改善（インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正） | ★v1.3実装内容 | ✅ 完了 |
+| Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
 
 ---
 

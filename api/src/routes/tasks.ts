@@ -33,6 +33,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           type: 'object',
           required: ['title'],
           properties: {
+            parentId:     { type: ['string', 'null'] },
             title:        { type: 'string', minLength: 1, maxLength: 200 },
             summary:      { type: 'string' },
             description:  { type: 'string' },
@@ -50,6 +51,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         const task = createTask({
           id: uuidv4(),
           projectId: req.params.id,
+          parentId: req.body.parentId as string | null | undefined,
           title: req.body.title as string,
           summary: req.body.summary as string | undefined,
           description: req.body.description as string | undefined,
@@ -108,6 +110,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         body: {
           type: 'object',
           properties: {
+            parentId:     { type: ['string', 'null'] },
             title:        { type: 'string', minLength: 1, maxLength: 200 },
             summary:      { type: 'string' },
             description:  { type: 'string' },
@@ -124,6 +127,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       },
       async handler(req, reply) {
         const task = updateTask(req.params.id, {
+          parentId:     req.body.parentId as string | null | undefined,
           title:        req.body.title as string | undefined,
           summary:      req.body.summary as string | undefined,
           description:  req.body.description as string | undefined,

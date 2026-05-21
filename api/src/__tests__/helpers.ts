@@ -10,7 +10,9 @@ export function createTestDb(): Database.Database {
   const db = new Database(':memory:');
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  const sql = readFileSync(join(__dirname, '../db/migrations/001_init.sql'), 'utf-8');
-  db.exec(sql);
+  const sql001 = readFileSync(join(__dirname, '../db/migrations/001_init.sql'), 'utf-8');
+  db.exec(sql001);
+  const sql002 = readFileSync(join(__dirname, '../db/migrations/002_parent.sql'), 'utf-8');
+  db.exec(sql002);
   return db;
 }

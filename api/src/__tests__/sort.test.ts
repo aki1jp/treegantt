@@ -9,6 +9,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   return {
     id: 'test-id',
     projectId: 'proj-1',
+    parentId: null,
     title: 'Test Task',
     summary: '',
     description: '',

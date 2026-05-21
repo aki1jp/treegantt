@@ -4,6 +4,7 @@ import type { Task, TaskWithSuccessors } from '../types/task.js';
 interface RawTask {
   id: string;
   project_id: string;
+  parent_id: string | null;
   title: string;
   summary: string;
   description: string;
@@ -22,6 +23,7 @@ function rawToTask(row: RawTask): Task {
   return {
     id: row.id,
     projectId: row.project_id,
+    parentId: row.parent_id ?? null,
     title: row.title,
     summary: row.summary,
     description: row.description,
@@ -129,6 +131,7 @@ export function getTask(id: string): TaskWithSuccessors | null {
 export interface CreateTaskInput {
   id: string;
   projectId: string;
+  parentId?: string | null;
   title: string;
   summary?: string;
   description?: string;
@@ -150,11 +153,12 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
   ).m;
 
   db.prepare(
-    `INSERT INTO tasks (id, project_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, ord)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, ord)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.id,
     input.projectId,
+    input.parentId ?? null,
     input.title,
     input.summary ?? '',
     input.description ?? '',
@@ -188,6 +192,7 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
   const fields: string[] = [];
   const params: unknown[] = [];
 
+  if (input.parentId !== undefined)    { fields.push('parent_id = ?');   params.push(input.parentId); }
   if (input.title !== undefined)       { fields.push('title = ?');       params.push(input.title); }
   if (input.summary !== undefined)     { fields.push('summary = ?');     params.push(input.summary); }
   if (input.description !== undefined) { fields.push('description = ?'); params.push(input.description); }

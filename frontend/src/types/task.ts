@@ -5,6 +5,7 @@ export type ZoomLevel    = 'day' | 'week' | 'month';
 export interface Task {
   id:           string;
   projectId:    string;
+  parentId:     string | null;
   title:        string;
   summary:      string;
   description:  string;
