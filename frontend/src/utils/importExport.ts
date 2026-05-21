@@ -27,6 +27,7 @@ export function importFromJson(jsonStr: string): { tasks: Task[]; project: Pick<
 export function exportToCsv(tasks: Task[]): string {
   const rows = tasks.map(t => ({
     id: t.id,
+    parentId: t.parentId ?? '',
     title: t.title,
     summary: t.summary,
     description: t.description,
@@ -39,6 +40,25 @@ export function exportToCsv(tasks: Task[]): string {
     predecessors: t.predecessors.join(';'),
   }));
   return Papa.unparse(rows);
+}
+
+export function importFromCsv(csvStr: string): { tasks: Partial<Task>[] } {
+  const result = Papa.parse<Record<string, string>>(csvStr, { header: true, skipEmptyLines: true });
+  const tasks = result.data.map(row => ({
+    id:           row.id || undefined,
+    parentId:     row.parentId || null,
+    title:        row.title ?? '',
+    summary:      row.summary ?? '',
+    description:  row.description ?? '',
+    status:       (row.status as Task['status']) || 'todo',
+    priority:     (row.priority as Task['priority']) || 'medium',
+    progress:     Number(row.progress) || 0,
+    assignee:     row.assignee ?? '',
+    startDate:    row.startDate || null,
+    endDate:      row.endDate || null,
+    predecessors: row.predecessors ? row.predecessors.split(';').filter(Boolean) : [],
+  }));
+  return { tasks };
 }
 
 export function downloadFile(content: string, filename: string, mimeType: string) {

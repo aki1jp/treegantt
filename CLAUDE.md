@@ -26,6 +26,7 @@
 | Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ✅ 完了 |
 | ユニットテスト | vitest 46テスト全合格 | ✅ 完了 |
 | Phase 1-F | インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正 | ✅ 完了 |
+| Phase 1-G | CSVインポート対応・統合ガントビュー（MSProject風・TodoList廃止） | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
 
 ---

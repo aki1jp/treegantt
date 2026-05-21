@@ -4,11 +4,10 @@ import { useYjs } from './hooks/useYjs';
 import { useTasks } from './hooks/useTasks';
 import { useTaskStore } from './store/taskStore';
 import { Toolbar } from './components/Toolbar/Toolbar';
-import { TodoList } from './components/TodoList/TodoList';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import type { Task, Project } from './types/task';
-import { exportToJson, exportToCsv, importFromJson, downloadFile } from './utils/importExport';
+import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from './utils/importExport';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
@@ -113,7 +112,8 @@ export default function App() {
     if (!file || !currentProject) return;
     const text = await file.text();
     try {
-      const { tasks: importedTasks } = importFromJson(text);
+      const isCsv = file.name.endsWith('.csv') || file.type === 'text/csv';
+      const { tasks: importedTasks } = isCsv ? importFromCsv(text) : importFromJson(text);
       await apiFetch(`/projects/${currentProject.id}/import`, {
         method: 'POST',
         body: JSON.stringify({ tasks: importedTasks }),
@@ -164,21 +164,12 @@ export default function App() {
             onExportCsv={handleExportCsv}
           />
 
-          {/* 左：TODOリスト ／ 右：ガントチャート */}
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            <div style={{
-              width: '42%', minWidth: 320, borderRight: '2px solid #e5e7eb',
-              overflowY: 'auto', display: 'flex', flexDirection: 'column',
-            }}>
-              <TodoList
-                onEditTask={(task) => setModalTask(task)}
-                onDeleteTask={handleDeleteTask}
-                onInlineUpdate={handleInlineUpdate}
-              />
-            </div>
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <GanttChart onEditTask={(task) => setModalTask(task)} />
-            </div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <GanttChart
+              onEditTask={(task) => setModalTask(task)}
+              onDeleteTask={handleDeleteTask}
+              onInlineUpdate={handleInlineUpdate}
+            />
           </div>
         </>
       ) : (
@@ -202,7 +193,7 @@ export default function App() {
         />
       )}
 
-      <input ref={fileInputRef} type="file" accept=".json" style={{ display: 'none' }}
+      <input ref={fileInputRef} type="file" accept=".json,.csv" style={{ display: 'none' }}
         onChange={handleFileChange} />
     </div>
   );

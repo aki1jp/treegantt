@@ -16,7 +16,7 @@ export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
 
 const THREE_MONTHS_MS = 90 * 86400000;
 
-export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
+export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } {
   const today = Date.now();
   const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
 

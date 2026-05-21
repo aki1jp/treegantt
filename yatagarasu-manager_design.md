@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.3 |
+| バージョン | 1.4 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -17,6 +17,7 @@
 | 1.1 | 2026年5月 | CRDT構造修正・サービス統合・データモデル拡張・ガントチャート改善・Prisma Studio評価 |
 | 1.2 | 2026年5月 | Docker構築フェーズを除外（既存Docker環境で開発）・Section 8をインフラ参照に縮小 |
 | 1.3 | 2026年5月 | 親タスク追加・インライン編集・分割レイアウト・フィルタUX改善・ガント3ヶ月表示・リアルタイム同期修正 |
+| 1.4 | 2026年5月 | CSVインポート対応・統合ガントビュー（MSProject風左固定列+タイムライン同一行）・TodoList分離廃止 |
 
 ---
 
@@ -401,10 +402,12 @@ GET /projects/:id/tasks?status=todo&assignee=田中&priority=high&limit=100&offs
 **CSV形式（列順固定）**
 
 ```
-id, title, summary, description, status, priority, progress, assignee, startDate, endDate, predecessors
+id, parentId, title, summary, description, status, priority, progress, assignee, startDate, endDate, predecessors
 ```
 
 > ※ `predecessors` はセミコロン区切りのIDリスト。例: `"uuid-1;uuid-2"`
+> ※ `parentId` は空文字または省略でルートタスク（親なし）。
+> ※ **★v1.4：** インポート時に `.csv` 拡張子のファイルを選択すると `importFromCsv()` が呼ばれ、JSONと同様に `/projects/:id/import` エンドポイントへ送信される。ファイル選択ダイアログは `.json,.csv` の両形式を受け付ける。
 
 ---
 
@@ -649,11 +652,13 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
 
 > ソート・フィルタはいずれもフロントエンドのメモリ上で行う。
 
-### 7.4 画面レイアウト（★v1.3変更）
+### 7.4 画面レイアウト（★v1.4変更）
 
 **旧設計（v1.2以前）：** TODOリストとガントチャートを「タブ」で切り替える。一度に片方しか見えない。
 
-**新設計（v1.3）：** 左右分割レイアウト。常時両方表示。
+**v1.3設計：** 左右分割レイアウト（TodoList 42% / GanttChart 58%）。常時両方表示。
+
+**新設計（v1.4）：** 統合ガントビュー。TodoListを廃止し、GanttChart1コンポーネントが左固定列（タスク属性）と右スクロール可能なタイムライン（バー）を同一行で表示する。MSProjectライクなレイアウト。
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -661,21 +666,27 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
 ├──────────────────────────────────────────────────────────────────┤
 │ Toolbar（フィルタ・ズーム・Import/Export・タスク追加）                │
 ├──────────────────────────────────────────────────────────────────┤
-│ TodoList（左 42%）              │ GanttChart（右 58%）            │
-│  ツリー表示・インライン編集        │  3ヶ月以上のタイムライン          │
-│  右クリック→コンテキストメニュー   │  常時表示                       │
+│ GanttChart（全幅）                                                │
+│  ┌────── 左固定列 670px ──────┬─── 右スクロールタイムライン ────┐   │
+│  │タイトル│ST│優先│進捗│担当│開始│終了│Del│     ■■■■■         │   │
+│  │(180) │(66)│(56)│(76)│(76)│(88)│(88)│(40)│  今日線・依存矢印  │   │
+│  │  ツリーインデント・インライン  │  Ganttバー・イナズマライン    │   │
+│  │  編集・右クリックメニュー     │                              │   │
+│  └──────────────────────────┴──────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+**CSS実装:** 外側1つの `overflow: auto` コンテナ内に、左パネルを `position: sticky; left: 0` で固定。JavaScriptによるスクロール同期は不要。
 
 ### 7.5 コンポーネント責務一覧
 
 | コンポーネント | 責務 |
 |--------------|------|
-| `Toolbar` | フィルタ（ラベル付きセレクト）・ガント表示切替・Import/Export・タスク追加ボタン。★タブ切替は廃止 |
+| `Toolbar` | フィルタ（ラベル付きセレクト）・ズーム選択・Import/Export・タスク追加ボタン。タブ切替は廃止 |
 | `ConnectionBadge` | WebSocket接続状態（connected / connecting / disconnected）をバッジで常時表示 |
-| `TodoList` | タスク一覧テーブル。`parentId` を使ってツリー構造を構築し、折りたたみ状態を管理する |
-| `TaskRow` | 1行分。**セルクリックでインライン編集**（タイトル・ステータス・優先度・進捗・担当者・日付）。**右クリックでコンテキストメニュー**（編集詳細 / 削除）。`depth` による視覚的インデント |
-| `GanttChart` | 日付ヘッダー・バーエリアのスクロールコンテナ管理。常時表示 |
+| `TodoList` | **★v1.4廃止。** 機能は `GanttChart` の左固定列（`GanttLeftRow`）に統合された |
+| `GanttLeftRow` | **★v1.4新規。** 統合ガントビューの1行分の左パネル。セルクリックでインライン編集、右クリックでコンテキストメニュー、`depth` による視覚的インデント |
+| `GanttChart` | **★v1.4刷新。** 左固定列（`GanttLeftRow`）+ 右タイムライン（SVG）を1コンポーネントで統合管理。ツリー構造・折りたたみ状態も内包 |
 | `GanttBar` | 1タスク分のバー。クリックでモーダル起動 |
 | `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
 | `LightningLine` | イナズマラインSVG縦線 |
@@ -809,6 +820,7 @@ export async function authPlugin(fastify: FastifyInstance) {
 | Phase 1-D | ガントチャート・ズームレベル・依存矢印・イナズマライン | ガント表示完成 | ✅ 完了 |
 | Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ファイルI/O | ✅ 完了 |
 | Phase 1-F | UI改善（インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正） | ★v1.3実装内容 | ✅ 完了 |
+| Phase 1-G | CSVインポート対応・統合ガントビュー（MSProject風・TodoList廃止） | ★v1.4実装内容 | ✅ 完了 |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
 
 ---
