@@ -1,7 +1,22 @@
+import * as Y from 'yjs';
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db/client.js';
 import { createTask, updateTask, listTasks } from '../services/taskService.js';
+import { hocuspocus } from '../ws/hocuspocus.js';
 import type { Task } from '../types/task.js';
+
+async function syncToYjs(
+  projectId: string,
+  fn: (yTasks: Y.Map<Y.Map<unknown>>) => void,
+): Promise<void> {
+  try {
+    const conn = await hocuspocus.openDirectConnection(projectId, {});
+    await conn.transact(doc => fn(doc.getMap<Y.Map<unknown>>('tasks')));
+    await conn.disconnect();
+  } catch {
+    // 非致命的
+  }
+}
 
 const CSV_HEADERS = 'id,title,summary,description,status,priority,progress,assignee,startDate,endDate,predecessors';
 
@@ -57,6 +72,16 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         }
         imported++;
       }
+
+      // インポートしたタスクを Y.js にも反映してリアルタイム同期に含める
+      const { tasks: allTasks } = listTasks(req.params.id, { limit: 100000 });
+      await syncToYjs(req.params.id, yTasks => {
+        for (const task of allTasks) {
+          const yTask = yTasks.get(task.id) ?? new Y.Map<unknown>();
+          for (const [k, v] of Object.entries(task as unknown as Task)) yTask.set(k, v);
+          yTasks.set(task.id, yTask);
+        }
+      });
 
       return { imported };
     }

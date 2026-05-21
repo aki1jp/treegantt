@@ -44,25 +44,37 @@ export default function App() {
   useEffect(() => {
     if (!currentProject || !synced) return;
 
-    // Hocuspocus同期完了後、Y.jsにデータがあればそのまま使う（上書きしない）
-    if (yTasks.size > 0) {
-      const tasks = Array.from(yTasks.entries())
-        .map(([, m]) => Object.fromEntries(m.entries()) as unknown as Task);
-      setTasks(tasks);
-      return;
-    }
-
-    // Y.jsが空（初回 or Hocuspocusデータなし）のときだけREST APIで初期化
+    // Y.jsが完全かどうかに関わらず、常にREST APIと照合してDBにあるタスクを補完する。
+    // Y.jsのバイナリが古い場合（サーバーのonLoadDocumentが呼ばれなかった場合など）でも
+    // 新規タスクが消えないようにするためのクライアント側フォールバック。
     apiFetch(`/projects/${currentProject.id}/tasks`).then(d => {
-      setTasks(d.tasks);
+      const dbTasks = d.tasks as Task[];
       const ydoc = yTasks.doc!;
-      ydoc.transact(() => {
-        for (const task of d.tasks as Task[]) {
-          const yTask = new Y.Map<unknown>();
-          for (const [k, v] of Object.entries(task)) yTask.set(k, v);
-          yTasks.set(task.id, yTask);
-        }
-      });
+
+      // DBにあってY.jsにないタスクのみ追加（Y.jsのCRDTデータは上書きしない）
+      const missingTasks = dbTasks.filter(t => !yTasks.has(t.id));
+      if (missingTasks.length > 0) {
+        ydoc.transact(() => {
+          for (const task of missingTasks) {
+            const yTask = new Y.Map<unknown>();
+            for (const [k, v] of Object.entries(task)) yTask.set(k, v);
+            yTasks.set(task.id, yTask);
+          }
+        });
+        // observeDeep ハンドラがストアを更新する
+      } else {
+        // Y.jsが完全 → Y.jsから読む（CRDTの最新値を使う）
+        const tasks = Array.from(yTasks.entries())
+          .map(([, m]) => Object.fromEntries(m.entries()) as unknown as Task);
+        setTasks(tasks);
+      }
+    }).catch(() => {
+      // REST fetch失敗時はY.jsのデータで表示を維持
+      if (yTasks.size > 0) {
+        const tasks = Array.from(yTasks.entries())
+          .map(([, m]) => Object.fromEntries(m.entries()) as unknown as Task);
+        setTasks(tasks);
+      }
     });
   }, [currentProject, synced]);
 
