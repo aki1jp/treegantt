@@ -10,4 +10,12 @@ export default defineConfig({
       '/api': { target: 'http://localhost:4000', changeOrigin: true },
     },
   },
-});
+  test: {
+    coverage: {
+      provider: 'v8',
+      include: ['src/utils/**/*.ts', 'src/store/**/*.ts', 'src/hooks/**/*.ts'],
+      reporter: ['text'],
+      skipFull: false,
+    },
+  },
+} as Parameters<typeof defineConfig>[0]);

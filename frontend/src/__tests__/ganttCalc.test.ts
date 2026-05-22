@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, ganttTotalWidth, ZOOM_CONFIG } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -55,6 +55,67 @@ describe('calcTodayX', () => {
     const dayWidth = ZOOM_CONFIG['week'].dayWidth;
     const expectedDays = Math.round((TODAY.getTime() - min.getTime()) / 86400000);
     expect(x).toBe(expectedDays * dayWidth);
+  });
+});
+
+describe('calcLightningPoints', () => {
+  const minDate = new Date('2026-05-01T00:00:00.000Z');
+  const zoom = 'day';
+  const dayWidth = ZOOM_CONFIG['day'].dayWidth;
+
+  function makeRow(status: Task['status'], progress: number) {
+    return {
+      task: makeTask({
+        status,
+        progress,
+        startDate: '2026-05-01',
+        endDate:   '2026-05-11', // 10日間
+      }),
+      effectiveProgress: progress,
+    };
+  }
+
+  it('wip タスクは進捗率に応じた X 座標を返す', () => {
+    const rows = [makeRow('wip', 50)];
+    const pts = calcLightningPoints(rows, minDate, zoom)!;
+    // startX=0, endX=(10+1)*dayWidth (endDate の翌日まで), progressX=endX*50%
+    const expectedX = Math.round((10 * dayWidth + dayWidth) * 0.5);
+    expect(pts[0].x).toBe(expectedX);
+  });
+
+  it('todo タスクは進捗率 0 → startX を返す', () => {
+    const rows = [makeRow('todo', 0)];
+    const pts = calcLightningPoints(rows, minDate, zoom)!;
+    expect(pts[0].x).toBe(0);
+  });
+
+  it('done タスクは進捗率によらず todayX を返す', () => {
+    const todayX = calcTodayX(minDate, zoom);
+    const rows = [makeRow('done', 100)];
+    const pts = calcLightningPoints(rows, minDate, zoom)!;
+    expect(pts[0].x).toBe(todayX);
+  });
+
+  it('wait タスクは進捗率によらず todayX を返す', () => {
+    const todayX = calcTodayX(minDate, zoom);
+    const rows = [makeRow('wait', 30)];
+    const pts = calcLightningPoints(rows, minDate, zoom)!;
+    expect(pts[0].x).toBe(todayX);
+  });
+
+  it('done と wip が混在する場合、done は todayX・wip は進捗 X を返す', () => {
+    const todayX = calcTodayX(minDate, zoom);
+    const rows = [makeRow('done', 100), makeRow('wip', 50)];
+    const pts = calcLightningPoints(rows, minDate, zoom)!;
+    const expectedWipX = Math.round((10 * dayWidth + dayWidth) * 0.5);
+    expect(pts[0].x).toBe(todayX);
+    expect(pts[1].x).toBe(expectedWipX);
+  });
+
+  it('日付がないタスクはスキップされる', () => {
+    const noDate = { task: makeTask({ status: 'wip', progress: 50 }), effectiveProgress: 50 };
+    const pts = calcLightningPoints([noDate], minDate, zoom);
+    expect(pts).toBeNull();
   });
 });
 
