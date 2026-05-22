@@ -7,17 +7,7 @@ import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import type { Task, Project } from './types/task';
 import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from './utils/importExport';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
-
-async function apiFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`${API_BASE}/api/v1${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.status === 204 ? null : res.json();
-}
+import { apiFetch } from './utils/api';
 
 export default function App() {
   const [projects, setProjects]             = useState<Project[]>([]);

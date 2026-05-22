@@ -1,19 +1,6 @@
 import type { Task } from '../types/task';
 import { useTaskStore } from '../store/taskStore';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
-
-async function apiFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`${API_BASE}/api/v1${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `HTTP ${res.status}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
+import { apiFetch } from '../utils/api';
 
 export function useTasks(projectId: string) {
   // REST POST → サーバーが全クライアントへ task_created をブロードキャスト
