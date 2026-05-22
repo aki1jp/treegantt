@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.5 |
+| バージョン | 1.6 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -19,6 +19,7 @@
 | 1.3 | 2026年5月 | 親タスク追加・インライン編集・分割レイアウト・フィルタUX改善・ガント3ヶ月表示・リアルタイム同期修正 |
 | 1.4 | 2026年5月 | CSVインポート対応・統合ガントビュー（MSProject風左固定列+タイムライン同一行）・TodoList分離廃止 |
 | 1.5 | 2026年5月 | Y.js主体アーキテクチャへ刷新・リアルタイム同期修正・競合解決UI・フロントエンドテスト追加 |
+| 1.6 | 2026年5月 | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時タスク消失修正・ガント末行クイック追加・表示期間コントロール追加 |
 
 ---
 
@@ -98,16 +99,21 @@ TaskFlowはSPA（シングルページアプリケーション）＋WebSocketサ
 
 > ※ v1.0 では `ws` サービスが `api/data` ボリュームを直接共有していたが、同一SQLiteファイルへの並行書き込みは WAL モードでも競合リスクがある。v1.1 では Hocuspocus を Fastify プロセスに統合し、単一プロセスから SQLite に書き込む構成とした。
 
-### 2.3 データフロー（★v1.5 Y.js主体アーキテクチャ）
+### 2.3 データフロー（★v1.6 更新）
 
 **真の状態は Y.js ドキュメント。tasks テーブルは Y.js の写し（キャッシュ）。**
 
-**【インライン更新】ブラウザ → Y.js 直接書き込み**
+**【インライン更新】ブラウザ → Y.js + REST 二重書き込み（★v1.6変更）**
 ```
-useTasks.updateTask() → yTask.set(field, value)
-  → Hocuspocus が全接続ブラウザへ即時ブロードキャスト
-  → onStoreDocument → tasks テーブルを upsert
+useTasks.updateTask()
+  ├─ Y.js: yTask.set(field, value)  → ローカルUI即時反映
+  │    → observeDeep → setTasks（このブラウザ）
+  └─ REST: PATCH /tasks/:id → DB更新 + syncToYjs(openDirectConnection)
+         → Hocuspocus が他の全接続ブラウザへブロードキャスト
+         → 他ブラウザの observeDeep → setTasks
 ```
+
+> **v1.5からの変更：** v1.5では `updateTask` が Y.js のみ書き込んでいた。これだと `onStoreDocument` 経由でDBに保存されるが、Hocuspocus から他ブラウザへのブロードキャストが安定しない問題があった。v1.6では REST PATCH も呼び `syncToYjs` でブロードキャストを確実に行う。
 
 **【タスク作成・削除】REST API 経由（ID生成・カスケード削除のため）**
 ```
@@ -116,17 +122,14 @@ REST POST/DELETE → tasks テーブル更新
   → Hocuspocus が全接続ブラウザへブロードキャスト
 ```
 
-**【外部 REST PATCH】（外部ツール・将来の連携）**
+**【ブラウザ接続時の初期化】（★v1.6変更）**
 ```
-PATCH /tasks/:id → tasks テーブル更新 + syncToYjs → 全ブラウザへ即時反映
+プロジェクト選択 / ページロード
+  → REST GET /projects/:id/tasks → DB から即座に取得 → setTasks（表示）
+  → Y.js に不足タスクがあれば yTasks に追加（リアルタイム同期のため）
 ```
 
-**【ブラウザ接続時の初期化】**
-```
-HocuspocusProvider 接続 → onSynced 発火
-  → Y.js にデータあり: そのまま表示（上書きなし）
-  → Y.js が空（初回）: REST API から取得 → Y.js に書き込み
-```
+> **v1.5からの変更：** v1.5では `synced` フラグを待ってから表示していた。`'_none'` プロジェクトの `synced=true` が誤って先行し、実プロジェクトのタスクが消失する競合が発生していた。v1.6では `[currentProject?.id]` を依存にして REST fetch を即時実行し、Y.js の sync 状態に依存しない。
 
 **【Hocuspocus 起動時の復元】**
 ```
@@ -198,7 +201,8 @@ taskflow/
     │   │   ├── taskService.ts
     │   │   └── authService.ts    # LDAPスタブ
     │   ├── ws/
-    │   │   └── hocuspocus.ts     # Hocuspocusサーバー設定（apiプロセスに統合）
+    │   │   ├── hocuspocus.ts          # Hocuspocusサーバー設定（apiプロセスに統合）
+    │   │   └── hocuspocusHandlers.ts  # onLoadDocument / onStoreDocument ロジック
     │   └── plugins/
     │       └── auth.ts           # 認証プラグイン（将来用）
     └── data/
@@ -498,14 +502,20 @@ import { Server } from '@hocuspocus/server';
 import { SQLite } from '@hocuspocus/extension-sqlite';
 
 export const hocuspocus = Server.configure({
-  port: 4001,
+  port: parseInt(process.env.WS_PORT ?? '4001', 10),
   extensions: [
     new SQLite({ database: process.env.DB_PATH ?? '/app/data/taskflow.db' }),
   ],
-  async onAuthenticate(_data) {
-    // Phase 2: LDAPトークン検証をここに実装
-    return true;
+  async onLoadDocument({ document, documentName }) {
+    await handleLoadDocument(document, documentName, db);
   },
+  async onStoreDocument({ document, documentName }) {
+    await handleStoreDocument(document, documentName, db);
+  },
+  // onAuthenticate は定義しない（★v1.6修正）
+  // Hocuspocus の仕様: onAuthenticate を定義するとクライアントに AUTH メッセージ送信を
+  // 要求するプロトコルが有効化される。定義しない場合は認証なしで接続を受け付ける。
+  // Phase 2 で LDAP 認証を実装する際に追加する。
 });
 ```
 
@@ -577,11 +587,14 @@ interface TaskStore {
   filterStatus:   TaskStatus | '';
   filterAssignee: string;
   filterPriority: string;
-  zoomLevel:      ZoomLevel;  // ガントチャートのズームレベル（activeTab は廃止）
+  zoomLevel:      ZoomLevel;     // ガントチャートのズームレベル（activeTab は廃止）
+  ganttStartDate: string;        // ★v1.6追加: ガント表示開始日（'' = 自動）
+  ganttPeriod:    GanttPeriod;   // ★v1.6追加: ガント表示期間（デフォルト '3m'）
   setSortKey:     (key: keyof Task) => void;
   setTasks:       (tasks: Task[]) => void;
   setFilter:      (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority'>>) => void;
   setZoomLevel:   (z: ZoomLevel) => void;
+  setGanttRange:  (startDate: string, period: GanttPeriod) => void; // ★v1.6追加
 }
 
 // store/connectionStore.ts
@@ -596,7 +609,13 @@ interface ConnectionStore {
 #### ズームレベルと座標計算 (`utils/ganttCalc.ts`)
 
 ```typescript
-import type { ZoomLevel } from '../types/task';
+import type { ZoomLevel, Task } from '../types/task';
+
+// ★v1.6追加: 表示期間の定義
+export type GanttPeriod = '2w' | '1m' | '3m' | '6m';
+export const PERIOD_DAYS: Record<GanttPeriod, number> = {
+  '2w': 14, '1m': 30, '3m': 91, '6m': 183,
+};
 
 export const ZOOM_CONFIG: Record<ZoomLevel, { dayWidth: number; headerFormat: string }> = {
   day:   { dayWidth: 28, headerFormat: 'M/D' },   // 1日 = 28px
@@ -612,28 +631,35 @@ export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
   return Math.round((d.getTime() - minDate.getTime()) / 86400000) * dayWidth;
 }
 
-// ★v1.3変更：最低90日（約3ヶ月）の表示幅を保証
-export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
-  const THREE_MONTHS_MS = 90 * 86400000;
+// ★v1.6変更: startDate（手動モード）と period（表示幅）を追加
+// 手動モード: startDate が指定された場合は startDate + period の固定範囲
+// 自動モード: タスク日付から範囲を計算し、最低でも period 分の幅を確保
+export function calcGanttRange(
+  tasks: Task[],
+  startDate?: string,
+  period?: GanttPeriod,
+): { min: Date; max: Date } {
   const today = Date.now();
-  const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
+  const periodDays = period ? PERIOD_DAYS[period] : 91;
 
+  if (startDate) {
+    const minTime = new Date(startDate).getTime();
+    return { min: new Date(minTime), max: new Date(minTime + periodDays * 86400000) };
+  }
+
+  const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
   let minTime: number;
   let maxTime: number;
 
   if (dates.length === 0) {
-    // タスクに日付がない場合は今日を基準に3ヶ月表示
     minTime = today - 7 * 86400000;
-    maxTime = today + THREE_MONTHS_MS;
+    maxTime = minTime + periodDays * 86400000;
   } else {
     const times = dates.map(d => new Date(d).getTime());
     minTime = Math.min(...times) - 3 * 86400000;
-    maxTime = Math.max(...times) + 5 * 86400000;
-  }
-
-  // タスク範囲が3ヶ月未満でも最低3ヶ月表示する
-  if (maxTime - minTime < THREE_MONTHS_MS) {
-    maxTime = minTime + THREE_MONTHS_MS;
+    const taskMaxEnd = Math.max(...times) + 5 * 86400000;
+    // タスク範囲が period より短くても最低 period 分の幅を確保
+    maxTime = Math.max(taskMaxEnd, minTime + periodDays * 86400000);
   }
 
   return { min: new Date(minTime), max: new Date(maxTime) };
@@ -694,7 +720,7 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
 ┌──────────────────────────────────────────────────────────────────┐
 │ ヘッダー（プロジェクト選択）                                        │
 ├──────────────────────────────────────────────────────────────────┤
-│ Toolbar（フィルタ・ズーム・Import/Export・タスク追加）                │
+│ Toolbar（フィルタ・ズーム・ガント期間コントロール・Import/Export・タスク追加）  │
 ├──────────────────────────────────────────────────────────────────┤
 │ GanttChart（全幅）                                                │
 │  ┌────── 左固定列 670px ──────┬─── 右スクロールタイムライン ────┐   │
@@ -708,21 +734,31 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
 
 **CSS実装:** 外側1つの `overflow: auto` コンテナ内に、左パネルを `position: sticky; left: 0` で固定。JavaScriptによるスクロール同期は不要。
 
+**★v1.6追加 — Toolbar ガント期間コントロール:**
+
+| コントロール | 内容 |
+|------------|------|
+| 開始日ピッカー | `<input type="date">` で `ganttStartDate` を設定。入力なし（空欄）= 自動モード（タスク日付から自動計算） |
+| 「今日」ボタン | 開始日未設定時に表示。クリックで今日を `ganttStartDate` にセット |
+| 「✕」ボタン | 開始日設定中に表示。クリックで `ganttStartDate` をリセット（自動モードへ戻す） |
+| 期間セレクト | 2週間 / 1ヶ月 / 3ヶ月 / 6ヶ月 を選択して `ganttPeriod` を設定 |
+
 ### 7.5 コンポーネント責務一覧
 
 | コンポーネント | 責務 |
 |--------------|------|
-| `Toolbar` | フィルタ（ラベル付きセレクト）・ズーム選択・Import/Export・タスク追加ボタン。タブ切替は廃止 |
+| `Toolbar` | フィルタ（ラベル付きセレクト）・ズーム選択・**ガント期間コントロール（日付ピッカー＋期間セレクト）**・Import/Export・タスク追加ボタン。タブ切替は廃止。★v1.6: `ganttStartDate`/`ganttPeriod` を `taskStore` から読み書き |
 | `ConnectionBadge` | WebSocket接続状態（connected / connecting / disconnected）をバッジで常時表示 |
 | `TodoList` | **★v1.4廃止。** 機能は `GanttChart` の左固定列（`GanttLeftRow`）に統合された |
 | `GanttLeftRow` | **★v1.4新規。** 統合ガントビューの1行分の左パネル。セルクリックでインライン編集、右クリックでコンテキストメニュー、`depth` による視覚的インデント |
-| `GanttChart` | **★v1.4刷新。** 左固定列（`GanttLeftRow`）+ 右タイムライン（SVG）を1コンポーネントで統合管理。ツリー構造・折りたたみ状態も内包 |
+| `GanttChart` | **★v1.4刷新。** 左固定列（`GanttLeftRow`）+ 右タイムライン（SVG）を1コンポーネントで統合管理。ツリー構造・折りたたみ状態も内包。**★v1.6追加: `QuickAddRow`（末行クイック追加）を内包。`ganttStartDate`/`ganttPeriod` を `taskStore` から参照して表示範囲を制御** |
+| `QuickAddRow` | **★v1.6新規。** タスクリスト末尾に常時表示する空行。クリックで入力フィールド出現、Enter でタスク作成（`onQuickAdd` コールバック）、Escape でキャンセル。Excelライクな行追加体験を実現 |
 | `GanttBar` | 1タスク分のバー。クリックでモーダル起動 |
 | `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
 | `LightningLine` | イナズマラインSVG縦線 |
 | `TaskModal` | 新規作成・編集フォーム。**★親タスク選択セレクト**・先行タスクのmulti-select・進捗率スライダー含む |
 
-### 7.6 インライン編集仕様（★v1.3追加）
+### 7.6 インライン編集仕様（★v1.3追加・v1.6更新）
 
 | 操作 | 動作 |
 |------|------|
@@ -731,6 +767,12 @@ export function calcGanttRange(tasks: Task[]): { min: Date; max: Date } | null {
 | Escape | 変更を破棄して表示モードに戻る |
 | 右クリック | コンテキストメニューを表示（「編集（詳細）」「削除」） |
 | 「編集（詳細）」選択 | TaskModal を開き、全フィールドを編集可能 |
+
+> **★v1.6変更 — `updateTask` の内部動作:**
+> 1. Y.js（`yTask.set`）でローカルUI即時更新（このブラウザ）
+> 2. REST `PATCH /tasks/:id` でDB更新 + `syncToYjs` → 他の全ブラウザへブロードキャスト
+>
+> v1.5では Y.js のみに書き込んでいたが、他ブラウザへのブロードキャストが不安定だったため REST も並行して呼ぶ方式に変更した。
 
 **インライン編集できるフィールド：** タイトル、ステータス（セレクト）、優先度（セレクト）、進捗（数値入力）、担当者、開始日、終了日
 
@@ -852,6 +894,7 @@ export async function authPlugin(fastify: FastifyInstance) {
 | Phase 1-F | UI改善（インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正） | ★v1.3実装内容 | ✅ 完了 |
 | Phase 1-G | CSVインポート対応・統合ガントビュー（MSProject風・TodoList廃止） | ★v1.4実装内容 | ✅ 完了 |
 | Phase 1-H | Y.js主体アーキテクチャ・リアルタイム同期修正・競合解決UI・フロントエンドテスト | ★v1.5実装内容 | ✅ 完了 |
+| Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時タスク消失修正・ガント末行クイック追加・表示期間コントロール追加（日付ピッカー＋期間セレクト） | ★v1.6実装内容 | ✅ 完了 |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
 
 ---

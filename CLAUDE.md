@@ -28,6 +28,7 @@
 | Phase 1-F | インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正 | ✅ 完了 |
 | Phase 1-G | CSVインポート対応・統合ガントビュー（MSProject風・TodoList廃止） | ✅ 完了 |
 | Phase 1-H | Y.js主体アーキテクチャ・リアルタイム同期修正・競合解決UI・フロントエンドテスト | ✅ 完了 |
+| Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時消失修正・ガント末行クイック追加・表示期間コントロール | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
 
 ---
@@ -36,15 +37,21 @@
 
 ```bash
 cd /workspace/api
-npm test                # 全46テスト実行（約600ms）
+npm test                # API 59テスト実行（約600ms）
 npm run test:coverage   # カバレッジ付き
+
+cd /workspace/frontend
+npm test -- --run       # フロントエンド 15テスト実行
 ```
 
-**テストファイル:**
+**APIテストファイル:**
 - `src/__tests__/helpers.ts` — インメモリSQLite生成ヘルパー
 - `src/__tests__/sort.test.ts` — ソート・フィルタロジックのpure関数テスト (10件)
 - `src/__tests__/taskService.test.ts` — CRUD・依存関係・reorderの単体テスト (17件)
-- `src/__tests__/routes.test.ts` — Fastify inject による統合テスト health/projects/tasks/import/export (19件)
+- `src/__tests__/routes.test.ts` — Fastify inject による統合テスト health/projects/tasks/import/export (32件)
+
+**フロントエンドテストファイル:**
+- `src/__tests__/ganttCalc.test.ts` — ガント計算ロジックテスト (15件)
 
 ---
 
@@ -72,7 +79,7 @@ cd /workspace/frontend && npm install && npm run dev
 - `src/services/taskService.ts`
 - `src/routes/health.ts`, `projects.ts`, `tasks.ts`, `importExport.ts`
 - `src/plugins/auth.ts`
-- `src/ws/hocuspocus.ts`（パス修正済み）
+- `src/ws/hocuspocus.ts`, `src/ws/hocuspocusHandlers.ts`
 - `src/index.ts`
 - `src/__tests__/helpers.ts`, `sort.test.ts`, `taskService.test.ts`, `routes.test.ts`
 
