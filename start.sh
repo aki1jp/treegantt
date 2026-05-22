@@ -6,7 +6,28 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "=== TaskFlow 起動中 ==="
+# ── npm のパスを確定 ─────────────────────────────────
+# 非インタラクティブシェルでは ~/.bashrc / ~/.zshrc が読み込まれず
+# nvm 管理の npm が見つからないことがある。よくある場所を順に探す。
+if ! command -v npm &>/dev/null; then
+  for candidate in \
+    "$HOME/.nvm/versions/node/$(ls "$HOME/.nvm/versions/node" 2>/dev/null | sort -V | tail -1)/bin" \
+    /usr/local/bin /usr/bin /opt/homebrew/bin
+  do
+    if [ -x "$candidate/npm" ]; then
+      export PATH="$candidate:$PATH"
+      break
+    fi
+  done
+fi
+
+if ! command -v npm &>/dev/null; then
+  echo "エラー: npm が見つかりません。Node.js をインストールしてください。"
+  echo "  https://nodejs.org/"
+  exit 1
+fi
+
+echo "=== TaskFlow 起動中 (npm $(npm --version)) ==="
 
 # 初回のみ npm install
 if [ ! -d "api/node_modules" ]; then
