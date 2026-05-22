@@ -623,6 +623,19 @@ describe('§5.6 親タスクの進捗自動計算', () => {
     const tasks: Task[] = [];
     expect(calcEffectiveProgress('not-exist', buildChildCountMap(tasks), tasks)).toBe(0);
   });
+
+  it('childCountMap が子ありを示すが allTasks に子が存在しない（不整合）場合は自身の progress を返す', () => {
+    // L55 の防御コード: childCountMap と allTasks が不整合なケース
+    const tasks = [makeTask({ id: 'p', progress: 42 })];
+    const inconsistentMap = new Map([['p', 1]]); // 子が1件あると嘘をつく
+    expect(calcEffectiveProgress('p', inconsistentMap, tasks)).toBe(42);
+  });
+
+  it('childCountMap が子ありを示すが allTasks にタスク自体も存在しない場合は 0 を返す', () => {
+    // L55 の ?. が undefined を返し ?? 0 が発動するケース
+    const inconsistentMap = new Map([['ghost', 1]]);
+    expect(calcEffectiveProgress('ghost', inconsistentMap, [])).toBe(0);
+  });
 });
 
 // ═══════════════════════════════════════════════════
@@ -868,6 +881,32 @@ describe('§7 フィルタ・ソート', () => {
     it('assignee 降順', () => {
       const r = sortAndFilter(tasks(), 'assignee', 'desc', '', '', '');
       expect(r[0].assignee >= r[1].assignee).toBe(true);
+    });
+
+    it('null になりうるフィールド（parentId）のソートで ?? フォールバックを通る', () => {
+      const ts = [
+        makeTask({ id: 'a', parentId: 'parent-1' }),
+        makeTask({ id: 'b', parentId: null }),
+        makeTask({ id: 'c', parentId: 'parent-2' }),
+      ];
+      const r = sortAndFilter(ts, 'parentId', 'asc', '', '', '');
+      // null は '' に変換されるので昇順先頭になる
+      expect(r[0].parentId).toBeNull();
+    });
+  });
+
+  describe('ソート — 同一値での安定動作', () => {
+    it('同一 startDate が複数あっても全件返る（cmp = 0 を通す）', () => {
+      // 3要素で比較関数が必ず呼ばれ、等値ケース(cmp=0)を強制的に通す
+      const ts = [
+        makeTask({ id: 'a', startDate: '2026-03-01', order: 1 }),
+        makeTask({ id: 'b', startDate: '2026-05-01', order: 2 }),
+        makeTask({ id: 'c', startDate: '2026-05-01', order: 3 }),
+      ];
+      const r = sortAndFilter(ts, 'startDate', 'asc', '', '', '');
+      expect(r).toHaveLength(3);
+      expect(r[0].startDate).toBe('2026-03-01');
+      expect(r.filter(t => t.startDate === '2026-05-01')).toHaveLength(2);
     });
   });
 });

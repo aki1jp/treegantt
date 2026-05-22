@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { exportToCsv, importFromCsv, exportToJson, importFromJson } from '../utils/importExport';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { exportToCsv, importFromCsv, exportToJson, importFromJson, downloadFile } from '../utils/importExport';
 import type { Task } from '../types/task';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -76,5 +77,48 @@ describe('exportToJson / importFromJson', () => {
     expect(result.tasks).toHaveLength(2);
     expect(result.tasks[0].title).toBe('テストタスク');
     expect(result.project.name).toBe('テストプロジェクト');
+  });
+});
+
+describe('importFromCsv — 欠損フィールドのフォールバック', () => {
+  it('最低限 title だけのCSVで全フォールバック値が適用される', () => {
+    // id なし・status/priority/assignee なし → デフォルト値が使われるケース
+    const csv = 'title\n仮タスク';
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].id).toBeUndefined();       // row.id || undefined
+    expect(tasks[0].title).toBe('仮タスク');
+    expect(tasks[0].summary).toBe('');          // ?? ''
+    expect(tasks[0].description).toBe('');      // ?? ''
+    expect(tasks[0].status).toBe('todo');       // || 'todo'
+    expect(tasks[0].priority).toBe('medium');   // || 'medium'
+    expect(tasks[0].assignee).toBe('');         // ?? ''
+    expect(tasks[0].progress).toBe(0);          // || 0
+  });
+
+  it('title 列が存在しない行では title が空文字になる', () => {
+    // row.title が undefined → ?? '' のフォールバックを通す
+    const csv = 'id\nabc-123';
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].title).toBe('');  // undefined ?? '' = ''
+  });
+});
+
+describe('downloadFile', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('Blob を生成してアンカーをクリックし URL を解放する', () => {
+    const mockUrl = 'blob:mock-url';
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue(mockUrl);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const clickMock = vi.fn();
+    vi.spyOn(document, 'createElement').mockReturnValue(
+      { href: '', download: '', click: clickMock } as unknown as HTMLElement,
+    );
+
+    downloadFile('{"foo":1}', 'export.json', 'application/json');
+
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    expect(clickMock).toHaveBeenCalledOnce();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith(mockUrl);
   });
 });
