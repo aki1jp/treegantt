@@ -5,6 +5,8 @@
 - 各フェーズ完了時にCLAUDE.mdの進捗を更新すること
 - 長い実装の前に「これからやること」を記録すること
 - セッション再開時は必ずCLAUDE.mdを読んでから始めること
+- 実装前には yatagarasu-manager_design.md を更新しgitコミットすること
+- 実装後には gitコミットすること
 
 ---
 
@@ -24,11 +26,13 @@
 | Phase 1-C | Y.js（ネストY.Map）+ Hocuspocus + 接続バッジ | ✅ 完了 |
 | Phase 1-D | ガントチャート・ズーム・依存矢印・イナズマライン | ✅ 完了 |
 | Phase 1-E | Import/Export (JSON/CSV)・並び替えAPI | ✅ 完了 |
-| ユニットテスト | vitest 46テスト全合格 | ✅ 完了 |
+| ユニットテスト | vitest 199テスト全合格（API: 46件、フロントエンド: 153件） | ✅ 完了 |
 | Phase 1-F | インライン編集・分割レイアウト・親タスクツリー・リアルタイム同期修正 | ✅ 完了 |
 | Phase 1-G | CSVインポート対応・統合ガントビュー（MSProject風・TodoList廃止） | ✅ 完了 |
 | Phase 1-H | Y.js主体アーキテクチャ・リアルタイム同期修正・競合解決UI・フロントエンドテスト | ✅ 完了 |
 | Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時消失修正・ガント末行クイック追加・表示期間コントロール | ✅ 完了 |
+| Phase 1-J | ガント行ズレ修正・親タスク進捗自動計算（子平均・編集不可）・イナズマラインON/OFF・マルチレベルヘッダー（年/月/週/日個別トグル） | ✅ 完了 |
+| Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト追加 | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
 
 ---
@@ -37,21 +41,23 @@
 
 ```bash
 cd /workspace/api
-npm test                # API 59テスト実行（約600ms）
+npm test                # API 46テスト実行（約600ms）
 npm run test:coverage   # カバレッジ付き
 
 cd /workspace/frontend
-npm test -- --run       # フロントエンド 15テスト実行
+npm test -- --run       # フロントエンド 153テスト実行
 ```
 
 **APIテストファイル:**
 - `src/__tests__/helpers.ts` — インメモリSQLite生成ヘルパー
-- `src/__tests__/sort.test.ts` — ソート・フィルタロジックのpure関数テスト (10件)
-- `src/__tests__/taskService.test.ts` — CRUD・依存関係・reorderの単体テスト (17件)
-- `src/__tests__/routes.test.ts` — Fastify inject による統合テスト health/projects/tasks/import/export (32件)
+- `src/__tests__/sort.test.ts` — ソート・フィルタロジックのpure関数テスト (7件)
+- `src/__tests__/taskService.test.ts` — CRUD・依存関係・reorderの単体テスト (19件)
+- `src/__tests__/routes.test.ts` — Fastify inject による統合テスト health/projects/tasks/import/export (20件)
 
 **フロントエンドテストファイル:**
-- `src/__tests__/ganttCalc.test.ts` — ガント計算ロジックテスト (15件)
+- `src/__tests__/ganttCalc.test.ts` — ガント計算ロジックテスト (6件)
+- `src/__tests__/importExport.test.ts` — JSON/CSV import・export ユーティリティテスト (9件)
+- `src/__tests__/scenarios.test.ts` — FEATURES.md §3〜§8 対応シナリオテスト (138件)
 
 ---
 
@@ -61,7 +67,7 @@ npm test -- --run       # フロントエンド 15テスト実行
 # API起動
 cd /workspace/api && npm install && npm run dev
 # → http://localhost:4000/health  (REST API)
-# → ws://localhost:4001           (Hocuspocus WebSocket)
+# → ws://localhost:4001           (WebSocket broadcast)
 
 # フロントエンド起動（別ターミナル）
 cd /workspace/frontend && npm install && npm run dev
@@ -79,20 +85,19 @@ cd /workspace/frontend && npm install && npm run dev
 - `src/services/taskService.ts`
 - `src/routes/health.ts`, `projects.ts`, `tasks.ts`, `importExport.ts`
 - `src/plugins/auth.ts`
-- `src/ws/hocuspocus.ts`, `src/ws/hocuspocusHandlers.ts`
+- `src/ws/broadcast.ts`
 - `src/index.ts`
 - `src/__tests__/helpers.ts`, `sort.test.ts`, `taskService.test.ts`, `routes.test.ts`
 
 ### フロントエンド (`/workspace/frontend/`)
 - `package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`, `Dockerfile`
 - `src/types/task.ts`
-- `src/store/connectionStore.ts`, `taskStore.ts`, `yjsStore.ts`
-- `src/hooks/useYjs.ts`, `useTasks.ts`
-- `src/utils/sort.ts`, `ganttCalc.ts`, `importExport.ts`
-- `src/components/ConnectionBadge/ConnectionBadge.tsx`
+- `src/store/taskStore.ts`
+- `src/hooks/useWebSocket.ts`, `useTasks.ts`
+- `src/utils/api.ts`, `sort.ts`, `ganttCalc.ts`, `importExport.ts`, `taskTree.ts`
+- `src/components/ConflictDialog/ConflictDialog.tsx`
 - `src/components/Toolbar/Toolbar.tsx`
 - `src/components/TaskModal/TaskModal.tsx`
-- `src/components/TodoList/TodoList.tsx`, `TaskRow.tsx`
 - `src/components/Gantt/GanttChart.tsx`, `GanttBar.tsx`, `DependencyArrow.tsx`, `LightningLine.tsx`
 - `src/App.tsx`, `src/main.tsx`
 
@@ -103,8 +108,7 @@ cd /workspace/frontend && npm install && npm run dev
 
 ## アーキテクチャメモ
 
-- APIポート: 4000 (REST), 4001 (WebSocket)
-- SQLite: `/workspace/api/data/taskflow.db`
-- Y.js: タスクごとにネストY.Mapを使用（フィールド単位CRDT）
-- Hocuspocusは Fastify と同一プロセス（port 4001）
+- APIポート: 4000 (REST), 4001 (WebSocket broadcast)
+- SQLite: `/workspace/api/data/taskflow.db`（唯一の真の状態）
+- WebSocket: `ws` ライブラリによる broadcast サーバー（port 4001）。SQLite は REST 経由でのみ更新
 - テストはインメモリSQLiteを使用（DB依存の副作用なし）

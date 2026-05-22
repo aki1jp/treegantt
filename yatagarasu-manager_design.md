@@ -160,6 +160,8 @@ taskflow/
 │       ├── store/
 │       │   └── taskStore.ts      # Zustandストア（タスク・ソート・ズーム・needsReload）
 │       ├── components/
+│       │   ├── ConflictDialog/
+│       │   │   └── ConflictDialog.tsx # 編集競合解決ダイアログ
 │       │   ├── Gantt/
 │       │   │   ├── GanttChart.tsx
 │       │   │   ├── GanttBar.tsx
@@ -694,16 +696,23 @@ export function calcGanttRange(
 
 #### イナズマライン (Lightning Line) の定義
 
-**v1.0の問題点:** 「未完了タスクの中で最も早い `startDate`」だとプロジェクト開始直後は全タスクが未完了のため常に最初のタスク位置を示し、意味を持たない。
+**描画方式（進捗ベースのジグザグ折れ線）:**
 
-**v1.1の定義（実績と計画の境界線）:**
+各タスクのバー上における進捗 X 座標を `{x, y}` 点として収集し、行順に polyline でつなぐ。
 
-| 線の種類 | 色 | X座標 | 表示条件 |
-|---------|-----|-------|---------|
-| 今日ライン | `#E24B4A`（赤） | 今日の日付 | 常に表示 |
-| イナズマライン | `#D4537E`（ピンク） | `done` タスクの最大 `endDate` と `wip/todo` タスクの最小 `startDate` の中間 | 完了・未完了タスクが混在する場合のみ |
+```
+進捗 X = startX + (endX - startX) × effectiveProgress / 100
+Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
+```
 
-> イナズマラインが今日ラインより左にある場合は遅延傾向、右にある場合は進行良好を示す。
+日付が未設定のタスク行はスキップ（折れ線がその行を飛ぶ）。日付設定済みタスクが 2 件以上あるときのみ描画する。
+
+| 線の種類 | 色 | 描画方式 | 表示条件 |
+|---------|-----|---------|---------|
+| 今日ライン | `#E24B4A`（赤） | 今日の日付を X 座標にした縦破線 | 常に表示 |
+| イナズマライン | `#7c3aed`（紫） | 各行の進捗 X 座標を polyline でつなぐジグザグ折れ線 | 日付設定済みタスクが 2 件以上 |
+
+> イナズマラインが全体的に今日ラインより左にある場合は遅延傾向、右にある場合は進行良好を示す。
 
 #### 依存関係矢印の描画
 
@@ -786,11 +795,12 @@ export function calcGanttRange(
 |--------------|------|
 | `Toolbar` | フィルタ・ズーム選択・ガント期間コントロール・イナズマラインON/OFFボタン・ガントヘッダー行トグルボタン（年/月/週/日）・Import/Export・タスク追加ボタン |
 | `GanttChart` | 左固定列（`GanttLeftRow`）+ 右タイムライン（SVG）を1コンポーネントで統合管理。ツリー構造・折りたたみ状態も内包。行高さアライメント・マルチレベルヘッダー・親タスク進捗自動計算・イナズマラインON/OFF対応 |
-| `GanttLeftRow` | 統合ガントビューの1行分の左パネル。セルクリックでインライン編集、右クリックでコンテキストメニュー、`depth` による視覚的インデント |
+| `GanttLeftRow` | 統合ガントビューの1行分の左パネル。セルクリックでインライン編集、右クリックでコンテキストメニュー、`depth` による視覚的インデント。編集開始値と現在値を比較して競合を検知し `ConflictDialog` を呼び出す |
+| `ConflictDialog` | インライン編集中に他ユーザーが同じフィールドを更新した場合に表示する競合解決ダイアログ。「別のユーザーの変更を使う」「自分の変更を適用する」の2択 |
 | `QuickAddRow` | タスクリスト末尾に常時表示する空行。クリックで入力フィールド出現、Enter でタスク作成、Escape でキャンセル |
 | `GanttBar` | 1タスク分のバー。クリックでモーダル起動 |
 | `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
-| `LightningLine` | イナズマライン（polyline）と今日ライン（line）を描画。★v1.9: `calcLightningPoints` が返す `{x,y}[]` を受け取り斜線で結ぶ |
+| `LightningLine` | イナズマライン（polyline）と今日ライン（line）を描画。`calcLightningPoints` が返す `{x,y}[]` を受け取り斜線で結ぶ |
 | `TaskModal` | 新規作成・編集フォーム。親タスク選択セレクト・先行タスクのmulti-select・進捗率スライダー含む |
 
 ### 7.6 インライン編集仕様（★v1.3追加・v1.6更新）
@@ -924,7 +934,7 @@ export async function authPlugin(fastify: FastifyInstance) {
 | Phase 1-H | Y.js主体アーキテクチャ・リアルタイム同期修正・競合解決UI・フロントエンドテスト | ★v1.5実装内容 | ✅ 完了 |
 | Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時タスク消失修正・ガント末行クイック追加・表示期間コントロール追加（日付ピッカー＋期間セレクト） | ★v1.6実装内容 | ✅ 完了 |
 | Phase 1-J | ガント行ズレ修正・親タスク進捗自動計算・イナズマラインON/OFF・マルチレベルヘッダー・接続バッジアイコン改善 | ★v1.7実装内容 | ✅ 完了 |
-| Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト199件 | ★v1.9実装内容 | ✅ 完了 |
+| Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト138件追加（フロントエンド計153件） | ★v1.9実装内容 | ✅ 完了 |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
 
 ---
