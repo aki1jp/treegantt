@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.7 |
+| バージョン | 1.8 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -21,6 +21,7 @@
 | 1.5 | 2026年5月 | Y.js主体アーキテクチャへ刷新・リアルタイム同期修正・競合解決UI・フロントエンドテスト追加 |
 | 1.6 | 2026年5月 | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時タスク消失修正・ガント末行クイック追加・表示期間コントロール追加 |
 | 1.7 | 2026年5月 | ガント行ズレ修正・親タスク進捗自動計算（子平均・編集不可）・イナズマラインON/OFF・マルチレベルヘッダー（年/月/週/日個別トグル）・接続バッジアイコン改善 |
+| 1.8 | 2026年5月 | ステータス表示ラベル変更（wip→Doing・done→DONE）・フィルタに「DONE以外」追加 |
 
 ---
 
@@ -220,6 +221,7 @@ taskflow/
 
 ```typescript
 export type TaskStatus   = 'todo' | 'wip' | 'done' | 'wait';
+// ★v1.8: 表示ラベル — todo:'TODO' / wip:'Doing' / done:'DONE' / wait:'待機'
 export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
 export type ZoomLevel    = 'day' | 'week' | 'month';
 
@@ -585,7 +587,7 @@ interface TaskStore {
   tasks:              Task[];
   sortKey:            keyof Task | '';
   sortDir:            'asc' | 'desc';
-  filterStatus:       TaskStatus | '';
+  filterStatus:       TaskStatus | '' | '!done'; // ★v1.8: '!done' = DONE以外をすべて表示
   filterAssignee:     string;
   filterPriority:     string;
   zoomLevel:          ZoomLevel;     // ガントチャートのズームレベル
@@ -758,6 +760,17 @@ export function calcGanttRange(
 | デフォルト | `order` | DBの `ord` フィールド順 |
 
 **フィルタリング:** ステータス・担当者・優先度をフロントエンドのメモリ上でフィルタリングする。APIへの追加問い合わせは不要。
+
+**★v1.8 ステータスフィルタ選択肢:**
+
+| 値 | 表示ラベル | 動作 |
+|----|---------|------|
+| `''` | すべて | フィルタなし |
+| `'todo'` | TODO | status === 'todo' |
+| `'wip'` | Doing | status === 'wip' |
+| `'done'` | DONE | status === 'done' |
+| `'wait'` | 待機 | status === 'wait' |
+| `'!done'` | **DONE以外** | status !== 'done' |
 
 > ソート・フィルタはいずれもフロントエンドのメモリ上で行う。
 
