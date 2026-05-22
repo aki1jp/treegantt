@@ -7,12 +7,13 @@ import type { Task } from '../types/task';
 import { sortAndFilter } from '../utils/sort';
 import {
   calcGanttRange,
-  calcLightningX,
+  calcLightningPoints,
   calcTodayX,
   ganttTotalWidth,
   dateToX,
   PERIOD_DAYS,
   ZOOM_CONFIG,
+  ROW_HEIGHT_PX,
 } from '../utils/ganttCalc';
 import {
   exportToJson,
@@ -280,111 +281,130 @@ describe('§4.5 ガントバー表示条件', () => {
 });
 
 // ═══════════════════════════════════════════════════
-// §4.8 イナズマライン
+// §4.8 イナズマライン（進捗折れ線）
 // ═══════════════════════════════════════════════════
-describe('§4.8 イナズマライン (calcLightningX)', () => {
+describe('§4.8 イナズマライン (calcLightningPoints)', () => {
   const minDate = new Date('2026-01-01');
 
-  it('完了タスクが 0 件 → null', () => {
-    const tasks = [makeTask({ status: 'todo', startDate: '2026-05-01' })];
-    expect(calcLightningX(tasks, minDate, 'day')).toBeNull();
-  });
-
-  it('未完了タスクが 0 件（全完了）→ null', () => {
-    const tasks = [makeTask({ status: 'done', endDate: '2026-05-01' })];
-    expect(calcLightningX(tasks, minDate, 'day')).toBeNull();
-  });
+  function makeRow(task: Task, effectiveProgress = task.progress) {
+    return { task, effectiveProgress };
+  }
 
   it('タスクが 0 件 → null', () => {
-    expect(calcLightningX([], minDate, 'day')).toBeNull();
+    expect(calcLightningPoints([], minDate, 'day')).toBeNull();
   });
 
-  it('done + non-done 両方あり → 数値を返す', () => {
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-05-10' }),
-      makeTask({ status: 'todo', startDate: '2026-05-15' }),
-    ];
-    expect(calcLightningX(tasks, minDate, 'day')).toBeTypeOf('number');
+  it('日付なしタスクのみ → null（点を打てない）', () => {
+    const rows = [makeRow(makeTask({ startDate: null, endDate: null }))];
+    expect(calcLightningPoints(rows, minDate, 'day')).toBeNull();
   });
 
-  it('done の endDate なし → done 扱いされない（→ null）', () => {
-    const tasks = [
-      makeTask({ status: 'done', endDate: null }),
-      makeTask({ status: 'todo', startDate: '2026-05-15' }),
-    ];
-    expect(calcLightningX(tasks, minDate, 'day')).toBeNull();
+  it('日付ありタスクが 1 件 → 2 点（行の上端・下端）を返す', () => {
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 50 }))];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts).toHaveLength(2);
+    expect(pts[0].y).toBe(0);
+    expect(pts[1].y).toBe(ROW_HEIGHT_PX);
   });
 
-  it('non-done の startDate なし → non-done 扱いされない（→ null）', () => {
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-05-10' }),
-      makeTask({ status: 'todo', startDate: null }),
-    ];
-    expect(calcLightningX(tasks, minDate, 'day')).toBeNull();
-  });
-
-  it('X = done最大endDate と notDone最小startDate の中間', () => {
+  it('進捗 0% → startX に点が打たれる', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-01-10' }),
-      makeTask({ status: 'todo', startDate: '2026-01-20' }),
-    ];
-    const x = calcLightningX(tasks, minDate, 'day')!;
-    const x1 = 9 * dayWidth;   // Jan10 - Jan01 = 9 days
-    const x2 = 19 * dayWidth;  // Jan20 - Jan01 = 19 days
-    expect(x).toBe(Math.round((x1 + x2) / 2));
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 0 }))];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    const expectedX = 9 * dayWidth; // Jan10 - Jan01 = 9 days
+    expect(pts[0].x).toBe(expectedX);
   });
 
-  it('複数 done → 最も遅い endDate を使う', () => {
+  it('進捗 100% → endX（終了日の翌日）に点が打たれる', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-01-05' }),
-      makeTask({ status: 'done', endDate: '2026-01-10' }),  // こちらが最大
-      makeTask({ status: 'todo', startDate: '2026-01-20' }),
-    ];
-    const x = calcLightningX(tasks, minDate, 'day')!;
-    const x1 = 9 * dayWidth;
-    const x2 = 19 * dayWidth;
-    expect(x).toBe(Math.round((x1 + x2) / 2));
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 100 }))];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    // endX = (Jan20 - Jan01) + 1dayWidth = 19 * 28 + 28 = 20 * 28
+    const expectedX = 20 * dayWidth;
+    expect(pts[0].x).toBe(expectedX);
   });
 
-  it('複数 non-done → 最も早い startDate を使う', () => {
+  it('進捗 50% → startX と endX の中間', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-01-10' }),
-      makeTask({ status: 'todo', startDate: '2026-01-15' }),  // こちらが最小
-      makeTask({ status: 'todo', startDate: '2026-01-20' }),
-    ];
-    const x = calcLightningX(tasks, minDate, 'day')!;
-    const x1 = 9 * dayWidth;
-    const x2 = 14 * dayWidth;
-    expect(x).toBe(Math.round((x1 + x2) / 2));
+    const startX = 9 * dayWidth;  // Jan10
+    const endX   = 20 * dayWidth; // Jan20 + 1day
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 50 }))];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts[0].x).toBe(Math.round(startX + (endX - startX) * 0.5));
   });
 
-  it('wip も non-done として扱われる', () => {
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-05-10' }),
-      makeTask({ status: 'wip', startDate: '2026-05-15' }),
+  it('2 行のとき 4 点 → ジグザグパターンができる', () => {
+    const rows = [
+      makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 })),
+      makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 100 })),
     ];
-    expect(calcLightningX(tasks, minDate, 'day')).not.toBeNull();
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts).toHaveLength(4);
+    // y 座標: 0, ROW_H, ROW_H, ROW_H*2
+    expect(pts[0].y).toBe(0);
+    expect(pts[1].y).toBe(ROW_HEIGHT_PX);
+    expect(pts[2].y).toBe(ROW_HEIGHT_PX);
+    expect(pts[3].y).toBe(ROW_HEIGHT_PX * 2);
+    // x 座標: 行0は progress 0% → startX, 行1は progress 100% → endX
+    expect(pts[0].x).toBe(pts[1].x);  // 同じ行の上端・下端は同じX
+    expect(pts[2].x).toBe(pts[3].x);
+    expect(pts[0].x).not.toBe(pts[2].x);  // 行0と行1はXが違う（ジグザグ）
   });
 
-  it('wait も non-done として扱われる', () => {
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-05-10' }),
-      makeTask({ status: 'wait', startDate: '2026-05-15' }),
+  it('Y座標は行インデックス × ROW_HEIGHT_PX', () => {
+    const rows = [
+      makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 50 })),
+      makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 50 })),
+      makeRow(makeTask({ startDate: '2026-01-21', endDate: '2026-01-31', progress: 50 })),
     ];
-    expect(calcLightningX(tasks, minDate, 'day')).not.toBeNull();
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts[0].y).toBe(0);
+    expect(pts[1].y).toBe(ROW_HEIGHT_PX);
+    expect(pts[2].y).toBe(ROW_HEIGHT_PX);
+    expect(pts[3].y).toBe(ROW_HEIGHT_PX * 2);
+    expect(pts[4].y).toBe(ROW_HEIGHT_PX * 2);
+    expect(pts[5].y).toBe(ROW_HEIGHT_PX * 3);
   });
 
-  it('ズームレベルによって X 座標がスケールする', () => {
-    const tasks = [
-      makeTask({ status: 'done', endDate: '2026-01-10' }),
-      makeTask({ status: 'todo', startDate: '2026-01-20' }),
-    ];
-    const xDay  = calcLightningX(tasks, minDate, 'day')!;
-    const xWeek = calcLightningX(tasks, minDate, 'week')!;
-    expect(xDay).toBeGreaterThan(xWeek);
+  it('日付なし行は前行のXで垂直に通過する', () => {
+    const task0 = makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 });
+    const taskNoDate = makeTask({ startDate: null, endDate: null });
+    const rows = [makeRow(task0), makeRow(taskNoDate)];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts).toHaveLength(4);
+    // 日付なし行の X は直前の行と同じ
+    expect(pts[2].x).toBe(pts[0].x);
+    expect(pts[3].x).toBe(pts[0].x);
+  });
+
+  it('先頭行が日付なしで後続行が日付あり → 先頭は含まれない', () => {
+    const taskNoDate = makeTask({ startDate: null, endDate: null });
+    const task1 = makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 50 });
+    const rows = [makeRow(taskNoDate), makeRow(task1)];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    // 先頭はスキップ（lastX が null）、task1 の 2 点だけ
+    expect(pts).toHaveLength(2);
+    expect(pts[0].y).toBe(ROW_HEIGHT_PX);  // 2行目の上端
+  });
+
+  it('effectiveProgress が使われる（親タスク）', () => {
+    const { dayWidth } = ZOOM_CONFIG['day'];
+    const task = makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 });
+    const rows = [{ task, effectiveProgress: 60 }]; // 実際の progress は 0 だが有効進捗は 60%
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    const startX = 0;
+    const endX   = 10 * dayWidth;
+    const expected = Math.round(startX + (endX - startX) * 0.6);
+    expect(pts[0].x).toBe(expected);
+  });
+
+  it('ズームレベルが小さいほど X 座標が小さい（同じ進捗）', () => {
+    const rows = [makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 50 }))];
+    const ptsDay   = calcLightningPoints(rows, minDate, 'day')!;
+    const ptsWeek  = calcLightningPoints(rows, minDate, 'week')!;
+    const ptsMonth = calcLightningPoints(rows, minDate, 'month')!;
+    expect(ptsDay[0].x).toBeGreaterThan(ptsWeek[0].x);
+    expect(ptsWeek[0].x).toBeGreaterThan(ptsMonth[0].x);
   });
 });
 

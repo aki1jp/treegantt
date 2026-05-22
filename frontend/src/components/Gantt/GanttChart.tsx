@@ -5,13 +5,13 @@ import type { Task, TaskStatus, TaskPriority, ZoomLevel } from '../../types/task
 import { useTaskStore } from '../../store/taskStore';
 import { sortAndFilter } from '../../utils/sort';
 import {
-  calcGanttRange, calcTodayX, calcLightningX,
+  calcGanttRange, calcTodayX, calcLightningPoints,
   ganttTotalWidth, ROW_HEIGHT_PX, ZOOM_CONFIG,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, buildChildCountMap, calcEffectiveProgress } from '../../utils/taskTree';
+import { buildTree, flattenTree, calcEffectiveProgress } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
 import { DependencyArrow } from './DependencyArrow';
-import { LightningLine } from './LightningLine';
+import { LightningLine, TodayLine } from './LightningLine';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 
 dayjs.extend(weekOfYear);
@@ -477,7 +477,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const totalWidth  = ganttTotalWidth(sorted, zoomLevel, start, period);
   const headerRows  = buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels);
   const todayX      = calcTodayX(min, zoomLevel);
-  const lightningX  = calcLightningX(sorted, min, zoomLevel);
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
@@ -486,6 +485,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   // 親タスクの進捗を事前計算
   const progressMap = new Map(
     sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)])
+  );
+
+  // イナズマライン: 各行の有効進捗率をX座標に変換したジグザグ折れ線
+  const lightningPoints = calcLightningPoints(
+    flatRows.map(r => ({ task: r.task, effectiveProgress: progressMap.get(r.task.id) ?? 0 })),
+    min,
+    zoomLevel,
   );
 
   function toggleCollapse(id: string) {
@@ -617,11 +623,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             )}
 
             {/* 今日ライン */}
-            <LightningLine x={todayX} height={Math.max(totalHeight, 1)} color="#E24B4A" label="今日" />
+            <TodayLine x={todayX} height={Math.max(totalHeight, 1)} />
 
             {/* イナズマライン（ON/OFF切替可） */}
-            {showLightningLine && lightningX !== null && (
-              <LightningLine x={lightningX} height={Math.max(totalHeight, 1)} color="#D4537E" label="⚡" />
+            {showLightningLine && lightningPoints && (
+              <LightningLine points={lightningPoints} color="#7c3aed" />
             )}
           </svg>
         </div>

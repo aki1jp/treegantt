@@ -56,17 +56,37 @@ export function calcTodayX(minDate: Date, zoom: ZoomLevel): number {
   return dateToX(new Date().toISOString().slice(0, 10), minDate, zoom);
 }
 
-export function calcLightningX(tasks: Task[], minDate: Date, zoom: ZoomLevel): number | null {
-  const done    = tasks.filter(t => t.status === 'done' && t.endDate);
-  const notDone = tasks.filter(t => t.status !== 'done' && t.startDate);
-  if (done.length === 0 || notDone.length === 0) return null;
+// イナズマライン: 各タスクの進捗率をX座標に変換してつなぐジグザグ折れ線の頂点列
+export interface LightningPoint { x: number; y: number; }
 
-  const maxDoneEnd   = done.reduce((a, t) => (t.endDate! > a ? t.endDate! : a), '');
-  const minNotStart  = notDone.reduce((a, t) => (t.startDate! < a || !a ? t.startDate! : a), '');
+export function calcLightningPoints(
+  flatRows: { task: Task; effectiveProgress: number }[],
+  minDate: Date,
+  zoom: ZoomLevel,
+): LightningPoint[] | null {
+  const { dayWidth } = ZOOM_CONFIG[zoom];
+  const pts: LightningPoint[] = [];
+  let lastX: number | null = null;
 
-  const x1 = dateToX(maxDoneEnd, minDate, zoom);
-  const x2 = dateToX(minNotStart, minDate, zoom);
-  return Math.round((x1 + x2) / 2);
+  flatRows.forEach(({ task, effectiveProgress }, i) => {
+    const y0 = i * ROW_HEIGHT_PX;
+    const y1 = (i + 1) * ROW_HEIGHT_PX;
+
+    if (task.startDate && task.endDate) {
+      const startX   = dateToX(task.startDate, minDate, zoom);
+      const endX     = dateToX(task.endDate,   minDate, zoom) + dayWidth;
+      const progressX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
+      pts.push({ x: progressX, y: y0 });
+      pts.push({ x: progressX, y: y1 });
+      lastX = progressX;
+    } else if (lastX !== null) {
+      // 日付なし行: 直前のX座標で垂直に通過
+      pts.push({ x: lastX, y: y0 });
+      pts.push({ x: lastX, y: y1 });
+    }
+  });
+
+  return pts.length >= 2 ? pts : null;
 }
 
 export function ganttTotalWidth(tasks: Task[], zoom: ZoomLevel, startDate?: string, period?: GanttPeriod): number {
