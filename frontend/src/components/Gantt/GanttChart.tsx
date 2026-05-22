@@ -36,7 +36,7 @@ const STATUS_COLOR: Record<TaskStatus, string> = {
   todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
 };
 const STATUS_LABEL: Record<TaskStatus, string> = {
-  todo: 'TODO', wip: '進行中', done: '完了', wait: '待機',
+  todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機',
 };
 const PRIORITY_COLOR: Record<TaskPriority, string> = {
   critical: '#ef4444', high: '#f97316', medium: '#6b7280', low: '#d1d5db',

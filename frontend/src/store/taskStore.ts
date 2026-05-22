@@ -8,7 +8,7 @@ interface TaskStore {
   tasks:              Task[];
   sortKey:            keyof Task | '';
   sortDir:            'asc' | 'desc';
-  filterStatus:       TaskStatus | '';
+  filterStatus:       TaskStatus | '' | '!done';
   filterAssignee:     string;
   filterPriority:     string;
   zoomLevel:          ZoomLevel;
@@ -30,7 +30,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   tasks:              [],
   sortKey:            '',
   sortDir:            'asc',
-  filterStatus:       '',
+  filterStatus:       '' as TaskStatus | '' | '!done',
   filterAssignee:     '',
   filterPriority:     '',
   zoomLevel:          'week',

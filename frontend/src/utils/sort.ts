@@ -7,13 +7,14 @@ export function sortAndFilter(
   tasks: Task[],
   sortKey: keyof Task | '',
   sortDir: 'asc' | 'desc',
-  filterStatus: TaskStatus | '',
+  filterStatus: TaskStatus | '' | '!done',
   filterAssignee: string,
   filterPriority: string
 ): Task[] {
   let result = tasks;
 
-  if (filterStatus)   result = result.filter(t => t.status === filterStatus);
+  if (filterStatus === '!done') result = result.filter(t => t.status !== 'done');
+  else if (filterStatus)        result = result.filter(t => t.status === filterStatus);
   if (filterAssignee) result = result.filter(t => t.assignee.includes(filterAssignee));
   if (filterPriority) result = result.filter(t => t.priority === filterPriority);
 

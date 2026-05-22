@@ -30,12 +30,13 @@ const DIVIDER: React.CSSProperties = {
   width: 1, height: 22, background: '#e5e7eb', flexShrink: 0,
 };
 
-const STATUS_OPTIONS: { value: TaskStatus | ''; label: string }[] = [
-  { value: '', label: 'すべて' },
-  { value: 'todo', label: 'TODO' },
-  { value: 'wip', label: '進行中' },
-  { value: 'done', label: '完了' },
-  { value: 'wait', label: '待機' },
+const STATUS_OPTIONS: { value: TaskStatus | '' | '!done'; label: string }[] = [
+  { value: '',      label: 'すべて'  },
+  { value: 'todo',  label: 'TODO'   },
+  { value: 'wip',   label: 'Doing'  },
+  { value: 'done',  label: 'DONE'   },
+  { value: 'wait',  label: '待機'   },
+  { value: '!done', label: 'DONE以外' },
 ];
 const PRIORITY_OPTIONS: { value: TaskPriority | ''; label: string }[] = [
   { value: '', label: 'すべて' },
@@ -91,7 +92,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
       <div style={FILTER_GROUP}>
         <span style={LABEL}>ステータス</span>
         <select style={SELECT} value={filterStatus}
-          onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' })}>
+          onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
           {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
