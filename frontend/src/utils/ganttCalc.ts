@@ -65,16 +65,23 @@ export function calcLightningPoints(
   zoom: ZoomLevel,
 ): LightningPoint[] | null {
   const { dayWidth } = ZOOM_CONFIG[zoom];
+  const todayX = calcTodayX(minDate, zoom);
   const pts: LightningPoint[] = [];
 
   flatRows.forEach(({ task, effectiveProgress }, i) => {
     const centerY = i * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
 
     if (task.startDate && task.endDate) {
-      const startX    = dateToX(task.startDate, minDate, zoom);
-      const endX      = dateToX(task.endDate,   minDate, zoom) + dayWidth;
-      const progressX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
-      pts.push({ x: progressX, y: centerY });
+      let pointX: number;
+      if (task.status === 'done' || task.status === 'wait') {
+        // 完了・待機タスクは進捗位置ではなく今日の日付を頂点とする
+        pointX = todayX;
+      } else {
+        const startX = dateToX(task.startDate, minDate, zoom);
+        const endX   = dateToX(task.endDate,   minDate, zoom) + dayWidth;
+        pointX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
+      }
+      pts.push({ x: pointX, y: centerY });
     }
     // 日付なし行はスキップ（斜線が飛ぶだけで見た目が自然）
   });

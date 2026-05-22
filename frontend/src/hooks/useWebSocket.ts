@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:4001';
+const WS_URL = import.meta.env.VITE_WS_URL ?? `ws://${window.location.hostname}:4001`;
 const RECONNECT_DELAY_MS = 3000;
 
 // Module-level singleton: React StrictMode の二重マウントでも接続を維持

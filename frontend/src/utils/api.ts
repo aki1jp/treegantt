@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
+const API_BASE = import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:4000`;
 
 export async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}/api/v1${path}`, {
