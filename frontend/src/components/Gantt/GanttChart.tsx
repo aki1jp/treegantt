@@ -5,7 +5,7 @@ import type { Task, TaskStatus, TaskPriority, ZoomLevel } from '../../types/task
 import { useTaskStore } from '../../store/taskStore';
 import { sortAndFilter } from '../../utils/sort';
 import {
-  calcGanttRange, dateToX, calcTodayX, calcLightningX,
+  calcGanttRange, calcTodayX, calcLightningX,
   ganttTotalWidth, ROW_HEIGHT_PX, ZOOM_CONFIG,
 } from '../../utils/ganttCalc';
 import { GanttBar } from './GanttBar';
@@ -15,18 +15,18 @@ import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 
 dayjs.extend(weekOfYear);
 
-const HEADER_H = 32;
+const HEADER_ROW_H = 26;
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
-  { key: 'order',     label: '#',          width: 36,  sortable: true  },
-  { key: 'title',     label: 'タイトル',   width: 180, sortable: true  },
-  { key: 'status',    label: 'ST',         width: 66,  sortable: true  },
-  { key: 'priority',  label: '優先',       width: 56,  sortable: true  },
-  { key: 'progress',  label: '進捗',       width: 76,  sortable: true  },
-  { key: 'assignee',  label: '担当',       width: 76,  sortable: true  },
-  { key: 'startDate', label: '開始',       width: 88,  sortable: true  },
-  { key: 'endDate',   label: '終了',       width: 88,  sortable: true  },
+  { key: 'order',     label: '#',        width: 36,  sortable: true  },
+  { key: 'title',     label: 'タイトル', width: 180, sortable: true  },
+  { key: 'status',    label: 'ST',       width: 66,  sortable: true  },
+  { key: 'priority',  label: '優先',     width: 56,  sortable: true  },
+  { key: 'progress',  label: '進捗',     width: 76,  sortable: true  },
+  { key: 'assignee',  label: '担当',     width: 76,  sortable: true  },
+  { key: 'startDate', label: '開始',     width: 88,  sortable: true  },
+  { key: 'endDate',   label: '終了',     width: 88,  sortable: true  },
 ] as const;
 
 const LEFT_TOTAL = LEFT_COLS.reduce((s, c) => s + c.width, 0);
@@ -79,32 +79,89 @@ function flattenTree(nodes: TreeNode[], collapsed: Set<string>): { task: Task; d
   return result;
 }
 
-// ── タイムラインヘッダー ────────────────────────────
-function buildHeaders(min: Date, max: Date, zoom: ZoomLevel) {
-  const { dayWidth, headerFormat } = ZOOM_CONFIG[zoom];
-  const headers: { label: string; x: number; width: number }[] = [];
-  let cur = dayjs(min);
-  const end = dayjs(max);
-  while (cur.isBefore(end)) {
-    const x = Math.round((cur.toDate().getTime() - min.getTime()) / 86400000) * dayWidth;
-    if (zoom === 'day') {
-      headers.push({ label: cur.format(headerFormat), x, width: dayWidth });
-      cur = cur.add(1, 'day');
-    } else if (zoom === 'week') {
-      const ws = cur.startOf('week');
-      const we = ws.add(6, 'day');
-      const ce = we.isAfter(end) ? end : we;
-      headers.push({ label: `W${cur.week()}`, x, width: ce.diff(cur, 'day') * dayWidth + dayWidth });
-      cur = ws.add(1, 'week').startOf('week');
-    } else {
-      const ms = cur.startOf('month');
-      const me = ms.endOf('month');
-      const ce = me.isAfter(end) ? end : me;
-      headers.push({ label: cur.format(headerFormat), x, width: ce.diff(cur, 'day') * dayWidth + dayWidth });
-      cur = ms.add(1, 'month').startOf('month');
-    }
+// ── 親タスク進捗計算（子の平均、再帰） ──────────────
+function calcEffectiveProgress(taskId: string, childCountMap: Map<string, number>, allTasks: Task[]): number {
+  if ((childCountMap.get(taskId) ?? 0) === 0) {
+    return allTasks.find(t => t.id === taskId)?.progress ?? 0;
   }
-  return headers;
+  const children = allTasks.filter(t => t.parentId === taskId);
+  if (children.length === 0) return allTasks.find(t => t.id === taskId)?.progress ?? 0;
+  const total = children.reduce((sum, c) => sum + calcEffectiveProgress(c.id, childCountMap, allTasks), 0);
+  return Math.round(total / children.length);
+}
+
+// ── マルチレベルヘッダー構築 ─────────────────────────
+type HeaderRow = { level: 'year' | 'month' | 'week' | 'day'; cells: { label: string; x: number; width: number }[] };
+
+function buildMultiLevelHeaders(
+  min: Date, max: Date, zoom: ZoomLevel,
+  levels: { year: boolean; month: boolean; week: boolean; day: boolean },
+): HeaderRow[] {
+  const { dayWidth } = ZOOM_CONFIG[zoom];
+  const toX = (d: dayjs.Dayjs) =>
+    Math.round((d.toDate().getTime() - min.getTime()) / 86400000) * dayWidth;
+
+  const rows: HeaderRow[] = [];
+
+  // 年行
+  if (levels.year) {
+    const cells: HeaderRow['cells'] = [];
+    let cur = dayjs(min).startOf('year');
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const next = cur.add(1, 'year');
+      const x = Math.max(0, toX(cur));
+      const xe = toX(next.isBefore(end) ? next : end);
+      cells.push({ label: cur.format('YYYY'), x, width: xe - x });
+      cur = next;
+    }
+    rows.push({ level: 'year', cells });
+  }
+
+  // 月行
+  if (levels.month) {
+    const cells: HeaderRow['cells'] = [];
+    let cur = dayjs(min).startOf('month');
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const next = cur.add(1, 'month');
+      const x = Math.max(0, toX(cur));
+      const xe = toX(next.isBefore(end) ? next : end);
+      cells.push({ label: cur.format('YYYY-MM'), x, width: xe - x });
+      cur = next;
+    }
+    rows.push({ level: 'month', cells });
+  }
+
+  // 週行
+  if (levels.week) {
+    const cells: HeaderRow['cells'] = [];
+    let cur = dayjs(min).startOf('week');
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const next = cur.add(1, 'week');
+      const x = Math.max(0, toX(cur));
+      const xe = toX(next.isBefore(end) ? next : end);
+      cells.push({ label: `W${cur.week()}`, x, width: xe - x });
+      cur = next;
+    }
+    rows.push({ level: 'week', cells });
+  }
+
+  // 日行
+  if (levels.day) {
+    const cells: HeaderRow['cells'] = [];
+    let cur = dayjs(min);
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const x = toX(cur);
+      cells.push({ label: cur.format('D'), x, width: dayWidth });
+      cur = cur.add(1, 'day');
+    }
+    rows.push({ level: 'day', cells });
+  }
+
+  return rows;
 }
 
 // ── 左セル 1行コンポーネント ────────────────────────
@@ -113,6 +170,7 @@ interface LeftRowProps {
   depth: number;
   hasChildren: boolean;
   isCollapsed: boolean;
+  effectiveProgress: number;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onOpenModal: () => void;
@@ -120,12 +178,12 @@ interface LeftRowProps {
 }
 
 function GanttLeftRow({
-  task, depth, hasChildren, isCollapsed,
+  task, depth, hasChildren, isCollapsed, effectiveProgress,
   onToggleCollapse, onInlineUpdate, onOpenModal, onDelete,
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
-  const [editStartVal, setEditStartVal] = useState('');  // 編集開始時点のY.js値
+  const [editStartVal, setEditStartVal] = useState('');
   const [conflict, setConflict] = useState<{ field: string; theirVal: string; myVal: string } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -144,11 +202,10 @@ function GanttLeftRow({
   function startEdit(field: string, val: string) {
     setEditField(field);
     setEditVal(val);
-    setEditStartVal(val);  // 編集開始時点の値を記録
+    setEditStartVal(val);
   }
 
   function commit(field: string, myVal: string | number | null) {
-    // 編集中に別ユーザーが同フィールドを変更したか確認
     const currentYjsVal = String(task[field as keyof Task] ?? '');
     if (currentYjsVal !== editStartVal) {
       setConflict({ field, theirVal: currentYjsVal, myVal: String(myVal ?? '') });
@@ -162,20 +219,21 @@ function GanttLeftRow({
   function resolveConflict(useTheirs: boolean) {
     if (!conflict) return;
     if (!useTheirs) {
-      // 自分の変更を適用
       const parsed = isNaN(Number(conflict.myVal)) ? conflict.myVal : Number(conflict.myVal);
       onInlineUpdate(task.id, { [conflict.field]: parsed });
     }
     setConflict(null);
   }
+
   function onKey(e: React.KeyboardEvent, field: string, val: string | null) {
     if (e.key === 'Enter') commit(field, val);
     if (e.key === 'Escape') setEditField(null);
   }
 
+  // ★ アライメント修正: 外側 div に高さを明示し borderBottom はその内側に収める
   const CELL: React.CSSProperties = {
     height: ROW_HEIGHT_PX, display: 'flex', alignItems: 'center',
-    padding: '0 6px', fontSize: 12, overflow: 'hidden', borderBottom: '1px solid #f3f4f6',
+    padding: '0 6px', fontSize: 12, overflow: 'hidden',
     boxSizing: 'border-box',
   };
   const INPUT_S: React.CSSProperties = {
@@ -188,7 +246,11 @@ function GanttLeftRow({
 
   return (
     <div
-      style={{ display: 'flex', background: rowBg, borderBottom: '1px solid #f3f4f6' }}
+      style={{
+        display: 'flex', background: rowBg,
+        height: ROW_HEIGHT_PX, boxSizing: 'border-box',
+        borderBottom: '1px solid #f3f4f6',
+      }}
       onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
     >
       {/* # (order) */}
@@ -264,23 +326,31 @@ function GanttLeftRow({
         )}
       </div>
 
-      {/* 進捗 */}
+      {/* 進捗 — 親タスクは自動計算・編集不可 */}
       <div style={{ ...CELL, width: 76 }}>
-        {editField === 'progress' ? (
+        {!hasChildren && editField === 'progress' ? (
           <input ref={inputRef} style={{ ...INPUT_S, width: 52 }} type="number" min={0} max={100} value={editVal}
             onChange={e => setEditVal(e.target.value)}
-            onBlur={() => { commit('progress', Math.min(100, Math.max(0, Number(editVal)))); }}
+            onBlur={() => commit('progress', Math.min(100, Math.max(0, Number(editVal))))}
             onKeyDown={e => {
               if (e.key === 'Enter') commit('progress', Math.min(100, Math.max(0, Number(editVal))));
               if (e.key === 'Escape') setEditField(null);
             }} />
         ) : (
-          <div onClick={() => startEdit('progress', String(task.progress))}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'text', width: '100%' }}>
+          <div
+            onClick={() => { if (!hasChildren) startEdit('progress', String(task.progress)); }}
+            title={hasChildren ? '子タスクの平均（自動計算）' : undefined}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%',
+              cursor: hasChildren ? 'default' : 'text' }}>
             <div style={{ width: 40, height: 5, background: '#e5e7eb', borderRadius: 3, flexShrink: 0 }}>
-              <div style={{ width: `${task.progress}%`, height: '100%', background: '#4f46e5', borderRadius: 3 }} />
+              <div style={{
+                width: `${effectiveProgress}%`, height: '100%', borderRadius: 3,
+                background: hasChildren ? '#a5b4fc' : '#4f46e5',
+              }} />
             </div>
-            <span style={{ fontSize: 10, color: '#6b7280' }}>{task.progress}%</span>
+            <span style={{ fontSize: 10, color: hasChildren ? '#a5b4fc' : '#6b7280' }}>
+              {effectiveProgress}%
+            </span>
           </div>
         )}
       </div>
@@ -294,7 +364,8 @@ function GanttLeftRow({
             onKeyDown={e => onKey(e, 'assignee', editVal)} />
         ) : (
           <span onClick={() => startEdit('assignee', task.assignee)}
-            style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: task.assignee ? undefined : '#d1d5db' }}>
+            style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              color: task.assignee ? undefined : '#d1d5db' }}>
             {task.assignee || '—'}
           </span>
         )}
@@ -330,7 +401,6 @@ function GanttLeftRow({
         )}
       </div>
 
-      {/* 競合解決ダイアログ */}
       {conflict && (
         <ConflictDialog
           field={conflict.field}
@@ -340,7 +410,6 @@ function GanttLeftRow({
         />
       )}
 
-      {/* 右クリックメニュー */}
       {ctxMenu && (
         <div style={{
           position: 'fixed', top: ctxMenu.y, left: ctxMenu.x,
@@ -392,7 +461,11 @@ function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
   };
 
   return (
-    <div style={{ display: 'flex', background: '#fafafa', borderTop: '1px dashed #e5e7eb' }}>
+    <div style={{
+      display: 'flex', background: '#fafafa',
+      height: ROW_HEIGHT_PX, boxSizing: 'border-box',
+      borderTop: '1px dashed #e5e7eb',
+    }}>
       <div style={{ ...CELL, width: 36 }} />
       <div style={{ ...CELL, width: 180 }}>
         {editing ? (
@@ -427,26 +500,36 @@ interface Props {
 }
 
 export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd }: Props) {
-  const { tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, zoomLevel, ganttStartDate, ganttPeriod, setSortKey } = useTaskStore();
+  const {
+    tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
+    zoomLevel, ganttStartDate, ganttPeriod,
+    showLightningLine, ganttHeaderLevels,
+    setSortKey,
+  } = useTaskStore();
+
   const sorted = sortAndFilter(tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority);
 
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const { roots, childCount } = buildTree(sorted);
   const flatRows = flattenTree(roots, collapsed);
 
-  const start = ganttStartDate || undefined;
-  const period = ganttPeriod || undefined;
-  const range = calcGanttRange(sorted, start, period);
+  const start  = ganttStartDate || undefined;
+  const period = ganttPeriod    || undefined;
+  const range  = calcGanttRange(sorted, start, period);
   const { min, max } = range;
-  const totalWidth = ganttTotalWidth(sorted, zoomLevel, start, period);
-  const headers = buildHeaders(min, max, zoomLevel);
-  const todayX = calcTodayX(min, zoomLevel);
-  const lightningX = calcLightningX(sorted, min, zoomLevel);
+  const totalWidth  = ganttTotalWidth(sorted, zoomLevel, start, period);
+  const headerRows  = buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels);
+  const todayX      = calcTodayX(min, zoomLevel);
+  const lightningX  = calcLightningX(sorted, min, zoomLevel);
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
-  // QuickAddRow の分だけ高さを加算
   const totalHeight = (flatRows.length + 1) * ROW_HEIGHT_PX;
+
+  // 親タスクの進捗を事前計算
+  const progressMap = new Map(
+    sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)])
+  );
 
   function toggleCollapse(id: string) {
     setCollapsed(prev => {
@@ -457,7 +540,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }
 
   const TH: React.CSSProperties = {
-    height: HEADER_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    height: HEADER_ROW_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 11, fontWeight: 700, color: '#6b7280',
     borderRight: '1px solid #e5e7eb', cursor: 'default', userSelect: 'none',
     boxSizing: 'border-box', padding: '0 4px',
@@ -465,70 +548,77 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   return (
     <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-      {/* コンテンツ幅 = 左パネル + タイムライン幅 */}
       <div style={{ width: LEFT_TOTAL + totalWidth }}>
 
-        {/* ── ヘッダー行（縦スクロールで固定） ── */}
+        {/* ── ヘッダー（マルチレベル） ── */}
         <div style={{
-          display: 'flex', height: HEADER_H,
           position: 'sticky', top: 0, zIndex: 20,
           borderBottom: '2px solid #e5e7eb', background: '#f9fafb',
         }}>
-          {/* 左ヘッダー（横スクロールでも固定） */}
-          <div style={{
-            display: 'flex', flexShrink: 0, width: LEFT_TOTAL,
-            position: 'sticky', left: 0, zIndex: 21,
-            background: '#f9fafb', borderRight: '2px solid #6366f1',
-          }}>
-            {LEFT_COLS.map(col => (
-              <div
-                key={col.key}
-                style={{
-                  ...TH, width: col.width,
-                  cursor: col.sortable ? 'pointer' : 'default',
-                }}
-                onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
-              >
-                {col.label}
-                {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
-              </div>
-            ))}
-          </div>
-
-          {/* タイムラインヘッダー */}
-          <div style={{ width: totalWidth, position: 'relative', height: HEADER_H, background: '#f9fafb' }}>
-            {headers.map((h, i) => (
-              <div key={i} style={{
-                position: 'absolute', left: h.x, width: h.width, height: HEADER_H,
-                background: i % 2 === 0 ? '#f9fafb' : '#f3f4f6',
-                borderRight: '1px solid #e5e7eb',
-                display: 'flex', alignItems: 'center', paddingLeft: 4,
-                fontSize: 10, fontWeight: 600, color: '#6b7280',
-                boxSizing: 'border-box', overflow: 'hidden',
+          {headerRows.map((row, ri) => (
+            <div key={row.level} style={{ display: 'flex', height: HEADER_ROW_H }}>
+              {/* 左ヘッダー（最初の行のみ列名・残りは空） */}
+              <div style={{
+                display: 'flex', flexShrink: 0, width: LEFT_TOTAL,
+                position: 'sticky', left: 0, zIndex: 21,
+                background: '#f9fafb', borderRight: '2px solid #6366f1',
               }}>
-                {h.label}
+                {ri === 0
+                  ? LEFT_COLS.map(col => (
+                      <div
+                        key={col.key}
+                        style={{ ...TH, width: col.width, cursor: col.sortable ? 'pointer' : 'default' }}
+                        onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
+                      >
+                        {col.label}
+                        {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                      </div>
+                    ))
+                  : <div style={{ width: LEFT_TOTAL, height: HEADER_ROW_H,
+                      borderTop: '1px solid #e5e7eb', background: '#f9fafb' }} />
+                }
               </div>
-            ))}
-          </div>
+
+              {/* タイムラインヘッダー行 */}
+              <div style={{ width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: '#f9fafb',
+                borderTop: ri > 0 ? '1px solid #e5e7eb' : undefined }}>
+                {row.cells.map((cell, ci) => (
+                  <div key={ci} style={{
+                    position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
+                    background: ci % 2 === 0 ? '#f9fafb' : '#f3f4f6',
+                    borderRight: '1px solid #e5e7eb',
+                    display: 'flex', alignItems: 'center', paddingLeft: 4,
+                    fontSize: row.level === 'day' ? 9 : 10,
+                    fontWeight: row.level === 'year' ? 800 : 600,
+                    color: row.level === 'year' ? '#374151' : '#6b7280',
+                    boxSizing: 'border-box', overflow: 'hidden',
+                  }}>
+                    {cell.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* ── ボディ行 ── */}
         <div style={{ display: 'flex', position: 'relative' }}>
 
-          {/* 左パネル（横スクロールでも固定） */}
+          {/* 左パネル */}
           <div style={{
             flexShrink: 0, width: LEFT_TOTAL,
             position: 'sticky', left: 0, zIndex: 10,
             borderRight: '2px solid #6366f1',
             background: '#fff',
           }}>
-            {flatRows.length > 0 && flatRows.map(({ task, depth }) => (
+            {flatRows.map(({ task, depth }) => (
               <GanttLeftRow
                 key={task.id}
                 task={task}
                 depth={depth}
                 hasChildren={(childCount.get(task.id) ?? 0) > 0}
                 isCollapsed={collapsed.has(task.id)}
+                effectiveProgress={progressMap.get(task.id) ?? task.progress}
                 onToggleCollapse={() => toggleCollapse(task.id)}
                 onInlineUpdate={onInlineUpdate}
                 onOpenModal={() => onEditTask(task)}
@@ -539,11 +629,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </div>
 
           {/* 右パネル：ガントSVG */}
-          <svg
-            width={totalWidth}
-            height={Math.max(totalHeight, 1)}
-            style={{ display: 'block', flexShrink: 0 }}
-          >
+          <svg width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block', flexShrink: 0 }}>
             <defs>
               <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
                 <path d="M0,0 L6,3 L0,6 Z" fill="#378ADD" />
@@ -576,8 +662,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* 今日ライン */}
             <LightningLine x={todayX} height={Math.max(totalHeight, 1)} color="#E24B4A" label="今日" />
 
-            {/* イナズマライン */}
-            {lightningX !== null && (
+            {/* イナズマライン（ON/OFF切替可） */}
+            {showLightningLine && lightningX !== null && (
               <LightningLine x={lightningX} height={Math.max(totalHeight, 1)} color="#D4537E" label="⚡" />
             )}
           </svg>
