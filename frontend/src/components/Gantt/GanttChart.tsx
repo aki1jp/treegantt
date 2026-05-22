@@ -163,9 +163,9 @@ function GanttLeftRow({
   }
 
   function commit(field: string, myVal: string | number | null) {
-    const currentYjsVal = String(task[field as keyof Task] ?? '');
-    if (currentYjsVal !== editStartVal) {
-      setConflict({ field, theirVal: currentYjsVal, myVal: String(myVal ?? '') });
+    const currentVal = String(task[field as keyof Task] ?? '');
+    if (currentVal !== editStartVal) {
+      setConflict({ field, theirVal: currentVal, myVal: String(myVal ?? '') });
       setEditField(null);
       return;
     }

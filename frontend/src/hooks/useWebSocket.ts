@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useConnectionStore } from '../store/connectionStore';
 import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
@@ -54,11 +53,8 @@ function openWs(projectId: string) {
   const ws = new WebSocket(WS_URL);
   _ws = ws;
 
-  useConnectionStore.getState().setStatus('connecting');
-
   ws.onopen = () => {
     if (_projectId !== projectId) { ws.close(); return; }
-    useConnectionStore.getState().setStatus('connected');
     ws.send(JSON.stringify({ type: 'subscribe', projectId }));
   };
 
@@ -72,13 +68,10 @@ function openWs(projectId: string) {
 
   ws.onclose = () => {
     if (_projectId !== projectId) return;
-    useConnectionStore.getState().setStatus('disconnected');
     _reconnectTimer = setTimeout(() => openWs(projectId), RECONNECT_DELAY_MS);
   };
 
-  ws.onerror = () => {
-    useConnectionStore.getState().setStatus('disconnected');
-  };
+  ws.onerror = () => { /* auto-reconnect via onclose */ };
 }
 
 export function useWebSocket(projectId: string | null) {
@@ -87,7 +80,6 @@ export function useWebSocket(projectId: string | null) {
       if (_ws) { _ws.onclose = null; _ws.onerror = null; _ws.close(); _ws = null; }
       if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
       _projectId = null;
-      useConnectionStore.getState().setStatus('disconnected');
       return;
     }
 

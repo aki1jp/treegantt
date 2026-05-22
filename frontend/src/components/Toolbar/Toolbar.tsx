@@ -1,7 +1,6 @@
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
-import { ConnectionBadge } from '../ConnectionBadge/ConnectionBadge';
 
 interface Props {
   onAddTask: () => void;
@@ -178,7 +177,6 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
 
       {/* 右端ボタン群 */}
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
-        <ConnectionBadge />
         <button style={BTN} onClick={onImport}>インポート</button>
         <button style={BTN} onClick={onExportJson}>JSON出力</button>
         <button style={BTN} onClick={onExportCsv}>CSV出力</button>
