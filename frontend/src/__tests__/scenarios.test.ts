@@ -299,12 +299,11 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     expect(calcLightningPoints(rows, minDate, 'day')).toBeNull();
   });
 
-  it('日付ありタスクが 1 件 → 2 点（行の上端・下端）を返す', () => {
+  it('日付ありタスクが 1 件 → 1 点（行の中心Y）を返す', () => {
     const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 50 }))];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
-    expect(pts).toHaveLength(2);
-    expect(pts[0].y).toBe(0);
-    expect(pts[1].y).toBe(ROW_HEIGHT_PX);
+    expect(pts).toHaveLength(1);
+    expect(pts[0].y).toBe(ROW_HEIGHT_PX / 2);
   });
 
   it('進捗 0% → startX に点が打たれる', () => {
@@ -333,58 +332,51 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     expect(pts[0].x).toBe(Math.round(startX + (endX - startX) * 0.5));
   });
 
-  it('2 行のとき 4 点 → ジグザグパターンができる', () => {
+  it('2 行のとき 2 点 → 斜線でつながる', () => {
     const rows = [
       makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 })),
       makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 100 })),
     ];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
-    expect(pts).toHaveLength(4);
-    // y 座標: 0, ROW_H, ROW_H, ROW_H*2
-    expect(pts[0].y).toBe(0);
-    expect(pts[1].y).toBe(ROW_HEIGHT_PX);
-    expect(pts[2].y).toBe(ROW_HEIGHT_PX);
-    expect(pts[3].y).toBe(ROW_HEIGHT_PX * 2);
-    // x 座標: 行0は progress 0% → startX, 行1は progress 100% → endX
-    expect(pts[0].x).toBe(pts[1].x);  // 同じ行の上端・下端は同じX
-    expect(pts[2].x).toBe(pts[3].x);
-    expect(pts[0].x).not.toBe(pts[2].x);  // 行0と行1はXが違う（ジグザグ）
+    expect(pts).toHaveLength(2);
+    // 行0と行1でXが異なる → 斜線になる
+    expect(pts[0].x).not.toBe(pts[1].x);
   });
 
-  it('Y座標は行インデックス × ROW_HEIGHT_PX', () => {
+  it('Y座標は各行の中心（行インデックス × ROW_HEIGHT + ROW_HEIGHT/2）', () => {
     const rows = [
       makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 50 })),
       makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 50 })),
       makeRow(makeTask({ startDate: '2026-01-21', endDate: '2026-01-31', progress: 50 })),
     ];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
-    expect(pts[0].y).toBe(0);
-    expect(pts[1].y).toBe(ROW_HEIGHT_PX);
-    expect(pts[2].y).toBe(ROW_HEIGHT_PX);
-    expect(pts[3].y).toBe(ROW_HEIGHT_PX * 2);
-    expect(pts[4].y).toBe(ROW_HEIGHT_PX * 2);
-    expect(pts[5].y).toBe(ROW_HEIGHT_PX * 3);
+    expect(pts).toHaveLength(3);
+    expect(pts[0].y).toBe(ROW_HEIGHT_PX * 0 + ROW_HEIGHT_PX / 2);
+    expect(pts[1].y).toBe(ROW_HEIGHT_PX * 1 + ROW_HEIGHT_PX / 2);
+    expect(pts[2].y).toBe(ROW_HEIGHT_PX * 2 + ROW_HEIGHT_PX / 2);
   });
 
-  it('日付なし行は前行のXで垂直に通過する', () => {
-    const task0 = makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 });
-    const taskNoDate = makeTask({ startDate: null, endDate: null });
-    const rows = [makeRow(task0), makeRow(taskNoDate)];
+  it('日付なし行はスキップされる（斜線が飛ぶ）', () => {
+    const rows = [
+      makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 })),
+      makeRow(makeTask({ startDate: null, endDate: null })),
+      makeRow(makeTask({ startDate: '2026-01-21', endDate: '2026-01-31', progress: 50 })),
+    ];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
-    expect(pts).toHaveLength(4);
-    // 日付なし行の X は直前の行と同じ
-    expect(pts[2].x).toBe(pts[0].x);
-    expect(pts[3].x).toBe(pts[0].x);
-  });
-
-  it('先頭行が日付なしで後続行が日付あり → 先頭は含まれない', () => {
-    const taskNoDate = makeTask({ startDate: null, endDate: null });
-    const task1 = makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 50 });
-    const rows = [makeRow(taskNoDate), makeRow(task1)];
-    const pts = calcLightningPoints(rows, minDate, 'day')!;
-    // 先頭はスキップ（lastX が null）、task1 の 2 点だけ
+    // 日付なし行を除いた 2 点だけ
     expect(pts).toHaveLength(2);
-    expect(pts[0].y).toBe(ROW_HEIGHT_PX);  // 2行目の上端
+    expect(pts[0].y).toBe(ROW_HEIGHT_PX / 2);           // 0行目の中心
+    expect(pts[1].y).toBe(ROW_HEIGHT_PX * 2 + ROW_HEIGHT_PX / 2); // 2行目の中心
+  });
+
+  it('先頭行が日付なしでもスキップされ後続行から始まる', () => {
+    const rows = [
+      makeRow(makeTask({ startDate: null, endDate: null })),
+      makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 50 })),
+    ];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts).toHaveLength(1);
+    expect(pts[0].y).toBe(ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2);  // 1行目の中心
   });
 
   it('effectiveProgress が使われる（親タスク）', () => {
