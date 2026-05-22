@@ -28,7 +28,7 @@ export default function App() {
 
   const { tasks, setTasks } = useTaskStore();
 
-  const { yTasks, synced } = useYjs(currentProject?.id ?? '_none');
+  const { yTasks } = useYjs(currentProject?.id ?? '_none');
   const { createTask, updateTask, deleteTask } = useTasks(yTasks, currentProject?.id ?? '');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,16 +42,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentProject || !synced) return;
+    if (!currentProject) return;
 
-    // Y.jsが完全かどうかに関わらず、常にREST APIと照合してDBにあるタスクを補完する。
-    // Y.jsのバイナリが古い場合（サーバーのonLoadDocumentが呼ばれなかった場合など）でも
-    // 新規タスクが消えないようにするためのクライアント側フォールバック。
+    // プロジェクト切り替え時は即座にREST APIからタスクを取得して表示する。
+    // Y.jsのsynced状態に依存しない（'_none'プロジェクトのsyncedが誤ってtrueになる競合を回避）。
     apiFetch(`/projects/${currentProject.id}/tasks`).then(d => {
       const dbTasks = d.tasks as Task[];
-      const ydoc = yTasks.doc!;
 
-      // DBにあってY.jsにないタスクのみ追加（Y.jsのCRDTデータは上書きしない）
+      // DBのタスクを即座に表示（Y.js同期状態に関わらず）
+      setTasks(dbTasks);
+
+      // DBにあってY.jsにないタスクをY.jsにも追加（リアルタイム同期のため）
+      const ydoc = yTasks.doc!;
       const missingTasks = dbTasks.filter(t => !yTasks.has(t.id));
       if (missingTasks.length > 0) {
         ydoc.transact(() => {
@@ -61,12 +63,6 @@ export default function App() {
             yTasks.set(task.id, yTask);
           }
         });
-        // observeDeep ハンドラがストアを更新する
-      } else {
-        // Y.jsが完全 → Y.jsから読む（CRDTの最新値を使う）
-        const tasks = Array.from(yTasks.entries())
-          .map(([, m]) => Object.fromEntries(m.entries()) as unknown as Task);
-        setTasks(tasks);
       }
     }).catch(() => {
       // REST fetch失敗時はY.jsのデータで表示を維持
@@ -76,7 +72,7 @@ export default function App() {
         setTasks(tasks);
       }
     });
-  }, [currentProject, synced]);
+  }, [currentProject?.id]);
 
   async function handleCreateProject() {
     const name = prompt('プロジェクト名を入力してください');

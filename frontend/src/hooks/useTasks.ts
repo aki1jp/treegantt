@@ -37,9 +37,8 @@ export function useTasks(yTasks: Y.Map<Y.Map<unknown>>, projectId: string) {
     return data.task as Task;
   }
 
-  // タスク更新: Y.js直接書き込み → Hocuspocusが全クライアントに即時配信 → onStoreDocumentがDBを同期
-  // REST API は呼ばない（外部REST経由の更新はサーバー側でY.jsも更新済み）
   async function updateTask(id: string, patch: Partial<Task>): Promise<void> {
+    // Y.jsをローカル更新して即時反映
     const ydoc = yTasks.doc!;
     ydoc.transact(() => {
       const yTask = yTasks.get(id);
@@ -47,6 +46,11 @@ export function useTasks(yTasks: Y.Map<Y.Map<unknown>>, projectId: string) {
       for (const [k, v] of Object.entries(patch)) {
         yTask.set(k, v as unknown);
       }
+    });
+    // REST APIも呼びサーバー側syncToYjsで全クライアントへブロードキャスト
+    await apiFetch(`/tasks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
     });
   }
 

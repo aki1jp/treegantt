@@ -14,11 +14,6 @@ export const hocuspocus = Server.configure({
     new SQLite({ database: dbPath }),
   ],
 
-  async onAuthenticate(_data) {
-    // Phase 2: LDAPトークン検証をここに実装
-    return {};
-  },
-
   async onLoadDocument({ document, documentName }) {
     await handleLoadDocument(document, documentName, db);
   },
