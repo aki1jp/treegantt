@@ -5,7 +5,7 @@ import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { taskRoutes } from './routes/tasks.js';
 import { importExportRoutes } from './routes/importExport.js';
-import { hocuspocus } from './ws/hocuspocus.js';
+import { wss } from './ws/broadcast.js';
 
 const PORT = parseInt(process.env.PORT ?? '4000', 10);
 
@@ -34,5 +34,6 @@ fastify.setErrorHandler((err, _req, reply) => {
 await fastify.listen({ port: PORT, host: '0.0.0.0' });
 fastify.log.info(`API listening on port ${PORT}`);
 
-hocuspocus.listen();
-fastify.log.info(`WebSocket (Hocuspocus) listening on port ${process.env.WS_PORT ?? 4001}`);
+wss.on('listening', () => {
+  fastify.log.info(`WebSocket broadcast server listening on port ${process.env.WS_PORT ?? 4001}`);
+});

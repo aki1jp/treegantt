@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import * as Y from 'yjs';
-import { useYjs } from './hooks/useYjs';
+import { useWebSocket } from './hooks/useWebSocket';
 import { useTasks } from './hooks/useTasks';
 import { useTaskStore } from './store/taskStore';
 import { Toolbar } from './components/Toolbar/Toolbar';
@@ -21,18 +20,21 @@ async function apiFetch(path: string, init?: RequestInit) {
 }
 
 export default function App() {
-  const [projects, setProjects]         = useState<Project[]>([]);
+  const [projects, setProjects]             = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [modalTask, setModalTask]       = useState<Task | null | undefined>(undefined);
-  const [loading, setLoading]           = useState(true);
+  const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
+  const [loading, setLoading]               = useState(true);
 
-  const { tasks, setTasks } = useTaskStore();
+  const { tasks, setTasks, needsReload, setNeedsReload } = useTaskStore();
 
-  const { yTasks } = useYjs(currentProject?.id ?? '_none');
-  const { createTask, updateTask, deleteTask } = useTasks(yTasks, currentProject?.id ?? '');
+  // WebSocket: プロジェクトのリアルタイム同期
+  useWebSocket(currentProject?.id ?? null);
+
+  const { createTask, updateTask, deleteTask } = useTasks(currentProject?.id ?? '');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 初期ロード: プロジェクト一覧
   useEffect(() => {
     apiFetch('/projects').then(d => {
       setProjects(d.projects);
@@ -41,38 +43,22 @@ export default function App() {
     }).catch(() => setLoading(false));
   }, []);
 
+  // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
     if (!currentProject) return;
-
-    // プロジェクト切り替え時は即座にREST APIからタスクを取得して表示する。
-    // Y.jsのsynced状態に依存しない（'_none'プロジェクトのsyncedが誤ってtrueになる競合を回避）。
-    apiFetch(`/projects/${currentProject.id}/tasks`).then(d => {
-      const dbTasks = d.tasks as Task[];
-
-      // DBのタスクを即座に表示（Y.js同期状態に関わらず）
-      setTasks(dbTasks);
-
-      // DBにあってY.jsにないタスクをY.jsにも追加（リアルタイム同期のため）
-      const ydoc = yTasks.doc!;
-      const missingTasks = dbTasks.filter(t => !yTasks.has(t.id));
-      if (missingTasks.length > 0) {
-        ydoc.transact(() => {
-          for (const task of missingTasks) {
-            const yTask = new Y.Map<unknown>();
-            for (const [k, v] of Object.entries(task)) yTask.set(k, v);
-            yTasks.set(task.id, yTask);
-          }
-        });
-      }
-    }).catch(() => {
-      // REST fetch失敗時はY.jsのデータで表示を維持
-      if (yTasks.size > 0) {
-        const tasks = Array.from(yTasks.entries())
-          .map(([, m]) => Object.fromEntries(m.entries()) as unknown as Task);
-        setTasks(tasks);
-      }
-    });
+    apiFetch(`/projects/${currentProject.id}/tasks`)
+      .then(d => setTasks(d.tasks))
+      .catch(() => {});
   }, [currentProject?.id]);
+
+  // reload イベント受信時（import 後など）: タスクを再フェッチ
+  useEffect(() => {
+    if (!needsReload || !currentProject) return;
+    setNeedsReload(false);
+    apiFetch(`/projects/${currentProject.id}/tasks`)
+      .then(d => setTasks(d.tasks))
+      .catch(() => {});
+  }, [needsReload]);
 
   async function handleCreateProject() {
     const name = prompt('プロジェクト名を入力してください');
@@ -132,18 +118,12 @@ export default function App() {
 
   function handleExportJson() {
     if (!currentProject) return;
-    const json = exportToJson(currentProject, tasks);
-    downloadFile(json, `taskflow-${currentProject.id}.json`, 'application/json');
+    downloadFile(exportToJson(currentProject, tasks), `taskflow-${currentProject.id}.json`, 'application/json');
   }
 
   function handleExportCsv() {
     if (!currentProject) return;
-    const csv = exportToCsv(tasks);
-    downloadFile(csv, `taskflow-${currentProject.id}.csv`, 'text/csv');
-  }
-
-  async function handleImport() {
-    fileInputRef.current?.click();
+    downloadFile(exportToCsv(tasks), `taskflow-${currentProject.id}.csv`, 'text/csv');
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -157,6 +137,7 @@ export default function App() {
         method: 'POST',
         body: JSON.stringify({ tasks: importedTasks }),
       });
+      // import 後は自分のタブも即時リフレッシュ（他タブは reload broadcast で更新される）
       const data = await apiFetch(`/projects/${currentProject.id}/tasks`);
       setTasks(data.tasks);
     } catch (err) {
@@ -208,11 +189,10 @@ export default function App() {
         <>
           <Toolbar
             onAddTask={() => setModalTask(null)}
-            onImport={handleImport}
+            onImport={() => fileInputRef.current?.click()}
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
           />
-
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <GanttChart
               onEditTask={(task) => setModalTask(task)}

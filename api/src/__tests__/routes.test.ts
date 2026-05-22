@@ -10,9 +10,10 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-// Hocuspocusは統合テストでは不要なのでスタブ化
-vi.mock('../ws/hocuspocus.js', () => ({
-  hocuspocus: { listen: vi.fn() },
+// WebSocket broadcast はテストでは不要なのでスタブ化
+vi.mock('../ws/broadcast.js', () => ({
+  broadcast: vi.fn(),
+  wss: { on: vi.fn() },
 }));
 
 const { healthRoutes }     = await import('../routes/health.js');

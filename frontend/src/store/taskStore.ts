@@ -6,6 +6,7 @@ export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; 
 
 interface TaskStore {
   tasks:              Task[];
+  needsReload:        boolean;
   sortKey:            keyof Task | '';
   sortDir:            'asc' | 'desc';
   filterStatus:       TaskStatus | '' | '!done';
@@ -17,6 +18,7 @@ interface TaskStore {
   showLightningLine:  boolean;
   ganttHeaderLevels:  GanttHeaderLevels;
   setTasks:               (tasks: Task[]) => void;
+  setNeedsReload:         (v: boolean) => void;
   setSortKey:             (key: keyof Task) => void;
   toggleSortDir:          () => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority'>>) => void;
@@ -28,6 +30,7 @@ interface TaskStore {
 
 export const useTaskStore = create<TaskStore>((set) => ({
   tasks:              [],
+  needsReload:        false,
   sortKey:            '',
   sortDir:            'asc',
   filterStatus:       '' as TaskStatus | '' | '!done',
@@ -39,6 +42,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   showLightningLine:  true,
   ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
   setTasks:               (tasks) => set({ tasks }),
+  setNeedsReload:         (needsReload) => set({ needsReload }),
   setSortKey:             (key) =>
     set((s) => ({
       sortKey: key,

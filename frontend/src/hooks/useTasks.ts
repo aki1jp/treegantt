@@ -1,6 +1,5 @@
-import * as Y from 'yjs';
-import { v4 as uuidv4 } from 'uuid';
 import type { Task } from '../types/task';
+import { useTaskStore } from '../store/taskStore';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
 
@@ -16,61 +15,46 @@ async function apiFetch(path: string, init?: RequestInit) {
   return res.status === 204 ? null : res.json();
 }
 
-export function useTasks(yTasks: Y.Map<Y.Map<unknown>>, projectId: string) {
-  function ySet(task: Task) {
-    const ydoc = yTasks.doc!;
-    ydoc.transact(() => {
-      const yTask = new Y.Map<unknown>();
-      for (const [k, v] of Object.entries(task)) yTask.set(k, v);
-      yTasks.set(task.id, yTask);
-    });
-  }
-
-  // タスク作成: REST API（ID生成・DB挿入）→ サーバー側でY.jsも更新
-  // クライアントでも楽観的にY.jsへ追加（即時反映のため）
+export function useTasks(projectId: string) {
+  // REST POST → サーバーが全クライアントへ task_created をブロードキャスト
   async function createTask(input: Partial<Task> & { title: string }): Promise<Task> {
     const data = await apiFetch(`/projects/${projectId}/tasks`, {
       method: 'POST',
       body: JSON.stringify({ ...input, predecessors: input.predecessors ?? [] }),
     });
-    ySet(data.task);
+    // 楽観的追加（ブロードキャストより先に到着する場合の保険）
+    const store = useTaskStore.getState();
+    if (!store.tasks.some(t => t.id === data.task.id)) {
+      store.setTasks([...store.tasks, data.task]);
+    }
     return data.task as Task;
   }
 
+  // 楽観的更新 → REST PATCH → サーバーが全クライアントへ task_updated をブロードキャスト
   async function updateTask(id: string, patch: Partial<Task>): Promise<void> {
-    // Y.jsをローカル更新して即時反映
-    const ydoc = yTasks.doc!;
-    ydoc.transact(() => {
-      const yTask = yTasks.get(id);
-      if (!yTask) return;
-      for (const [k, v] of Object.entries(patch)) {
-        yTask.set(k, v as unknown);
-      }
-    });
-    // REST APIも呼びサーバー側syncToYjsで全クライアントへブロードキャスト
+    const store = useTaskStore.getState();
+    store.setTasks(store.tasks.map(t => t.id === id ? { ...t, ...patch } : t));
     await apiFetch(`/tasks/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
   }
 
-  // タスク削除: REST API（カスケード削除・DB整合性）→ サーバー側でY.jsも更新
+  // 楽観的削除 → REST DELETE → サーバーが全クライアントへ task_deleted をブロードキャスト
   async function deleteTask(id: string): Promise<void> {
+    const store = useTaskStore.getState();
+    store.setTasks(store.tasks.filter(t => t.id !== id));
     await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
-    const ydoc = yTasks.doc!;
-    ydoc.transact(() => { yTasks.delete(id); });
   }
 
+  // 楽観的並び替え → REST PATCH → サーバーが全クライアントへ tasks_reordered をブロードキャスト
   async function reorderTasks(orders: { id: string; order: number }[]): Promise<void> {
+    const store = useTaskStore.getState();
+    const map = new Map(orders.map(o => [o.id, o.order]));
+    store.setTasks(store.tasks.map(t => map.has(t.id) ? { ...t, order: map.get(t.id)! } : t));
     await apiFetch(`/projects/${projectId}/tasks/reorder`, {
       method: 'PATCH',
       body: JSON.stringify({ orders }),
-    });
-    const ydoc = yTasks.doc!;
-    ydoc.transact(() => {
-      for (const { id, order } of orders) {
-        yTasks.get(id)?.set('order', order);
-      }
     });
   }
 
