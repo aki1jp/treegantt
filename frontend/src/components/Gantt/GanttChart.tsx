@@ -370,31 +370,83 @@ function GanttLeftRow({
   );
 }
 
+// ── クイック追加行 ──────────────────────────────────
+function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) inputRef.current.focus();
+  }, [editing]);
+
+  async function submit() {
+    const t = title.trim();
+    if (t) { await onAdd(t); setTitle(''); }
+    setEditing(false);
+  }
+
+  const CELL: React.CSSProperties = {
+    height: ROW_HEIGHT_PX, display: 'flex', alignItems: 'center',
+    padding: '0 6px', fontSize: 12, overflow: 'hidden', boxSizing: 'border-box',
+  };
+
+  return (
+    <div style={{ display: 'flex', background: '#fafafa', borderTop: '1px dashed #e5e7eb' }}>
+      <div style={{ ...CELL, width: 36 }} />
+      <div style={{ ...CELL, width: 180 }}>
+        {editing ? (
+          <input ref={inputRef}
+            style={{ width: '100%', padding: '2px 4px', border: '1px solid #4f46e5', borderRadius: 3, fontSize: 12, outline: 'none' }}
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={submit}
+            onKeyDown={e => {
+              if (e.key === 'Enter') submit();
+              if (e.key === 'Escape') { setTitle(''); setEditing(false); }
+            }}
+          />
+        ) : (
+          <span onClick={() => setEditing(true)}
+            style={{ color: '#9ca3af', cursor: 'text', fontSize: 12, userSelect: 'none' }}>
+            ＋ タスクを追加…
+          </span>
+        )}
+      </div>
+      {[66, 56, 76, 76, 88, 88].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
+    </div>
+  );
+}
+
 // ── メインコンポーネント ──────────────────────────────
 interface Props {
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
+  onQuickAdd: (title: string) => Promise<void>;
 }
 
-export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate }: Props) {
-  const { tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, zoomLevel, setSortKey } = useTaskStore();
+export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd }: Props) {
+  const { tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, zoomLevel, ganttStartDate, ganttPeriod, setSortKey } = useTaskStore();
   const sorted = sortAndFilter(tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority);
 
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const { roots, childCount } = buildTree(sorted);
   const flatRows = flattenTree(roots, collapsed);
 
-  const range = calcGanttRange(sorted);
+  const start = ganttStartDate || undefined;
+  const period = ganttPeriod || undefined;
+  const range = calcGanttRange(sorted, start, period);
   const { min, max } = range;
-  const totalWidth = ganttTotalWidth(sorted, zoomLevel);
-  const totalHeight = flatRows.length * ROW_HEIGHT_PX;
+  const totalWidth = ganttTotalWidth(sorted, zoomLevel, start, period);
   const headers = buildHeaders(min, max, zoomLevel);
   const todayX = calcTodayX(min, zoomLevel);
   const lightningX = calcLightningX(sorted, min, zoomLevel);
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
+  // QuickAddRow の分だけ高さを加算
+  const totalHeight = (flatRows.length + 1) * ROW_HEIGHT_PX;
 
   function toggleCollapse(id: string) {
     setCollapsed(prev => {
@@ -470,25 +522,20 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate }: Props) 
             borderRight: '2px solid #6366f1',
             background: '#fff',
           }}>
-            {flatRows.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>
-                タスクがありません
-              </div>
-            ) : (
-              flatRows.map(({ task, depth }) => (
-                <GanttLeftRow
-                  key={task.id}
-                  task={task}
-                  depth={depth}
-                  hasChildren={(childCount.get(task.id) ?? 0) > 0}
-                  isCollapsed={collapsed.has(task.id)}
-                  onToggleCollapse={() => toggleCollapse(task.id)}
-                  onInlineUpdate={onInlineUpdate}
-                  onOpenModal={() => onEditTask(task)}
-                  onDelete={() => onDeleteTask(task.id)}
-                />
-              ))
-            )}
+            {flatRows.length > 0 && flatRows.map(({ task, depth }) => (
+              <GanttLeftRow
+                key={task.id}
+                task={task}
+                depth={depth}
+                hasChildren={(childCount.get(task.id) ?? 0) > 0}
+                isCollapsed={collapsed.has(task.id)}
+                onToggleCollapse={() => toggleCollapse(task.id)}
+                onInlineUpdate={onInlineUpdate}
+                onOpenModal={() => onEditTask(task)}
+                onDelete={() => onDeleteTask(task.id)}
+              />
+            ))}
+            <QuickAddRow onAdd={onQuickAdd} />
           </div>
 
           {/* 右パネル：ガントSVG */}

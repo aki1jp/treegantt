@@ -1,4 +1,5 @@
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
+import type { GanttPeriod } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 import { ConnectionBadge } from '../ConnectionBadge/ConnectionBadge';
 
@@ -40,10 +41,19 @@ const PRIORITY_OPTIONS: { value: TaskPriority | ''; label: string }[] = [
   { value: 'medium', label: '中' },
   { value: 'low', label: '低' },
 ];
+const PERIOD_OPTIONS: { value: GanttPeriod; label: string }[] = [
+  { value: '2w', label: '2週間' },
+  { value: '1m', label: '1ヶ月' },
+  { value: '3m', label: '3ヶ月' },
+  { value: '6m', label: '6ヶ月' },
+];
 
 export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Props) {
   const { zoomLevel, filterStatus, filterAssignee, filterPriority,
-          setZoomLevel, setFilter } = useTaskStore();
+          ganttStartDate, ganttPeriod,
+          setZoomLevel, setFilter, setGanttRange } = useTaskStore();
+
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div style={{
@@ -82,6 +92,38 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
           <option value="day">日</option>
           <option value="week">週</option>
           <option value="month">月</option>
+        </select>
+      </div>
+
+      <div style={{ width: 1, height: 24, background: '#e5e7eb' }} />
+
+      {/* ガント期間 */}
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>開始日</span>
+        <input
+          type="date"
+          style={{ ...SELECT, fontSize: 12 }}
+          value={ganttStartDate}
+          onChange={e => setGanttRange(e.target.value, ganttPeriod)}
+        />
+        {ganttStartDate ? (
+          <button style={{ ...BTN, padding: '4px 8px', fontSize: 11, color: '#6b7280' }}
+            onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）">
+            ✕
+          </button>
+        ) : (
+          <button style={{ ...BTN, padding: '4px 8px', fontSize: 11 }}
+            onClick={() => setGanttRange(today, ganttPeriod)} title="今日から表示">
+            今日
+          </button>
+        )}
+      </div>
+
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>期間</span>
+        <select style={SELECT} value={ganttPeriod}
+          onChange={e => setGanttRange(ganttStartDate, e.target.value as GanttPeriod)}>
+          {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
 

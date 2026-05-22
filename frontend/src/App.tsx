@@ -121,6 +121,15 @@ export default function App() {
     await deleteTask(id);
   }
 
+  async function handleQuickAdd(title: string) {
+    if (!currentProject) return;
+    try {
+      await createTask({ title, projectId: currentProject.id });
+    } catch (err) {
+      alert('追加に失敗しました: ' + (err as Error).message);
+    }
+  }
+
   function handleExportJson() {
     if (!currentProject) return;
     const json = exportToJson(currentProject, tasks);
@@ -209,6 +218,7 @@ export default function App() {
               onEditTask={(task) => setModalTask(task)}
               onDeleteTask={handleDeleteTask}
               onInlineUpdate={handleInlineUpdate}
+              onQuickAdd={handleQuickAdd}
             />
           </div>
         </>
