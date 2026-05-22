@@ -8,6 +8,7 @@ import {
   calcGanttRange, calcTodayX, calcLightningX,
   ganttTotalWidth, ROW_HEIGHT_PX, ZOOM_CONFIG,
 } from '../../utils/ganttCalc';
+import { buildTree, flattenTree, buildChildCountMap, calcEffectiveProgress } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine } from './LightningLine';
@@ -45,50 +46,6 @@ const PRIORITY_LABEL: Record<TaskPriority, string> = {
   critical: '最高', high: '高', medium: '中', low: '低',
 };
 
-// ── ツリー構造 ──────────────────────────────────────
-interface TreeNode { task: Task; depth: number; children: TreeNode[] }
-
-function buildTree(tasks: Task[]) {
-  const childCount = new Map<string, number>();
-  const nodeMap = new Map<string, TreeNode>();
-  for (const t of tasks) {
-    nodeMap.set(t.id, { task: t, depth: 0, children: [] });
-    if (t.parentId) childCount.set(t.parentId, (childCount.get(t.parentId) ?? 0) + 1);
-  }
-  const roots: TreeNode[] = [];
-  for (const t of tasks) {
-    const node = nodeMap.get(t.id)!;
-    if (t.parentId && nodeMap.has(t.parentId)) {
-      const parent = nodeMap.get(t.parentId)!;
-      node.depth = parent.depth + 1;
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return { roots, childCount };
-}
-
-function flattenTree(nodes: TreeNode[], collapsed: Set<string>): { task: Task; depth: number }[] {
-  const result: { task: Task; depth: number }[] = [];
-  for (const node of nodes) {
-    result.push({ task: node.task, depth: node.depth });
-    if (!collapsed.has(node.task.id) && node.children.length > 0)
-      result.push(...flattenTree(node.children, collapsed));
-  }
-  return result;
-}
-
-// ── 親タスク進捗計算（子の平均、再帰） ──────────────
-function calcEffectiveProgress(taskId: string, childCountMap: Map<string, number>, allTasks: Task[]): number {
-  if ((childCountMap.get(taskId) ?? 0) === 0) {
-    return allTasks.find(t => t.id === taskId)?.progress ?? 0;
-  }
-  const children = allTasks.filter(t => t.parentId === taskId);
-  if (children.length === 0) return allTasks.find(t => t.id === taskId)?.progress ?? 0;
-  const total = children.reduce((sum, c) => sum + calcEffectiveProgress(c.id, childCountMap, allTasks), 0);
-  return Math.round(total / children.length);
-}
 
 // ── マルチレベルヘッダー構築 ─────────────────────────
 type HeaderRow = { level: 'year' | 'month' | 'week' | 'day'; cells: { label: string; x: number; width: number }[] };

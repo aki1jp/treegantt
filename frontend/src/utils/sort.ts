@@ -30,10 +30,11 @@ export function sortAndFilter(
       cmp = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
     } else if (sortKey === 'startDate' || sortKey === 'endDate') {
       const av = a[sortKey], bv = b[sortKey];
-      if (!av && !bv) cmp = 0;
-      else if (!av) cmp = 1;
-      else if (!bv) cmp = -1;
-      else cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      // null は昇順・降順に関わらず常に末尾
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      cmp = av < bv ? -1 : av > bv ? 1 : 0;
     } else if (sortKey === 'progress' || sortKey === 'order') {
       cmp = (a[sortKey] as number) - (b[sortKey] as number);
     } else {
