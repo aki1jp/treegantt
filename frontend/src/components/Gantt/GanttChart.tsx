@@ -634,6 +634,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const wbsBodyRef  = useRef<HTMLDivElement>(null);
+
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (wbsBodyRef.current) wbsBodyRef.current.scrollTop = e.currentTarget.scrollTop;
+  }
 
   // SVG へのネイティブ contextmenu リスナー（React 合成イベントは SVG で不安定なため）
   useEffect(() => {
@@ -736,81 +741,107 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   };
 
   return (
-    <div
-      style={{
-        flex: 1, overflow: 'auto', position: 'relative',
-        cursor: dragState ? 'grabbing' : colResize ? 'col-resize' : 'default',
-      }}
-    >
-      <div style={{ width: LEFT_TOTAL + totalWidth }}>
+    <div style={{
+      flex: 1, display: 'flex', overflow: 'hidden',
+      cursor: dragState ? 'grabbing' : colResize ? 'col-resize' : 'default',
+    }}>
 
-        {/* ── ヘッダー（マルチレベル） ── */}
+      {/* ── WBS 左パネル（スクロールバーなし） ── */}
+      <div data-testid="wbs-panel" style={{
+        flexShrink: 0, width: LEFT_TOTAL, display: 'flex', flexDirection: 'column',
+        overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
+      }}>
+        {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div style={{
-          position: 'sticky', top: 0, zIndex: 20,
-          borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
+          flexShrink: 0, height: headerRows.length * HEADER_ROW_H,
+          display: 'flex', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
         }}>
-          {headerRows.map((row, ri) => (
-            <div key={row.level} style={{ display: 'flex', height: HEADER_ROW_H }}>
-              <div style={{
-                display: 'flex', flexShrink: 0, width: LEFT_TOTAL,
-                position: 'sticky', left: 0, zIndex: 21,
-                background: 'var(--th-bg2)', borderRight: '2px solid var(--th-border-strong)',
-              }}>
-                {ri === 0
-                  ? LEFT_COLS.map(col => {
-                      const w = colWidths[col.key as keyof typeof colWidths] ?? col.width;
-                      const resizable = RESIZABLE_COL_KEYS.has(col.key);
-                      const isTitleCol = col.key === 'title';
-                      return (
-                        <div
-                          key={col.key}
-                          style={{ ...TH, width: w, cursor: col.sortable ? 'pointer' : 'default',
-                            position: resizable ? 'relative' : undefined,
-                            justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
-                          onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
-                        >
-                          {isTitleCol && childCount.size > 0 && (
-                            <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
-                              {[
-                                { icon: '⊞', title: 'すべて展開', action: expandAll },
-                                { icon: '⊟', title: 'すべて折りたたむ', action: collapseAll },
-                              ].map(({ icon, title, action }) => (
-                                <button key={icon} title={title}
-                                  onClick={e => { e.stopPropagation(); action(); }}
-                                  style={{ border: 'none', background: 'none', cursor: 'pointer',
-                                    fontSize: 12, color: 'var(--th-text-dim)', padding: '1px 2px', borderRadius: 2,
-                                    lineHeight: 1, fontWeight: 400 }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
-                                >
-                                  {icon}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                          {col.label}
-                          {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
-                          {resizable && (
-                            <div
-                              style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
-                                cursor: 'col-resize', background: '#c7d2fe', borderRadius: 2, zIndex: 1 }}
-                              onMouseDown={e => {
-                                e.preventDefault(); e.stopPropagation();
-                                setColResize({ key: col.key, startX: e.clientX, startWidth: w });
-                              }}
-                              onClick={e => e.stopPropagation()}
-                            />
-                          )}
-                        </div>
-                      );
-                    })
-                  : <div style={{ width: LEFT_TOTAL, height: HEADER_ROW_H,
-                      borderTop: '1px solid var(--th-border)', background: 'var(--th-bg2)' }} />
-                }
+          {LEFT_COLS.map(col => {
+            const w = colWidths[col.key as keyof typeof colWidths] ?? col.width;
+            const resizable = RESIZABLE_COL_KEYS.has(col.key);
+            const isTitleCol = col.key === 'title';
+            return (
+              <div
+                key={col.key}
+                style={{ ...TH, width: w, cursor: col.sortable ? 'pointer' : 'default',
+                  position: resizable ? 'relative' : undefined,
+                  justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
+                onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
+              >
+                {isTitleCol && childCount.size > 0 && (
+                  <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
+                    {[
+                      { icon: '⊞', title: 'すべて展開', action: expandAll },
+                      { icon: '⊟', title: 'すべて折りたたむ', action: collapseAll },
+                    ].map(({ icon, title, action }) => (
+                      <button key={icon} title={title}
+                        onClick={e => { e.stopPropagation(); action(); }}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer',
+                          fontSize: 12, color: 'var(--th-text-dim)', padding: '1px 2px', borderRadius: 2,
+                          lineHeight: 1, fontWeight: 400 }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {col.label}
+                {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                {resizable && (
+                  <div
+                    style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
+                      cursor: 'col-resize', background: '#c7d2fe', borderRadius: 2, zIndex: 1 }}
+                    onMouseDown={e => {
+                      e.preventDefault(); e.stopPropagation();
+                      setColResize({ key: col.key, startX: e.clientX, startWidth: w });
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  />
+                )}
               </div>
+            );
+          })}
+        </div>
 
-              <div style={{ width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: 'var(--th-bg2)',
-                borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined }}>
+        {/* WBS ボディ（垂直スクロールはガントパネルと同期） */}
+        <div ref={wbsBodyRef} style={{ flex: 1, overflowY: 'hidden' }}>
+          {flatRows.map(({ task, depth }) => (
+            <GanttLeftRow
+              key={task.id}
+              task={task}
+              depth={depth}
+              hasChildren={(childCount.get(task.id) ?? 0) > 0}
+              isCollapsed={collapsed.has(task.id)}
+              effectiveProgress={progressMap.get(task.id) ?? task.progress}
+              fontSize={uiFontSize}
+              rowHeight={uiRowHeight}
+              titleWidth={colWidths.title}
+              assigneeWidth={colWidths.assignee}
+              onToggleCollapse={() => toggleCollapse(task.id)}
+              onInlineUpdate={onInlineUpdate}
+              onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
+            />
+          ))}
+          <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} />
+        </div>
+      </div>
+
+      {/* ── ガント右パネル（横スクロールバーあり） ── */}
+      <div data-testid="gantt-panel" style={{ flex: 1, overflow: 'auto' }} onScroll={handleScroll}>
+        <div style={{ width: totalWidth }}>
+
+          {/* ガントヘッダー（マルチレベル・sticky） */}
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 20,
+            borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
+          }}>
+            {headerRows.map((row, ri) => (
+              <div key={row.level} style={{
+                width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: 'var(--th-bg2)',
+                borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined,
+              }}>
                 {row.cells.map((cell, ci) => (
                   <div key={ci} style={{
                     position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
@@ -826,42 +857,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   </div>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── ボディ行 ── */}
-        <div style={{ display: 'flex', position: 'relative' }}>
-
-          {/* 左パネル */}
-          <div style={{
-            flexShrink: 0, width: LEFT_TOTAL,
-            position: 'sticky', left: 0, zIndex: 10,
-            borderRight: '2px solid var(--th-border-strong)',
-            background: 'var(--th-bg)',
-          }}>
-            {flatRows.map(({ task, depth }) => (
-              <GanttLeftRow
-                key={task.id}
-                task={task}
-                depth={depth}
-                hasChildren={(childCount.get(task.id) ?? 0) > 0}
-                isCollapsed={collapsed.has(task.id)}
-                effectiveProgress={progressMap.get(task.id) ?? task.progress}
-                fontSize={uiFontSize}
-                rowHeight={uiRowHeight}
-                titleWidth={colWidths.title}
-                assigneeWidth={colWidths.assignee}
-                onToggleCollapse={() => toggleCollapse(task.id)}
-                onInlineUpdate={onInlineUpdate}
-                onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
-              />
             ))}
-            <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} />
           </div>
 
-          {/* 右パネル：ガントSVG */}
-          <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block', flexShrink: 0 }}>
+          {/* ガント SVG */}
+          <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block' }}>
             <defs>
               <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
                 <path d="M0,0 L6,3 L0,6 Z" fill="#378ADD" />
@@ -927,7 +927,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         </div>
       </div>
 
-      {/* コンテキストメニュー共通レンダラ */}
+      {/* コンテキストメニュー（position: fixed なのでどこに置いても動作する） */}
       {[
         barCtxMenu && { menu: barCtxMenu, close: () => setBarCtxMenu(null) },
         rowCtxMenu && { menu: rowCtxMenu, close: () => setRowCtxMenu(null) },
