@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Task, TaskStatus, ZoomLevel } from '../types/task';
 import type { GanttPeriod } from '../utils/ganttCalc';
 import type { ThemeMode } from '../utils/theme';
@@ -39,42 +40,61 @@ interface TaskStore {
   setTheme:               (theme: ThemeMode) => void;
 }
 
-export const useTaskStore = create<TaskStore>((set) => ({
-  tasks:              [],
-  needsReload:        false,
-  sortKey:            '',
-  sortDir:            'asc',
-  filterStatus:       '' as TaskStatus | '' | '!done',
-  filterAssignee:     '',
-  filterPriority:     '',
-  zoomLevel:          'week',
-  ganttStartDate:     '',
-  ganttPeriod:        '3m',
-  showLightningLine:  true,
-  showWeekend:        true,
-  showCriticalPath:   false,
-  uiFontSize:         13,
-  uiRowHeight:        36,
-  ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
-  theme:              'auto' as ThemeMode,
-  setTasks:               (tasks) => set({ tasks }),
-  setNeedsReload:         (needsReload) => set({ needsReload }),
-  setSortKey:             (key) =>
-    set((s) => ({
-      sortKey: key,
-      sortDir: s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc',
-    })),
-  toggleSortDir:          () => set((s) => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' })),
-  setFilter:              (filter) => set((s) => ({ ...s, ...filter })),
-  setZoomLevel:           (zoomLevel) => set({ zoomLevel }),
-  setGanttRange:          (ganttStartDate, ganttPeriod) => set({ ganttStartDate, ganttPeriod }),
-  setShowLightningLine:   (showLightningLine) => set({ showLightningLine }),
-  setShowWeekend:         (showWeekend) => set({ showWeekend }),
-  setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
-  setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
-  setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
-  setGanttHeaderLevels:   (levels) => set((s) => ({
-    ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
-  })),
-  setTheme:               (theme) => set({ theme }),
-}));
+export const useTaskStore = create<TaskStore>()(
+  persist(
+    (set) => ({
+      tasks:              [],
+      needsReload:        false,
+      sortKey:            '',
+      sortDir:            'asc',
+      filterStatus:       '' as TaskStatus | '' | '!done',
+      filterAssignee:     '',
+      filterPriority:     '',
+      zoomLevel:          'week',
+      ganttStartDate:     '',
+      ganttPeriod:        '3m',
+      showLightningLine:  true,
+      showWeekend:        true,
+      showCriticalPath:   false,
+      uiFontSize:         13,
+      uiRowHeight:        36,
+      ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
+      theme:              'auto' as ThemeMode,
+      setTasks:               (tasks) => set({ tasks }),
+      setNeedsReload:         (needsReload) => set({ needsReload }),
+      setSortKey:             (key) =>
+        set((s) => ({
+          sortKey: key,
+          sortDir: s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc',
+        })),
+      toggleSortDir:          () => set((s) => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' })),
+      setFilter:              (filter) => set((s) => ({ ...s, ...filter })),
+      setZoomLevel:           (zoomLevel) => set({ zoomLevel }),
+      setGanttRange:          (ganttStartDate, ganttPeriod) => set({ ganttStartDate, ganttPeriod }),
+      setShowLightningLine:   (showLightningLine) => set({ showLightningLine }),
+      setShowWeekend:         (showWeekend) => set({ showWeekend }),
+      setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
+      setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
+      setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
+      setGanttHeaderLevels:   (levels) => set((s) => ({
+        ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
+      })),
+      setTheme:               (theme) => set({ theme }),
+    }),
+    {
+      name: 'treegantt-ui',
+      partialize: (s) => ({
+        theme:             s.theme,
+        zoomLevel:         s.zoomLevel,
+        ganttStartDate:    s.ganttStartDate,
+        ganttPeriod:       s.ganttPeriod,
+        showLightningLine: s.showLightningLine,
+        showWeekend:       s.showWeekend,
+        showCriticalPath:  s.showCriticalPath,
+        uiFontSize:        s.uiFontSize,
+        uiRowHeight:       s.uiRowHeight,
+        ganttHeaderLevels: s.ganttHeaderLevels,
+      }),
+    },
+  ),
+);
