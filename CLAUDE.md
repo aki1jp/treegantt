@@ -5,14 +5,14 @@
 - 各フェーズ完了時にCLAUDE.mdの進捗を更新すること
 - 長い実装の前に「これからやること」を記録すること
 - セッション再開時は必ずCLAUDE.mdを読んでから始めること
-- 実装前には yatagarasu-manager_design.md を更新しgitコミットすること
+- 実装前には docs/treegantt_design.md を更新しgitコミットすること
 - 実装後には gitコミットすること
 
 ---
 
 ## プロジェクト概要
 
-設計書: `/workspace/yatagarasu-manager_design.md`
+設計書: `/workspace/docs/treegantt_design.md`
 プロジェクトルート: `/workspace/` (`api/`, `frontend/`, `docker-compose.yml`)
 
 ---
