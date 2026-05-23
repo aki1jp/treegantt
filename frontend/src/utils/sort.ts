@@ -9,7 +9,8 @@ export function sortAndFilter(
   sortDir: 'asc' | 'desc',
   filterStatus: TaskStatus | '' | '!done',
   filterAssignee: string,
-  filterPriority: string
+  filterPriority: string,
+  filterSearch = '',
 ): Task[] {
   let result = tasks;
 
@@ -17,6 +18,12 @@ export function sortAndFilter(
   else if (filterStatus)        result = result.filter(t => t.status === filterStatus);
   if (filterAssignee) result = result.filter(t => t.assignee.includes(filterAssignee));
   if (filterPriority) result = result.filter(t => t.priority === filterPriority);
+  if (filterSearch) {
+    const q = filterSearch.toLowerCase();
+    result = result.filter(t =>
+      t.title.toLowerCase().includes(q) || t.assignee.toLowerCase().includes(q)
+    );
+  }
 
   if (!sortKey) {
     return [...result].sort((a, b) => a.order - b.order);

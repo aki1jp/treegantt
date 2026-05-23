@@ -536,13 +536,13 @@ interface Props {
 
 export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask }: Props) {
   const {
-    tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
+    tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
     setSortKey,
   } = useTaskStore();
 
-  const sorted = sortAndFilter(tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority);
+  const sorted = sortAndFilter(tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, filterSearch);
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
   const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });

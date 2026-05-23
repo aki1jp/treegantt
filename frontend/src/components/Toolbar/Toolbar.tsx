@@ -100,7 +100,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
 
 export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onExportCsv }: Props) {
   const {
-    zoomLevel, filterStatus, filterAssignee, filterPriority,
+    zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
     theme,
@@ -160,6 +160,27 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
       padding: '8px 14px', background: 'var(--th-bg)', borderBottom: '1px solid var(--th-border)',
       overflowX: 'auto', minHeight: 44,
     }}>
+      {/* 🔍 検索ボックス（最優先・最左端） */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <span style={{
+          position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+          fontSize: 12, color: 'var(--th-text-ph)', pointerEvents: 'none',
+        }}>🔍</span>
+        <input
+          type="search"
+          placeholder="タスク検索..."
+          value={filterSearch}
+          onChange={e => setFilter({ filterSearch: e.target.value })}
+          style={{
+            ...SELECT, paddingLeft: 24, width: 160, fontSize: 12,
+            background: filterSearch ? 'var(--th-input-bg)' : 'var(--th-bg)',
+            outline: filterSearch ? '2px solid #4f46e5' : undefined,
+          }}
+        />
+      </div>
+
+      <div style={DIVIDER} />
+
       {/* フィルタ（まとめドロップダウン） */}
       <div style={{ position: 'relative' }} ref={filterRef}>
         <button

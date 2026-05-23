@@ -949,6 +949,47 @@ describe('§7 フィルタ・ソート', () => {
     });
   });
 
+  describe('テキスト検索（filterSearch）', () => {
+    it('空文字 → 全件返す', () => {
+      expect(sortAndFilter(tasks(), '', 'asc', '', '', '', '')).toHaveLength(4);
+    });
+
+    it('タイトル部分一致で絞り込める', () => {
+      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'タスク1');
+      expect(r).toHaveLength(1);
+      expect(r[0].id).toBe('t1');
+    });
+
+    it('担当者名で絞り込める', () => {
+      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'Alice');
+      expect(r).toHaveLength(2); // t1(Alice) + t3(Alice Bob)
+    });
+
+    it('大文字小文字を区別しない', () => {
+      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'alice');
+      expect(r).toHaveLength(2);
+    });
+
+    it('タイトルと担当者をまたいで OR で検索', () => {
+      // "Carol" は t4 の担当者。"Carol" というタイトルはないがヒットする
+      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'Carol');
+      expect(r).toHaveLength(1);
+      expect(r[0].id).toBe('t4');
+    });
+
+    it('マッチなし → 0 件', () => {
+      expect(sortAndFilter(tasks(), '', 'asc', '', '', '', 'zzz')).toHaveLength(0);
+    });
+
+    it('他フィルタと AND 条件になる', () => {
+      // Alice でヒットするのは t1(todo) と t3(done) の2件
+      // ステータス todo 絞り込みと組み合わせると t1 の 1 件のみ
+      const r = sortAndFilter(tasks(), '', 'asc', 'todo', '', '', 'Alice');
+      expect(r).toHaveLength(1);
+      expect(r[0].id).toBe('t1');
+    });
+  });
+
   describe('ソート — デフォルト（order 順）', () => {
     it('ソートキーなしは order 昇順', () => {
       const shuffled = [...tasks()].reverse();

@@ -24,6 +24,7 @@ beforeEach(() => {
     filterStatus: '',
     filterAssignee: '',
     filterPriority: '',
+    filterSearch: '',
     zoomLevel: 'week',
     ganttStartDate: '',
     ganttPeriod: '3m',
@@ -250,13 +251,14 @@ describe('UI設定の永続化', () => {
     expect(getSaved()).not.toHaveProperty('needsReload');
   });
 
-  it('sortKey/sortDir/フィルタは localStorage に保存されない', () => {
+  it('sortKey/sortDir/フィルタ/検索は localStorage に保存されない', () => {
     useTaskStore.getState().setSortKey('title');
-    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice' });
+    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice', filterSearch: 'foo' });
     const saved = getSaved();
     expect(saved).not.toHaveProperty('sortKey');
     expect(saved).not.toHaveProperty('sortDir');
     expect(saved).not.toHaveProperty('filterStatus');
     expect(saved).not.toHaveProperty('filterAssignee');
+    expect(saved).not.toHaveProperty('filterSearch');
   });
 });
