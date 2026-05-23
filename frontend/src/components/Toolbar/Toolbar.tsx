@@ -93,9 +93,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, uiFontSize, ganttHeaderLevels,
     setZoomLevel, setFilter, setGanttRange,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setGanttHeaderLevels,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -283,6 +283,31 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
         title="クリティカルパスを赤でハイライト表示"
         onClick={() => setShowCriticalPath(!showCriticalPath)}
       />
+
+      <div style={DIVIDER} />
+
+      {/* 文字サイズ */}
+      <div style={FILTER_GROUP}>
+        <span style={LABEL}>文字</span>
+        {([11, 13, 15] as const).map((size, i) => (
+          <button
+            key={size}
+            title={['小', '中', '大'][i]}
+            onClick={() => setUiFontSize(size)}
+            style={{
+              ...BTN,
+              padding: '3px 7px',
+              fontSize: size - 2,
+              background: uiFontSize === size ? '#4f46e5' : '#fff',
+              color: uiFontSize === size ? '#fff' : '#6b7280',
+              border: `1px solid ${uiFontSize === size ? '#4f46e5' : '#ddd'}`,
+              fontWeight: uiFontSize === size ? 700 : 400,
+            }}
+          >
+            {'あ'}
+          </button>
+        ))}
+      </div>
 
       <div style={DIVIDER} />
 

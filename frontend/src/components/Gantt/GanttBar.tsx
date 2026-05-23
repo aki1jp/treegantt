@@ -8,6 +8,7 @@ interface Props {
   rowIndex: number;
   isCritical?: boolean;
   dragPreview?: { startDate: string; endDate: string } | null;
+  fontSize?: number;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
@@ -22,7 +23,7 @@ const TODAY = new Date().toISOString().slice(0, 10);
 const HANDLE_W = 6;
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, dragPreview,
+  task, minDate, zoom, rowIndex, isCritical, dragPreview, fontSize = 11,
   onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
@@ -49,7 +50,7 @@ export function GanttBar({
           strokeWidth={isOverdue ? 2.5 : isCritical ? 2 : 1.5}
           onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
         />
-        <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
+        <text x={cx + r + 5} y={centerY + 4} fontSize={fontSize} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
           {task.title}
         </text>
         <rect
@@ -87,7 +88,7 @@ export function GanttBar({
           fill={color + 'aa'} style={{ pointerEvents: 'none' }} />
       )}
       {/* タイトル */}
-      <text x={x + HANDLE_W + 2} y={y + barHeight / 2 + 4} fontSize={11} fill={color} fontWeight={600}
+      <text x={x + HANDLE_W + 2} y={y + barHeight / 2 + 4} fontSize={fontSize} fill={color} fontWeight={600}
         clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
         {task.title}
       </text>

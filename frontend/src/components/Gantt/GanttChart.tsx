@@ -151,6 +151,7 @@ interface LeftRowProps {
   hasChildren: boolean;
   isCollapsed: boolean;
   effectiveProgress: number;
+  fontSize: number;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onOpenModal: () => void;
@@ -158,7 +159,7 @@ interface LeftRowProps {
 }
 
 function GanttLeftRow({
-  task, depth, hasChildren, isCollapsed, effectiveProgress,
+  task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize,
   onToggleCollapse, onInlineUpdate, onOpenModal, onDelete,
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -220,12 +221,12 @@ function GanttLeftRow({
 
   const CELL: React.CSSProperties = {
     height: ROW_HEIGHT_PX, display: 'flex', alignItems: 'center',
-    padding: '0 6px', fontSize: 12, overflow: 'hidden',
+    padding: '0 6px', fontSize, overflow: 'hidden',
     boxSizing: 'border-box',
   };
   const INPUT_S: React.CSSProperties = {
     width: '100%', padding: '2px 4px', border: '1px solid #4f46e5',
-    borderRadius: 3, fontSize: 12, outline: 'none',
+    borderRadius: 3, fontSize, outline: 'none',
   };
 
   const indent = depth * 16;
@@ -521,7 +522,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, uiFontSize, ganttHeaderLevels,
     setSortKey,
   } = useTaskStore();
 
@@ -758,6 +759,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 hasChildren={(childCount.get(task.id) ?? 0) > 0}
                 isCollapsed={collapsed.has(task.id)}
                 effectiveProgress={progressMap.get(task.id) ?? task.progress}
+                fontSize={uiFontSize}
                 onToggleCollapse={() => toggleCollapse(task.id)}
                 onInlineUpdate={onInlineUpdate}
                 onOpenModal={() => onEditTask(task)}
@@ -802,6 +804,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   rowIndex={i}
                   isCritical={criticalSet.has(task.id)}
                   dragPreview={preview}
+                  fontSize={uiFontSize}
                   onMoveStart={(e, id) => startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => startDrag(e, id, 'resize-right')}
