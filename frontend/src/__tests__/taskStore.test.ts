@@ -35,6 +35,7 @@ beforeEach(() => {
     uiRowHeight: 36,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
     theme: 'auto',
+    ganttBarOpen: true,
   });
 });
 
@@ -239,6 +240,11 @@ describe('UI設定の永続化', () => {
     expect(levels.day).toBe(false);
     expect(levels.week).toBe(false);
     expect(levels.year).toBe(true);
+  });
+
+  it('ガントバー開閉状態が localStorage に保存される', () => {
+    useTaskStore.getState().setGanttBarOpen(false);
+    expect(getSaved().ganttBarOpen).toBe(false);
   });
 
   it('tasks は localStorage に保存されない（サーバーから取得するため）', () => {

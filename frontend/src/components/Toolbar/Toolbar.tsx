@@ -103,10 +103,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
-    theme,
+    theme, ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
-    setTheme,
+    setTheme, setGanttBarOpen,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -154,282 +154,306 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
     boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
   };
 
+  const ROW: React.CSSProperties = {
+    display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 6,
+    padding: '0 14px', overflowX: 'auto',
+  };
+
   return (
     <div style={{
-      display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 6,
-      padding: '8px 14px', background: 'var(--th-bg)', borderBottom: '1px solid var(--th-border)',
-      overflowX: 'auto', minHeight: 44,
+      display: 'flex', flexDirection: 'column',
+      background: 'var(--th-bg)', borderBottom: '1px solid var(--th-border)',
     }}>
-      {/* 🔍 検索ボックス（最優先・最左端） */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <span style={{
-          position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-          fontSize: 12, color: 'var(--th-text-ph)', pointerEvents: 'none',
-        }}>🔍</span>
-        <input
-          type="search"
-          placeholder="タスク検索..."
-          value={filterSearch}
-          onChange={e => setFilter({ filterSearch: e.target.value })}
-          style={{
-            ...SELECT, paddingLeft: 24, width: 160, fontSize: 12,
-            background: filterSearch ? 'var(--th-input-bg)' : 'var(--th-bg)',
-            outline: filterSearch ? '2px solid #4f46e5' : undefined,
-          }}
-        />
-      </div>
-
-      <div style={DIVIDER} />
-
-      {/* フィルタ（まとめドロップダウン） */}
-      <div style={{ position: 'relative' }} ref={filterRef}>
-        <button
-          style={{
-            ...BTN,
-            background: activeCount > 0 ? '#ede9fe' : 'var(--th-bg)',
-            color: activeCount > 0 ? '#4f46e5' : 'var(--th-text2)',
-            border: `1px solid ${activeCount > 0 ? '#a5b4fc' : 'var(--th-input-border)'}`,
-            display: 'flex', alignItems: 'center', gap: 5,
-          }}
-          onClick={openFilter}
-        >
-          フィルタ
-          {activeCount > 0 && (
-            <span style={{
-              background: '#4f46e5', color: '#fff', borderRadius: '50%',
-              width: 16, height: 16, fontSize: 10, fontWeight: 700,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            }}>{activeCount}</span>
-          )}
-        </button>
-
-        {filterOpen && filterPos && (
-          <div style={{
-            position: 'fixed', top: filterPos.top, left: filterPos.left, zIndex: 1000,
-            ...dropdownStyle, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10,
-            minWidth: 220,
-          }}>
-            <div style={FILTER_GROUP}>
-              <span style={{ ...LABEL, width: 46 }}>ステータス</span>
-              <select style={SELECT} value={filterStatus}
-                onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
-                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div style={FILTER_GROUP}>
-              <span style={{ ...LABEL, width: 46 }}>優先度</span>
-              <select style={SELECT} value={filterPriority}
-                onChange={e => setFilter({ filterPriority: e.target.value })}>
-                {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            <div style={FILTER_GROUP}>
-              <span style={{ ...LABEL, width: 46 }}>担当者</span>
-              <input style={{ ...SELECT, width: 120 }} placeholder="部分一致" value={filterAssignee}
-                onChange={e => setFilter({ filterAssignee: e.target.value })} />
-            </div>
-            {activeCount > 0 && (
-              <button
-                style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)', alignSelf: 'flex-end' }}
-                onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '' })}
-              >
-                クリア
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div style={DIVIDER} />
-
-      {/* 左側: タスク操作 */}
-      <button style={PRIMARY_BTN} onClick={onAddTask}>+ タスク追加</button>
-      <button style={BTN} onClick={onAddMilestone}>◇ マイルストーン</button>
-
-      {/* ── ここから右側: ガントチャート操作 ── */}
-
-      {/* ズーム */}
-      <div style={{ ...FILTER_GROUP, marginLeft: 'auto' }}>
-        <span style={LABEL}>ズーム</span>
-        <select style={SELECT} value={zoomLevel}
-          onChange={e => setZoomLevel(e.target.value as ZoomLevel)}>
-          <option value="day">日</option>
-          <option value="week">週</option>
-          <option value="month">月</option>
-        </select>
-      </div>
-
-      <div style={DIVIDER} />
-
-      {/* ガント期間 */}
-      <div style={FILTER_GROUP}>
-        <span style={LABEL}>開始日</span>
-        <input type="date" style={{ ...SELECT, fontSize: 11 }}
-          value={ganttStartDate}
-          onChange={e => setGanttRange(e.target.value, ganttPeriod)} />
-        {ganttStartDate ? (
-          <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
-            onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）">✕</button>
-        ) : (
-          <button style={{ ...BTN, padding: '3px 7px', fontSize: 11 }}
-            onClick={() => setGanttRange(today, ganttPeriod)} title="今日から表示">今日</button>
-        )}
-      </div>
-
-      <div style={FILTER_GROUP}>
-        <span style={LABEL}>期間</span>
-        <select style={SELECT} value={ganttPeriod}
-          onChange={e => setGanttRange(ganttStartDate, e.target.value as GanttPeriod)}>
-          {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </div>
-
-      <div style={DIVIDER} />
-
-      {/* ヘッダー表示レベル */}
-      <div style={FILTER_GROUP}>
-        <span style={LABEL}>ヘッダー</span>
-        <ToggleBtn active={ganttHeaderLevels.year}  label="年" title="年ヘッダーを表示"
-          onClick={() => setGanttHeaderLevels({ year:  !ganttHeaderLevels.year  })} />
-        <ToggleBtn active={ganttHeaderLevels.month} label="月" title="月ヘッダーを表示"
-          onClick={() => setGanttHeaderLevels({ month: !ganttHeaderLevels.month })} />
-        <ToggleBtn active={ganttHeaderLevels.week}  label="週" title="週ヘッダーを表示"
-          onClick={() => setGanttHeaderLevels({ week:  !ganttHeaderLevels.week  })} />
-        <ToggleBtn active={ganttHeaderLevels.day}   label="日" title="日ヘッダーを表示"
-          onClick={() => setGanttHeaderLevels({ day:   !ganttHeaderLevels.day   })} />
-      </div>
-
-      <div style={DIVIDER} />
-
-      {/* イナズマライン */}
-      <ToggleBtn
-        active={showLightningLine}
-        label="⚡ イナズマ"
-        title="イナズマライン（実績/計画の境界）を表示"
-        onClick={() => setShowLightningLine(!showLightningLine)}
-      />
-      <ToggleBtn
-        active={showWeekend}
-        label="土日"
-        title="土日（週末）の背景を強調表示"
-        onClick={() => setShowWeekend(!showWeekend)}
-      />
-      <ToggleBtn
-        active={showCriticalPath}
-        label="クリティカルパス"
-        title="クリティカルパスをハイライト表示"
-        onClick={() => setShowCriticalPath(!showCriticalPath)}
-      />
-
-      <div style={DIVIDER} />
-
-      {/* サイズ（文字・行高） */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-        padding: '4px 8px', border: '1px solid var(--th-border)', borderRadius: 6, background: 'var(--th-bg2)' }}>
-        <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>サイズ</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ ...LABEL, fontSize: 10 }}>文字</span>
-          {([11, 13, 15] as const).map((size, i) => (
-            <button
-              key={size}
-              title={['小', '中', '大'][i]}
-              onClick={() => setUiFontSize(size)}
-              style={{
-                ...BTN,
-                padding: '2px 6px',
-                fontSize: size - 2,
-                background: uiFontSize === size ? '#4f46e5' : 'var(--th-bg)',
-                color: uiFontSize === size ? '#fff' : 'var(--th-text-muted)',
-                border: `1px solid ${uiFontSize === size ? '#4f46e5' : 'var(--th-input-border)'}`,
-                fontWeight: uiFontSize === size ? 700 : 400,
-              }}
-            >
-              あ
-            </button>
-          ))}
+      {/* ── 行1: 操作系（常時表示） ── */}
+      <div style={{ ...ROW, height: 44 }}>
+        {/* 🔍 検索ボックス */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <span style={{
+            position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+            fontSize: 12, color: 'var(--th-text-ph)', pointerEvents: 'none',
+          }}>🔍</span>
+          <input
+            type="search"
+            placeholder="タスク検索..."
+            value={filterSearch}
+            onChange={e => setFilter({ filterSearch: e.target.value })}
+            style={{
+              ...SELECT, paddingLeft: 24, width: 160, fontSize: 12,
+              background: filterSearch ? 'var(--th-input-bg)' : 'var(--th-bg)',
+              outline: filterSearch ? '2px solid #4f46e5' : undefined,
+            }}
+          />
         </div>
-        <div style={{ width: 1, height: 18, background: 'var(--th-border)' }} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ ...LABEL, fontSize: 10 }}>行高</span>
-          {([28, 36, 44] as const).map((h, i) => (
-            <button
-              key={h}
-              title={['小', '中', '大'][i]}
-              onClick={() => setUiRowHeight(h)}
-              style={{
-                ...BTN,
-                padding: '2px 6px',
-                fontSize: 11,
-                background: uiRowHeight === h ? '#4f46e5' : 'var(--th-bg)',
-                color: uiRowHeight === h ? '#fff' : 'var(--th-text-muted)',
-                border: `1px solid ${uiRowHeight === h ? '#4f46e5' : 'var(--th-input-border)'}`,
-                fontWeight: uiRowHeight === h ? 700 : 400,
-              }}
-            >
-              {['S', 'M', 'L'][i]}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div style={DIVIDER} />
+        <div style={DIVIDER} />
 
-      {/* テーマ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-        {THEME_OPTIONS.map(opt => (
+        {/* フィルタ ▼ */}
+        <div style={{ position: 'relative' }} ref={filterRef}>
           <button
-            key={opt.value}
-            title={opt.title}
-            onClick={() => setTheme(opt.value)}
             style={{
               ...BTN,
-              padding: '4px 8px',
-              fontSize: 14,
-              background: theme === opt.value ? '#4f46e5' : 'var(--th-bg)',
-              color: theme === opt.value ? '#fff' : 'var(--th-text-muted)',
-              border: `1px solid ${theme === opt.value ? '#4f46e5' : 'var(--th-input-border)'}`,
+              background: activeCount > 0 ? '#ede9fe' : 'var(--th-bg)',
+              color: activeCount > 0 ? '#4f46e5' : 'var(--th-text2)',
+              border: `1px solid ${activeCount > 0 ? '#a5b4fc' : 'var(--th-input-border)'}`,
+              display: 'flex', alignItems: 'center', gap: 5,
             }}
+            onClick={openFilter}
           >
-            {opt.label}
+            フィルタ
+            {activeCount > 0 && (
+              <span style={{
+                background: '#4f46e5', color: '#fff', borderRadius: '50%',
+                width: 16, height: 16, fontSize: 10, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              }}>{activeCount}</span>
+            )}
           </button>
-        ))}
-      </div>
 
-      <div style={DIVIDER} />
-
-      {/* ハンバーガーメニュー（インポート / エクスポート） */}
-      <div style={{ position: 'relative', flexShrink: 0 }} ref={menuRef}>
-        <button
-          title="メニュー"
-          onClick={openMenu}
-          style={{
-            ...BTN,
-            padding: '5px 9px',
-            fontSize: 16,
-            lineHeight: 1,
-            background: menuOpen ? 'var(--th-bg2)' : 'var(--th-bg)',
-          }}
-        >
-          ☰
-        </button>
-
-        {menuOpen && menuPos && (
-          <div style={{
-            position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 1000,
-            ...dropdownStyle, minWidth: 160, overflow: 'hidden',
-          }}>
-            <MenuItem label="📥 インポート" onClick={() => { onImport(); setMenuOpen(false); }} />
-
-            <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
-
-            <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
-              📤 エクスポート
+          {filterOpen && filterPos && (
+            <div style={{
+              position: 'fixed', top: filterPos.top, left: filterPos.left, zIndex: 1000,
+              ...dropdownStyle, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+              minWidth: 220,
+            }}>
+              <div style={FILTER_GROUP}>
+                <span style={{ ...LABEL, width: 46 }}>ステータス</span>
+                <select style={SELECT} value={filterStatus}
+                  onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
+                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div style={FILTER_GROUP}>
+                <span style={{ ...LABEL, width: 46 }}>優先度</span>
+                <select style={SELECT} value={filterPriority}
+                  onChange={e => setFilter({ filterPriority: e.target.value })}>
+                  {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div style={FILTER_GROUP}>
+                <span style={{ ...LABEL, width: 46 }}>担当者</span>
+                <input style={{ ...SELECT, width: 120 }} placeholder="部分一致" value={filterAssignee}
+                  onChange={e => setFilter({ filterAssignee: e.target.value })} />
+              </div>
+              {activeCount > 0 && (
+                <button
+                  style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)', alignSelf: 'flex-end' }}
+                  onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '' })}
+                >
+                  クリア
+                </button>
+              )}
             </div>
-            <MenuItem label="JSON 出力" indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
-            <MenuItem label="CSV 出力"  indent onClick={() => { onExportCsv(); setMenuOpen(false); }} />
+          )}
+        </div>
+
+        <div style={DIVIDER} />
+
+        {/* タスク操作 */}
+        <button style={PRIMARY_BTN} onClick={onAddTask}>+ タスク追加</button>
+        <button style={BTN} onClick={onAddMilestone}>◇ マイルストーン</button>
+
+        {/* 右端: ☰ + ∧/∨ */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {/* ハンバーガーメニュー */}
+          <div style={{ position: 'relative' }} ref={menuRef}>
+            <button
+              title="メニュー"
+              onClick={openMenu}
+              style={{
+                ...BTN,
+                padding: '5px 9px',
+                fontSize: 16,
+                lineHeight: 1,
+                background: menuOpen ? 'var(--th-bg2)' : 'var(--th-bg)',
+              }}
+            >
+              ☰
+            </button>
+
+            {menuOpen && menuPos && (
+              <div style={{
+                position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 1000,
+                ...dropdownStyle, minWidth: 160, overflow: 'hidden',
+              }}>
+                <MenuItem label="📥 インポート" onClick={() => { onImport(); setMenuOpen(false); }} />
+
+                <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
+
+                <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                  📤 エクスポート
+                </div>
+                <MenuItem label="JSON 出力" indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
+                <MenuItem label="CSV 出力"  indent onClick={() => { onExportCsv(); setMenuOpen(false); }} />
+              </div>
+            )}
           </div>
-        )}
+
+          {/* ∧/∨ 折りたたみトグル */}
+          <button
+            aria-label={ganttBarOpen ? 'ガント設定を閉じる' : 'ガント設定を開く'}
+            title={ganttBarOpen ? 'ガント設定を閉じる' : 'ガント設定を開く'}
+            onClick={() => setGanttBarOpen(!ganttBarOpen)}
+            style={{ ...BTN, padding: '4px 8px', fontSize: 10 }}
+          >
+            {ganttBarOpen ? '∧' : '∨'}
+          </button>
+        </div>
       </div>
+
+      {/* ── 行2: ガント表示設定（折りたたみ可） ── */}
+      {ganttBarOpen && (
+        <div
+          data-testid="toolbar-row2"
+          style={{ ...ROW, height: 40, borderTop: '1px solid var(--th-border)' }}
+        >
+          {/* ズーム */}
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>ズーム</span>
+            <select title="ズームレベルを選択" style={SELECT} value={zoomLevel}
+              onChange={e => setZoomLevel(e.target.value as ZoomLevel)}>
+              <option value="day">日</option>
+              <option value="week">週</option>
+              <option value="month">月</option>
+            </select>
+          </div>
+
+          <div style={DIVIDER} />
+
+          {/* 開始日 + 期間 */}
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>開始日</span>
+            <input type="date" style={{ ...SELECT, fontSize: 11 }}
+              value={ganttStartDate}
+              onChange={e => setGanttRange(e.target.value, ganttPeriod)} />
+            {ganttStartDate ? (
+              <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
+                onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）">✕</button>
+            ) : (
+              <button style={{ ...BTN, padding: '3px 7px', fontSize: 11 }}
+                onClick={() => setGanttRange(today, ganttPeriod)} title="今日から表示">今日</button>
+            )}
+          </div>
+
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>期間</span>
+            <select style={SELECT} value={ganttPeriod}
+              onChange={e => setGanttRange(ganttStartDate, e.target.value as GanttPeriod)}>
+              {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+
+          <div style={DIVIDER} />
+
+          {/* ヘッダー表示レベル */}
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>ヘッダー</span>
+            <ToggleBtn active={ganttHeaderLevels.year}  label="年" title="年ヘッダーを表示"
+              onClick={() => setGanttHeaderLevels({ year:  !ganttHeaderLevels.year  })} />
+            <ToggleBtn active={ganttHeaderLevels.month} label="月" title="月ヘッダーを表示"
+              onClick={() => setGanttHeaderLevels({ month: !ganttHeaderLevels.month })} />
+            <ToggleBtn active={ganttHeaderLevels.week}  label="週" title="週ヘッダーを表示"
+              onClick={() => setGanttHeaderLevels({ week:  !ganttHeaderLevels.week  })} />
+            <ToggleBtn active={ganttHeaderLevels.day}   label="日" title="日ヘッダーを表示"
+              onClick={() => setGanttHeaderLevels({ day:   !ganttHeaderLevels.day   })} />
+          </div>
+
+          <div style={DIVIDER} />
+
+          {/* 表示トグル */}
+          <ToggleBtn
+            active={showLightningLine}
+            label="⚡ イナズマ"
+            title="イナズマライン（実績/計画の境界）を表示"
+            onClick={() => setShowLightningLine(!showLightningLine)}
+          />
+          <ToggleBtn
+            active={showWeekend}
+            label="土日"
+            title="土日（週末）の背景を強調表示"
+            onClick={() => setShowWeekend(!showWeekend)}
+          />
+          <ToggleBtn
+            active={showCriticalPath}
+            label="クリティカルパス"
+            title="クリティカルパスをハイライト表示"
+            onClick={() => setShowCriticalPath(!showCriticalPath)}
+          />
+
+          <div style={DIVIDER} />
+
+          {/* サイズ（文字・行高） */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+            padding: '3px 8px', border: '1px solid var(--th-border)', borderRadius: 6, background: 'var(--th-bg2)' }}>
+            <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>サイズ</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ ...LABEL, fontSize: 10 }}>文字</span>
+              {([11, 13, 15] as const).map((size, i) => (
+                <button
+                  key={size}
+                  title={['小', '中', '大'][i]}
+                  onClick={() => setUiFontSize(size)}
+                  style={{
+                    ...BTN,
+                    padding: '2px 6px',
+                    fontSize: size - 2,
+                    background: uiFontSize === size ? '#4f46e5' : 'var(--th-bg)',
+                    color: uiFontSize === size ? '#fff' : 'var(--th-text-muted)',
+                    border: `1px solid ${uiFontSize === size ? '#4f46e5' : 'var(--th-input-border)'}`,
+                    fontWeight: uiFontSize === size ? 700 : 400,
+                  }}
+                >
+                  あ
+                </button>
+              ))}
+            </div>
+            <div style={{ width: 1, height: 18, background: 'var(--th-border)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ ...LABEL, fontSize: 10 }}>行高</span>
+              {([28, 36, 44] as const).map((h, i) => (
+                <button
+                  key={h}
+                  title={['小', '中', '大'][i]}
+                  onClick={() => setUiRowHeight(h)}
+                  style={{
+                    ...BTN,
+                    padding: '2px 6px',
+                    fontSize: 11,
+                    background: uiRowHeight === h ? '#4f46e5' : 'var(--th-bg)',
+                    color: uiRowHeight === h ? '#fff' : 'var(--th-text-muted)',
+                    border: `1px solid ${uiRowHeight === h ? '#4f46e5' : 'var(--th-input-border)'}`,
+                    fontWeight: uiRowHeight === h ? 700 : 400,
+                  }}
+                >
+                  {['S', 'M', 'L'][i]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={DIVIDER} />
+
+          {/* テーマ */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            {THEME_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                title={opt.title}
+                onClick={() => setTheme(opt.value)}
+                style={{
+                  ...BTN,
+                  padding: '4px 8px',
+                  fontSize: 14,
+                  background: theme === opt.value ? '#4f46e5' : 'var(--th-bg)',
+                  color: theme === opt.value ? '#fff' : 'var(--th-text-muted)',
+                  border: `1px solid ${theme === opt.value ? '#4f46e5' : 'var(--th-input-border)'}`,
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ interface TaskStore {
   uiRowHeight:        number;
   ganttHeaderLevels:  GanttHeaderLevels;
   theme:              ThemeMode;
+  ganttBarOpen:       boolean;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
   setSortKey:             (key: keyof Task) => void;
@@ -39,6 +40,7 @@ interface TaskStore {
   setUiRowHeight:         (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
   setTheme:               (theme: ThemeMode) => void;
+  setGanttBarOpen:        (open: boolean) => void;
 }
 
 export const useTaskStore = create<TaskStore>()(
@@ -62,6 +64,7 @@ export const useTaskStore = create<TaskStore>()(
       uiRowHeight:        36,
       ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
       theme:              'auto' as ThemeMode,
+      ganttBarOpen:       true,
       setTasks:               (tasks) => set({ tasks }),
       setNeedsReload:         (needsReload) => set({ needsReload }),
       setSortKey:             (key) =>
@@ -82,6 +85,7 @@ export const useTaskStore = create<TaskStore>()(
         ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
       })),
       setTheme:               (theme) => set({ theme }),
+      setGanttBarOpen:        (ganttBarOpen) => set({ ganttBarOpen }),
     }),
     {
       name: 'treegantt-ui',
@@ -96,6 +100,7 @@ export const useTaskStore = create<TaskStore>()(
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,
         ganttHeaderLevels: s.ganttHeaderLevels,
+        ganttBarOpen:      s.ganttBarOpen,
       }),
     },
   ),
