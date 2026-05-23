@@ -146,6 +146,43 @@ function buildMultiLevelHeaders(
   return rows;
 }
 
+// ── コンテキストメニュー（自動位置調整） ──────────────
+function ContextMenu({
+  x, y, onMouseDown, onClick, children,
+}: {
+  x: number; y: number;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onClick: (e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    const { width, height } = ref.current.getBoundingClientRect();
+    setPos(clampMenuPos(x, y, width, height));
+  }, [x, y]);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        top: pos?.top ?? y,
+        left: pos?.left ?? x,
+        visibility: pos ? 'visible' : 'hidden',
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
+        boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 160,
+      }}
+      onMouseDown={onMouseDown}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ── 左セル 1行コンポーネント ────────────────────────
 interface LeftRowProps {
   task: Task;
@@ -872,12 +909,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         const task = taskById.get(menu.taskId);
         if (!task) return null;
         return (
-          <div key={i}
-            style={{
-              position: 'fixed', ...clampMenuPos(menu.x, menu.y),
-              background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
-              boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
-            }}
+          <ContextMenu key={i} x={menu.x} y={menu.y}
             onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
@@ -916,7 +948,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             >
               削除
             </button>
-          </div>
+          </ContextMenu>
         );
       })}
     </div>
