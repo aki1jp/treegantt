@@ -107,14 +107,14 @@ export function GanttBar({
       {/* 左リサイズハンドル */}
       <rect
         x={x} y={y} width={HANDLE_W} height={barHeight}
-        fill={color + '88'} rx={3}
+        fill={isOverdue ? '#dc2626' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { e.stopPropagation(); onResizeLeftStart(e, task.id); }}
       />
       {/* 右リサイズハンドル */}
       <rect
         x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
-        fill={color + '88'} rx={3}
+        fill={isOverdue ? '#dc2626' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { e.stopPropagation(); onResizeRightStart(e, task.id); }}
       />
