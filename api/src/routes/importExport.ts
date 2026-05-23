@@ -81,7 +81,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
       reply
         .header('Content-Type', 'application/json')
-        .header('Content-Disposition', `attachment; filename="taskflow-export-${req.params.id}.json"`)
+        .header('Content-Disposition', `attachment; filename="treegantt-export-${req.params.id}.json"`)
         .send({
           version: '1.1',
           exportedAt: new Date().toISOString(),
@@ -126,7 +126,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
       reply
         .header('Content-Type', 'text/csv; charset=utf-8')
-        .header('Content-Disposition', `attachment; filename="taskflow-export-${req.params.id}.csv"`)
+        .header('Content-Disposition', `attachment; filename="treegantt-export-${req.params.id}.csv"`)
         .send(csv);
     }
   );

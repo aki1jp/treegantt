@@ -1,5 +1,5 @@
 #!/bin/bash
-# TaskFlow 開発サーバー起動スクリプト
+# TreeGantt 開発サーバー起動スクリプト
 # 使い方: ./start.sh
 # 停止:   Ctrl+C
 
@@ -27,7 +27,7 @@ if ! command -v npm &>/dev/null; then
   exit 1
 fi
 
-echo "=== TaskFlow 起動中 (npm $(npm --version)) ==="
+echo "=== TreeGantt 起動中 (npm $(npm --version)) ==="
 
 # 初回のみ npm install
 if [ ! -d "api/node_modules" ]; then

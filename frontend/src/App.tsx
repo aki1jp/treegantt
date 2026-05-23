@@ -108,12 +108,12 @@ export default function App() {
 
   function handleExportJson() {
     if (!currentProject) return;
-    downloadFile(exportToJson(currentProject, tasks), `taskflow-${currentProject.id}.json`, 'application/json');
+    downloadFile(exportToJson(currentProject, tasks), `treegantt-${currentProject.id}.json`, 'application/json');
   }
 
   function handleExportCsv() {
     if (!currentProject) return;
-    downloadFile(exportToCsv(tasks), `taskflow-${currentProject.id}.csv`, 'text/csv');
+    downloadFile(exportToCsv(tasks), `treegantt-${currentProject.id}.csv`, 'text/csv');
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -145,7 +145,7 @@ export default function App() {
         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
         background: '#1e1b4b', color: '#fff', flexShrink: 0,
       }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>TaskFlow</span>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>TreeGantt</span>
         <div style={{ marginLeft: 16, display: 'flex', gap: 8 }}>
           {projects.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', borderRadius: 4,

@@ -1,5 +1,5 @@
 #!/bin/bash
-# TaskFlow 開発サーバー停止スクリプト
+# TreeGantt 開発サーバー停止スクリプト
 # 使い方: ./stop.sh
 
 STOPPED=0

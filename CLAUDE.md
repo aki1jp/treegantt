@@ -1,4 +1,4 @@
-# TaskFlow — 開発進捗メモ
+# TreeGantt — 開発進捗メモ
 
 ## Rules
 
@@ -120,7 +120,7 @@ docker compose up -d
 ## アーキテクチャメモ
 
 - APIポート: 4000 (REST), 4001 (WebSocket broadcast)
-- SQLite: `/workspace/api/data/taskflow.db`（唯一の真の状態）
+- SQLite: `/workspace/api/data/treegantt.db`（唯一の真の状態）
 - WebSocket: `ws` ライブラリによる broadcast サーバー（port 4001）。SQLite は REST 経由でのみ更新
 - フロントエンドの API/WS URL: `VITE_API_URL`/`VITE_WS_URL` 環境変数で上書き可。未設定時は `window.location.hostname` を自動使用（社内サーバー対応）
 - イナズマライン: `done`/`wait` ステータスのタスクは進捗率ではなく todayX（今日の縦線位置）を頂点として表示

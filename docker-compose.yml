@@ -18,7 +18,7 @@ services:
       - '4000:4000'
       - '4001:4001'
     environment:
-      - DB_PATH=/app/data/taskflow.db
+      - DB_PATH=/app/data/treegantt.db
       - PORT=4000
       - WS_PORT=4001
       - LDAP_ENABLED=false
@@ -34,6 +34,6 @@ services:
       - '8888:8080'
     volumes:
       - ./api/data:/data
-    command: sqlite_web --host 0.0.0.0 /data/taskflow.db
+    command: sqlite_web --host 0.0.0.0 /data/treegantt.db
     profiles:
       - dev-tools

@@ -1,4 +1,4 @@
-# TaskFlow — タスク管理システム 設計書
+# TreeGantt — タスク管理システム 設計書
 
 | 項目 | 内容 |
 |------|------|
@@ -48,7 +48,7 @@
 
 ### 1.1 目的
 
-本書はTaskFlowのシステム設計を記述する。本設計書を読めばそのまま実装に着手できる粒度を目指す。
+本書はTreeGanttのシステム設計を記述する。本設計書を読めばそのまま実装に着手できる粒度を目指す。
 
 ### 1.2 スコープ
 
@@ -79,7 +79,7 @@
 
 ### 2.1 アーキテクチャ全体像
 
-TaskFlowはSPA（シングルページアプリケーション）＋WebSocketサーバーの2層構成をDockerコンテナで提供する。
+TreeGanttはSPA（シングルページアプリケーション）＋WebSocketサーバーの2層構成をDockerコンテナで提供する。
 
 **v1.1変更点:** `api` サービスと `ws` サービスを統合した。SQLiteファイルを2プロセスが共有することによる書き込み競合を排除し、コンテナ構成を簡素化する。
 
@@ -144,7 +144,7 @@ REST POST/DELETE/PATCH → DB更新
 ## 3. ディレクトリ構成
 
 ```
-taskflow/
+treegantt/
 ├── docker-compose.yml
 ├── .env.example
 ├── frontend/
@@ -202,7 +202,7 @@ taskflow/
     │   └── plugins/
     │       └── auth.ts           # 認証プラグイン（Phase 2 LDAP 用スタブ）
     └── data/
-        └── taskflow.db           # SQLiteファイル（永続化）
+        └── treegantt.db           # SQLiteファイル（永続化）
 ```
 
 ---
@@ -850,7 +850,7 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 |--------|---------|-----------|------|
 | `VITE_API_URL` | frontend | `http://localhost:4000` | REST APIのURL |
 | `VITE_WS_URL` | frontend | `ws://localhost:4001` | WebSocketのURL |
-| `DB_PATH` | api | `/app/data/taskflow.db` | SQLiteファイルパス |
+| `DB_PATH` | api | `/app/data/treegantt.db` | SQLiteファイルパス |
 | `PORT` | api | `4000` | APIポート |
 | `WS_PORT` | api | `4001` | WebSocketポート |
 | `LDAP_ENABLED` | api | `false` | LDAP認証の有効化フラグ |
@@ -978,8 +978,8 @@ Prisma Studio の代わりに以下を使用する。
 
 | ツール | 用途 | 使い方 |
 |--------|------|--------|
-| [DB Browser for SQLite](https://sqlitebrowser.org/) | ローカルGUI。SQLiteファイルを直接開いて閲覧・編集 | `api/data/taskflow.db` を開く |
-| `sqlite3` CLI | ターミナルから即座にクエリ実行 | `sqlite3 api/data/taskflow.db` |
+| [DB Browser for SQLite](https://sqlitebrowser.org/) | ローカルGUI。SQLiteファイルを直接開いて閲覧・編集 | `api/data/treegantt.db` を開く |
+| `sqlite3` CLI | ターミナルから即座にクエリ実行 | `sqlite3 api/data/treegantt.db` |
 | `sqlite-web`（開発docker-composeに追加可） | ブラウザGUI。Prisma Studioと同等の使い勝手 | 下記参照 |
 
 開発時に `sqlite-web` が必要な場合、`docker-compose.yml` に追加する：
@@ -991,6 +991,6 @@ Prisma Studio の代わりに以下を使用する。
       - '8888:8080'
     volumes:
       - ./api/data:/data
-    command: sqlite_web --host 0.0.0.0 /data/taskflow.db
+    command: sqlite_web --host 0.0.0.0 /data/treegantt.db
     profiles: ["dev-tools"]  # 通常起動時は除外、必要時に --profile dev-tools で起動
 ```
