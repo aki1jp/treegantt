@@ -77,7 +77,8 @@ function calcDuration(start: string | null, end: string | null): number | null {
 }
 
 // ── マルチレベルヘッダー構築 ─────────────────────────
-type HeaderRow = { level: 'year' | 'month' | 'week' | 'day'; cells: { label: string; x: number; width: number }[] };
+type HeaderCell = { label: string; x: number; width: number; dow?: number };
+type HeaderRow = { level: 'year' | 'month' | 'week' | 'day'; cells: HeaderCell[] };
 
 function buildMultiLevelHeaders(
   min: Date, max: Date, zoom: ZoomLevel,
@@ -137,7 +138,7 @@ function buildMultiLevelHeaders(
     const end = dayjs(max);
     while (cur.isBefore(end)) {
       const x = toX(cur);
-      cells.push({ label: cur.format('D'), x, width: dayWidth });
+      cells.push({ label: cur.format('D'), x, width: dayWidth, dow: cur.day() });
       cur = cur.add(1, 'day');
     }
     rows.push({ level: 'day', cells });
@@ -851,20 +852,49 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: 'var(--th-bg2)',
                 borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined,
               }}>
-                {row.cells.map((cell, ci) => (
-                  <div key={ci} style={{
-                    position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
-                    background: ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)',
-                    borderRight: '1px solid var(--th-border)',
-                    display: 'flex', alignItems: 'center', paddingLeft: 4,
-                    fontSize: row.level === 'day' ? 9 : 10,
-                    fontWeight: row.level === 'year' ? 800 : 600,
-                    color: row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
-                    boxSizing: 'border-box', overflow: 'hidden',
-                  }}>
-                    {cell.label}
-                  </div>
-                ))}
+                {row.cells.map((cell, ci) => {
+                  const isSat = row.level === 'day' && cell.dow === 6;
+                  const isSun = row.level === 'day' && cell.dow === 0;
+                  const bg = isSat
+                    ? 'rgba(59,130,246,0.18)'
+                    : isSun
+                      ? 'rgba(239,68,68,0.18)'
+                      : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
+                  return (
+                    <div
+                      key={ci}
+                      data-dow={row.level === 'day' ? cell.dow : undefined}
+                      style={{
+                        position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
+                        background: bg,
+                        borderRight: '1px solid var(--th-border)',
+                        display: 'flex',
+                        flexDirection: row.level === 'day' ? 'column' : 'row',
+                        alignItems: 'center',
+                        justifyContent: row.level === 'day' ? 'center' : undefined,
+                        paddingLeft: row.level === 'day' ? 0 : 4,
+                        fontSize: row.level === 'day' ? 9 : 10,
+                        fontWeight: row.level === 'year' ? 800 : 600,
+                        color: row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
+                        boxSizing: 'border-box', overflow: 'hidden',
+                      }}
+                    >
+                      {row.level === 'day' ? (
+                        <>
+                          <span style={{ lineHeight: 1 }}>{cell.label}</span>
+                          {dayWidth >= 20 && (
+                            <span style={{
+                              fontSize: 7, lineHeight: 1,
+                              color: isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)',
+                            }}>
+                              {['日','月','火','水','木','金','土'][cell.dow!]}
+                            </span>
+                          )}
+                        </>
+                      ) : cell.label}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
