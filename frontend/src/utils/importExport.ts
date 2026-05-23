@@ -37,6 +37,7 @@ export function exportToCsv(tasks: Task[]): string {
     assignee: t.assignee,
     startDate: t.startDate ?? '',
     endDate: t.endDate ?? '',
+    isMilestone: t.isMilestone ? '1' : '0',
     predecessors: t.predecessors.join(';'),
   }));
   return Papa.unparse(rows);
@@ -56,6 +57,7 @@ export function importFromCsv(csvStr: string): { tasks: Partial<Task>[] } {
     assignee:     row.assignee ?? '',
     startDate:    row.startDate || null,
     endDate:      row.endDate || null,
+    isMilestone:  row.isMilestone === '1',
     predecessors: row.predecessors ? row.predecessors.split(';').filter(Boolean) : [],
   }));
   return { tasks };

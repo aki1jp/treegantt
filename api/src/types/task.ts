@@ -15,6 +15,7 @@ export interface Task {
   assignee:     string;
   startDate:    string | null;
   endDate:      string | null;
+  isMilestone:  boolean;
   predecessors: string[];
   order:        number;
   createdAt:    string;

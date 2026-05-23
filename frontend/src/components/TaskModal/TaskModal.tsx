@@ -32,6 +32,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
   const [startDate, setStartDate]     = useState(task?.startDate ?? '');
   const [endDate, setEndDate]         = useState(task?.endDate ?? '');
   const [parentId, setParentId]       = useState<string>(task?.parentId ?? '');
+  const [isMilestone, setIsMilestone]   = useState(task?.isMilestone ?? false);
   const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
   const [predecessorText, setPredecessorText] = useState(
     (task?.predecessors ?? [])
@@ -50,6 +51,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
     setAssignee(task?.assignee ?? '');
     setStartDate(task?.startDate ?? '');
     setEndDate(task?.endDate ?? '');
+    setIsMilestone(task?.isMilestone ?? false);
     setParentId(task?.parentId ?? '');
     const initPreds = task?.predecessors ?? [];
     setPredecessors(initPreds);
@@ -76,7 +78,8 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
       progress,
       assignee,
       startDate: startDate || null,
-      endDate: endDate || null,
+      endDate: isMilestone ? (startDate || null) : (endDate || null),
+      isMilestone,
       parentId: parentId || null,
       predecessors,
     });
@@ -161,9 +164,19 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
               <input style={INPUT} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
             </div>
             <div style={FIELD}>
-              <label style={LABEL}>終了日</label>
-              <input style={INPUT} type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              <label style={LABEL}>終了日{isMilestone ? '（マイルストーンは開始日に固定）' : ''}</label>
+              <input style={INPUT} type="date" value={isMilestone ? startDate : endDate}
+                disabled={isMilestone}
+                onChange={e => setEndDate(e.target.value)} />
             </div>
+          </div>
+
+          <div style={{ ...FIELD, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" id="isMilestone" checked={isMilestone}
+              onChange={e => setIsMilestone(e.target.checked)} style={{ width: 16, height: 16 }} />
+            <label htmlFor="isMilestone" style={{ ...LABEL, cursor: 'pointer' }}>
+              マイルストーン（◇ 菱形で表示、期間ゼロ）
+            </label>
           </div>
 
           {/* 親タスク */}

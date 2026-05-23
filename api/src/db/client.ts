@@ -26,3 +26,13 @@ try {
 } catch {
   // duplicate column name — migration already applied
 }
+
+try {
+  const migration003 = readFileSync(
+    join(__dirname, 'migrations/003_milestone.sql'),
+    'utf-8'
+  );
+  db.exec(migration003);
+} catch {
+  // duplicate column name — migration already applied
+}

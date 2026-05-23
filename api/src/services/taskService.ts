@@ -14,6 +14,7 @@ interface RawTask {
   assignee: string;
   start_date: string | null;
   end_date: string | null;
+  is_milestone: number;
   ord: number;
   created_at: string;
   updated_at: string;
@@ -33,6 +34,7 @@ function rawToTask(row: RawTask): Task {
     assignee: row.assignee,
     startDate: row.start_date,
     endDate: row.end_date,
+    isMilestone: row.is_milestone === 1,
     order: row.ord,
     predecessors: [],
     createdAt: row.created_at,
@@ -141,6 +143,7 @@ export interface CreateTaskInput {
   assignee?: string;
   startDate?: string | null;
   endDate?: string | null;
+  isMilestone?: boolean;
   predecessors?: string[];
   order?: number;
 }
@@ -153,8 +156,8 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
   ).m;
 
   db.prepare(
-    `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, ord)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.id,
     input.projectId,
@@ -168,6 +171,7 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
     input.assignee ?? '',
     input.startDate ?? null,
     input.endDate ?? null,
+    input.isMilestone ? 1 : 0,
     input.order ?? maxOrd + 1
   );
 
@@ -200,9 +204,10 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
   if (input.priority !== undefined)    { fields.push('priority = ?');    params.push(input.priority); }
   if (input.progress !== undefined)    { fields.push('progress = ?');    params.push(input.progress); }
   if (input.assignee !== undefined)    { fields.push('assignee = ?');    params.push(input.assignee); }
-  if (input.startDate !== undefined)   { fields.push('start_date = ?');  params.push(input.startDate); }
-  if (input.endDate !== undefined)     { fields.push('end_date = ?');    params.push(input.endDate); }
-  if (input.order !== undefined)       { fields.push('ord = ?');         params.push(input.order); }
+  if (input.startDate !== undefined)   { fields.push('start_date = ?');    params.push(input.startDate); }
+  if (input.endDate !== undefined)     { fields.push('end_date = ?');      params.push(input.endDate); }
+  if (input.isMilestone !== undefined) { fields.push('is_milestone = ?');  params.push(input.isMilestone ? 1 : 0); }
+  if (input.order !== undefined)       { fields.push('ord = ?');           params.push(input.order); }
 
   if (fields.length > 0) {
     db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);

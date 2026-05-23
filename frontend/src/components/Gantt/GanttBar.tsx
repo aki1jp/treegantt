@@ -6,6 +6,11 @@ interface Props {
   minDate: Date;
   zoom: ZoomLevel;
   rowIndex: number;
+  isCritical?: boolean;
+  dragPreview?: { startDate: string; endDate: string } | null;
+  onMoveStart: (e: React.MouseEvent, taskId: string) => void;
+  onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
+  onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
   onClick: () => void;
 }
 
@@ -13,35 +18,108 @@ const STATUS_COLOR: Record<TaskStatus, string> = {
   todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
 };
 
-export function GanttBar({ task, minDate, zoom, rowIndex, onClick }: Props) {
-  if (!task.startDate || !task.endDate) return null;
+const TODAY = new Date().toISOString().slice(0, 10);
+const HANDLE_W = 6;
+
+export function GanttBar({
+  task, minDate, zoom, rowIndex, isCritical, dragPreview,
+  onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
+}: Props) {
+  const effectiveStart = dragPreview?.startDate ?? task.startDate;
+  const effectiveEnd   = dragPreview?.endDate   ?? task.endDate;
+
+  if (!effectiveStart) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
-  const x = dateToX(task.startDate, minDate, zoom);
-  const endX = dateToX(task.endDate, minDate, zoom) + dayWidth;
+  const color = isCritical ? '#ef4444' : STATUS_COLOR[task.status];
+  const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done';
+  const centerY = rowIndex * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+
+  // ── マイルストーン描画 ──────────────────────────────
+  if (task.isMilestone) {
+    const cx = dateToX(effectiveStart, minDate, zoom) + dayWidth / 2;
+    const r  = (ROW_HEIGHT_PX - 14) / 2;
+    const pts = `${cx},${centerY - r} ${cx + r},${centerY} ${cx},${centerY + r} ${cx - r},${centerY}`;
+    return (
+      <g style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
+        <polygon
+          points={pts}
+          fill={color + 'cc'}
+          stroke={isOverdue ? '#ef4444' : color}
+          strokeWidth={isOverdue ? 2.5 : 1.5}
+          strokeDasharray={isOverdue ? '3,2' : undefined}
+          onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
+        />
+        <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
+          {task.title}
+        </text>
+        {/* 透明な広いクリック領域 */}
+        <rect
+          x={cx - r - 4} y={centerY - r - 4} width={r * 2 + 8} height={r * 2 + 8}
+          fill="transparent" onClick={onClick} style={{ cursor: 'pointer' }}
+        />
+      </g>
+    );
+  }
+
+  // ── 通常バー描画 ────────────────────────────────────
+  if (!effectiveEnd) return null;
+
+  const x = dateToX(effectiveStart, minDate, zoom);
+  const endX = dateToX(effectiveEnd, minDate, zoom) + dayWidth;
   const width = Math.max(endX - x, dayWidth);
   const y = rowIndex * ROW_HEIGHT_PX + 6;
   const barHeight = ROW_HEIGHT_PX - 12;
-  const color = STATUS_COLOR[task.status];
-
   const progressWidth = Math.round(width * task.progress / 100);
 
   return (
-    <g onClick={onClick} style={{ cursor: 'pointer' }}>
+    <g>
       {/* バー背景 */}
-      <rect x={x} y={y} width={width} height={barHeight} rx={3} fill={color + '44'} stroke={color} strokeWidth={1} />
+      <rect
+        x={x} y={y} width={width} height={barHeight} rx={3}
+        fill={isCritical ? '#ff6b6b22' : color + '44'}
+        stroke={isOverdue ? '#ef4444' : (isCritical ? '#ef4444' : color)}
+        strokeWidth={isOverdue || isCritical ? 2 : 1}
+        strokeDasharray={isOverdue && !isCritical ? '5,3' : undefined}
+        onClick={onClick}
+        style={{ cursor: 'pointer' }}
+      />
       {/* 進捗バー */}
       {task.progress > 0 && (
-        <rect x={x} y={y} width={progressWidth} height={barHeight} rx={3} fill={color + 'aa'} />
+        <rect x={x} y={y} width={progressWidth} height={barHeight} rx={3}
+          fill={color + 'aa'} style={{ pointerEvents: 'none' }} />
       )}
       {/* タイトル */}
-      <text x={x + 4} y={y + barHeight / 2 + 4} fontSize={11} fill={color} fontWeight={600}
-        clipPath={`url(#clip-${task.id})`}>
+      <text x={x + HANDLE_W + 2} y={y + barHeight / 2 + 4} fontSize={11} fill={color} fontWeight={600}
+        clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
         {task.title}
       </text>
       <clipPath id={`clip-${task.id}`}>
-        <rect x={x} y={y} width={width} height={barHeight} />
+        <rect x={x + HANDLE_W} y={y} width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight} />
       </clipPath>
+
+      {/* 移動ゾーン（中央） */}
+      <rect
+        x={x + HANDLE_W} y={y}
+        width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight}
+        fill="transparent"
+        style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
+        onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
+      />
+      {/* 左リサイズハンドル */}
+      <rect
+        x={x} y={y} width={HANDLE_W} height={barHeight}
+        fill={color + '88'} rx={3}
+        style={{ cursor: 'ew-resize' }}
+        onMouseDown={e => { e.stopPropagation(); onResizeLeftStart(e, task.id); }}
+      />
+      {/* 右リサイズハンドル */}
+      <rect
+        x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
+        fill={color + '88'} rx={3}
+        style={{ cursor: 'ew-resize' }}
+        onMouseDown={e => { e.stopPropagation(); onResizeRightStart(e, task.id); }}
+      />
     </g>
   );
 }

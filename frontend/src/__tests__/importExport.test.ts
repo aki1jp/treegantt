@@ -8,7 +8,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     id: 'task-1', projectId: 'proj-1', parentId: null,
     title: 'テストタスク', summary: 'サマリ', description: '説明',
     status: 'todo', priority: 'medium', progress: 0,
-    assignee: '田中', startDate: '2026-05-01', endDate: '2026-05-10',
+    assignee: '田中', startDate: '2026-05-01', endDate: '2026-05-10', isMilestone: false,
     predecessors: [], order: 1, createdAt: '2026-05-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z',
     ...overrides,
   };

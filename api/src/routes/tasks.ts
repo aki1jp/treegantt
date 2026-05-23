@@ -44,6 +44,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             assignee:     { type: 'string' },
             startDate:    { type: ['string', 'null'] },
             endDate:      { type: ['string', 'null'] },
+            isMilestone:  { type: 'boolean' },
             predecessors: { type: 'array', items: { type: 'string' } },
           },
         },
@@ -62,6 +63,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           assignee:    req.body.assignee    as string | undefined,
           startDate:   req.body.startDate   as string | null | undefined,
           endDate:     req.body.endDate     as string | null | undefined,
+          isMilestone: req.body.isMilestone as boolean | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
         });
         broadcast(req.params.id, { type: 'task_created', projectId: req.params.id, task });
@@ -123,6 +125,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             assignee:     { type: 'string' },
             startDate:    { type: ['string', 'null'] },
             endDate:      { type: ['string', 'null'] },
+            isMilestone:  { type: 'boolean' },
             predecessors: { type: 'array', items: { type: 'string' } },
             order:        { type: 'number' },
           },
@@ -146,6 +149,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           assignee:     req.body.assignee     as string | undefined,
           startDate:    req.body.startDate    as string | null | undefined,
           endDate:      req.body.endDate      as string | null | undefined,
+          isMilestone:  req.body.isMilestone  as boolean | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
           order:        req.body.order        as number | undefined,
         });

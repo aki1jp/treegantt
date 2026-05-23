@@ -46,6 +46,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     assignee: '',
     startDate: null,
     endDate: null,
+    isMilestone: false,
     predecessors: [],
     order: _seq,
     createdAt: '2026-01-01T00:00:00Z',

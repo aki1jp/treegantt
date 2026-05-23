@@ -89,6 +89,73 @@ export function calcLightningPoints(
   return pts.length > 0 ? pts : null;
 }
 
+export function calcCriticalPath(tasks: Task[]): Set<string> {
+  const hasDeps = tasks.some(t => t.predecessors.length > 0);
+  if (!hasDeps) return new Set();
+
+  const taskMap = new Map(tasks.map(t => [t.id, t]));
+
+  // Build successor map
+  const successors = new Map<string, string[]>();
+  tasks.forEach(t => successors.set(t.id, []));
+  tasks.forEach(t => {
+    t.predecessors.forEach(pid => {
+      if (successors.has(pid)) successors.get(pid)!.push(t.id);
+    });
+  });
+
+  // Duration in days (minimum 1)
+  function dur(t: Task): number {
+    if (!t.startDate || !t.endDate) return 1;
+    return Math.max(1, Math.round((new Date(t.endDate).getTime() - new Date(t.startDate).getTime()) / 86400000) + 1);
+  }
+
+  // Topological sort (Kahn's algorithm)
+  const inDeg = new Map(tasks.map(t => [t.id, t.predecessors.filter(p => taskMap.has(p)).length]));
+  const queue = tasks.filter(t => inDeg.get(t.id) === 0).map(t => t.id);
+  const sorted: string[] = [];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    sorted.push(id);
+    (successors.get(id) ?? []).forEach(sid => {
+      const d = (inDeg.get(sid) ?? 1) - 1;
+      inDeg.set(sid, d);
+      if (d === 0) queue.push(sid);
+    });
+  }
+
+  // Forward pass: ES = earliest start, EF = earliest finish
+  const ES = new Map<string, number>();
+  const EF = new Map<string, number>();
+  for (const id of sorted) {
+    const task = taskMap.get(id)!;
+    const predEFs = task.predecessors.filter(p => taskMap.has(p)).map(p => EF.get(p) ?? 0);
+    const es = predEFs.length > 0 ? Math.max(...predEFs) : 0;
+    ES.set(id, es);
+    EF.set(id, es + dur(task));
+  }
+
+  const projectEF = EF.size > 0 ? Math.max(...EF.values()) : 0;
+
+  // Backward pass: LS = latest start
+  const LS = new Map<string, number>();
+  for (const id of [...sorted].reverse()) {
+    const task = taskMap.get(id)!;
+    const sucLSs = (successors.get(id) ?? []).filter(s => taskMap.has(s)).map(s => LS.get(s) ?? projectEF);
+    const lf = sucLSs.length > 0 ? Math.min(...sucLSs) : projectEF;
+    LS.set(id, lf - dur(task));
+  }
+
+  // Critical: total float = LS - ES == 0
+  const critical = new Set<string>();
+  for (const id of sorted) {
+    if ((LS.get(id) ?? 0) === (ES.get(id) ?? 0)) {
+      critical.add(id);
+    }
+  }
+  return critical;
+}
+
 export function ganttTotalWidth(tasks: Task[], zoom: ZoomLevel, startDate?: string, period?: GanttPeriod): number {
   const range = calcGanttRange(tasks, startDate, period);
   const { dayWidth } = ZOOM_CONFIG[zoom];

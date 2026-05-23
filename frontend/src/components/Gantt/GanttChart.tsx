@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import dayjs from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import type { Task, TaskStatus, TaskPriority, ZoomLevel } from '../../types/task';
@@ -7,6 +7,7 @@ import { sortAndFilter } from '../../utils/sort';
 import {
   calcGanttRange, calcTodayX, calcLightningPoints,
   ganttTotalWidth, ROW_HEIGHT_PX, ZOOM_CONFIG,
+  calcCriticalPath,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
@@ -28,6 +29,7 @@ const LEFT_COLS = [
   { key: 'assignee',  label: '担当',     width: 76,  sortable: true  },
   { key: 'startDate', label: '開始',     width: 88,  sortable: true  },
   { key: 'endDate',   label: '終了',     width: 88,  sortable: true  },
+  { key: 'duration',  label: '日数',     width: 50,  sortable: false },
 ] as const;
 
 const LEFT_TOTAL = LEFT_COLS.reduce((s, c) => s + c.width, 0);
@@ -46,6 +48,31 @@ const PRIORITY_LABEL: Record<TaskPriority, string> = {
   critical: '最高', high: '高', medium: '中', low: '低',
 };
 
+// ── ドラッグ状態 ────────────────────────────────────
+type DragType = 'move' | 'resize-left' | 'resize-right';
+interface DragState {
+  taskId: string;
+  type: DragType;
+  startClientX: number;
+  origStart: string;
+  origEnd: string;
+}
+interface DragPreview {
+  taskId: string;
+  startDate: string;
+  endDate: string;
+}
+
+function addDays(date: string, n: number): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function calcDuration(start: string | null, end: string | null): number | null {
+  if (!start || !end || end < start) return null;
+  return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
+}
 
 // ── マルチレベルヘッダー構築 ─────────────────────────
 type HeaderRow = { level: 'year' | 'month' | 'week' | 'day'; cells: { label: string; x: number; width: number }[] };
@@ -60,7 +87,6 @@ function buildMultiLevelHeaders(
 
   const rows: HeaderRow[] = [];
 
-  // 年行
   if (levels.year) {
     const cells: HeaderRow['cells'] = [];
     let cur = dayjs(min).startOf('year');
@@ -75,7 +101,6 @@ function buildMultiLevelHeaders(
     rows.push({ level: 'year', cells });
   }
 
-  // 月行
   if (levels.month) {
     const cells: HeaderRow['cells'] = [];
     let cur = dayjs(min).startOf('month');
@@ -90,7 +115,6 @@ function buildMultiLevelHeaders(
     rows.push({ level: 'month', cells });
   }
 
-  // 週行
   if (levels.week) {
     const cells: HeaderRow['cells'] = [];
     let cur = dayjs(min).startOf('week');
@@ -105,7 +129,6 @@ function buildMultiLevelHeaders(
     rows.push({ level: 'week', cells });
   }
 
-  // 日行
   if (levels.day) {
     const cells: HeaderRow['cells'] = [];
     let cur = dayjs(min);
@@ -187,7 +210,14 @@ function GanttLeftRow({
     if (e.key === 'Escape') setEditField(null);
   }
 
-  // ★ アライメント修正: 外側 div に高さを明示し borderBottom はその内側に収める
+  function commitDuration(raw: string) {
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 1 || !task.startDate) { setEditField(null); return; }
+    const newEnd = addDays(task.startDate, n - 1);
+    onInlineUpdate(task.id, { endDate: newEnd });
+    setEditField(null);
+  }
+
   const CELL: React.CSSProperties = {
     height: ROW_HEIGHT_PX, display: 'flex', alignItems: 'center',
     padding: '0 6px', fontSize: 12, overflow: 'hidden',
@@ -200,6 +230,7 @@ function GanttLeftRow({
 
   const indent = depth * 16;
   const rowBg = hasChildren ? '#eef2ff' : '#fff';
+  const duration = calcDuration(task.startDate, task.endDate);
 
   return (
     <div
@@ -213,7 +244,7 @@ function GanttLeftRow({
     >
       {/* # (order) */}
       <div style={{ ...CELL, width: 36, justifyContent: 'center', color: '#9ca3af', userSelect: 'none' }}>
-        {task.order}
+        {task.isMilestone ? '◇' : task.order}
       </div>
 
       {/* タイトル */}
@@ -363,6 +394,31 @@ function GanttLeftRow({
         )}
       </div>
 
+      {/* 期間（日数） */}
+      <div style={{ ...CELL, width: 50 }}>
+        {editField === 'duration' ? (
+          <input ref={inputRef}
+            style={{ ...INPUT_S, width: 38 }} type="number" min={1} value={editVal}
+            onChange={e => setEditVal(e.target.value)}
+            onBlur={() => commitDuration(editVal)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') commitDuration(editVal);
+              if (e.key === 'Escape') setEditField(null);
+            }} />
+        ) : (
+          <span
+            onClick={() => {
+              if (task.startDate) startEdit('duration', String(duration ?? ''));
+            }}
+            style={{
+              cursor: task.startDate ? 'text' : 'default',
+              color: duration !== null ? '#374151' : '#d1d5db',
+            }}>
+            {duration !== null ? duration : '—'}
+          </span>
+        )}
+      </div>
+
       {conflict && (
         <ConflictDialog
           field={conflict.field}
@@ -448,7 +504,7 @@ function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
           </span>
         )}
       </div>
-      {[66, 56, 76, 76, 88, 88].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
+      {[66, 56, 76, 76, 88, 88, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
     </div>
   );
 }
@@ -465,7 +521,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, ganttHeaderLevels,
     setSortKey,
   } = useTaskStore();
 
@@ -487,14 +543,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const taskById  = new Map(sorted.map(t => [t.id, t]));
   const totalHeight = (flatRows.length + 1) * ROW_HEIGHT_PX;
 
-  // 土日列の X 座標リスト
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
+
+  // 土日列
   const weekendXs: number[] = [];
   if (showWeekend) {
     let cur = dayjs(min);
     const end = dayjs(max);
     while (cur.isBefore(end)) {
-      const dow = cur.day(); // 0=Sun, 6=Sat
+      const dow = cur.day();
       if (dow === 0 || dow === 6) {
         const dayIdx = Math.round((cur.toDate().getTime() - min.getTime()) / 86400000);
         weekendXs.push(dayIdx * dayWidth);
@@ -503,17 +560,86 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     }
   }
 
-  // 親タスクの進捗を事前計算
+  // 親タスクの進捗事前計算
   const progressMap = new Map(
     sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)])
   );
 
-  // イナズマライン: 各行の有効進捗率をX座標に変換したジグザグ折れ線
+  // イナズマライン
   const lightningPoints = calcLightningPoints(
     flatRows.map(r => ({ task: r.task, effectiveProgress: progressMap.get(r.task.id) ?? 0 })),
     min,
     zoomLevel,
   );
+
+  // クリティカルパス
+  const criticalSet = showCriticalPath ? calcCriticalPath(sorted) : new Set<string>();
+
+  // ── ドラッグ状態 ────────────────────────────────────
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+  const dragPreviewRef = useRef<DragPreview | null>(null);
+
+  useEffect(() => {
+    dragPreviewRef.current = dragPreview;
+  }, [dragPreview]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragState) return;
+    const delta = Math.round((e.clientX - dragState.startClientX) / dayWidth);
+    let newStart = dragState.origStart;
+    let newEnd   = dragState.origEnd;
+
+    if (dragState.type === 'move') {
+      newStart = addDays(dragState.origStart, delta);
+      newEnd   = addDays(dragState.origEnd,   delta);
+    } else if (dragState.type === 'resize-right') {
+      newEnd = addDays(dragState.origEnd, delta);
+      if (newEnd < newStart) newEnd = newStart;
+    } else {
+      newStart = addDays(dragState.origStart, delta);
+      if (newStart > newEnd) newStart = newEnd;
+    }
+
+    setDragPreview({ taskId: dragState.taskId, startDate: newStart, endDate: newEnd });
+  }, [dragState, dayWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    const preview = dragPreviewRef.current;
+    if (preview && dragState) {
+      if (preview.startDate !== dragState.origStart || preview.endDate !== dragState.origEnd) {
+        const patch: Partial<Task> = { startDate: preview.startDate, endDate: preview.endDate };
+        // マイルストーンは startDate のみ（endDate は同日）
+        const task = taskById.get(preview.taskId);
+        if (task?.isMilestone) patch.endDate = preview.startDate;
+        onInlineUpdate(preview.taskId, patch);
+      }
+    }
+    setDragState(null);
+    setDragPreview(null);
+  }, [dragState, taskById, onInlineUpdate]);
+
+  useEffect(() => {
+    if (!dragState) return;
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState, handleMouseMove, handleMouseUp]);
+
+  function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
+    e.preventDefault();
+    const task = taskById.get(taskId);
+    if (!task?.startDate) return;
+    setDragState({
+      taskId, type,
+      startClientX: e.clientX,
+      origStart: task.startDate,
+      origEnd: task.endDate ?? task.startDate,
+    });
+  }
 
   function toggleCollapse(id: string) {
     setCollapsed(prev => {
@@ -531,7 +657,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   };
 
   return (
-    <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+    <div
+      style={{
+        flex: 1, overflow: 'auto', position: 'relative',
+        cursor: dragState ? 'grabbing' : 'default',
+      }}
+    >
       <div style={{ width: LEFT_TOTAL + totalWidth }}>
 
         {/* ── ヘッダー（マルチレベル） ── */}
@@ -541,7 +672,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         }}>
           {headerRows.map((row, ri) => (
             <div key={row.level} style={{ display: 'flex', height: HEADER_ROW_H }}>
-              {/* 左ヘッダー（最初の行のみ列名・残りは空） */}
               <div style={{
                 display: 'flex', flexShrink: 0, width: LEFT_TOTAL,
                 position: 'sticky', left: 0, zIndex: 21,
@@ -563,7 +693,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 }
               </div>
 
-              {/* タイムラインヘッダー行 */}
               <div style={{ width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: '#f9fafb',
                 borderTop: ri > 0 ? '1px solid #e5e7eb' : undefined }}>
                 {row.cells.map((cell, ci) => (
@@ -620,7 +749,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               </marker>
             </defs>
 
-            {/* 縞背景（親タスク行は #eef2ff） */}
+            {/* 縞背景 */}
             {flatRows.map(({ task }, i) => {
               const isParent = (childCount.get(task.id) ?? 0) > 0;
               return (
@@ -636,10 +765,24 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             ))}
 
             {/* タスクバー */}
-            {flatRows.map(({ task }, i) => (
-              <GanttBar key={task.id} task={task} minDate={min} zoom={zoomLevel} rowIndex={i}
-                onClick={() => onEditTask(task)} />
-            ))}
+            {flatRows.map(({ task }, i) => {
+              const preview = dragPreview?.taskId === task.id ? dragPreview : null;
+              return (
+                <GanttBar
+                  key={task.id}
+                  task={task}
+                  minDate={min}
+                  zoom={zoomLevel}
+                  rowIndex={i}
+                  isCritical={criticalSet.has(task.id)}
+                  dragPreview={preview}
+                  onMoveStart={(e, id) => startDrag(e, id, 'move')}
+                  onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}
+                  onResizeRightStart={(e, id) => startDrag(e, id, 'resize-right')}
+                  onClick={() => !dragState && onEditTask(task)}
+                />
+              );
+            })}
 
             {/* 依存関係矢印 */}
             {sorted.flatMap(task =>
@@ -655,7 +798,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* 今日ライン */}
             <TodayLine x={todayX} height={Math.max(totalHeight, 1)} />
 
-            {/* イナズマライン（ON/OFF切替可） */}
+            {/* イナズマライン */}
             {showLightningLine && lightningPoints && (
               <LightningLine points={lightningPoints} color="#7c3aed" />
             )}

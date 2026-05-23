@@ -93,9 +93,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, ganttHeaderLevels,
     setZoomLevel, setFilter, setGanttRange,
-    setShowLightningLine, setShowWeekend, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setGanttHeaderLevels,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -276,6 +276,12 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
         label="土日"
         title="土日（週末）の背景を強調表示"
         onClick={() => setShowWeekend(!showWeekend)}
+      />
+      <ToggleBtn
+        active={showCriticalPath}
+        label="CP"
+        title="クリティカルパスを赤でハイライト表示"
+        onClick={() => setShowCriticalPath(!showCriticalPath)}
       />
 
       <div style={DIVIDER} />

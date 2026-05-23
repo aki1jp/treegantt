@@ -1,17 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
+let _seq = 0;
 function makeTask(overrides: Partial<Task> = {}): Task {
+  _seq++;
   return {
-    id: 't1', projectId: 'p1', parentId: null,
+    id: `t${_seq}`, projectId: 'p1', parentId: null,
     title: 'T', summary: '', description: '',
     status: 'todo', priority: 'medium', progress: 0,
-    assignee: '', startDate: null, endDate: null,
-    predecessors: [], order: 0, createdAt: '', updatedAt: '',
+    assignee: '', startDate: null, endDate: null, isMilestone: false,
+    predecessors: [], order: _seq, createdAt: '', updatedAt: '',
     ...overrides,
   };
 }
+
+beforeEach(() => { _seq = 0; });
 
 const TODAY = new Date('2026-05-21T00:00:00.000Z');
 
@@ -19,7 +23,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(TODAY);
 });
-afterEach(() => { vi.useRealTimers(); });
+afterEach(() => { vi.useRealTimers(); _seq = 0; });
 
 describe('calcGanttRange', () => {
   it('タスクがない場合は今日を中心に最低90日表示する', () => {
@@ -131,5 +135,50 @@ describe('ganttTotalWidth', () => {
     const wMonth = ganttTotalWidth([], 'month');
     expect(wDay).toBeGreaterThan(wWeek);
     expect(wWeek).toBeGreaterThan(wMonth);
+  });
+});
+
+describe('calcCriticalPath', () => {
+  it('依存関係がない場合は空セットを返す', () => {
+    const tasks = [
+      makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }),
+      makeTask({ startDate: '2026-05-01', endDate: '2026-05-20' }),
+    ];
+    expect(calcCriticalPath(tasks).size).toBe(0);
+  });
+
+  it('単純な A→B 依存でどちらもクリティカル', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' });
+    const b = makeTask({ startDate: '2026-05-11', endDate: '2026-05-20', predecessors: [a.id] });
+    const cp = calcCriticalPath([a, b]);
+    expect(cp.has(a.id)).toBe(true);
+    expect(cp.has(b.id)).toBe(true);
+  });
+
+  it('並列タスクで最長経路のみクリティカル', () => {
+    // short(5日) と long(15日) が並列、どちらも merge に接続
+    const short = makeTask({ startDate: '2026-05-01', endDate: '2026-05-05' });
+    const long  = makeTask({ startDate: '2026-05-01', endDate: '2026-05-15' });
+    const merge = makeTask({ startDate: '2026-05-16', endDate: '2026-05-20', predecessors: [short.id, long.id] });
+    const cp = calcCriticalPath([short, long, merge]);
+    expect(cp.has(long.id)).toBe(true);
+    expect(cp.has(merge.id)).toBe(true);
+    expect(cp.has(short.id)).toBe(false);
+  });
+
+  it('A→B→C の全チェーンがクリティカル（唯一経路）', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-05' });
+    const b = makeTask({ startDate: '2026-05-06', endDate: '2026-05-10', predecessors: [a.id] });
+    const c = makeTask({ startDate: '2026-05-11', endDate: '2026-05-15', predecessors: [b.id] });
+    const cp = calcCriticalPath([a, b, c]);
+    expect(cp.has(a.id)).toBe(true);
+    expect(cp.has(b.id)).toBe(true);
+    expect(cp.has(c.id)).toBe(true);
+  });
+
+  it('日付なしタスクが混在しても例外を投げない', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' });
+    const b = makeTask({ startDate: null, endDate: null, predecessors: [a.id] });
+    expect(() => calcCriticalPath([a, b])).not.toThrow();
   });
 });
