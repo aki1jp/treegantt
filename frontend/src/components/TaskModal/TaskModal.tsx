@@ -149,24 +149,60 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
           {/* 親タスク */}
           <div style={FIELD}>
             <label style={LABEL}>親タスク</label>
-            <select style={INPUT} value={parentId} onChange={e => setParentId(e.target.value)}>
-              <option value="">なし（ルートタスク）</option>
-              {selectableTasks.map(t => (
-                <option key={t.id} value={t.id}>{t.title}</option>
-              ))}
-            </select>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                style={{ ...INPUT, width: 72, flexShrink: 0 }}
+                type="number"
+                min={1}
+                placeholder="#"
+                value={parentId ? (selectableTasks.find(t => t.id === parentId)?.order ?? '') : ''}
+                onChange={e => {
+                  const num = parseInt(e.target.value, 10);
+                  const found = selectableTasks.find(t => t.order === num);
+                  setParentId(found ? found.id : '');
+                }}
+              />
+              <select style={{ ...INPUT, flex: 1 }} value={parentId} onChange={e => setParentId(e.target.value)}>
+                <option value="">なし（ルートタスク）</option>
+                {selectableTasks.map(t => (
+                  <option key={t.id} value={t.id}>
+                    #{t.order} {t.title}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* 先行タスク */}
           {selectableTasks.length > 0 && (
             <div style={FIELD}>
               <label style={LABEL}>先行タスク（複数選択可）</label>
+              <input
+                style={{ ...INPUT, marginBottom: 6 }}
+                placeholder="# で指定（例: 1, 3, 5）"
+                value={predecessors
+                  .map(id => selectableTasks.find(t => t.id === id)?.order)
+                  .filter((o): o is number => o !== undefined)
+                  .join(', ')}
+                onChange={e => {
+                  const nums = e.target.value.split(/[\s,]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+                  const ids = nums
+                    .map(n => selectableTasks.find(t => t.order === n)?.id)
+                    .filter((id): id is string => !!id);
+                  setPredecessors([...new Set(ids)]);
+                }}
+              />
               <div style={{ border: '1px solid #ddd', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto' }}>
                 {selectableTasks.map(t => (
                   <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
                     <input type="checkbox" checked={predecessors.includes(t.id)}
                       onChange={() => togglePredecessor(t.id)} />
-                    <span style={{ fontSize: 13 }}>{t.title}</span>
+                    <span style={{ fontSize: 13 }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6366f1', marginRight: 4 }}>
+                        #{t.order}
+                      </span>
+                      {t.title}
+                    </span>
                   </label>
                 ))}
               </div>
