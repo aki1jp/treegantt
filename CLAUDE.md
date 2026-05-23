@@ -168,3 +168,26 @@ docker compose up -d
 - クリティカルパス: CPM アルゴリズム（ganttCalc.ts）。黄色背景（#fef08a）＋インディゴ枠（#6366f1）
 - 期限超過: `endDate < today && status !== 'done'` → 赤背景（#fca5a5）。CPより優先
 - ガントバー右クリックメニュー: SVGネイティブ contextmenu リスナー + data-task-id 属性でヒットテスト
+
+### UI設定の永続化（localStorage）
+
+Zustand `persist` ミドルウェアで `localStorage` に自動保存。キー名: `treegantt-ui`。
+
+**保存対象**（ブラウザ固有の表示設定）:
+
+| キー | 説明 |
+|------|------|
+| `theme` | ライト/ダーク/システム |
+| `zoomLevel` | ガントズームレベル（日/週/月） |
+| `ganttStartDate` | ガント表示開始日 |
+| `ganttPeriod` | ガント表示期間（2w/1m/3m/6m） |
+| `showLightningLine` | イナズマライン表示 |
+| `showWeekend` | 土日背景強調 |
+| `showCriticalPath` | クリティカルパス表示 |
+| `uiFontSize` | WBS文字サイズ（11/13/15） |
+| `uiRowHeight` | WBS行高（28/36/44） |
+| `ganttHeaderLevels` | ヘッダー年/月/週/日の表示 |
+
+**保存しない**（サーバー管理 or セッション一時状態）:
+- `tasks`, `needsReload` — サーバーから取得
+- `sortKey`, `sortDir`, `filterStatus`, `filterAssignee`, `filterPriority` — セッション一時フィルタ
