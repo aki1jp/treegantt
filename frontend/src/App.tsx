@@ -6,6 +6,7 @@ import { useTheme } from './hooks/useTheme';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
+import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import type { Task, Project } from './types/task';
 import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from './utils/importExport';
 import { apiFetch } from './utils/api';
@@ -14,6 +15,7 @@ export default function App() {
   const [projects, setProjects]             = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
+  const [modalIsMilestone, setModalIsMilestone] = useState(false);
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
   const [loading, setLoading]               = useState(true);
 
@@ -112,6 +114,7 @@ export default function App() {
   }
 
   function handleAddSubTask(parentId: string) {
+    setModalIsMilestone(false);
     setModalInitialParentId(parentId);
     setModalTask(null);
   }
@@ -201,14 +204,15 @@ export default function App() {
       {currentProject ? (
         <>
           <Toolbar
-            onAddTask={() => setModalTask(null)}
+            onAddTask={() => { setModalIsMilestone(false); setModalTask(null); }}
+            onAddMilestone={() => { setModalIsMilestone(true); setModalTask(null); }}
             onImport={() => fileInputRef.current?.click()}
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
           />
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <GanttChart
-              onEditTask={(task) => setModalTask(task)}
+              onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
               onDeleteTask={handleDeleteTask}
               onInlineUpdate={handleInlineUpdate}
               onQuickAdd={handleQuickAdd}
@@ -229,13 +233,22 @@ export default function App() {
       )}
 
       {modalTask !== undefined && (
-        <TaskModal
-          task={modalTask}
-          allTasks={tasks}
-          initialParentId={modalInitialParentId}
-          onSave={handleSaveTask}
-          onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
-        />
+        modalIsMilestone ? (
+          <MilestoneModal
+            task={modalTask}
+            allTasks={tasks}
+            onSave={handleSaveTask}
+            onClose={() => setModalTask(undefined)}
+          />
+        ) : (
+          <TaskModal
+            task={modalTask}
+            allTasks={tasks}
+            initialParentId={modalInitialParentId}
+            onSave={handleSaveTask}
+            onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
+          />
+        )
       )}
 
       <input ref={fileInputRef} type="file" accept=".json,.csv" style={{ display: 'none' }}

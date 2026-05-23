@@ -6,6 +6,7 @@ import { useTaskStore } from '../../store/taskStore';
 
 interface Props {
   onAddTask: () => void;
+  onAddMilestone: () => void;
   onImport: () => void;
   onExportJson: () => void;
   onExportCsv: () => void;
@@ -97,7 +98,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
   );
 }
 
-export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Props) {
+export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onExportCsv }: Props) {
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority,
     ganttStartDate, ganttPeriod,
@@ -222,6 +223,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
 
       {/* 左側: タスク操作 */}
       <button style={PRIMARY_BTN} onClick={onAddTask}>+ タスク追加</button>
+      <button style={BTN} onClick={onAddMilestone}>◇ マイルストーン</button>
 
       {/* ── ここから右側: ガントチャート操作 ── */}
 

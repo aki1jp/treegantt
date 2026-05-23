@@ -34,7 +34,6 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
   const [startDate, setStartDate]     = useState(task?.startDate ?? '');
   const [endDate, setEndDate]         = useState(task?.endDate ?? '');
   const [parentId, setParentId]       = useState<string>(task?.parentId ?? initialParentId ?? '');
-  const [isMilestone, setIsMilestone]   = useState(task?.isMilestone ?? false);
   const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
   const [predecessorText, setPredecessorText] = useState(
     (task?.predecessors ?? [])
@@ -53,7 +52,6 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     setAssignee(task?.assignee ?? '');
     setStartDate(task?.startDate ?? '');
     setEndDate(task?.endDate ?? '');
-    setIsMilestone(task?.isMilestone ?? false);
     setParentId(task?.parentId ?? initialParentId ?? '');
     const initPreds = task?.predecessors ?? [];
     setPredecessors(initPreds);
@@ -65,8 +63,8 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     );
   }, [task]);
 
-  // Cannot select itself or its descendants as parent
   const selectableTasks = allTasks.filter(t => t.id !== task?.id);
+  const parentCandidates = selectableTasks.filter(t => !t.isMilestone);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,8 +78,8 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
       progress,
       assignee,
       startDate: startDate || null,
-      endDate: isMilestone ? (startDate || null) : (endDate || null),
-      isMilestone,
+      endDate: endDate || null,
+      isMilestone: false,
       parentId: parentId || null,
       predecessors,
     });
@@ -166,22 +164,12 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
               <input style={INPUT} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
             </div>
             <div style={FIELD}>
-              <label style={LABEL}>終了日{isMilestone ? '（マイルストーンは開始日に固定）' : ''}</label>
-              <input style={INPUT} type="date" value={isMilestone ? startDate : endDate}
-                disabled={isMilestone}
-                onChange={e => setEndDate(e.target.value)} />
+              <label style={LABEL}>終了日</label>
+              <input style={INPUT} type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
           </div>
 
-          <div style={{ ...FIELD, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <input type="checkbox" id="isMilestone" checked={isMilestone}
-              onChange={e => setIsMilestone(e.target.checked)} style={{ width: 16, height: 16 }} />
-            <label htmlFor="isMilestone" style={{ ...LABEL, cursor: 'pointer' }}>
-              マイルストーン（◇ 菱形で表示、期間ゼロ）
-            </label>
-          </div>
-
-          {/* 親タスク */}
+          {/* 親タスク（マイルストーンは親になれない） */}
           <div style={FIELD}>
             <label style={LABEL}>親タスク</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -190,16 +178,16 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                 type="number"
                 min={1}
                 placeholder="#"
-                value={parentId ? (selectableTasks.find(t => t.id === parentId)?.order ?? '') : ''}
+                value={parentId ? (parentCandidates.find(t => t.id === parentId)?.order ?? '') : ''}
                 onChange={e => {
                   const num = parseInt(e.target.value, 10);
-                  const found = selectableTasks.find(t => t.order === num);
+                  const found = parentCandidates.find(t => t.order === num);
                   setParentId(found ? found.id : '');
                 }}
               />
               <select style={{ ...INPUT, flex: 1 }} value={parentId} onChange={e => setParentId(e.target.value)}>
                 <option value="">なし（ルートタスク）</option>
-                {selectableTasks.map(t => (
+                {parentCandidates.map(t => (
                   <option key={t.id} value={t.id}>
                     #{t.order} {t.title}
                   </option>

@@ -941,19 +941,23 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
-            <button
-              onClick={() => { onAddSubTask(task.id); close(); }}
-              style={{
-                display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-                color: 'var(--th-text2)',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
-              ＋ 子タスクを追加
-            </button>
-            <div style={{ height: 1, background: 'var(--th-border)' }} />
+            {!task.isMilestone && (
+              <>
+                <button
+                  onClick={() => { onAddSubTask(task.id); close(); }}
+                  style={{
+                    display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+                    background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+                    color: 'var(--th-text2)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  ＋ 子タスクを追加
+                </button>
+                <div style={{ height: 1, background: 'var(--th-border)' }} />
+              </>
+            )}
             <button
               onClick={() => { onEditTask(task); close(); }}
               style={{
