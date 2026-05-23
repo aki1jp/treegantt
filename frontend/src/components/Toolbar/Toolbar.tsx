@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
-import type { ThemeMode } from '../../utils/theme';
 import { useTaskStore } from '../../store/taskStore';
 
 interface Props {
@@ -55,12 +54,6 @@ const PERIOD_OPTIONS: { value: GanttPeriod; label: string }[] = [
   { value: '6m', label: '6ヶ月' },
 ];
 
-const THEME_OPTIONS: { value: ThemeMode; label: string; title: string }[] = [
-  { value: 'light',  label: '☀',  title: 'ライトモード' },
-  { value: 'dark',   label: '🌙', title: 'ダークモード' },
-  { value: 'auto',   label: '🖥', title: 'システム設定に従う' },
-];
-
 function MenuItem({ label, indent, onClick }: { label: string; indent?: boolean; onClick: () => void }) {
   return (
     <button
@@ -103,10 +96,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
-    theme, ganttBarOpen,
+    ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
-    setTheme, setGanttBarOpen,
+    setGanttBarOpen,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -428,29 +421,6 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
                 </button>
               ))}
             </div>
-          </div>
-
-          <div style={DIVIDER} />
-
-          {/* テーマ */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            {THEME_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                title={opt.title}
-                onClick={() => setTheme(opt.value)}
-                style={{
-                  ...BTN,
-                  padding: '4px 8px',
-                  fontSize: 14,
-                  background: theme === opt.value ? '#4f46e5' : 'var(--th-bg)',
-                  color: theme === opt.value ? '#fff' : 'var(--th-text-muted)',
-                  border: `1px solid ${theme === opt.value ? '#4f46e5' : 'var(--th-input-border)'}`,
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
           </div>
         </div>
       )}

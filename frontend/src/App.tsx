@@ -19,7 +19,7 @@ export default function App() {
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
   const [loading, setLoading]               = useState(true);
 
-  const { tasks, setTasks, needsReload, setNeedsReload } = useTaskStore();
+  const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
 
   useTheme();
 
@@ -198,6 +198,29 @@ export default function App() {
           }}>
             + プロジェクト
           </button>
+        </div>
+
+        {/* テーマ選択（右端） */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+          {([
+            { value: 'light', label: '☀', title: 'ライトモード' },
+            { value: 'dark',  label: '🌙', title: 'ダークモード' },
+            { value: 'auto',  label: '🖥', title: 'システム設定に従う' },
+          ] as const).map(opt => (
+            <button
+              key={opt.value}
+              title={opt.title}
+              onClick={() => setTheme(opt.value)}
+              style={{
+                padding: '3px 7px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                fontSize: 14, lineHeight: 1,
+                background: theme === opt.value ? 'rgba(255,255,255,0.2)' : 'transparent',
+                color: theme === opt.value ? '#fff' : 'rgba(255,255,255,0.5)',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
