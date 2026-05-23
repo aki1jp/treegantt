@@ -33,6 +33,12 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
   const [endDate, setEndDate]         = useState(task?.endDate ?? '');
   const [parentId, setParentId]       = useState<string>(task?.parentId ?? '');
   const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
+  const [predecessorText, setPredecessorText] = useState(
+    (task?.predecessors ?? [])
+      .map(id => allTasks.find(t => t.id === id)?.order)
+      .filter((o): o is number => o !== undefined)
+      .join(', ')
+  );
 
   useEffect(() => {
     setTitle(task?.title ?? '');
@@ -45,7 +51,14 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
     setStartDate(task?.startDate ?? '');
     setEndDate(task?.endDate ?? '');
     setParentId(task?.parentId ?? '');
-    setPredecessors(task?.predecessors ?? []);
+    const initPreds = task?.predecessors ?? [];
+    setPredecessors(initPreds);
+    setPredecessorText(
+      initPreds
+        .map(id => allTasks.find(t => t.id === id)?.order)
+        .filter((o): o is number => o !== undefined)
+        .join(', ')
+    );
   }, [task]);
 
   // Cannot select itself or its descendants as parent
@@ -70,9 +83,16 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
   }
 
   function togglePredecessor(id: string) {
-    setPredecessors(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
+    setPredecessors(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      setPredecessorText(
+        next
+          .map(pid => selectableTasks.find(t => t.id === pid)?.order)
+          .filter((o): o is number => o !== undefined)
+          .join(', ')
+      );
+      return next;
+    });
   }
 
   return (
@@ -180,12 +200,11 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
               <input
                 style={{ ...INPUT, marginBottom: 6 }}
                 placeholder="# で指定（例: 1, 3, 5）"
-                value={predecessors
-                  .map(id => selectableTasks.find(t => t.id === id)?.order)
-                  .filter((o): o is number => o !== undefined)
-                  .join(', ')}
+                value={predecessorText}
                 onChange={e => {
-                  const nums = e.target.value.split(/[\s,]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+                  const text = e.target.value;
+                  setPredecessorText(text);
+                  const nums = text.split(/[\s,]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
                   const ids = nums
                     .map(n => selectableTasks.find(t => t.order === n)?.id)
                     .filter((id): id is string => !!id);
