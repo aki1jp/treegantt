@@ -159,32 +159,23 @@ interface LeftRowProps {
   assigneeWidth: number;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
-  onOpenModal: () => void;
-  onDelete: () => void;
+  onRowContextMenu: (x: number, y: number) => void;
 }
 
 function GanttLeftRow({
   task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth,
-  onToggleCollapse, onInlineUpdate, onOpenModal, onDelete,
+  onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [editStartVal, setEditStartVal] = useState('');
   const [conflict, setConflict] = useState<{ field: string; theirVal: string; myVal: string } | null>(null);
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editField && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
   }, [editField]);
-
-  useEffect(() => {
-    if (!ctxMenu) return;
-    const close = () => setCtxMenu(null);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
-  }, [ctxMenu]);
 
   function startEdit(field: string, val: string) {
     setEditField(field);
@@ -248,7 +239,7 @@ function GanttLeftRow({
         borderBottom: '1px solid #e5e7eb',
         borderLeft: isRootParent ? '3px solid #6366f1' : '3px solid transparent',
       }}
-      onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
+      onContextMenu={e => { e.preventDefault(); onRowContextMenu(e.clientX, e.clientY); }}
     >
       {/* # (order) */}
       <div style={{ ...CELL, width: 36, justifyContent: 'center', color: '#9ca3af', userSelect: 'none' }}>
@@ -436,31 +427,6 @@ function GanttLeftRow({
         />
       )}
 
-      {ctxMenu && (
-        <div style={{
-          position: 'fixed', ...clampMenuPos(ctxMenu.x, ctxMenu.y),
-          background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
-          boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
-        }} onClick={e => e.stopPropagation()}>
-          <button onClick={() => { onOpenModal(); setCtxMenu(null); }} style={{
-            display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-            background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-          }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-            編集（詳細）
-          </button>
-          <div style={{ height: 1, background: '#e5e7eb' }} />
-          <button onClick={() => { onDelete(); setCtxMenu(null); }} style={{
-            display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-            background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: '#ef4444',
-          }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-            削除
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -621,6 +587,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
+  const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   // SVG へのネイティブ contextmenu リスナー（React 合成イベントは SVG で不安定なため）
@@ -632,19 +599,19 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       const el = (e.target as Element).closest('[data-task-id]');
       if (!el) return;
       const taskId = el.getAttribute('data-task-id');
-      if (taskId) setBarCtxMenu({ x: e.clientX, y: e.clientY, taskId });
+      if (taskId) { setBarCtxMenu({ x: e.clientX, y: e.clientY, taskId }); setRowCtxMenu(null); }
     }
     svg.addEventListener('contextmenu', handleContextMenu);
     return () => svg.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
-  // メニューを閉じる
+  // どちらかのコンテキストメニューが開いている間、mousedown で両方を閉じる
   useEffect(() => {
-    if (!barCtxMenu) return;
-    const close = () => setBarCtxMenu(null);
+    if (!barCtxMenu && !rowCtxMenu) return;
+    const close = () => { setBarCtxMenu(null); setRowCtxMenu(null); };
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
-  }, [barCtxMenu]);
+  }, [barCtxMenu, rowCtxMenu]);
 
   useEffect(() => {
     dragPreviewRef.current = dragPreview;
@@ -821,8 +788,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 assigneeWidth={colWidths.assignee}
                 onToggleCollapse={() => toggleCollapse(task.id)}
                 onInlineUpdate={onInlineUpdate}
-                onOpenModal={() => onEditTask(task)}
-                onDelete={() => onDeleteTask(task.id)}
+                onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
               />
             ))}
             <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} />
@@ -895,14 +861,19 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         </div>
       </div>
 
-      {/* ガントバー右クリックメニュー */}
-      {barCtxMenu && (() => {
-        const task = taskById.get(barCtxMenu.taskId);
+      {/* コンテキストメニュー共通レンダラ */}
+      {[
+        barCtxMenu && { menu: barCtxMenu, close: () => setBarCtxMenu(null) },
+        rowCtxMenu && { menu: rowCtxMenu, close: () => setRowCtxMenu(null) },
+      ].map((entry, i) => {
+        if (!entry) return null;
+        const { menu, close } = entry;
+        const task = taskById.get(menu.taskId);
         if (!task) return null;
         return (
-          <div
+          <div key={i}
             style={{
-              position: 'fixed', ...clampMenuPos(barCtxMenu.x, barCtxMenu.y),
+              position: 'fixed', ...clampMenuPos(menu.x, menu.y),
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
               boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
             }}
@@ -910,7 +881,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             onClick={e => e.stopPropagation()}
           >
             <button
-              onClick={() => { onEditTask(task); setBarCtxMenu(null); }}
+              onClick={() => { onEditTask(task); close(); }}
               style={{
                 display: 'block', width: '100%', padding: '8px 14px', border: 'none',
                 background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
@@ -922,7 +893,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             </button>
             <div style={{ height: 1, background: '#e5e7eb' }} />
             <button
-              onClick={() => { onDeleteTask(task.id); setBarCtxMenu(null); }}
+              onClick={() => { onDeleteTask(task.id); close(); }}
               style={{
                 display: 'block', width: '100%', padding: '8px 14px', border: 'none',
                 background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: '#ef4444',
@@ -934,7 +905,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             </button>
           </div>
         );
-      })()}
+      })}
     </div>
   );
 }
