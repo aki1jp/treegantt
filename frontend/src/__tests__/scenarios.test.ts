@@ -562,6 +562,37 @@ describe('§5.5 ツリー構造・折りたたみ', () => {
       expect(flat[0].depth).toBe(0);
       expect(flat[1].depth).toBe(1);
     });
+
+    it('ルートタスクのみ depth === 0（中間親は depth > 0）', () => {
+      // root(depth=0) > mid(depth=1) > leaf(depth=2) の 3 階層
+      const tasks = [
+        makeTask({ id: 'root' }),
+        makeTask({ id: 'mid',  parentId: 'root' }),
+        makeTask({ id: 'leaf', parentId: 'mid'  }),
+      ];
+      const { roots, childCount } = buildTree(tasks);
+      const flat = flattenTree(roots, new Set());
+      // depth 値
+      expect(flat[0].depth).toBe(0); // root
+      expect(flat[1].depth).toBe(1); // mid
+      expect(flat[2].depth).toBe(2); // leaf
+      // isRootParent 相当: depth === 0 && hasChildren
+      const isRootParent = (row: { task: Task; depth: number }) =>
+        row.depth === 0 && (childCount.get(row.task.id) ?? 0) > 0;
+      expect(isRootParent(flat[0])).toBe(true);  // root は背景色あり
+      expect(isRootParent(flat[1])).toBe(false); // mid は背景色なし（depth > 0）
+      expect(isRootParent(flat[2])).toBe(false); // leaf は子なし
+    });
+
+    it('子のないルートタスクは isRootParent = false', () => {
+      const tasks = [makeTask({ id: 'solo' })];
+      const { roots, childCount } = buildTree(tasks);
+      const flat = flattenTree(roots, new Set());
+      const isRootParent = (row: { task: Task; depth: number }) =>
+        row.depth === 0 && (childCount.get(row.task.id) ?? 0) > 0;
+      expect(flat[0].depth).toBe(0);
+      expect(isRootParent(flat[0])).toBe(false);
+    });
   });
 });
 

@@ -231,7 +231,8 @@ function GanttLeftRow({
   };
 
   const indent = depth * 16;
-  const rowBg = hasChildren ? '#eef2ff' : '#fff';
+  const isRootParent = depth === 0 && hasChildren;
+  const rowBg = isRootParent ? '#eef2ff' : '#fff';
   const duration = calcDuration(task.startDate, task.endDate);
 
   return (
@@ -240,7 +241,7 @@ function GanttLeftRow({
         display: 'flex', background: rowBg,
         height: rowHeight, boxSizing: 'border-box',
         borderBottom: '1px solid #e5e7eb',
-        borderLeft: hasChildren ? '3px solid #6366f1' : '3px solid transparent',
+        borderLeft: isRootParent ? '3px solid #6366f1' : '3px solid transparent',
       }}
       onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
     >
@@ -272,8 +273,8 @@ function GanttLeftRow({
             <span onClick={() => startEdit('title', task.title)}
               style={{
                 cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                fontWeight: hasChildren ? 700 : 400,
-                color: hasChildren ? '#3730a3' : undefined,
+                fontWeight: isRootParent ? 700 : 400,
+                color: isRootParent ? '#3730a3' : undefined,
               }}>
               {task.title}
             </span>
@@ -782,11 +783,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             </defs>
 
             {/* 縞背景 */}
-            {flatRows.map(({ task }, i) => {
-              const isParent = (childCount.get(task.id) ?? 0) > 0;
+            {flatRows.map(({ task, depth }, i) => {
+              const isRootParent = depth === 0 && (childCount.get(task.id) ?? 0) > 0;
               return (
                 <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
-                  fill={isParent ? '#eef2ff' : (i % 2 === 0 ? '#fff' : '#fafafa')} />
+                  fill={isRootParent ? '#eef2ff' : (i % 2 === 0 ? '#fff' : '#fafafa')} />
               );
             })}
 
