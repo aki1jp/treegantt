@@ -199,14 +199,15 @@ function GanttLeftRow({
   };
 
   const indent = depth * 16;
-  const rowBg = depth > 0 ? `hsl(240,15%,${99 - depth}%)` : '#fff';
+  const rowBg = hasChildren ? '#eef2ff' : '#fff';
 
   return (
     <div
       style={{
         display: 'flex', background: rowBg,
         height: ROW_HEIGHT_PX, boxSizing: 'border-box',
-        borderBottom: '1px solid #f3f4f6',
+        borderBottom: '1px solid #e5e7eb',
+        borderLeft: hasChildren ? '3px solid #6366f1' : '3px solid transparent',
       }}
       onContextMenu={e => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY }); }}
     >
@@ -236,7 +237,11 @@ function GanttLeftRow({
               onKeyDown={e => onKey(e, 'title', editVal.trim() || null)} />
           ) : (
             <span onClick={() => startEdit('title', task.title)}
-              style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              style={{
+                cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                fontWeight: hasChildren ? 700 : 400,
+                color: hasChildren ? '#3730a3' : undefined,
+              }}>
               {task.title}
             </span>
           )}
