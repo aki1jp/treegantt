@@ -24,6 +24,7 @@
 | 1.8 | 2026年5月 | ステータス表示ラベル変更（wip→Doing・done→DONE）・フィルタに「DONE以外」追加 |
 | 1.9 | 2026年5月 | Y.js + Hocuspocus を廃止しシンプルな WebSocket broadcast に置き換え・ConnectionBadge / TodoList / yjsStore 削除・apiFetch を utils/api.ts に統合・taskTree.ts 分離 |
 | 2.0 | 2026年5月 | Phase 2-A: マイルストーン（菱形◇・DB migration 003）・クリティカルパス CPM（黄背景+インディゴ枠）・バードラッグ移動/リサイズ（1日スナップ）・期限超過強調（赤背景）・期間（Duration）列・ガントバー右クリックメニュー |
+| 2.1 | 2026年5月 | スクロールバーをガント列のみに制限（WBS/ガントを2パネル分割・垂直スクロール同期）・マイルストーンUI分離（MilestoneModal・専用ボタン）・WBS depth 計算バグ修正 |
 
 ---
 
@@ -795,7 +796,16 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-**CSS実装:** 外側1つの `overflow: auto` コンテナ内に、左パネルを `position: sticky; left: 0` で固定。JavaScriptによるスクロール同期は不要。
+**CSS実装（★v2.1変更）:** WBS左パネルとガントパネルを **独立した2カラム** に分離する。
+
+| 領域 | overflow | 説明 |
+|------|----------|------|
+| 外側ラッパー | `hidden` | スクロールバー非表示 |
+| WBS左パネル | `overflow: hidden` | 水平・垂直ともスクロールバーなし |
+| ガント右パネル | `overflow: auto` | 横スクロールバーはガント下のみ表示 |
+
+垂直スクロールはガント右パネルの `onScroll` で WBS 左パネルの `scrollTop` を同期する（1行の JS）。
+旧実装（`position: sticky; left: 0`）ではスクロールバーが WBS 幅まで及んでいたため廃止。
 
 **★v1.6追加 — Toolbar ガント期間コントロール:**
 
