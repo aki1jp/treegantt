@@ -935,7 +935,74 @@ export async function authPlugin(fastify: FastifyInstance) {
 | Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時タスク消失修正・ガント末行クイック追加・表示期間コントロール追加（日付ピッカー＋期間セレクト） | ★v1.6実装内容 | ✅ 完了 |
 | Phase 1-J | ガント行ズレ修正・親タスク進捗自動計算・イナズマラインON/OFF・マルチレベルヘッダー・接続バッジアイコン改善 | ★v1.7実装内容 | ✅ 完了 |
 | Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト138件追加（フロントエンド計153件） | ★v1.9実装内容 | ✅ 完了 |
+| Phase 2-A | バーのドラッグ移動・リサイズ・マイルストーン・クリティカルパス・期限超過強調・期間フィールド | WBS標準機能完成 | ⏳ 実装中 |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
+
+---
+
+## 11-A. Phase 2-A 機能設計
+
+### 11-A.1 バーのドラッグ移動・リサイズ
+
+| 項目 | 仕様 |
+|------|------|
+| ドラッグ移動 | バー中央部を掴んで左右にドラッグ → startDate/endDate を同じ日数分シフト |
+| 左端リサイズ | バー左端6px ゾーンをドラッグ → startDate を変更（endDate は固定） |
+| 右端リサイズ | バー右端6px ゾーンをドラッグ → endDate を変更（startDate は固定） |
+| スナップ | 1日グリッドにスナップ（dayWidth px 単位で四捨五入） |
+| プレビュー | ドラッグ中はバーをリアルタイム移動表示 |
+| コミット | mouseup 時に `PATCH /tasks/:id` へ新 startDate/endDate を送信 |
+| カーソル | 中央: `move`、端: `ew-resize`、ドラッグ中: 全体に `grabbing` |
+| マイルストーンの扱い | 移動のみ対応（endDate 自動同期）、リサイズ不可 |
+
+**実装方針（GanttChart.tsx）:**
+```
+dragState: { taskId, type: 'move'|'resize-left'|'resize-right', startClientX, origStart, origEnd } | null
+dragPreview: { taskId, startDate, endDate } | null
+```
+- `dragState` が非 null の間、`window.addEventListener('mousemove'/'mouseup')` で追跡
+- `dragPreviewRef` (useRef) で最新プレビューをクロージャ外から参照
+- `GanttBar` は `dragPreview` prop で上書き座標を受け取り描画
+
+### 11-A.2 マイルストーン
+
+| 項目 | 仕様 |
+|------|------|
+| データ | `tasks.is_milestone INTEGER NOT NULL DEFAULT 0`（DB migration 003） |
+| 判定 | `isMilestone: boolean` フィールドで明示管理 |
+| 描画 | 菱形 `◇` を startDate 位置に表示（endDate は描画に使わない） |
+| サイズ | 対角線 = ROW_HEIGHT_PX - 12 px |
+| 期限超過との組み合わせ | 菱形も赤枠になる |
+| ドラッグ | 移動のみ対応（startDate + endDate を同日で同期） |
+
+### 11-A.3 クリティカルパス
+
+標準的な CPM（Critical Path Method）を依存関係グラフに適用する。
+
+**アルゴリズム:**
+1. 依存グラフを Kahn のアルゴリズムでトポロジカルソート
+2. **Forward pass**: `EF[i] = ES[i] + dur(i)`, `ES[i] = max(EF[predecessors])`（先行なし = 0）
+3. **Backward pass**: `LS[i] = LF[i] - dur(i)`, `LF[i] = min(LS[successors])`（後続なし = projectEF）
+4. **Total Float** = `LS - ES`。Float = 0 のタスクがクリティカルパス上のタスク
+5. 依存関係が1つもなければ空セット（表示なし）
+
+**実装:** `calcCriticalPath(tasks: Task[]): Set<string>` を `ganttCalc.ts` に追加
+
+**UI:** ツールバーの「CP」トグルボタンで ON/OFF。ON 時はクリティカルなバーに赤ストローク + `#ff6b6b` ベース色を重ねる
+
+### 11-A.4 期限超過の強調
+
+| 条件 | `endDate < today` かつ `status !== 'done'` |
+|------|------|
+| 通常バー | 赤破線ストローク（strokeDasharray）+ わずかに赤みのある背景 |
+| マイルストーン | 菱形を赤実線ストローク |
+
+### 11-A.5 期間（Duration）フィールド
+
+- 左パネルに「日数」列（50px）を追加
+- 表示値: `endDate - startDate + 1`（日）。日付なし・終了 < 開始 の場合は `—`
+- インライン編集: 日数を変更すると `endDate = startDate + (N-1) 日` を自動計算して反映
+- startDate がない場合は編集不可
 
 ---
 
