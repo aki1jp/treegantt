@@ -93,9 +93,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority,
     ganttStartDate, ganttPeriod,
-    showLightningLine, ganttHeaderLevels,
+    showLightningLine, showWeekend, ganttHeaderLevels,
     setZoomLevel, setFilter, setGanttRange,
-    setShowLightningLine, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setGanttHeaderLevels,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -270,6 +270,12 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
         label="⚡ イナズマ"
         title="イナズマライン（実績/計画の境界）を表示"
         onClick={() => setShowLightningLine(!showLightningLine)}
+      />
+      <ToggleBtn
+        active={showWeekend}
+        label="土日"
+        title="土日（週末）の背景を強調表示"
+        onClick={() => setShowWeekend(!showWeekend)}
       />
 
       <div style={DIVIDER} />

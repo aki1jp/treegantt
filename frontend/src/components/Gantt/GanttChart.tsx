@@ -465,7 +465,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, ganttHeaderLevels,
+    showLightningLine, showWeekend, ganttHeaderLevels,
     setSortKey,
   } = useTaskStore();
 
@@ -486,6 +486,22 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
   const totalHeight = (flatRows.length + 1) * ROW_HEIGHT_PX;
+
+  // 土日列の X 座標リスト
+  const { dayWidth } = ZOOM_CONFIG[zoomLevel];
+  const weekendXs: number[] = [];
+  if (showWeekend) {
+    let cur = dayjs(min);
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const dow = cur.day(); // 0=Sun, 6=Sat
+      if (dow === 0 || dow === 6) {
+        const dayIdx = Math.round((cur.toDate().getTime() - min.getTime()) / 86400000);
+        weekendXs.push(dayIdx * dayWidth);
+      }
+      cur = cur.add(1, 'day');
+    }
+  }
 
   // 親タスクの進捗を事前計算
   const progressMap = new Map(
@@ -608,6 +624,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {flatRows.map((_, i) => (
               <rect key={i} x={0} y={i * ROW_HEIGHT_PX} width={totalWidth} height={ROW_HEIGHT_PX}
                 fill={i % 2 === 0 ? '#fff' : '#fafafa'} />
+            ))}
+
+            {/* 土日背景 */}
+            {weekendXs.map((x, i) => (
+              <rect key={i} x={x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
+                fill="rgba(148,163,184,0.18)" />
             ))}
 
             {/* タスクバー */}

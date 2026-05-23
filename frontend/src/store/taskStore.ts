@@ -16,6 +16,7 @@ interface TaskStore {
   ganttStartDate:     string;
   ganttPeriod:        GanttPeriod;
   showLightningLine:  boolean;
+  showWeekend:        boolean;
   ganttHeaderLevels:  GanttHeaderLevels;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
@@ -25,6 +26,7 @@ interface TaskStore {
   setZoomLevel:           (z: ZoomLevel) => void;
   setGanttRange:          (startDate: string, period: GanttPeriod) => void;
   setShowLightningLine:   (show: boolean) => void;
+  setShowWeekend:         (show: boolean) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
 }
 
@@ -40,6 +42,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   ganttStartDate:     '',
   ganttPeriod:        '3m',
   showLightningLine:  true,
+  showWeekend:        true,
   ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
   setTasks:               (tasks) => set({ tasks }),
   setNeedsReload:         (needsReload) => set({ needsReload }),
@@ -53,6 +56,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   setZoomLevel:           (zoomLevel) => set({ zoomLevel }),
   setGanttRange:          (ganttStartDate, ganttPeriod) => set({ ganttStartDate, ganttPeriod }),
   setShowLightningLine:   (showLightningLine) => set({ showLightningLine }),
+  setShowWeekend:         (showWeekend) => set({ showWeekend }),
   setGanttHeaderLevels:   (levels) => set((s) => ({
     ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
   })),
