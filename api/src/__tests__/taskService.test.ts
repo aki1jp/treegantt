@@ -66,6 +66,15 @@ describe('taskService', () => {
       expect(t2.order).toBe(t1.order + 1);
     });
 
+    it('全タスク削除後の最初のタスクは #1 から始まる', () => {
+      const t1 = createTask({ id: 'tmp1', projectId: PROJECT_ID, title: 'T1' });
+      const t2 = createTask({ id: 'tmp2', projectId: PROJECT_ID, title: 'T2' });
+      deleteTask(t1.id);
+      deleteTask(t2.id);
+      const fresh = createTask({ id: 'fresh', projectId: PROJECT_ID, title: 'Fresh' });
+      expect(fresh.order).toBe(1);
+    });
+
     it('creates predecessor dependencies', () => {
       createTask({ id: 'pred', projectId: PROJECT_ID, title: 'Predecessor' });
       const task = createTask({

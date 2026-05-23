@@ -151,7 +151,7 @@ export interface CreateTaskInput {
 export function createTask(input: CreateTaskInput): TaskWithSuccessors {
   const maxOrd = (
     db
-      .prepare('SELECT COALESCE(MAX(ord), -1) as m FROM tasks WHERE project_id = ?')
+      .prepare('SELECT COALESCE(MAX(ord), 0) as m FROM tasks WHERE project_id = ?')
       .get(input.projectId) as { m: number }
   ).m;
 
