@@ -20,13 +20,19 @@ export function buildTree(tasks: Task[]): { roots: TreeNode[]; childCount: Map<s
   for (const t of tasks) {
     const node = nodeMap.get(t.id)!;
     if (t.parentId && nodeMap.has(t.parentId)) {
-      const parent = nodeMap.get(t.parentId)!;
-      node.depth = parent.depth + 1;
-      parent.children.push(node);
+      nodeMap.get(t.parentId)!.children.push(node);
     } else {
       roots.push(node);
     }
   }
+  // 親子関係確立後に DFS で depth を正しく設定（処理順序に依存しない）
+  function assignDepths(nodes: TreeNode[], depth: number): void {
+    for (const node of nodes) {
+      node.depth = depth;
+      assignDepths(node.children, depth + 1);
+    }
+  }
+  assignDepths(roots, 0);
   return { roots, childCount };
 }
 

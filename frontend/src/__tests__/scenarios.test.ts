@@ -462,6 +462,29 @@ describe('§5.5 ツリー構造・折りたたみ', () => {
       expect(roots[0].children[0].children[0].depth).toBe(2);
     });
 
+    it('配列の順序に関わらず depth が正しく計算される（孫→子→ルートの逆順）', () => {
+      const tasks = [
+        makeTask({ id: 'c', parentId: 'b' }),  // 孫（先に来る）
+        makeTask({ id: 'b', parentId: 'a' }),  // 子
+        makeTask({ id: 'a' }),                 // ルート（後に来る）
+      ];
+      const { roots } = buildTree(tasks);
+      expect(roots[0].depth).toBe(0);
+      expect(roots[0].children[0].depth).toBe(1);
+      expect(roots[0].children[0].children[0].depth).toBe(2);
+    });
+
+    it('ソート後の非トポロジー順でも depth が正しい（タイトル昇順で子が親より前に来る場合）', () => {
+      // "Alpha" (child of "Beta") がソートで先頭に来るケース
+      const tasks = [
+        makeTask({ id: 'alpha', parentId: 'beta', title: 'Alpha' }),
+        makeTask({ id: 'beta',  title: 'Beta' }),
+      ];
+      const { roots } = buildTree(tasks);
+      expect(roots[0].depth).toBe(0);           // Beta
+      expect(roots[0].children[0].depth).toBe(1); // Alpha
+    });
+
     it('存在しない parentId のタスクはルートに昇格する', () => {
       const tasks = [makeTask({ id: 'orphan', parentId: 'non-existent' })];
       const { roots } = buildTree(tasks);
