@@ -490,9 +490,10 @@ interface Props {
   onDeleteTask: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onQuickAdd: (title: string) => Promise<void>;
+  onAddSubTask: (parentId: string) => Promise<void>;
 }
 
-export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd }: Props) {
+export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask }: Props) {
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
     zoomLevel, ganttStartDate, ganttPeriod,
@@ -880,6 +881,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
+            <button
+              onClick={() => { onAddSubTask(task.id); close(); }}
+              style={{
+                display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              ＋ 子タスクを追加
+            </button>
+            <div style={{ height: 1, background: '#e5e7eb' }} />
             <button
               onClick={() => { onEditTask(task); close(); }}
               style={{

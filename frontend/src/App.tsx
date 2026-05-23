@@ -106,6 +106,15 @@ export default function App() {
     }
   }
 
+  async function handleAddSubTask(parentId: string) {
+    if (!currentProject) return;
+    try {
+      await createTask({ title: '新しいタスク', projectId: currentProject.id, parentId });
+    } catch (err) {
+      alert('子タスクの追加に失敗しました: ' + (err as Error).message);
+    }
+  }
+
   function exportFileName(ext: string) {
     const safeName = currentProject!.name.replace(/[/\\:*?"<>|]/g, '_');
     const now = new Date();
@@ -202,6 +211,7 @@ export default function App() {
               onDeleteTask={handleDeleteTask}
               onInlineUpdate={handleInlineUpdate}
               onQuickAdd={handleQuickAdd}
+              onAddSubTask={handleAddSubTask}
             />
           </div>
         </>

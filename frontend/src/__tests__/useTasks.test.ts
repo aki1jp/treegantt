@@ -39,6 +39,21 @@ describe('createTask', () => {
     expect(useTaskStore.getState().tasks[0].title).toBe('新タスク');
   });
 
+  it('parentId を指定するとリクエストボディに含まれる', async () => {
+    const child = makeTask({ id: 'child-1', title: '小タスク', parentId: 'parent-1' });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 201,
+      json: async () => ({ task: child }),
+    } as Response);
+
+    const { createTask } = useTasks('p1');
+    await createTask({ title: '小タスク', parentId: 'parent-1' });
+
+    const body = JSON.parse((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string);
+    expect(body.parentId).toBe('parent-1');
+    expect(useTaskStore.getState().tasks[0].parentId).toBe('parent-1');
+  });
+
   it('既にストアに同 id のタスクがある場合は重複追加しない', async () => {
     const task = makeTask({ id: 'dup-1' });
     useTaskStore.setState({ tasks: [task] });
