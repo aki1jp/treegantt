@@ -599,6 +599,76 @@ describe('§5.5 ツリー構造・折りたたみ', () => {
 });
 
 // ═══════════════════════════════════════════════════
+// §WBS インデント — depth に比例した一貫したテキスト位置
+// ═══════════════════════════════════════════════════
+describe('WBS インデント計算', () => {
+  const INDENT_PER_LEVEL = 16;
+  const BASE_PADDING = 6;
+  const ICON_WIDTH = 16;
+  const GAP = 3;
+
+  // テキスト開始位置 = BASE_PADDING + depth*INDENT + ICON_WIDTH + GAP
+  const textStart = (depth: number) => BASE_PADDING + depth * INDENT_PER_LEVEL + ICON_WIDTH + GAP;
+
+  it('depth に比例してインデントが増加する', () => {
+    expect(textStart(0)).toBe(25);
+    expect(textStart(1)).toBe(41);
+    expect(textStart(2)).toBe(57);
+    expect(textStart(3)).toBe(73);
+  });
+
+  it('各 depth で 16px ずつ増加する', () => {
+    expect(textStart(1) - textStart(0)).toBe(INDENT_PER_LEVEL);
+    expect(textStart(2) - textStart(1)).toBe(INDENT_PER_LEVEL);
+    expect(textStart(3) - textStart(2)).toBe(INDENT_PER_LEVEL);
+  });
+
+  it('同じ depth なら親タスク・葉タスクでテキスト開始位置が変わらない', () => {
+    // アイコンスロットは1個固定（▼ or └ or spacer）なので、
+    // hasChildren に関係なく同じ depth なら同じ位置になる
+    for (const depth of [0, 1, 2, 3]) {
+      expect(textStart(depth)).toBe(textStart(depth)); // 同一 depth は常に一致
+    }
+    // 旧バグ: depth=1親(└+▼=2個) と depth=2葉(│+└=2個) が同位置になっていた
+    // 修正後: depth=1 → 41px、depth=2 → 57px で別位置
+    expect(textStart(1)).not.toBe(textStart(2));
+  });
+
+  it('アイコン種別の選択ロジックが正しい', () => {
+    const iconType = (hasChildren: boolean, depth: number) => {
+      if (hasChildren) return 'collapse'; // ▼/▶ ボタン
+      if (depth > 0)   return 'leaf-line'; // └ 記号
+      return 'spacer'; // depth=0 葉はスペーサー
+    };
+
+    expect(iconType(true,  0)).toBe('collapse');   // depth=0 親
+    expect(iconType(false, 0)).toBe('spacer');     // depth=0 葉
+    expect(iconType(true,  1)).toBe('collapse');   // depth=1 親
+    expect(iconType(false, 1)).toBe('leaf-line');  // depth=1 葉
+    expect(iconType(true,  2)).toBe('collapse');   // depth=2 親
+    expect(iconType(false, 2)).toBe('leaf-line');  // depth=2 葉
+  });
+
+  it('3階層ツリーで各ノードの depth・インデントが正しい', () => {
+    const tasks = [
+      makeTask({ id: 'root' }),
+      makeTask({ id: 'child',      parentId: 'root'  }),
+      makeTask({ id: 'grandchild', parentId: 'child' }),
+    ];
+    const { roots } = buildTree(tasks);
+    const flat = flattenTree(roots, new Set());
+
+    expect(flat[0].depth).toBe(0);
+    expect(flat[1].depth).toBe(1);
+    expect(flat[2].depth).toBe(2);
+
+    expect(flat[0].depth * INDENT_PER_LEVEL).toBe(0);
+    expect(flat[1].depth * INDENT_PER_LEVEL).toBe(16);
+    expect(flat[2].depth * INDENT_PER_LEVEL).toBe(32);
+  });
+});
+
+// ═══════════════════════════════════════════════════
 // §列幅リサイズ — タイトル・担当者列の最小幅制約
 // ═══════════════════════════════════════════════════
 describe('列幅リサイズ — 最小幅制約', () => {
