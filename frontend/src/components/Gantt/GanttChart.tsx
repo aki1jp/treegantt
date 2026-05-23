@@ -634,10 +634,19 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const wbsBodyRef  = useRef<HTMLDivElement>(null);
+  const wbsBodyRef   = useRef<HTMLDivElement>(null);
+  const ganttPanelRef = useRef<HTMLDivElement>(null);
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     if (wbsBodyRef.current) wbsBodyRef.current.scrollTop = e.currentTarget.scrollTop;
+  }
+
+  // WBSパネル上のホイール操作をガントパネルに転送（WBSはoverflow:hiddenのため）
+  function handleWbsWheel(e: React.WheelEvent<HTMLDivElement>) {
+    if (ganttPanelRef.current) {
+      ganttPanelRef.current.scrollTop  += e.deltaY;
+      ganttPanelRef.current.scrollLeft += e.deltaX;
+    }
   }
 
   // SVG へのネイティブ contextmenu リスナー（React 合成イベントは SVG で不安定なため）
@@ -747,7 +756,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
-      <div data-testid="wbs-panel" style={{
+      <div data-testid="wbs-panel" onWheel={handleWbsWheel} style={{
         flexShrink: 0, width: LEFT_TOTAL, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
       }}>
@@ -829,7 +838,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       </div>
 
       {/* ── ガント右パネル（横スクロールバーあり） ── */}
-      <div data-testid="gantt-panel" style={{ flex: 1, overflow: 'auto' }} onScroll={handleScroll}>
+      <div data-testid="gantt-panel" ref={ganttPanelRef} style={{ flex: 1, overflow: 'auto' }} onScroll={handleScroll}>
         <div style={{ width: totalWidth }}>
 
           {/* ガントヘッダー（マルチレベル・sticky） */}
