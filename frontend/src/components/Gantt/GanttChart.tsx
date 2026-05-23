@@ -620,11 +620,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               </marker>
             </defs>
 
-            {/* 縞背景 */}
-            {flatRows.map((_, i) => (
-              <rect key={i} x={0} y={i * ROW_HEIGHT_PX} width={totalWidth} height={ROW_HEIGHT_PX}
-                fill={i % 2 === 0 ? '#fff' : '#fafafa'} />
-            ))}
+            {/* 縞背景（親タスク行は #eef2ff） */}
+            {flatRows.map(({ task }, i) => {
+              const isParent = (childCount.get(task.id) ?? 0) > 0;
+              return (
+                <rect key={i} x={0} y={i * ROW_HEIGHT_PX} width={totalWidth} height={ROW_HEIGHT_PX}
+                  fill={isParent ? '#eef2ff' : (i % 2 === 0 ? '#fff' : '#fafafa')} />
+              );
+            })}
 
             {/* 土日背景 */}
             {weekendXs.map((x, i) => (
