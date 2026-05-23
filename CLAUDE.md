@@ -35,6 +35,7 @@
 | Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト追加 | ✅ 完了 |
 | Phase 1-L | イナズマライン done/wait → todayX 固定・本番 Dockerfile（マルチステージ）・docker-compose 本番化・API URL 自動検出（window.location.hostname）| ✅ 完了 |
 | テスト強化 | フロントエンド全ファイル Statements/Branches/Lines 100% 達成（210件）・useWebSocket を renderHook + MockWebSocket でテスト | ✅ 完了 |
+| Phase 2-A | マイルストーン・クリティカルパス・バードラッグ移動/リサイズ・期限超過強調・期間フィールド | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
 
 ---
