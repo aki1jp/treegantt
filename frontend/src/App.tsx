@@ -183,7 +183,7 @@ export default function App() {
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
           />
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <GanttChart
               onEditTask={(task) => setModalTask(task)}
               onDeleteTask={handleDeleteTask}
