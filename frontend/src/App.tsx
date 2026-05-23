@@ -13,6 +13,7 @@ export default function App() {
   const [projects, setProjects]             = useState<Project[]>([]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
+  const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
   const [loading, setLoading]               = useState(true);
 
   const { tasks, setTasks, needsReload, setNeedsReload } = useTaskStore();
@@ -67,6 +68,7 @@ export default function App() {
         await createTask({ ...data, projectId: currentProject.id });
       }
       setModalTask(undefined);
+      setModalInitialParentId(undefined);
     } catch (err) {
       alert('保存に失敗しました: ' + (err as Error).message);
     }
@@ -106,13 +108,9 @@ export default function App() {
     }
   }
 
-  async function handleAddSubTask(parentId: string) {
-    if (!currentProject) return;
-    try {
-      await createTask({ title: '新しいタスク', projectId: currentProject.id, parentId });
-    } catch (err) {
-      alert('子タスクの追加に失敗しました: ' + (err as Error).message);
-    }
+  function handleAddSubTask(parentId: string) {
+    setModalInitialParentId(parentId);
+    setModalTask(null);
   }
 
   function exportFileName(ext: string) {
@@ -231,8 +229,9 @@ export default function App() {
         <TaskModal
           task={modalTask}
           allTasks={tasks}
+          initialParentId={modalInitialParentId}
           onSave={handleSaveTask}
-          onClose={() => setModalTask(undefined)}
+          onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
         />
       )}
 

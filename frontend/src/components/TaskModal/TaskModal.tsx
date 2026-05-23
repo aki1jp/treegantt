@@ -4,6 +4,7 @@ import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 interface Props {
   task: Task | null;
   allTasks: Task[];
+  initialParentId?: string;
   onSave: (data: Partial<Task> & { title: string }) => void;
   onClose: () => void;
 }
@@ -21,7 +22,7 @@ const INPUT: React.CSSProperties = {
   padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, fontSize: 14, width: '100%',
 };
 
-export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
+export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: Props) {
   const [title, setTitle]             = useState(task?.title ?? '');
   const [summary, setSummary]         = useState(task?.summary ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
@@ -31,7 +32,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
   const [assignee, setAssignee]       = useState(task?.assignee ?? '');
   const [startDate, setStartDate]     = useState(task?.startDate ?? '');
   const [endDate, setEndDate]         = useState(task?.endDate ?? '');
-  const [parentId, setParentId]       = useState<string>(task?.parentId ?? '');
+  const [parentId, setParentId]       = useState<string>(task?.parentId ?? initialParentId ?? '');
   const [isMilestone, setIsMilestone]   = useState(task?.isMilestone ?? false);
   const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
   const [predecessorText, setPredecessorText] = useState(
@@ -52,7 +53,7 @@ export function TaskModal({ task, allTasks, onSave, onClose }: Props) {
     setStartDate(task?.startDate ?? '');
     setEndDate(task?.endDate ?? '');
     setIsMilestone(task?.isMilestone ?? false);
-    setParentId(task?.parentId ?? '');
+    setParentId(task?.parentId ?? initialParentId ?? '');
     const initPreds = task?.predecessors ?? [];
     setPredecessors(initPreds);
     setPredecessorText(

@@ -490,7 +490,7 @@ interface Props {
   onDeleteTask: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onQuickAdd: (title: string) => Promise<void>;
-  onAddSubTask: (parentId: string) => Promise<void>;
+  onAddSubTask: (parentId: string) => void;
 }
 
 export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask }: Props) {
