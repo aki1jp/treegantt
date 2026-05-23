@@ -27,13 +27,13 @@ export function ConflictDialog({ field, theirVal, myVal, onResolve }: Props) {
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
     }}>
       <div style={{
-        background: '#fff', borderRadius: 10, padding: '28px 32px',
-        width: 420, boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+        background: 'var(--th-bg)', borderRadius: 10, padding: '28px 32px',
+        width: 420, boxShadow: '0 8px 32px rgba(0,0,0,.25)', color: 'var(--th-text)',
       }}>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
           ⚠️ 編集中に別のユーザーが変更しました
         </div>
-        <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: 'var(--th-text-muted)', marginBottom: 20 }}>
           フィールド: <strong>{label}</strong>
         </div>
 
@@ -61,8 +61,8 @@ export function ConflictDialog({ field, theirVal, myVal, onResolve }: Props) {
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={() => onResolve(true)} style={{
-            padding: '8px 16px', borderRadius: 6, border: '1px solid #d1d5db',
-            background: '#fff', cursor: 'pointer', fontSize: 13,
+            padding: '8px 16px', borderRadius: 6, border: '1px solid var(--th-border)',
+            background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer', fontSize: 13,
           }}>
             別のユーザーの変更を使う
           </button>

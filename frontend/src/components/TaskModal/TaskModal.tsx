@@ -17,9 +17,10 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
 };
 
 const FIELD: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 };
-const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#555' };
+const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--th-text-muted)' };
 const INPUT: React.CSSProperties = {
-  padding: '6px 8px', border: '1px solid #ddd', borderRadius: 4, fontSize: 14, width: '100%',
+  padding: '6px 8px', border: '1px solid var(--th-input-border)', borderRadius: 4, fontSize: 14, width: '100%',
+  background: 'var(--th-input-bg)', color: 'var(--th-text)',
 };
 
 export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: Props) {
@@ -105,8 +106,8 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }} onClick={onClose}>
       <div style={{
-        background: '#fff', borderRadius: 8, padding: 24, width: 560, maxHeight: '90vh',
-        overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.2)',
+        background: 'var(--th-bg)', borderRadius: 8, padding: 24, width: 560, maxHeight: '90vh',
+        overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.3)', color: 'var(--th-text)',
       }} onClick={e => e.stopPropagation()}>
         <h2 style={{ marginBottom: 16, fontSize: 18 }}>
           {task ? 'タスク編集' : 'タスク作成'}
@@ -225,7 +226,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                   setPredecessors([...new Set(ids)]);
                 }}
               />
-              <div style={{ border: '1px solid #ddd', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto' }}>
+              <div style={{ border: '1px solid var(--th-input-border)', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto', background: 'var(--th-input-bg)' }}>
                 {selectableTasks.map(t => (
                   <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
                     <input type="checkbox" checked={predecessors.includes(t.id)}
@@ -244,7 +245,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
 
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" onClick={onClose}
-              style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+              style={{ padding: '8px 16px', border: '1px solid var(--th-input-border)', borderRadius: 4, background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer' }}>
               キャンセル
             </button>
             <button type="submit"

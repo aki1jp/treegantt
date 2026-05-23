@@ -172,8 +172,8 @@ function ContextMenu({
         top: pos?.top ?? y,
         left: pos?.left ?? x,
         visibility: pos ? 'visible' : 'hidden',
-        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
-        boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 160,
+        background: 'var(--th-bg)', border: '1px solid var(--th-border)', borderRadius: 6,
+        boxShadow: '0 4px 16px rgba(0,0,0,.18)', zIndex: 9999, minWidth: 160,
       }}
       onMouseDown={onMouseDown}
       onClick={onClick}
@@ -256,16 +256,17 @@ function GanttLeftRow({
   const CELL: React.CSSProperties = {
     height: rowHeight, display: 'flex', alignItems: 'center',
     padding: '0 6px', fontSize, overflow: 'hidden',
-    boxSizing: 'border-box',
+    boxSizing: 'border-box', color: 'var(--th-text2)',
   };
   const INPUT_S: React.CSSProperties = {
     width: '100%', padding: '2px 4px', border: '1px solid #4f46e5',
     borderRadius: 3, fontSize, outline: 'none',
+    background: 'var(--th-input-bg)', color: 'var(--th-text)',
   };
 
   const indent = depth * 16;
   const isRootParent = depth === 0 && hasChildren;
-  const rowBg = isRootParent ? '#eef2ff' : '#fff';
+  const rowBg = isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)';
   const duration = calcDuration(task.startDate, task.endDate);
 
   return (
@@ -273,13 +274,13 @@ function GanttLeftRow({
       style={{
         display: 'flex', background: rowBg,
         height: rowHeight, boxSizing: 'border-box',
-        borderBottom: '1px solid #e5e7eb',
-        borderLeft: isRootParent ? '3px solid #6366f1' : '3px solid transparent',
+        borderBottom: '1px solid var(--th-border)',
+        borderLeft: isRootParent ? '3px solid var(--th-border-strong)' : '3px solid transparent',
       }}
       onContextMenu={e => { e.preventDefault(); onRowContextMenu(e.clientX, e.clientY); }}
     >
       {/* # (order) */}
-      <div style={{ ...CELL, width: 36, justifyContent: 'center', color: '#9ca3af', userSelect: 'none' }}>
+      <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
         {task.isMilestone ? '◇' : task.order}
       </div>
 
@@ -289,13 +290,13 @@ function GanttLeftRow({
           {hasChildren ? (
             <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
               width: 14, height: 14, border: 'none', background: 'none', cursor: 'pointer',
-              padding: 0, fontSize: 9, color: '#6b7280', flexShrink: 0,
+              padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {isCollapsed ? '▶' : '▼'}
             </button>
           ) : depth > 0 ? (
-            <span style={{ width: 14, flexShrink: 0, color: '#d1d5db', fontSize: 10 }}>└</span>
+            <span style={{ width: 14, flexShrink: 0, color: 'var(--th-text-ph)', fontSize: 10 }}>└</span>
           ) : null}
           {editField === 'title' ? (
             <input ref={inputRef} style={INPUT_S} value={editVal}
@@ -307,7 +308,7 @@ function GanttLeftRow({
               style={{
                 cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 fontWeight: isRootParent ? 700 : 400,
-                color: isRootParent ? '#3730a3' : undefined,
+                color: isRootParent ? 'var(--th-text-parent)' : 'var(--th-text2)',
               }}>
               {task.title}
             </span>
@@ -371,13 +372,13 @@ function GanttLeftRow({
             title={hasChildren ? '子タスクの平均（自動計算）' : undefined}
             style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%',
               cursor: hasChildren ? 'default' : 'text' }}>
-            <div style={{ width: 40, height: 5, background: '#e5e7eb', borderRadius: 3, flexShrink: 0 }}>
+            <div style={{ width: 40, height: 5, background: 'var(--th-border)', borderRadius: 3, flexShrink: 0 }}>
               <div style={{
                 width: `${effectiveProgress}%`, height: '100%', borderRadius: 3,
                 background: hasChildren ? '#a5b4fc' : '#4f46e5',
               }} />
             </div>
-            <span style={{ fontSize: 10, color: hasChildren ? '#a5b4fc' : '#6b7280' }}>
+            <span style={{ fontSize: 10, color: hasChildren ? '#a5b4fc' : 'var(--th-text-muted)' }}>
               {effectiveProgress}%
             </span>
           </div>
@@ -394,7 +395,7 @@ function GanttLeftRow({
         ) : (
           <span onClick={() => startEdit('assignee', task.assignee)}
             style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              color: task.assignee ? undefined : '#d1d5db' }}>
+              color: task.assignee ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
             {task.assignee || '—'}
           </span>
         )}
@@ -409,7 +410,7 @@ function GanttLeftRow({
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
         ) : (
           <span onClick={() => startEdit('startDate', task.startDate ?? '')}
-            style={{ cursor: 'text', color: task.startDate ? undefined : '#d1d5db' }}>
+            style={{ cursor: 'text', color: task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
             {task.startDate ?? '—'}
           </span>
         )}
@@ -424,7 +425,7 @@ function GanttLeftRow({
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
         ) : (
           <span onClick={() => startEdit('endDate', task.endDate ?? '')}
-            style={{ cursor: 'text', color: task.endDate ? undefined : '#d1d5db' }}>
+            style={{ cursor: 'text', color: task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
             {task.endDate ?? '—'}
           </span>
         )}
@@ -448,7 +449,7 @@ function GanttLeftRow({
             }}
             style={{
               cursor: task.startDate ? 'text' : 'default',
-              color: duration !== null ? '#374151' : '#d1d5db',
+              color: duration !== null ? 'var(--th-text2)' : 'var(--th-text-ph)',
             }}>
             {duration !== null ? duration : '—'}
           </span>
@@ -492,9 +493,9 @@ function QuickAddRow({ onAdd, titleWidth, assigneeWidth }: { onAdd: (title: stri
 
   return (
     <div style={{
-      display: 'flex', background: '#fafafa',
+      display: 'flex', background: 'var(--th-bg2)',
       height: uiRowHeight, boxSizing: 'border-box',
-      borderTop: '1px dashed #e5e7eb',
+      borderTop: '1px dashed var(--th-border)',
     }}>
       <div style={{ ...CELL, width: 36 }} />
       <div style={{ ...CELL, width: titleWidth }}>
@@ -511,7 +512,7 @@ function QuickAddRow({ onAdd, titleWidth, assigneeWidth }: { onAdd: (title: stri
           />
         ) : (
           <span onClick={() => setEditing(true)}
-            style={{ color: '#9ca3af', cursor: 'text', fontSize: uiFontSize, userSelect: 'none' }}>
+            style={{ color: 'var(--th-text-dim)', cursor: 'text', fontSize: uiFontSize, userSelect: 'none' }}>
             ＋ タスクを追加…
           </span>
         )}
@@ -726,8 +727,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   const TH: React.CSSProperties = {
     height: HEADER_ROW_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 11, fontWeight: 700, color: '#6b7280',
-    borderRight: '1px solid #e5e7eb', cursor: 'default', userSelect: 'none',
+    fontSize: 11, fontWeight: 700, color: 'var(--th-text-muted)',
+    borderRight: '1px solid var(--th-border)', cursor: 'default', userSelect: 'none',
     boxSizing: 'border-box', padding: '0 4px',
   };
 
@@ -743,14 +744,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         {/* ── ヘッダー（マルチレベル） ── */}
         <div style={{
           position: 'sticky', top: 0, zIndex: 20,
-          borderBottom: '2px solid #e5e7eb', background: '#f9fafb',
+          borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
         }}>
           {headerRows.map((row, ri) => (
             <div key={row.level} style={{ display: 'flex', height: HEADER_ROW_H }}>
               <div style={{
                 display: 'flex', flexShrink: 0, width: LEFT_TOTAL,
                 position: 'sticky', left: 0, zIndex: 21,
-                background: '#f9fafb', borderRight: '2px solid #6366f1',
+                background: 'var(--th-bg2)', borderRight: '2px solid var(--th-border-strong)',
               }}>
                 {ri === 0
                   ? LEFT_COLS.map(col => {
@@ -774,10 +775,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                                 <button key={icon} title={title}
                                   onClick={e => { e.stopPropagation(); action(); }}
                                   style={{ border: 'none', background: 'none', cursor: 'pointer',
-                                    fontSize: 12, color: '#9ca3af', padding: '1px 2px', borderRadius: 2,
+                                    fontSize: 12, color: 'var(--th-text-dim)', padding: '1px 2px', borderRadius: 2,
                                     lineHeight: 1, fontWeight: 400 }}
                                   onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
                                 >
                                   {icon}
                                 </button>
@@ -801,21 +802,21 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                       );
                     })
                   : <div style={{ width: LEFT_TOTAL, height: HEADER_ROW_H,
-                      borderTop: '1px solid #e5e7eb', background: '#f9fafb' }} />
+                      borderTop: '1px solid var(--th-border)', background: 'var(--th-bg2)' }} />
                 }
               </div>
 
-              <div style={{ width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: '#f9fafb',
-                borderTop: ri > 0 ? '1px solid #e5e7eb' : undefined }}>
+              <div style={{ width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: 'var(--th-bg2)',
+                borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined }}>
                 {row.cells.map((cell, ci) => (
                   <div key={ci} style={{
                     position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
-                    background: ci % 2 === 0 ? '#f9fafb' : '#f3f4f6',
-                    borderRight: '1px solid #e5e7eb',
+                    background: ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)',
+                    borderRight: '1px solid var(--th-border)',
                     display: 'flex', alignItems: 'center', paddingLeft: 4,
                     fontSize: row.level === 'day' ? 9 : 10,
                     fontWeight: row.level === 'year' ? 800 : 600,
-                    color: row.level === 'year' ? '#374151' : '#6b7280',
+                    color: row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
                     boxSizing: 'border-box', overflow: 'hidden',
                   }}>
                     {cell.label}
@@ -833,8 +834,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           <div style={{
             flexShrink: 0, width: LEFT_TOTAL,
             position: 'sticky', left: 0, zIndex: 10,
-            borderRight: '2px solid #6366f1',
-            background: '#fff',
+            borderRight: '2px solid var(--th-border-strong)',
+            background: 'var(--th-bg)',
           }}>
             {flatRows.map(({ task, depth }) => (
               <GanttLeftRow
@@ -869,7 +870,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               const isRootParent = depth === 0 && (childCount.get(task.id) ?? 0) > 0;
               return (
                 <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
-                  fill={isRootParent ? '#eef2ff' : (i % 2 === 0 ? '#fff' : '#fafafa')} />
+                  style={{ fill: isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)') }} />
               );
             })}
 
@@ -942,25 +943,27 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               style={{
                 display: 'block', width: '100%', padding: '8px 14px', border: 'none',
                 background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+                color: 'var(--th-text2)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
               ＋ 子タスクを追加
             </button>
-            <div style={{ height: 1, background: '#e5e7eb' }} />
+            <div style={{ height: 1, background: 'var(--th-border)' }} />
             <button
               onClick={() => { onEditTask(task); close(); }}
               style={{
                 display: 'block', width: '100%', padding: '8px 14px', border: 'none',
                 background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+                color: 'var(--th-text2)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
               編集（詳細）
             </button>
-            <div style={{ height: 1, background: '#e5e7eb' }} />
+            <div style={{ height: 1, background: 'var(--th-border)' }} />
             <button
               onClick={() => { onDeleteTask(task.id); close(); }}
               style={{

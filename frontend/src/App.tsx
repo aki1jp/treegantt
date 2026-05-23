@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useTasks } from './hooks/useTasks';
 import { useTaskStore } from './store/taskStore';
+import { useTheme } from './hooks/useTheme';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
@@ -17,6 +18,8 @@ export default function App() {
   const [loading, setLoading]               = useState(true);
 
   const { tasks, setTasks, needsReload, setNeedsReload } = useTaskStore();
+
+  useTheme();
 
   // WebSocket: プロジェクトのリアルタイム同期
   useWebSocket(currentProject?.id ?? null);
@@ -156,10 +159,10 @@ export default function App() {
     e.target.value = '';
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>読み込み中...</div>;
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>読み込み中...</div>;
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--th-bg)', color: 'var(--th-text)' }}>
       {/* プロジェクト選択ヘッダー */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
@@ -215,7 +218,7 @@ export default function App() {
         </>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <p style={{ color: '#6b7280' }}>プロジェクトがありません</p>
+          <p style={{ color: 'var(--th-text-muted)' }}>プロジェクトがありません</p>
           <button onClick={handleCreateProject} style={{
             padding: '10px 24px', background: '#4f46e5', color: '#fff',
             border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,

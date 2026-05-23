@@ -30,6 +30,7 @@ import {
   calcEffectiveProgress,
 } from '../utils/taskTree';
 import { clampMenuPos } from '../utils/menuPos';
+import { resolveTheme } from '../utils/theme';
 
 // ── テストデータファクトリ ──────────────────────────
 
@@ -1477,5 +1478,26 @@ describe('すべて折りたたむ / すべて展開', () => {
     // expandAll 後
     const fullFlat = flattenTree(roots, new Set());
     expect(fullFlat).toHaveLength(4);
+  });
+});
+
+// ── §テーマ: resolveTheme ────────────────────────────
+describe('resolveTheme', () => {
+  it('auto + systemDark=true → dark', () => {
+    expect(resolveTheme('auto', true)).toBe('dark');
+  });
+
+  it('auto + systemDark=false → light', () => {
+    expect(resolveTheme('auto', false)).toBe('light');
+  });
+
+  it('light はシステム設定に関係なく light', () => {
+    expect(resolveTheme('light', true)).toBe('light');
+    expect(resolveTheme('light', false)).toBe('light');
+  });
+
+  it('dark はシステム設定に関係なく dark', () => {
+    expect(resolveTheme('dark', false)).toBe('dark');
+    expect(resolveTheme('dark', true)).toBe('dark');
   });
 });

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Task, TaskStatus, ZoomLevel } from '../types/task';
 import type { GanttPeriod } from '../utils/ganttCalc';
+import type { ThemeMode } from '../utils/theme';
 
 export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; day: boolean };
 
@@ -21,6 +22,7 @@ interface TaskStore {
   uiFontSize:         number;
   uiRowHeight:        number;
   ganttHeaderLevels:  GanttHeaderLevels;
+  theme:              ThemeMode;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
   setSortKey:             (key: keyof Task) => void;
@@ -34,6 +36,7 @@ interface TaskStore {
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
+  setTheme:               (theme: ThemeMode) => void;
 }
 
 export const useTaskStore = create<TaskStore>((set) => ({
@@ -53,6 +56,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   uiFontSize:         13,
   uiRowHeight:        36,
   ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
+  theme:              'auto' as ThemeMode,
   setTasks:               (tasks) => set({ tasks }),
   setNeedsReload:         (needsReload) => set({ needsReload }),
   setSortKey:             (key) =>
@@ -72,4 +76,5 @@ export const useTaskStore = create<TaskStore>((set) => ({
   setGanttHeaderLevels:   (levels) => set((s) => ({
     ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
   })),
+  setTheme:               (theme) => set({ theme }),
 }));

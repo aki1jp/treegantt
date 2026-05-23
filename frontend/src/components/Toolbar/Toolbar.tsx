@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
+import type { ThemeMode } from '../../utils/theme';
 import { useTaskStore } from '../../store/taskStore';
 
 interface Props {
@@ -11,23 +12,24 @@ interface Props {
 }
 
 const BTN: React.CSSProperties = {
-  padding: '5px 10px', border: '1px solid #ddd', borderRadius: 4,
-  background: '#fff', cursor: 'pointer', fontSize: 12,
+  padding: '5px 10px', border: '1px solid var(--th-input-border)', borderRadius: 4,
+  background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer', fontSize: 12,
 };
 const PRIMARY_BTN: React.CSSProperties = {
   ...BTN, background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 600,
 };
 const SELECT: React.CSSProperties = {
-  padding: '5px 6px', border: '1px solid #ddd', borderRadius: 4, fontSize: 12,
+  padding: '5px 6px', border: '1px solid var(--th-input-border)', borderRadius: 4,
+  fontSize: 12, background: 'var(--th-input-bg)', color: 'var(--th-text2)',
 };
 const LABEL: React.CSSProperties = {
-  fontSize: 11, color: '#6b7280', fontWeight: 500,
+  fontSize: 11, color: 'var(--th-text-muted)', fontWeight: 500,
 };
 const FILTER_GROUP: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 4,
 };
 const DIVIDER: React.CSSProperties = {
-  width: 1, height: 22, background: '#e5e7eb', flexShrink: 0,
+  width: 1, height: 22, background: 'var(--th-border)', flexShrink: 0,
 };
 
 const STATUS_OPTIONS: { value: TaskStatus | '' | '!done'; label: string }[] = [
@@ -52,6 +54,12 @@ const PERIOD_OPTIONS: { value: GanttPeriod; label: string }[] = [
   { value: '6m', label: '6ヶ月' },
 ];
 
+const THEME_OPTIONS: { value: ThemeMode; label: string; title: string }[] = [
+  { value: 'light',  label: '☀',  title: 'ライトモード' },
+  { value: 'dark',   label: '🌙', title: 'ダークモード' },
+  { value: 'auto',   label: '🖥', title: 'システム設定に従う' },
+];
+
 function MenuItem({ label, indent, onClick }: { label: string; indent?: boolean; onClick: () => void }) {
   return (
     <button
@@ -59,9 +67,9 @@ function MenuItem({ label, indent, onClick }: { label: string; indent?: boolean;
       style={{
         display: 'block', width: '100%', textAlign: 'left', border: 'none',
         padding: indent ? '8px 16px 8px 28px' : '10px 16px',
-        background: 'none', fontSize: 13, cursor: 'pointer', color: '#374151',
+        background: 'none', fontSize: 13, cursor: 'pointer', color: 'var(--th-text2)',
       }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#f9fafb')}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'none')}
     >
       {label}
@@ -78,9 +86,9 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
         ...BTN,
         padding: '4px 7px',
         fontSize: 11,
-        background: active ? '#4f46e5' : '#fff',
-        color: active ? '#fff' : '#6b7280',
-        border: `1px solid ${active ? '#4f46e5' : '#ddd'}`,
+        background: active ? '#4f46e5' : 'var(--th-bg)',
+        color: active ? '#fff' : 'var(--th-text-muted)',
+        border: `1px solid ${active ? '#4f46e5' : 'var(--th-input-border)'}`,
         fontWeight: active ? 700 : 400,
       }}
     >
@@ -94,8 +102,10 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
     zoomLevel, filterStatus, filterAssignee, filterPriority,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
+    theme,
     setZoomLevel, setFilter, setGanttRange,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
+    setTheme,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -138,10 +148,15 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const dropdownStyle: React.CSSProperties = {
+    background: 'var(--th-bg)', border: '1px solid var(--th-border)', borderRadius: 8,
+    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+  };
+
   return (
     <div style={{
       display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 6,
-      padding: '8px 14px', background: '#fff', borderBottom: '1px solid #e5e7eb',
+      padding: '8px 14px', background: 'var(--th-bg)', borderBottom: '1px solid var(--th-border)',
       overflowX: 'auto', minHeight: 44,
     }}>
       {/* フィルタ（まとめドロップダウン） */}
@@ -149,9 +164,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
         <button
           style={{
             ...BTN,
-            background: activeCount > 0 ? '#ede9fe' : '#fff',
-            color: activeCount > 0 ? '#4f46e5' : '#374151',
-            border: `1px solid ${activeCount > 0 ? '#a5b4fc' : '#ddd'}`,
+            background: activeCount > 0 ? '#ede9fe' : 'var(--th-bg)',
+            color: activeCount > 0 ? '#4f46e5' : 'var(--th-text2)',
+            border: `1px solid ${activeCount > 0 ? '#a5b4fc' : 'var(--th-input-border)'}`,
             display: 'flex', alignItems: 'center', gap: 5,
           }}
           onClick={openFilter}
@@ -169,9 +184,8 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
         {filterOpen && filterPos && (
           <div style={{
             position: 'fixed', top: filterPos.top, left: filterPos.left, zIndex: 1000,
-            background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8,
-            padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 220,
+            ...dropdownStyle, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10,
+            minWidth: 220,
           }}>
             <div style={FILTER_GROUP}>
               <span style={{ ...LABEL, width: 46 }}>ステータス</span>
@@ -194,7 +208,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
             </div>
             {activeCount > 0 && (
               <button
-                style={{ ...BTN, fontSize: 11, color: '#6b7280', alignSelf: 'flex-end' }}
+                style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)', alignSelf: 'flex-end' }}
                 onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '' })}
               >
                 クリア
@@ -231,7 +245,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
           value={ganttStartDate}
           onChange={e => setGanttRange(e.target.value, ganttPeriod)} />
         {ganttStartDate ? (
-          <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: '#6b7280' }}
+          <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
             onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）">✕</button>
         ) : (
           <button style={{ ...BTN, padding: '3px 7px', fontSize: 11 }}
@@ -288,7 +302,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
 
       {/* サイズ（文字・行高） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-        padding: '4px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fafafa' }}>
+        padding: '4px 8px', border: '1px solid var(--th-border)', borderRadius: 6, background: 'var(--th-bg2)' }}>
         <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>サイズ</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <span style={{ ...LABEL, fontSize: 10 }}>文字</span>
@@ -301,9 +315,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
                 ...BTN,
                 padding: '2px 6px',
                 fontSize: size - 2,
-                background: uiFontSize === size ? '#4f46e5' : '#fff',
-                color: uiFontSize === size ? '#fff' : '#6b7280',
-                border: `1px solid ${uiFontSize === size ? '#4f46e5' : '#ddd'}`,
+                background: uiFontSize === size ? '#4f46e5' : 'var(--th-bg)',
+                color: uiFontSize === size ? '#fff' : 'var(--th-text-muted)',
+                border: `1px solid ${uiFontSize === size ? '#4f46e5' : 'var(--th-input-border)'}`,
                 fontWeight: uiFontSize === size ? 700 : 400,
               }}
             >
@@ -311,7 +325,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
             </button>
           ))}
         </div>
-        <div style={{ width: 1, height: 18, background: '#e5e7eb' }} />
+        <div style={{ width: 1, height: 18, background: 'var(--th-border)' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <span style={{ ...LABEL, fontSize: 10 }}>行高</span>
           {([28, 36, 44] as const).map((h, i) => (
@@ -323,9 +337,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
                 ...BTN,
                 padding: '2px 6px',
                 fontSize: 11,
-                background: uiRowHeight === h ? '#4f46e5' : '#fff',
-                color: uiRowHeight === h ? '#fff' : '#6b7280',
-                border: `1px solid ${uiRowHeight === h ? '#4f46e5' : '#ddd'}`,
+                background: uiRowHeight === h ? '#4f46e5' : 'var(--th-bg)',
+                color: uiRowHeight === h ? '#fff' : 'var(--th-text-muted)',
+                border: `1px solid ${uiRowHeight === h ? '#4f46e5' : 'var(--th-input-border)'}`,
                 fontWeight: uiRowHeight === h ? 700 : 400,
               }}
             >
@@ -333,6 +347,29 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
             </button>
           ))}
         </div>
+      </div>
+
+      <div style={DIVIDER} />
+
+      {/* テーマ */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        {THEME_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            title={opt.title}
+            onClick={() => setTheme(opt.value)}
+            style={{
+              ...BTN,
+              padding: '4px 8px',
+              fontSize: 14,
+              background: theme === opt.value ? '#4f46e5' : 'var(--th-bg)',
+              color: theme === opt.value ? '#fff' : 'var(--th-text-muted)',
+              border: `1px solid ${theme === opt.value ? '#4f46e5' : 'var(--th-input-border)'}`,
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       <div style={DIVIDER} />
@@ -347,7 +384,7 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
             padding: '5px 9px',
             fontSize: 16,
             lineHeight: 1,
-            background: menuOpen ? '#f3f4f6' : '#fff',
+            background: menuOpen ? 'var(--th-bg2)' : 'var(--th-bg)',
           }}
         >
           ☰
@@ -356,16 +393,13 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
         {menuOpen && menuPos && (
           <div style={{
             position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 1000,
-            background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8,
-            boxShadow: '0 4px 16px rgba(0,0,0,0.10)', minWidth: 160, overflow: 'hidden',
+            ...dropdownStyle, minWidth: 160, overflow: 'hidden',
           }}>
-            {/* インポート */}
             <MenuItem label="📥 インポート" onClick={() => { onImport(); setMenuOpen(false); }} />
 
-            <div style={{ height: 1, background: '#f3f4f6', margin: '2px 0' }} />
+            <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 
-            {/* エクスポート（ラベル） */}
-            <div style={{ padding: '8px 16px 4px', fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>
+            <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
               📤 エクスポート
             </div>
             <MenuItem label="JSON 出力" indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
