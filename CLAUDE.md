@@ -146,6 +146,7 @@ docker compose up -d
 - `src/components/ConflictDialog/ConflictDialog.tsx`
 - `src/components/Toolbar/Toolbar.tsx`
 - `src/components/TaskModal/TaskModal.tsx`
+- `src/components/MilestoneModal/MilestoneModal.tsx`
 - `src/components/Gantt/GanttChart.tsx`, `GanttBar.tsx`, `DependencyArrow.tsx`, `LightningLine.tsx`
 - `src/App.tsx`, `src/main.tsx`
 - `src/__tests__/ganttCalc.test.ts`, `importExport.test.ts`, `scenarios.test.ts`, `api.test.ts`, `taskStore.test.ts`, `useTasks.test.ts`, `useWebSocket.test.ts`
@@ -168,6 +169,11 @@ docker compose up -d
 - クリティカルパス: CPM アルゴリズム（ganttCalc.ts）。黄色背景（#fef08a）＋インディゴ枠（#6366f1）
 - 期限超過: `endDate < today && status !== 'done'` → 赤背景（#fca5a5）。CPより優先
 - ガントバー右クリックメニュー: SVGネイティブ contextmenu リスナー + data-task-id 属性でヒットテスト
+- マイルストーンと通常タスクは**別UIで作成**（MilestoneModal / TaskModal）。以下の禁止ルールあり:
+  - マイルストーンに子タスクを追加できない（右クリックメニューで非表示）
+  - マイルストーンを親タスクに選択できない（TaskModal の親候補から除外）
+  - MilestoneModal のフィールド: タイトル・日付（1つ）・担当者・先行タスクのみ（進捗/説明/ステータス/親タスクは不要）
+  - MilestoneModal 保存時は常に `isMilestone: true`・`endDate = startDate`
 
 ### UI設定の永続化（localStorage）
 
