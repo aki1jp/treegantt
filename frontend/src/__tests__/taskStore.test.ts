@@ -15,6 +15,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   useTaskStore.setState({
     tasks: [],
     needsReload: false,
@@ -29,7 +30,10 @@ beforeEach(() => {
     showLightningLine: true,
     showWeekend: true,
     showCriticalPath: false,
+    uiFontSize: 13,
+    uiRowHeight: 36,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
+    theme: 'auto',
   });
 });
 
@@ -173,5 +177,86 @@ describe('setGanttHeaderLevels', () => {
     expect(levels.year).toBe(false);
     expect(levels.week).toBe(false);
     expect(levels.month).toBe(true);
+  });
+});
+
+// ── localStorage 永続化 ─────────────────────────────
+// persist ミドルウェアにより、UI設定が localStorage('treegantt-ui') に自動保存される。
+// キー 'treegantt-ui' の JSON: { state: { ...保存対象フィールド }, version: 0 }
+
+function getSaved(): Record<string, unknown> {
+  const raw = localStorage.getItem('treegantt-ui');
+  if (!raw) return {};
+  return (JSON.parse(raw) as { state: Record<string, unknown> }).state ?? {};
+}
+
+describe('UI設定の永続化', () => {
+  it('テーマ設定が localStorage に保存される', () => {
+    useTaskStore.getState().setTheme('dark');
+    expect(getSaved().theme).toBe('dark');
+  });
+
+  it('ズームレベルが localStorage に保存される', () => {
+    useTaskStore.getState().setZoomLevel('day');
+    expect(getSaved().zoomLevel).toBe('day');
+  });
+
+  it('ガント期間が localStorage に保存される', () => {
+    useTaskStore.getState().setGanttRange('2026-06-01', '6m');
+    expect(getSaved().ganttPeriod).toBe('6m');
+    expect(getSaved().ganttStartDate).toBe('2026-06-01');
+  });
+
+  it('イナズマライン設定が localStorage に保存される', () => {
+    useTaskStore.getState().setShowLightningLine(false);
+    expect(getSaved().showLightningLine).toBe(false);
+  });
+
+  it('土日強調設定が localStorage に保存される', () => {
+    useTaskStore.getState().setShowWeekend(false);
+    expect(getSaved().showWeekend).toBe(false);
+  });
+
+  it('クリティカルパス設定が localStorage に保存される', () => {
+    useTaskStore.getState().setShowCriticalPath(true);
+    expect(getSaved().showCriticalPath).toBe(true);
+  });
+
+  it('文字サイズが localStorage に保存される', () => {
+    useTaskStore.getState().setUiFontSize(15);
+    expect(getSaved().uiFontSize).toBe(15);
+  });
+
+  it('行高が localStorage に保存される', () => {
+    useTaskStore.getState().setUiRowHeight(28);
+    expect(getSaved().uiRowHeight).toBe(28);
+  });
+
+  it('ヘッダー表示レベルが localStorage に保存される', () => {
+    useTaskStore.getState().setGanttHeaderLevels({ day: false, week: false });
+    const levels = getSaved().ganttHeaderLevels as Record<string, boolean>;
+    expect(levels.day).toBe(false);
+    expect(levels.week).toBe(false);
+    expect(levels.year).toBe(true);
+  });
+
+  it('tasks は localStorage に保存されない（サーバーから取得するため）', () => {
+    useTaskStore.getState().setTasks([makeTask({ id: 'server-task' })]);
+    expect(getSaved()).not.toHaveProperty('tasks');
+  });
+
+  it('needsReload は localStorage に保存されない', () => {
+    useTaskStore.getState().setNeedsReload(true);
+    expect(getSaved()).not.toHaveProperty('needsReload');
+  });
+
+  it('sortKey/sortDir/フィルタは localStorage に保存されない', () => {
+    useTaskStore.getState().setSortKey('title');
+    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice' });
+    const saved = getSaved();
+    expect(saved).not.toHaveProperty('sortKey');
+    expect(saved).not.toHaveProperty('sortDir');
+    expect(saved).not.toHaveProperty('filterStatus');
+    expect(saved).not.toHaveProperty('filterAssignee');
   });
 });
