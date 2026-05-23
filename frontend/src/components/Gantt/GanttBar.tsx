@@ -12,6 +12,7 @@ interface Props {
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
   onClick: () => void;
+  onContextMenu: (e: React.MouseEvent, taskId: string) => void;
 }
 
 const STATUS_COLOR: Record<TaskStatus, string> = {
@@ -23,7 +24,7 @@ const HANDLE_W = 6;
 
 export function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, dragPreview,
-  onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
+  onMoveStart, onResizeLeftStart, onResizeRightStart, onClick, onContextMenu,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
   const effectiveEnd   = dragPreview?.endDate   ?? task.endDate;
@@ -48,6 +49,7 @@ export function GanttBar({
           stroke={isOverdue ? '#ef4444' : color}
           strokeWidth={isOverdue ? 2.5 : 1.5}
           onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
+          onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
         />
         <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
           {task.title}
@@ -55,7 +57,9 @@ export function GanttBar({
         {/* 透明な広いクリック領域 */}
         <rect
           x={cx - r - 4} y={centerY - r - 4} width={r * 2 + 8} height={r * 2 + 8}
-          fill="transparent" onClick={onClick} style={{ cursor: 'pointer' }}
+          fill="transparent" onClick={onClick}
+          onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
+          style={{ cursor: 'pointer' }}
         />
       </g>
     );
@@ -80,6 +84,7 @@ export function GanttBar({
         stroke={isOverdue ? '#ef4444' : (isCritical ? '#ef4444' : color)}
         strokeWidth={isCritical && !isOverdue ? 2 : 1}
         onClick={onClick}
+        onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
         style={{ cursor: 'pointer' }}
       />
       {/* 進捗バー */}

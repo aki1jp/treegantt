@@ -579,6 +579,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
+  const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
+
+  useEffect(() => {
+    if (!barCtxMenu) return;
+    const close = () => setBarCtxMenu(null);
+    window.addEventListener('click', close);
+    window.addEventListener('contextmenu', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('contextmenu', close);
+    };
+  }, [barCtxMenu]);
 
   useEffect(() => {
     dragPreviewRef.current = dragPreview;
@@ -780,6 +792,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => startDrag(e, id, 'resize-right')}
                   onClick={() => !dragState && onEditTask(task)}
+                  onContextMenu={(e, id) => setBarCtxMenu({ x: e.clientX, y: e.clientY, taskId: id })}
                 />
               );
             })}
@@ -805,6 +818,46 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </svg>
         </div>
       </div>
+
+      {/* ガントバー右クリックメニュー */}
+      {barCtxMenu && (() => {
+        const task = taskById.get(barCtxMenu.taskId);
+        if (!task) return null;
+        return (
+          <div
+            style={{
+              position: 'fixed', top: barCtxMenu.y, left: barCtxMenu.x,
+              background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
+              boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => { onEditTask(task); setBarCtxMenu(null); }}
+              style={{
+                display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              編集（詳細）
+            </button>
+            <div style={{ height: 1, background: '#e5e7eb' }} />
+            <button
+              onClick={() => { onDeleteTask(task.id); setBarCtxMenu(null); }}
+              style={{
+                display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: '#ef4444',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              削除
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
