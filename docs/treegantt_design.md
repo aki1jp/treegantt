@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 1.9 |
+| バージョン | 2.0 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -23,6 +23,7 @@
 | 1.7 | 2026年5月 | ガント行ズレ修正・親タスク進捗自動計算（子平均・編集不可）・イナズマラインON/OFF・マルチレベルヘッダー（年/月/週/日個別トグル）・接続バッジアイコン改善 |
 | 1.8 | 2026年5月 | ステータス表示ラベル変更（wip→Doing・done→DONE）・フィルタに「DONE以外」追加 |
 | 1.9 | 2026年5月 | Y.js + Hocuspocus を廃止しシンプルな WebSocket broadcast に置き換え・ConnectionBadge / TodoList / yjsStore 削除・apiFetch を utils/api.ts に統合・taskTree.ts 分離 |
+| 2.0 | 2026年5月 | Phase 2-A: マイルストーン（菱形◇・DB migration 003）・クリティカルパス CPM（黄背景+インディゴ枠）・バードラッグ移動/リサイズ（1日スナップ）・期限超過強調（赤背景）・期間（Duration）列・ガントバー右クリックメニュー |
 
 ---
 
@@ -189,7 +190,8 @@ treegantt/
     │   │   ├── client.ts         # better-sqlite3接続・WAL設定
     │   │   └── migrations/
     │   │       ├── 001_init.sql
-    │   │       └── 002_parent.sql    # parent_id カラム追加
+    │   │       ├── 002_parent.sql    # parent_id カラム追加
+    │   │       └── 003_milestone.sql # is_milestone カラム追加（★v2.0）
     │   ├── routes/
     │   │   ├── health.ts         # GET /health
     │   │   ├── tasks.ts          # タスクCRUD・並び替え・フィルタ
@@ -232,6 +234,7 @@ export interface Task {
   assignee:     string;        // 担当者名
   startDate:    string | null; // ISO 8601 date (YYYY-MM-DD)
   endDate:      string | null; // ISO 8601 date (YYYY-MM-DD)
+  isMilestone:  boolean;       // マイルストーンフラグ（★v2.0追加）
   predecessors: string[];      // 先行タスクID配列
   order:        number;        // 表示順
   createdAt:    string;        // ISO 8601 datetime
@@ -256,6 +259,9 @@ export interface Project {
 >
 > **v1.3追加**
 > - `parentId` フィールド追加。ツリー構造タスクを実現する。循環参照防止はアプリケーション層で担保する。
+>
+> **v2.0追加**
+> - `isMilestone` フィールド追加。`true` のタスクはガントチャートで菱形◇として表示される。
 
 ### 4.2 SQLiteスキーマ
 
@@ -312,10 +318,17 @@ CREATE INDEX IF NOT EXISTS idx_tasks_dates    ON tasks(project_id, start_date, e
 ALTER TABLE tasks ADD COLUMN parent_id TEXT REFERENCES tasks(id) ON DELETE SET NULL;
 ```
 
+**`003_milestone.sql`** — マイルストーン対応（★v2.0追加）
+
+```sql
+ALTER TABLE tasks ADD COLUMN is_milestone INTEGER NOT NULL DEFAULT 0;
+```
+
 > 親タスクが削除された場合、子タスクの `parent_id` は `NULL` にリセットされる（CASCADE削除ではなくルートへの昇格）。
 >
 > ※ `successors` は `task_deps` を JOIN して計算するためDBには保存しない。
 > ※ `PRAGMA journal_mode = WAL` と `PRAGMA foreign_keys = ON` は `client.ts` で接続時にも実行する。
+> ※ マイグレーションは `client.ts` 起動時に順番に実行。既存カラムの追加は `try/catch` でべき等に処理する。
 
 ---
 
@@ -389,6 +402,7 @@ GET /projects/:id/tasks?status=todo&assignee=田中&priority=high&limit=100&offs
   "assignee":     "田中",
   "startDate":    "2025-05-01",
   "endDate":      "2025-05-15",
+  "isMilestone":  false,
   "predecessors": ["uuid-1", "uuid-2"]
 }
 ```
@@ -433,11 +447,12 @@ GET /projects/:id/tasks?status=todo&assignee=田中&priority=high&limit=100&offs
 **CSV形式（列順固定）**
 
 ```
-id, parentId, title, summary, description, status, priority, progress, assignee, startDate, endDate, predecessors
+id, parentId, title, summary, description, status, priority, progress, assignee, startDate, endDate, isMilestone, predecessors
 ```
 
 > ※ `predecessors` はセミコロン区切りのIDリスト。例: `"uuid-1;uuid-2"`
 > ※ `parentId` は空文字または省略でルートタスク（親なし）。
+> ※ `isMilestone` は `1`（マイルストーン）または `0`（通常タスク）。（★v2.0追加）
 > ※ **★v1.4：** インポート時に `.csv` 拡張子のファイルを選択すると `importFromCsv()` が呼ばれ、JSONと同様に `/projects/:id/import` エンドポイントへ送信される。ファイル選択ダイアログは `.json,.csv` の両形式を受け付ける。
 
 ---
@@ -572,6 +587,7 @@ interface TaskStore {
   ganttStartDate:     string;        // ガント表示開始日（'' = 自動）
   ganttPeriod:        GanttPeriod;   // ガント表示期間（デフォルト '3m'）
   showLightningLine:  boolean;       // イナズマライン表示ON/OFF（デフォルト: true）
+  showCriticalPath:   boolean;       // クリティカルパス表示ON/OFF（★v2.0追加）
   ganttHeaderLevels:  {              // ガントヘッダー表示レベル
     year:  boolean;
     month: boolean;
@@ -585,6 +601,7 @@ interface TaskStore {
   setZoomLevel:           (z: ZoomLevel) => void;
   setGanttRange:          (startDate: string, period: GanttPeriod) => void;
   setShowLightningLine:   (show: boolean) => void;
+  setShowCriticalPath:    (show: boolean) => void;  // ★v2.0追加
   setGanttHeaderLevels:   (levels: Partial<TaskStore['ganttHeaderLevels']>) => void;
 }
 ```
@@ -793,12 +810,12 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 
 | コンポーネント | 責務 |
 |--------------|------|
-| `Toolbar` | フィルタ・ズーム選択・ガント期間コントロール・イナズマラインON/OFFボタン・ガントヘッダー行トグルボタン（年/月/週/日）・Import/Export・タスク追加ボタン |
-| `GanttChart` | 左固定列（`GanttLeftRow`）+ 右タイムライン（SVG）を1コンポーネントで統合管理。ツリー構造・折りたたみ状態も内包。行高さアライメント・マルチレベルヘッダー・親タスク進捗自動計算・イナズマラインON/OFF対応 |
+| `Toolbar` | フィルタ・ズーム選択・ガント期間コントロール・イナズマラインON/OFFボタン・クリティカルパス「CP」トグルボタン・ガントヘッダー行トグルボタン（年/月/週/日）・Import/Export・タスク追加ボタン |
+| `GanttChart` | 左固定列（`GanttLeftRow`）+ 右タイムライン（SVG）を1コンポーネントで統合管理。ツリー構造・折りたたみ状態も内包。行高さアライメント・マルチレベルヘッダー・親タスク進捗自動計算・イナズマラインON/OFF対応。バードラッグ（移動/リサイズ）状態管理・DragState/DragPreview。SVGネイティブ contextmenu リスナーで右クリックメニューを制御。期間（Duration）列表示 |
 | `GanttLeftRow` | 統合ガントビューの1行分の左パネル。セルクリックでインライン編集、右クリックでコンテキストメニュー、`depth` による視覚的インデント。編集開始値と現在値を比較して競合を検知し `ConflictDialog` を呼び出す |
 | `ConflictDialog` | インライン編集中に他ユーザーが同じフィールドを更新した場合に表示する競合解決ダイアログ。「別のユーザーの変更を使う」「自分の変更を適用する」の2択 |
 | `QuickAddRow` | タスクリスト末尾に常時表示する空行。クリックで入力フィールド出現、Enter でタスク作成、Escape でキャンセル |
-| `GanttBar` | 1タスク分のバー。クリックでモーダル起動 |
+| `GanttBar` | 1タスク分のバー。クリックでモーダル起動。`isMilestone` 時は菱形◇表示。`isCritical` 時は黄背景+インディゴ枠。`isOverdue` 時は赤背景。左右端6pxをドラッグでリサイズ、中央をドラッグで移動。右クリックはGanttChart側のネイティブリスナーで処理 |
 | `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
 | `LightningLine` | イナズマライン（polyline）と今日ライン（line）を描画。`calcLightningPoints` が返す `{x,y}[]` を受け取り斜線で結ぶ |
 | `TaskModal` | 新規作成・編集フォーム。親タスク選択セレクト・先行タスクのmulti-select・進捗率スライダー含む |
@@ -935,7 +952,7 @@ export async function authPlugin(fastify: FastifyInstance) {
 | Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時タスク消失修正・ガント末行クイック追加・表示期間コントロール追加（日付ピッカー＋期間セレクト） | ★v1.6実装内容 | ✅ 完了 |
 | Phase 1-J | ガント行ズレ修正・親タスク進捗自動計算・イナズマラインON/OFF・マルチレベルヘッダー・接続バッジアイコン改善 | ★v1.7実装内容 | ✅ 完了 |
 | Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト138件追加（フロントエンド計153件） | ★v1.9実装内容 | ✅ 完了 |
-| Phase 2-A | バーのドラッグ移動・リサイズ・マイルストーン・クリティカルパス・期限超過強調・期間フィールド | WBS標準機能完成 | ⏳ 実装中 |
+| Phase 2-A | バーのドラッグ移動・リサイズ・マイルストーン・クリティカルパス・期限超過強調・期間フィールド・ガントバー右クリックメニュー | WBS標準機能完成 | ✅ 完了 |
 | Phase 2 | LDAP認証組み込み | 認証付き本番稼働 | ⏳ 未着手 |
 
 ---
@@ -988,14 +1005,28 @@ dragPreview: { taskId, startDate, endDate } | null
 
 **実装:** `calcCriticalPath(tasks: Task[]): Set<string>` を `ganttCalc.ts` に追加
 
-**UI:** ツールバーの「CP」トグルボタンで ON/OFF。ON 時はクリティカルなバーに赤ストローク + `#ff6b6b` ベース色を重ねる
+**UI:** ツールバーの「CP」トグルボタンで ON/OFF。ON 時はクリティカルなバーに以下のスタイルを適用する。
+
+| 要素 | スタイル |
+|------|---------|
+| バー背景 | `#fef08a`（薄黄色） |
+| バー枠線 | `#6366f1`（インディゴ）、strokeWidth 2.5 |
+| リサイズハンドル | `#6366f1aa`（インディゴ半透明） |
+| マイルストーン菱形 | 同様に黄背景+インディゴ枠 |
+| テキスト色 | `#6366f1`（インディゴ） |
+
+> イナズマライン（紫 `#7c3aed`）と色相が近いが、黄色背景で明確に区別できる。期限超過（赤）・クリティカル（黄+インディゴ枠）・イナズマライン（紫）の3者が視覚的に識別可能。
 
 ### 11-A.4 期限超過の強調
 
 | 条件 | `endDate < today` かつ `status !== 'done'` |
 |------|------|
-| 通常バー | 赤破線ストローク（strokeDasharray）+ わずかに赤みのある背景 |
-| マイルストーン | 菱形を赤実線ストローク |
+| 通常バー背景 | `#fca5a5`（赤）|
+| 通常バー枠線 | `#ef4444`（赤） |
+| リサイズハンドル | `#dc2626`（濃い赤） |
+| マイルストーン菱形 | `#fca5a5` 背景 + `#ef4444` 枠線（strokeWidth 2.5） |
+
+> 期限超過はクリティカルパス表示より優先される（両方が真の場合は期限超過スタイルが適用される）。
 
 ### 11-A.5 期間（Duration）フィールド
 
@@ -1003,6 +1034,22 @@ dragPreview: { taskId, startDate, endDate } | null
 - 表示値: `endDate - startDate + 1`（日）。日付なし・終了 < 開始 の場合は `—`
 - インライン編集: 日数を変更すると `endDate = startDate + (N-1) 日` を自動計算して反映
 - startDate がない場合は編集不可
+
+### 11-A.6 ガントバー右クリックメニュー
+
+ガントバー（通常・マイルストーン）を右クリックすると、WBS左パネルと同じコンテキストメニューを表示する。
+
+**実装方針:**
+- React の合成イベント `onContextMenu` は SVG `<g>` 要素では信頼性が低いため使用しない
+- SVG 要素に `useRef` でネイティブ `addEventListener('contextmenu')` を設定
+- `data-task-id` 属性 + `e.target.closest('[data-task-id]')` でヒットテスト
+- メニュー表示: `{ x: clientX, y: clientY, taskId }` を state に保存 → fixed div で描画
+- メニュー非表示: `window.addEventListener('mousedown', close)` でメニュー外クリックを検知
+
+| メニュー項目 | 動作 |
+|------------|------|
+| 編集 | TaskModal を開く |
+| 削除 | タスクを削除（確認なし） |
 
 ---
 

@@ -164,3 +164,7 @@ docker compose up -d
 - イナズマライン: `done`/`wait` ステータスのタスクは進捗率ではなく todayX（今日の縦線位置）を頂点として表示
 - 本番デプロイ: `docker compose build && docker compose up -d`。フロントエンドは `serve` で静的配信、API は `node dist/index.js`
 - テストはインメモリSQLiteを使用（DB依存の副作用なし）
+- マイルストーン: `is_milestone` カラム（migration 003）。ガントで菱形◇表示、移動のみ対応
+- クリティカルパス: CPM アルゴリズム（ganttCalc.ts）。黄色背景（#fef08a）＋インディゴ枠（#6366f1）
+- 期限超過: `endDate < today && status !== 'done'` → 赤背景（#fca5a5）。CPより優先
+- ガントバー右クリックメニュー: SVGネイティブ contextmenu リスナー + data-task-id 属性でヒットテスト

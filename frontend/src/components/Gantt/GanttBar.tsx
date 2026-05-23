@@ -31,7 +31,7 @@ export function GanttBar({
   if (!effectiveStart) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
-  const color = isCritical ? '#ef4444' : STATUS_COLOR[task.status];
+  const color = STATUS_COLOR[task.status];
   const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done';
   const centerY = rowIndex * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
 
@@ -44,12 +44,12 @@ export function GanttBar({
       <g data-task-id={task.id} style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
         <polygon
           points={pts}
-          fill={isOverdue ? '#fca5a5' : color + 'cc'}
-          stroke={isOverdue ? '#ef4444' : color}
-          strokeWidth={isOverdue ? 2.5 : 1.5}
+          fill={isOverdue ? '#fca5a5' : isCritical ? '#fef08a' : color + 'cc'}
+          stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : color}
+          strokeWidth={isOverdue ? 2.5 : isCritical ? 2 : 1.5}
           onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
         />
-        <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
+        <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
           {task.title}
         </text>
         <rect
@@ -75,9 +75,9 @@ export function GanttBar({
       {/* バー背景 */}
       <rect
         x={x} y={y} width={width} height={barHeight} rx={3}
-        fill={isOverdue ? '#fca5a5' : (isCritical ? '#ff6b6b22' : color + '44')}
-        stroke={isOverdue ? '#ef4444' : (isCritical ? '#ef4444' : color)}
-        strokeWidth={isCritical && !isOverdue ? 2 : 1}
+        fill={isOverdue ? '#fca5a5' : isCritical ? '#fef08a' : color + '44'}
+        stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : color}
+        strokeWidth={isCritical && !isOverdue ? 2.5 : 1}
         onClick={onClick}
         style={{ cursor: 'pointer' }}
       />
@@ -106,14 +106,14 @@ export function GanttBar({
       {/* 左リサイズハンドル */}
       <rect
         x={x} y={y} width={HANDLE_W} height={barHeight}
-        fill={isOverdue ? '#dc2626' : color + '88'} rx={3}
+        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
       />
       {/* 右リサイズハンドル */}
       <rect
         x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
-        fill={isOverdue ? '#dc2626' : color + '88'} rx={3}
+        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
       />
