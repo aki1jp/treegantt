@@ -642,6 +642,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }, [dragState, handleMouseMove, handleMouseUp]);
 
   function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
+    if (e.button !== 0) return;
     e.preventDefault();
     const task = taskById.get(taskId);
     if (!task?.startDate) return;

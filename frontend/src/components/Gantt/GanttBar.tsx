@@ -51,7 +51,7 @@ export function GanttBar({
           fill={isOverdue ? '#fca5a5' : color + 'cc'}
           stroke={isOverdue ? '#ef4444' : color}
           strokeWidth={isOverdue ? 2.5 : 1.5}
-          onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
+          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
         />
         <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
           {task.title}
@@ -107,21 +107,21 @@ export function GanttBar({
         width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight}
         fill="transparent"
         style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
-        onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
+        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
       />
       {/* 左リサイズハンドル */}
       <rect
         x={x} y={y} width={HANDLE_W} height={barHeight}
         fill={isOverdue ? '#dc2626' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
-        onMouseDown={e => { e.stopPropagation(); onResizeLeftStart(e, task.id); }}
+        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
       />
       {/* 右リサイズハンドル */}
       <rect
         x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
         fill={isOverdue ? '#dc2626' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
-        onMouseDown={e => { e.stopPropagation(); onResizeRightStart(e, task.id); }}
+        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
       />
     </g>
   );
