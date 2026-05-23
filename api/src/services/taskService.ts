@@ -226,6 +226,20 @@ export function deleteTask(id: string): boolean {
   return result.changes > 0;
 }
 
+export function wouldCreateCycle(taskId: string, newParentId: string): boolean {
+  let current: string | null = newParentId;
+  const visited = new Set<string>();
+  while (current) {
+    if (current === taskId) return true;
+    if (visited.has(current)) break;
+    visited.add(current);
+    const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(current) as { parent_id: string | null } | undefined;
+    if (!row) break;
+    current = row.parent_id;
+  }
+  return false;
+}
+
 export function reorderTasks(orders: { id: string; order: number }[]): void {
   const update = db.prepare('UPDATE tasks SET ord = ? WHERE id = ?');
   db.transaction(() => {

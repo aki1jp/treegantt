@@ -232,15 +232,29 @@ describe('API 悪意テスト — 依存関係の悪用', () => {
     expect(list.json().tasks).toHaveLength(2);
   });
 
-  it('自己 parentId（A.parentId = A.id）を設定してもクラッシュしない', async () => {
+  it('自己 parentId（A.parentId = A.id）→ 400 CYCLE_DETECTED', async () => {
     const idA = (await mkTask(app, pid, { title: 'A' })).json().task.id as string;
     const res = await app.inject({
       method: 'PATCH', url: `/api/v1/tasks/${idA}`,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ parentId: idA }),
     });
-    // 自己参照は SQLite FK の自己参照として許可されるかもしれない。クラッシュしないこと
-    expect([200, 400, 500]).toContain(res.statusCode);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('CYCLE_DETECTED');
+  });
+
+  it('間接的な循環（A→B→C→A）→ 400 CYCLE_DETECTED', async () => {
+    const idA = (await mkTask(app, pid, { title: 'A' })).json().task.id as string;
+    const idB = (await mkTask(app, pid, { title: 'B', parentId: idA })).json().task.id as string;
+    const idC = (await mkTask(app, pid, { title: 'C', parentId: idB })).json().task.id as string;
+    // A の parentId を C（自分の子孫）に設定 → 循環
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${idA}`,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ parentId: idC }),
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('CYCLE_DETECTED');
   });
 });
 

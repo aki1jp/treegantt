@@ -47,14 +47,17 @@ export function calcEffectiveProgress(
   taskId: string,
   childCountMap: Map<string, number>,
   allTasks: Task[],
+  visited: Set<string> = new Set(),
 ): number {
+  if (visited.has(taskId)) return 0;
+  visited.add(taskId);
   if ((childCountMap.get(taskId) ?? 0) === 0) {
     return allTasks.find(t => t.id === taskId)?.progress ?? 0;
   }
   const children = allTasks.filter(t => t.parentId === taskId);
   if (children.length === 0) return allTasks.find(t => t.id === taskId)?.progress ?? 0;
   const total = children.reduce(
-    (sum, c) => sum + calcEffectiveProgress(c.id, childCountMap, allTasks),
+    (sum, c) => sum + calcEffectiveProgress(c.id, childCountMap, allTasks, new Set(visited)),
     0,
   );
   return Math.round(total / children.length);

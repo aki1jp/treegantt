@@ -7,6 +7,7 @@ import {
   updateTask,
   deleteTask,
   reorderTasks,
+  wouldCreateCycle,
 } from '../services/taskService.js';
 import { broadcast } from '../ws/broadcast.js';
 
@@ -128,6 +129,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
         },
       },
       async handler(req, reply) {
+        if (typeof req.body.parentId === 'string') {
+          if (req.body.parentId === req.params.id ||
+              wouldCreateCycle(req.params.id, req.body.parentId)) {
+            return reply.code(400).send({ error: 'Circular parentId detected', code: 'CYCLE_DETECTED' });
+          }
+        }
         const task = updateTask(req.params.id, {
           parentId:     req.body.parentId     as string | null | undefined,
           title:        req.body.title        as string | undefined,
