@@ -10,7 +10,7 @@ let _ws: WebSocket | null = null;
 let _projectId: string | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-function applyMessage(msg: Record<string, unknown>) {
+export function applyMessage(msg: Record<string, unknown>) {
   const store = useTaskStore.getState();
   const tasks = store.tasks;
 
