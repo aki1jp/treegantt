@@ -264,7 +264,6 @@ function GanttLeftRow({
     background: 'var(--th-input-bg)', color: 'var(--th-text)',
   };
 
-  const indent = depth * 16;
   const isRootParent = depth === 0 && hasChildren;
   const rowBg = isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)';
   const duration = calcDuration(task.startDate, task.endDate);
@@ -285,19 +284,29 @@ function GanttLeftRow({
       </div>
 
       {/* タイトル */}
-      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 + indent }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
-          {hasChildren ? (
+      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0, width: '100%', overflow: 'hidden' }}>
+          {/* 先祖レベルの縦線（depth=2 → │ が1本、depth=3 → ││ が2本…） */}
+          {depth > 0 && Array.from({ length: depth - 1 }, (_, i) => (
+            <span key={i} style={{
+              width: 16, flexShrink: 0, textAlign: 'center', userSelect: 'none',
+              color: 'var(--th-border)', fontSize: 12, lineHeight: 1,
+            }}>│</span>
+          ))}
+          {/* 現レベルの折りたたみボタン or 木構造記号 */}
+          {depth === 0 && !hasChildren ? null : hasChildren ? (
             <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
-              width: 14, height: 14, border: 'none', background: 'none', cursor: 'pointer',
+              width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {isCollapsed ? '▶' : '▼'}
             </button>
-          ) : depth > 0 ? (
-            <span style={{ width: 14, flexShrink: 0, color: 'var(--th-text-ph)', fontSize: 10 }}>└</span>
-          ) : null}
+          ) : (
+            <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
+          )}
+          {/* タイトルとボタンの間のギャップ */}
+          {(depth > 0 || hasChildren) && <span style={{ width: 3, flexShrink: 0 }} />}
           {editField === 'title' ? (
             <input ref={inputRef} style={INPUT_S} value={editVal}
               onChange={e => setEditVal(e.target.value)}
