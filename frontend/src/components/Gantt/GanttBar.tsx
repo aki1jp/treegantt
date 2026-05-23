@@ -44,10 +44,9 @@ export function GanttBar({
       <g style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
         <polygon
           points={pts}
-          fill={color + 'cc'}
+          fill={isOverdue ? '#fca5a5' : color + 'cc'}
           stroke={isOverdue ? '#ef4444' : color}
           strokeWidth={isOverdue ? 2.5 : 1.5}
-          strokeDasharray={isOverdue ? '3,2' : undefined}
           onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
         />
         <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
@@ -77,10 +76,9 @@ export function GanttBar({
       {/* バー背景 */}
       <rect
         x={x} y={y} width={width} height={barHeight} rx={3}
-        fill={isCritical ? '#ff6b6b22' : color + '44'}
+        fill={isOverdue ? '#fca5a5' : (isCritical ? '#ff6b6b22' : color + '44')}
         stroke={isOverdue ? '#ef4444' : (isCritical ? '#ef4444' : color)}
-        strokeWidth={isOverdue || isCritical ? 2 : 1}
-        strokeDasharray={isOverdue && !isCritical ? '5,3' : undefined}
+        strokeWidth={isCritical && !isOverdue ? 2 : 1}
         onClick={onClick}
         style={{ cursor: 'pointer' }}
       />
