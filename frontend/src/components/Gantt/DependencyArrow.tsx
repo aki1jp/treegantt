@@ -7,9 +7,10 @@ interface Props {
   minDate: Date;
   zoom: ZoomLevel;
   taskIndex: Map<string, number>;
+  rowHeight?: number;
 }
 
-export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex }: Props) {
+export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX }: Props) {
   if (!fromTask.endDate || !toTask.startDate) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
@@ -17,9 +18,9 @@ export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex }: 
   const toRow   = taskIndex.get(toTask.id) ?? 0;
 
   const x1 = dateToX(fromTask.endDate, minDate, zoom) + dayWidth;
-  const y1 = fromRow * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+  const y1 = fromRow * rowHeight + rowHeight / 2;
   const x2 = dateToX(toTask.startDate, minDate, zoom);
-  const y2 = toRow * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+  const y2 = toRow * rowHeight + rowHeight / 2;
 
   const cx1 = x1 + 30;
   const cx2 = x2 - 30;

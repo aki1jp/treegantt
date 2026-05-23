@@ -908,7 +908,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 const pred = taskById.get(predId);
                 return pred ? (
                   <DependencyArrow key={`${predId}->${task.id}`}
-                    fromTask={pred} toTask={task} minDate={min} zoom={zoomLevel} taskIndex={taskIndex} />
+                    fromTask={pred} toTask={task} minDate={min} zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight} />
                 ) : null;
               })
             )}
