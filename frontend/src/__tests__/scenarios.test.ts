@@ -29,6 +29,7 @@ import {
   flattenTree,
   calcEffectiveProgress,
 } from '../utils/taskTree';
+import { clampMenuPos } from '../utils/menuPos';
 
 // ── テストデータファクトリ ──────────────────────────
 
@@ -1386,5 +1387,41 @@ describe('§Phase 2-A 期限超過判定', () => {
 
   it('endDate が null → 超過ではない', () => {
     expect(isOverdue(makeTask({ endDate: null, status: 'todo' }))).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════
+// 右クリックメニュー位置クランプ
+// ═══════════════════════════════════════════════════
+describe('右クリックメニュー位置クランプ (clampMenuPos)', () => {
+  const VW = 1280, VH = 800;
+  const W = 144, H = 82;
+
+  it('画面内クリックはそのままの座標を返す', () => {
+    const pos = clampMenuPos(300, 400, W, H, VW, VH);
+    expect(pos.left).toBe(300);
+    expect(pos.top).toBe(400);
+  });
+
+  it('下端超過 → top をクランプ', () => {
+    const pos = clampMenuPos(300, 760, W, H, VW, VH);
+    expect(pos.top).toBe(VH - H - 4); // 714
+  });
+
+  it('右端超過 → left をクランプ', () => {
+    const pos = clampMenuPos(1200, 300, W, H, VW, VH);
+    expect(pos.left).toBe(VW - W - 4); // 1132
+  });
+
+  it('左上隅（負値）→ 最小値 4px に丸める', () => {
+    const pos = clampMenuPos(-10, -10, W, H, VW, VH);
+    expect(pos.top).toBe(4);
+    expect(pos.left).toBe(4);
+  });
+
+  it('右下隅クリック → 両軸ともクランプ', () => {
+    const pos = clampMenuPos(VW - 10, VH - 10, W, H, VW, VH);
+    expect(pos.top).toBe(VH - H - 4);
+    expect(pos.left).toBe(VW - W - 4);
   });
 });

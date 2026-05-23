@@ -14,6 +14,7 @@ import { GanttBar } from './GanttBar';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
+import { clampMenuPos } from '../../utils/menuPos';
 
 dayjs.extend(weekOfYear);
 
@@ -437,7 +438,7 @@ function GanttLeftRow({
 
       {ctxMenu && (
         <div style={{
-          position: 'fixed', top: ctxMenu.y, left: ctxMenu.x,
+          position: 'fixed', ...clampMenuPos(ctxMenu.x, ctxMenu.y),
           background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
           boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
         }} onClick={e => e.stopPropagation()}>
@@ -901,7 +902,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         return (
           <div
             style={{
-              position: 'fixed', top: barCtxMenu.y, left: barCtxMenu.x,
+              position: 'fixed', ...clampMenuPos(barCtxMenu.x, barCtxMenu.y),
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
               boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
             }}
