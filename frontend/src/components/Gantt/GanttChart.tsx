@@ -265,6 +265,7 @@ function GanttLeftRow({
   };
 
   const isRootParent = depth === 0 && hasChildren;
+  const indent = depth * 16;
   const rowBg = isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)';
   const duration = calcDuration(task.startDate, task.endDate);
 
@@ -284,21 +285,10 @@ function GanttLeftRow({
       </div>
 
       {/* タイトル */}
-      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 0, width: '100%', overflow: 'hidden' }}>
-          {/* 先祖レベルの縦線（depth=1 → 0本、depth=2 → 1本、depth=3 → 2本…） */}
-          {Array.from({ length: Math.max(0, depth - 1) }, (_, i) => (
-            <span key={i} style={{
-              width: 16, flexShrink: 0, textAlign: 'center', userSelect: 'none',
-              color: 'var(--th-border)', fontSize: 12, lineHeight: 1,
-            }}>│</span>
-          ))}
-          {/* depth≥1 は必ず └ を表示（親タスクでも子タスクでも） */}
-          {depth > 0 && (
-            <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
-          )}
-          {/* 子あり → 折りたたみボタン（└ の直後に続く） */}
-          {hasChildren && (
+      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 + indent }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
+          {/* アイコンスロット（常に16px固定・▼/└/スペーサーのいずれか1つ） */}
+          {hasChildren ? (
             <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
               width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
@@ -306,9 +296,11 @@ function GanttLeftRow({
             }}>
               {isCollapsed ? '▶' : '▼'}
             </button>
+          ) : depth > 0 ? (
+            <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
+          ) : (
+            <span style={{ width: 16, flexShrink: 0 }} />
           )}
-          {/* タイトルとの間のギャップ */}
-          <span style={{ width: 3, flexShrink: 0 }} />
           {editField === 'title' ? (
             <input ref={inputRef} style={INPUT_S} value={editVal}
               onChange={e => setEditVal(e.target.value)}
