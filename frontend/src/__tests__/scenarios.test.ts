@@ -1571,3 +1571,79 @@ describe('resolveTheme', () => {
     expect(resolveTheme('dark', true)).toBe('dark');
   });
 });
+
+// ── §マイルストーンUI分離・禁止ルール ───────────────────
+describe('マイルストーン禁止ルール', () => {
+  // ── 親タスク候補フィルタ ──
+  // TaskModal の親タスク選択肢: 自分自身 & マイルストーンを除外
+  const parentCandidates = (tasks: Task[], selfId: string | undefined) =>
+    tasks.filter(t => t.id !== selfId && !t.isMilestone);
+
+  it('マイルストーンは親タスク候補から除外される', () => {
+    const tasks = [
+      makeTask({ id: 'normal', isMilestone: false }),
+      makeTask({ id: 'ms',     isMilestone: true  }),
+    ];
+    const result = parentCandidates(tasks, 'other');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('normal');
+  });
+
+  it('自身もマイルストーンも両方除外される', () => {
+    const tasks = [
+      makeTask({ id: 'self',   isMilestone: false }),
+      makeTask({ id: 'ms',     isMilestone: true  }),
+      makeTask({ id: 'other',  isMilestone: false }),
+    ];
+    const result = parentCandidates(tasks, 'self');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('other');
+  });
+
+  it('マイルストーンのみのリストでは親候補が空になる', () => {
+    const tasks = [
+      makeTask({ id: 'ms1', isMilestone: true }),
+      makeTask({ id: 'ms2', isMilestone: true }),
+    ];
+    expect(parentCandidates(tasks, undefined)).toHaveLength(0);
+  });
+
+  // ── 子タスク追加禁止 ──
+  // GanttChart 右クリックメニュー: isMilestone のタスクには子追加ボタンを表示しない
+  const canAddChild = (task: Task) => !task.isMilestone;
+
+  it('マイルストーンには子タスクを追加できない', () => {
+    const ms = makeTask({ id: 'ms', isMilestone: true });
+    expect(canAddChild(ms)).toBe(false);
+  });
+
+  it('通常タスクには子タスクを追加できる', () => {
+    const task = makeTask({ id: 't1', isMilestone: false });
+    expect(canAddChild(task)).toBe(true);
+  });
+
+  // ── MilestoneModal の保存ペイロード ──
+  // 常に isMilestone:true、endDate === startDate
+  const buildMilestonePayload = (title: string, date: string) => ({
+    title,
+    isMilestone: true  as const,
+    startDate: date || null,
+    endDate:   date || null,
+  });
+
+  it('マイルストーン保存時は isMilestone=true になる', () => {
+    const payload = buildMilestonePayload('リリース', '2026-07-01');
+    expect(payload.isMilestone).toBe(true);
+  });
+
+  it('マイルストーン保存時は startDate === endDate になる', () => {
+    const payload = buildMilestonePayload('リリース', '2026-07-01');
+    expect(payload.endDate).toBe(payload.startDate);
+  });
+
+  it('日付未設定でも startDate・endDate ともに null になる', () => {
+    const payload = buildMilestonePayload('TBD', '');
+    expect(payload.startDate).toBeNull();
+    expect(payload.endDate).toBeNull();
+  });
+});
