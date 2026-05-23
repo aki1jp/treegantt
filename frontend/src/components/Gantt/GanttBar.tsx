@@ -42,14 +42,16 @@ export function GanttBar({
     const r  = (ROW_HEIGHT_PX - 14) / 2;
     const pts = `${cx},${centerY - r} ${cx + r},${centerY} ${cx},${centerY + r} ${cx - r},${centerY}`;
     return (
-      <g style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
+      <g
+        style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
+        onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
+      >
         <polygon
           points={pts}
           fill={isOverdue ? '#fca5a5' : color + 'cc'}
           stroke={isOverdue ? '#ef4444' : color}
           strokeWidth={isOverdue ? 2.5 : 1.5}
           onMouseDown={e => { e.stopPropagation(); onMoveStart(e, task.id); }}
-          onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
         />
         <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
           {task.title}
@@ -58,7 +60,6 @@ export function GanttBar({
         <rect
           x={cx - r - 4} y={centerY - r - 4} width={r * 2 + 8} height={r * 2 + 8}
           fill="transparent" onClick={onClick}
-          onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
           style={{ cursor: 'pointer' }}
         />
       </g>
@@ -76,7 +77,7 @@ export function GanttBar({
   const progressWidth = Math.round(width * task.progress / 100);
 
   return (
-    <g>
+    <g onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}>
       {/* バー背景 */}
       <rect
         x={x} y={y} width={width} height={barHeight} rx={3}
@@ -84,7 +85,6 @@ export function GanttBar({
         stroke={isOverdue ? '#ef4444' : (isCritical ? '#ef4444' : color)}
         strokeWidth={isCritical && !isOverdue ? 2 : 1}
         onClick={onClick}
-        onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
         style={{ cursor: 'pointer' }}
       />
       {/* 進捗バー */}
