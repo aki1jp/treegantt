@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 
 interface Props {
@@ -27,6 +28,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
   const [title, setTitle]             = useState(task?.title ?? '');
   const [summary, setSummary]         = useState(task?.summary ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
+  const [descTab, setDescTab]         = useState<'edit' | 'preview'>('edit');
   const [status, setStatus]           = useState<TaskStatus>(task?.status ?? 'todo');
   const [priority, setPriority]       = useState<TaskPriority>(task?.priority ?? 'medium');
   const [progress, setProgress]       = useState(task?.progress ?? 0);
@@ -46,6 +48,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     setTitle(task?.title ?? '');
     setSummary(task?.summary ?? '');
     setDescription(task?.description ?? '');
+    setDescTab('edit');
     setStatus(task?.status ?? 'todo');
     setPriority(task?.priority ?? 'medium');
     setProgress(task?.progress ?? 0);
@@ -123,9 +126,50 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
           </div>
 
           <div style={FIELD}>
-            <label style={LABEL}>説明（Markdown可）</label>
-            <textarea style={{ ...INPUT, minHeight: 80, resize: 'vertical' }}
-              value={description} onChange={e => setDescription(e.target.value)} />
+            {/* タブヘッダー */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--th-input-border)', marginBottom: 0 }}>
+              <label style={{ ...LABEL, marginBottom: 0, marginRight: 12 }}>説明</label>
+              {(['edit', 'preview'] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-label={tab === 'edit' ? '編集' : 'プレビュー'}
+                  onClick={() => setDescTab(tab)}
+                  style={{
+                    padding: '4px 12px', border: 'none', borderBottom: descTab === tab ? '2px solid #4f46e5' : '2px solid transparent',
+                    background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: descTab === tab ? 700 : 400,
+                    color: descTab === tab ? '#4f46e5' : 'var(--th-text-muted)', marginBottom: -1,
+                  }}
+                >
+                  {tab === 'edit' ? '編集' : 'プレビュー'}
+                </button>
+              ))}
+            </div>
+
+            {/* 編集タブ */}
+            {descTab === 'edit' && (
+              <textarea
+                aria-label="説明"
+                style={{ ...INPUT, minHeight: 80, resize: 'vertical' }}
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+              />
+            )}
+
+            {/* プレビュータブ */}
+            {descTab === 'preview' && (
+              <div style={{
+                ...INPUT, minHeight: 80, overflowY: 'auto',
+                fontSize: 13, lineHeight: 1.7,
+              }}>
+                {description.trim() ? (
+                  <ReactMarkdown>{description}</ReactMarkdown>
+                ) : (
+                  <span style={{ color: 'var(--th-text-ph)', fontStyle: 'italic' }}>説明がありません</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>

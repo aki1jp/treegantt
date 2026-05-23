@@ -87,7 +87,6 @@ describe('GanttChart スクロール分離レイアウト', () => {
 
   it('WBSパネル上でホイール操作すると WBS ボディの scrollTop も同期される', () => {
     const { getByTestId, container } = renderChart();
-    const wbs  = getByTestId('wbs-panel') as HTMLElement;
     const gantt = getByTestId('gantt-panel') as HTMLElement;
 
     // ガントパネルの scrollTop を直接設定 → onScroll が発火し WBS が同期される
