@@ -27,6 +27,7 @@ function makeTask(override: Partial<Task> = {}): Task {
     title: 'Task', summary: '', description: '',
     status: 'todo', priority: 'medium', progress: 0,
     assignee: '', startDate: '2025-01-01', endDate: '2025-01-10',
+    isMilestone: false,
     predecessors: [], order: 0, createdAt: '', updatedAt: '',
     ...override,
   };

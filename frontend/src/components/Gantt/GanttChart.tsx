@@ -32,7 +32,8 @@ const LEFT_COLS = [
   { key: 'duration',  label: '日数',     width: 50,  sortable: false },
 ] as const;
 
-const LEFT_TOTAL = LEFT_COLS.reduce((s, c) => s + c.width, 0);
+const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
+const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
 // ── 色マップ ────────────────────────────────────────
 const STATUS_COLOR: Record<TaskStatus, string> = {
@@ -153,6 +154,8 @@ interface LeftRowProps {
   effectiveProgress: number;
   fontSize: number;
   rowHeight: number;
+  titleWidth: number;
+  assigneeWidth: number;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onOpenModal: () => void;
@@ -161,6 +164,7 @@ interface LeftRowProps {
 
 function GanttLeftRow({
   task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
+  titleWidth, assigneeWidth,
   onToggleCollapse, onInlineUpdate, onOpenModal, onDelete,
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -251,7 +255,7 @@ function GanttLeftRow({
       </div>
 
       {/* タイトル */}
-      <div style={{ ...CELL, width: 180, paddingLeft: 6 + indent }}>
+      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 + indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
             <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
@@ -352,7 +356,7 @@ function GanttLeftRow({
       </div>
 
       {/* 担当者 */}
-      <div style={{ ...CELL, width: 76 }}>
+      <div style={{ ...CELL, width: assigneeWidth }}>
         {editField === 'assignee' ? (
           <input ref={inputRef} style={INPUT_S} value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -461,7 +465,7 @@ function GanttLeftRow({
 }
 
 // ── クイック追加行 ──────────────────────────────────
-function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
+function QuickAddRow({ onAdd, titleWidth, assigneeWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number }) {
   const { uiRowHeight, uiFontSize } = useTaskStore();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
@@ -489,7 +493,7 @@ function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
       borderTop: '1px dashed #e5e7eb',
     }}>
       <div style={{ ...CELL, width: 36 }} />
-      <div style={{ ...CELL, width: 180 }}>
+      <div style={{ ...CELL, width: titleWidth }}>
         {editing ? (
           <input ref={inputRef}
             style={{ width: '100%', padding: '2px 4px', border: '1px solid #4f46e5', borderRadius: 3, fontSize: uiFontSize, outline: 'none' }}
@@ -508,7 +512,7 @@ function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
           </span>
         )}
       </div>
-      {[66, 56, 76, 76, 88, 88, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
+      {[66, 56, 76, assigneeWidth, 88, 88, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
     </div>
   );
 }
@@ -530,6 +534,37 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   } = useTaskStore();
 
   const sorted = sortAndFilter(tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority);
+
+  // 列幅（タイトル・担当者はドラッグでリサイズ可）
+  const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });
+  const [colResize, setColResize] = useState<{ key: string; startX: number; startWidth: number } | null>(null);
+  const colResizeRef = useRef<typeof colResize>(null);
+  useEffect(() => { colResizeRef.current = colResize; }, [colResize]);
+
+  const LEFT_TOTAL = LEFT_COLS.reduce((s, c) =>
+    s + (colWidths[c.key as keyof typeof colWidths] ?? c.width), 0);
+
+  const handleColMouseMove = useCallback((e: MouseEvent) => {
+    const cr = colResizeRef.current;
+    if (!cr) return;
+    const minW = COL_MIN_WIDTHS[cr.key] ?? 40;
+    setColWidths(prev => ({
+      ...prev,
+      [cr.key]: Math.max(minW, cr.startWidth + e.clientX - cr.startX),
+    }));
+  }, []);
+
+  const handleColMouseUp = useCallback(() => setColResize(null), []);
+
+  useEffect(() => {
+    if (!colResize) return;
+    window.addEventListener('mousemove', handleColMouseMove);
+    window.addEventListener('mouseup', handleColMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleColMouseMove);
+      window.removeEventListener('mouseup', handleColMouseUp);
+    };
+  }, [colResize, handleColMouseMove, handleColMouseUp]);
 
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const { roots, childCount } = buildTree(sorted);
@@ -691,7 +726,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     <div
       style={{
         flex: 1, overflow: 'auto', position: 'relative',
-        cursor: dragState ? 'grabbing' : 'default',
+        cursor: dragState ? 'grabbing' : colResize ? 'col-resize' : 'default',
       }}
     >
       <div style={{ width: LEFT_TOTAL + totalWidth }}>
@@ -709,16 +744,32 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 background: '#f9fafb', borderRight: '2px solid #6366f1',
               }}>
                 {ri === 0
-                  ? LEFT_COLS.map(col => (
-                      <div
-                        key={col.key}
-                        style={{ ...TH, width: col.width, cursor: col.sortable ? 'pointer' : 'default' }}
-                        onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
-                      >
-                        {col.label}
-                        {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
-                      </div>
-                    ))
+                  ? LEFT_COLS.map(col => {
+                      const w = colWidths[col.key as keyof typeof colWidths] ?? col.width;
+                      const resizable = RESIZABLE_COL_KEYS.has(col.key);
+                      return (
+                        <div
+                          key={col.key}
+                          style={{ ...TH, width: w, cursor: col.sortable ? 'pointer' : 'default',
+                            position: resizable ? 'relative' : undefined }}
+                          onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
+                        >
+                          {col.label}
+                          {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                          {resizable && (
+                            <div
+                              style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
+                                cursor: 'col-resize', background: '#c7d2fe', borderRadius: 2, zIndex: 1 }}
+                              onMouseDown={e => {
+                                e.preventDefault(); e.stopPropagation();
+                                setColResize({ key: col.key, startX: e.clientX, startWidth: w });
+                              }}
+                              onClick={e => e.stopPropagation()}
+                            />
+                          )}
+                        </div>
+                      );
+                    })
                   : <div style={{ width: LEFT_TOTAL, height: HEADER_ROW_H,
                       borderTop: '1px solid #e5e7eb', background: '#f9fafb' }} />
                 }
@@ -765,13 +816,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 effectiveProgress={progressMap.get(task.id) ?? task.progress}
                 fontSize={uiFontSize}
                 rowHeight={uiRowHeight}
+                titleWidth={colWidths.title}
+                assigneeWidth={colWidths.assignee}
                 onToggleCollapse={() => toggleCollapse(task.id)}
                 onInlineUpdate={onInlineUpdate}
                 onOpenModal={() => onEditTask(task)}
                 onDelete={() => onDeleteTask(task.id)}
               />
             ))}
-            <QuickAddRow onAdd={onQuickAdd} />
+            <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} />
           </div>
 
           {/* 右パネル：ガントSVG */}

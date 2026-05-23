@@ -24,7 +24,7 @@ const TODAY = new Date().toISOString().slice(0, 10);
 const HANDLE_W = 6;
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, dragPreview, fontSize = 11, rowHeight = rowHeight,
+  task, minDate, zoom, rowIndex, isCritical, dragPreview, fontSize = 11, rowHeight = ROW_HEIGHT_PX,
   onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;

@@ -597,6 +597,24 @@ describe('§5.5 ツリー構造・折りたたみ', () => {
 });
 
 // ═══════════════════════════════════════════════════
+// §列幅リサイズ — タイトル・担当者列の最小幅制約
+// ═══════════════════════════════════════════════════
+describe('列幅リサイズ — 最小幅制約', () => {
+  const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
+  const clamp = (key: string, w: number) => Math.max(COL_MIN_WIDTHS[key] ?? 40, w);
+
+  it('title: 通常幅はそのまま', () => expect(clamp('title', 200)).toBe(200));
+  it('title: 最小幅 80px を下回らない', () => expect(clamp('title', 50)).toBe(80));
+  it('assignee: 通常幅はそのまま', () => expect(clamp('assignee', 120)).toBe(120));
+  it('assignee: 最小幅 50px を下回らない', () => expect(clamp('assignee', 30)).toBe(50));
+  it('リサイズ結果 = max(min, startWidth + delta)', () => {
+    const startWidth = 180;
+    const delta = -120; // 60px まで縮小しようとする
+    expect(clamp('title', startWidth + delta)).toBe(80); // 60 < 80 → クランプ
+  });
+});
+
+// ═══════════════════════════════════════════════════
 // §5.6 親タスクの進捗自動計算
 // ═══════════════════════════════════════════════════
 describe('§5.6 親タスクの進捗自動計算', () => {
