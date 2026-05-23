@@ -106,14 +106,27 @@ export default function App() {
     }
   }
 
+  function exportFileName(ext: string) {
+    const safeName = currentProject!.name.replace(/[/\\:*?"<>|]/g, '_');
+    const now = new Date();
+    const ts = now.getFullYear().toString()
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0')
+      + '-'
+      + String(now.getHours()).padStart(2, '0')
+      + String(now.getMinutes()).padStart(2, '0')
+      + String(now.getSeconds()).padStart(2, '0');
+    return `treegantt-${safeName}-${ts}.${ext}`;
+  }
+
   function handleExportJson() {
     if (!currentProject) return;
-    downloadFile(exportToJson(currentProject, tasks), `treegantt-${currentProject.id}.json`, 'application/json');
+    downloadFile(exportToJson(currentProject, tasks), exportFileName('json'), 'application/json');
   }
 
   function handleExportCsv() {
     if (!currentProject) return;
-    downloadFile(exportToCsv(tasks), `treegantt-${currentProject.id}.csv`, 'text/csv');
+    downloadFile(exportToCsv(tasks), exportFileName('csv'), 'text/csv');
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
