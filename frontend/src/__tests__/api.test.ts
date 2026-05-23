@@ -51,7 +51,7 @@ describe('apiFetch', () => {
       ok: false,
       status: 500,
       json: async () => { throw new Error('parse error'); },
-    } as Response);
+    } as unknown as Response);
 
     await expect(apiFetch('/tasks/999')).rejects.toThrow('HTTP 500');
   });
