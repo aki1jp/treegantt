@@ -9,6 +9,7 @@ interface Props {
   isCritical?: boolean;
   dragPreview?: { startDate: string; endDate: string } | null;
   fontSize?: number;
+  rowHeight?: number;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
@@ -23,7 +24,7 @@ const TODAY = new Date().toISOString().slice(0, 10);
 const HANDLE_W = 6;
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, dragPreview, fontSize = 11,
+  task, minDate, zoom, rowIndex, isCritical, dragPreview, fontSize = 11, rowHeight = rowHeight,
   onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
@@ -34,12 +35,12 @@ export function GanttBar({
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const color = STATUS_COLOR[task.status];
   const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done';
-  const centerY = rowIndex * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+  const centerY = rowIndex * rowHeight + rowHeight / 2;
 
   // ── マイルストーン描画 ──────────────────────────────
   if (task.isMilestone) {
     const cx = dateToX(effectiveStart, minDate, zoom) + dayWidth / 2;
-    const r  = (ROW_HEIGHT_PX - 14) / 2;
+    const r  = (rowHeight - 14) / 2;
     const pts = `${cx},${centerY - r} ${cx + r},${centerY} ${cx},${centerY + r} ${cx - r},${centerY}`;
     return (
       <g data-task-id={task.id} style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
@@ -67,8 +68,8 @@ export function GanttBar({
   const x = dateToX(effectiveStart, minDate, zoom);
   const endX = dateToX(effectiveEnd, minDate, zoom) + dayWidth;
   const width = Math.max(endX - x, dayWidth);
-  const y = rowIndex * ROW_HEIGHT_PX + 6;
-  const barHeight = ROW_HEIGHT_PX - 12;
+  const y = rowIndex * rowHeight + 6;
+  const barHeight = rowHeight - 12;
   const progressWidth = Math.round(width * task.progress / 100);
 
   return (

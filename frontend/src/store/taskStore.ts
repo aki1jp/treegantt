@@ -19,6 +19,7 @@ interface TaskStore {
   showWeekend:        boolean;
   showCriticalPath:   boolean;
   uiFontSize:         number;
+  uiRowHeight:        number;
   ganttHeaderLevels:  GanttHeaderLevels;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
@@ -31,6 +32,7 @@ interface TaskStore {
   setShowWeekend:         (show: boolean) => void;
   setShowCriticalPath:    (show: boolean) => void;
   setUiFontSize:          (size: number) => void;
+  setUiRowHeight:         (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
 }
 
@@ -49,6 +51,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   showWeekend:        true,
   showCriticalPath:   false,
   uiFontSize:         13,
+  uiRowHeight:        36,
   ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
   setTasks:               (tasks) => set({ tasks }),
   setNeedsReload:         (needsReload) => set({ needsReload }),
@@ -65,6 +68,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
   setShowWeekend:         (showWeekend) => set({ showWeekend }),
   setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
   setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
+  setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
   setGanttHeaderLevels:   (levels) => set((s) => ({
     ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
   })),

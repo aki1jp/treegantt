@@ -6,7 +6,7 @@ import { useTaskStore } from '../../store/taskStore';
 import { sortAndFilter } from '../../utils/sort';
 import {
   calcGanttRange, calcTodayX, calcLightningPoints,
-  ganttTotalWidth, ROW_HEIGHT_PX, ZOOM_CONFIG,
+  ganttTotalWidth, ZOOM_CONFIG,
   calcCriticalPath,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress } from '../../utils/taskTree';
@@ -152,6 +152,7 @@ interface LeftRowProps {
   isCollapsed: boolean;
   effectiveProgress: number;
   fontSize: number;
+  rowHeight: number;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onOpenModal: () => void;
@@ -159,7 +160,7 @@ interface LeftRowProps {
 }
 
 function GanttLeftRow({
-  task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize,
+  task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
   onToggleCollapse, onInlineUpdate, onOpenModal, onDelete,
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -220,7 +221,7 @@ function GanttLeftRow({
   }
 
   const CELL: React.CSSProperties = {
-    height: ROW_HEIGHT_PX, display: 'flex', alignItems: 'center',
+    height: rowHeight, display: 'flex', alignItems: 'center',
     padding: '0 6px', fontSize, overflow: 'hidden',
     boxSizing: 'border-box',
   };
@@ -237,7 +238,7 @@ function GanttLeftRow({
     <div
       style={{
         display: 'flex', background: rowBg,
-        height: ROW_HEIGHT_PX, boxSizing: 'border-box',
+        height: rowHeight, boxSizing: 'border-box',
         borderBottom: '1px solid #e5e7eb',
         borderLeft: hasChildren ? '3px solid #6366f1' : '3px solid transparent',
       }}
@@ -460,6 +461,7 @@ function GanttLeftRow({
 
 // ── クイック追加行 ──────────────────────────────────
 function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
+  const { uiRowHeight, uiFontSize } = useTaskStore();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -475,21 +477,21 @@ function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
   }
 
   const CELL: React.CSSProperties = {
-    height: ROW_HEIGHT_PX, display: 'flex', alignItems: 'center',
-    padding: '0 6px', fontSize: 12, overflow: 'hidden', boxSizing: 'border-box',
+    height: uiRowHeight, display: 'flex', alignItems: 'center',
+    padding: '0 6px', fontSize: uiFontSize, overflow: 'hidden', boxSizing: 'border-box',
   };
 
   return (
     <div style={{
       display: 'flex', background: '#fafafa',
-      height: ROW_HEIGHT_PX, boxSizing: 'border-box',
+      height: uiRowHeight, boxSizing: 'border-box',
       borderTop: '1px dashed #e5e7eb',
     }}>
       <div style={{ ...CELL, width: 36 }} />
       <div style={{ ...CELL, width: 180 }}>
         {editing ? (
           <input ref={inputRef}
-            style={{ width: '100%', padding: '2px 4px', border: '1px solid #4f46e5', borderRadius: 3, fontSize: 12, outline: 'none' }}
+            style={{ width: '100%', padding: '2px 4px', border: '1px solid #4f46e5', borderRadius: 3, fontSize: uiFontSize, outline: 'none' }}
             value={title}
             onChange={e => setTitle(e.target.value)}
             onBlur={submit}
@@ -500,7 +502,7 @@ function QuickAddRow({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
           />
         ) : (
           <span onClick={() => setEditing(true)}
-            style={{ color: '#9ca3af', cursor: 'text', fontSize: 12, userSelect: 'none' }}>
+            style={{ color: '#9ca3af', cursor: 'text', fontSize: uiFontSize, userSelect: 'none' }}>
             ＋ タスクを追加…
           </span>
         )}
@@ -522,7 +524,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, uiFontSize, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
     setSortKey,
   } = useTaskStore();
 
@@ -542,7 +544,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
-  const totalHeight = (flatRows.length + 1) * ROW_HEIGHT_PX;
+  const totalHeight = (flatRows.length + 1) * uiRowHeight;
 
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
 
@@ -571,6 +573,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     flatRows.map(r => ({ task: r.task, effectiveProgress: progressMap.get(r.task.id) ?? 0 })),
     min,
     zoomLevel,
+    uiRowHeight,
   );
 
   // クリティカルパス
@@ -760,6 +763,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 isCollapsed={collapsed.has(task.id)}
                 effectiveProgress={progressMap.get(task.id) ?? task.progress}
                 fontSize={uiFontSize}
+                rowHeight={uiRowHeight}
                 onToggleCollapse={() => toggleCollapse(task.id)}
                 onInlineUpdate={onInlineUpdate}
                 onOpenModal={() => onEditTask(task)}
@@ -781,7 +785,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {flatRows.map(({ task }, i) => {
               const isParent = (childCount.get(task.id) ?? 0) > 0;
               return (
-                <rect key={i} x={0} y={i * ROW_HEIGHT_PX} width={totalWidth} height={ROW_HEIGHT_PX}
+                <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
                   fill={isParent ? '#eef2ff' : (i % 2 === 0 ? '#fff' : '#fafafa')} />
               );
             })}
@@ -805,6 +809,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   isCritical={criticalSet.has(task.id)}
                   dragPreview={preview}
                   fontSize={uiFontSize}
+                  rowHeight={uiRowHeight}
                   onMoveStart={(e, id) => startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => startDrag(e, id, 'resize-right')}

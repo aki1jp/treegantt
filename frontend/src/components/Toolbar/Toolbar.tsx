@@ -93,9 +93,9 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, uiFontSize, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
     setZoomLevel, setFilter, setGanttRange,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
   } = useTaskStore();
 
   const [filterOpen, setFilterOpen] = useState(false);
@@ -286,27 +286,53 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
 
       <div style={DIVIDER} />
 
-      {/* 文字サイズ */}
-      <div style={FILTER_GROUP}>
-        <span style={LABEL}>文字</span>
-        {([11, 13, 15] as const).map((size, i) => (
-          <button
-            key={size}
-            title={['小', '中', '大'][i]}
-            onClick={() => setUiFontSize(size)}
-            style={{
-              ...BTN,
-              padding: '3px 7px',
-              fontSize: size - 2,
-              background: uiFontSize === size ? '#4f46e5' : '#fff',
-              color: uiFontSize === size ? '#fff' : '#6b7280',
-              border: `1px solid ${uiFontSize === size ? '#4f46e5' : '#ddd'}`,
-              fontWeight: uiFontSize === size ? 700 : 400,
-            }}
-          >
-            {'あ'}
-          </button>
-        ))}
+      {/* サイズ（文字・行高） */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+        padding: '4px 8px', border: '1px solid #e5e7eb', borderRadius: 6, background: '#fafafa' }}>
+        <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>サイズ</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span style={{ ...LABEL, fontSize: 10 }}>文字</span>
+          {([11, 13, 15] as const).map((size, i) => (
+            <button
+              key={size}
+              title={['小', '中', '大'][i]}
+              onClick={() => setUiFontSize(size)}
+              style={{
+                ...BTN,
+                padding: '2px 6px',
+                fontSize: size - 2,
+                background: uiFontSize === size ? '#4f46e5' : '#fff',
+                color: uiFontSize === size ? '#fff' : '#6b7280',
+                border: `1px solid ${uiFontSize === size ? '#4f46e5' : '#ddd'}`,
+                fontWeight: uiFontSize === size ? 700 : 400,
+              }}
+            >
+              あ
+            </button>
+          ))}
+        </div>
+        <div style={{ width: 1, height: 18, background: '#e5e7eb' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span style={{ ...LABEL, fontSize: 10 }}>行高</span>
+          {([28, 36, 44] as const).map((h, i) => (
+            <button
+              key={h}
+              title={['小', '中', '大'][i]}
+              onClick={() => setUiRowHeight(h)}
+              style={{
+                ...BTN,
+                padding: '2px 6px',
+                fontSize: 11,
+                background: uiRowHeight === h ? '#4f46e5' : '#fff',
+                color: uiRowHeight === h ? '#fff' : '#6b7280',
+                border: `1px solid ${uiRowHeight === h ? '#4f46e5' : '#ddd'}`,
+                fontWeight: uiRowHeight === h ? 700 : 400,
+              }}
+            >
+              {['S', 'M', 'L'][i]}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div style={DIVIDER} />

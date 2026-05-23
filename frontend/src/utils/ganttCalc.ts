@@ -63,13 +63,14 @@ export function calcLightningPoints(
   flatRows: { task: Task; effectiveProgress: number }[],
   minDate: Date,
   zoom: ZoomLevel,
+  rowHeight: number = ROW_HEIGHT_PX,
 ): LightningPoint[] | null {
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const todayX = calcTodayX(minDate, zoom);
   const pts: LightningPoint[] = [];
 
   flatRows.forEach(({ task, effectiveProgress }, i) => {
-    const centerY = i * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+    const centerY = i * rowHeight + rowHeight / 2;
 
     if (task.startDate && task.endDate && !task.isMilestone) {
       let pointX: number;
