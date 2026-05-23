@@ -293,8 +293,8 @@ export function Toolbar({ onAddTask, onImport, onExportJson, onExportCsv }: Prop
       />
       <ToggleBtn
         active={showCriticalPath}
-        label="CP"
-        title="クリティカルパスを赤でハイライト表示"
+        label="クリティカルパス"
+        title="クリティカルパスをハイライト表示"
         onClick={() => setShowCriticalPath(!showCriticalPath)}
       />
 
