@@ -1425,3 +1425,57 @@ describe('右クリックメニュー位置クランプ (clampMenuPos)', () => {
     expect(pos.left).toBe(VW - W - 4);
   });
 });
+
+// ═══════════════════════════════════════════════════
+// すべて折りたたむ / すべて展開
+// ═══════════════════════════════════════════════════
+describe('すべて折りたたむ / すべて展開', () => {
+  it('collapseAll: 全親 ID を collapsed に入れると最上位のみ表示', () => {
+    // root > mid > leaf の3階層
+    const tasks = [
+      makeTask({ id: 'root' }),
+      makeTask({ id: 'mid',  parentId: 'root' }),
+      makeTask({ id: 'leaf', parentId: 'mid'  }),
+    ];
+    const { roots, childCount } = buildTree(tasks);
+    // collapseAll 相当: すべての親 ID を collapsed へ
+    const collapsed = new Set(childCount.keys());
+    const flat = flattenTree(roots, collapsed);
+    // root だけ表示される
+    expect(flat).toHaveLength(1);
+    expect(flat[0].task.id).toBe('root');
+  });
+
+  it('expandAll: collapsed = new Set() ですべての行が表示される', () => {
+    const tasks = [
+      makeTask({ id: 'root' }),
+      makeTask({ id: 'mid',  parentId: 'root' }),
+      makeTask({ id: 'leaf', parentId: 'mid'  }),
+    ];
+    const { roots } = buildTree(tasks);
+    const flat = flattenTree(roots, new Set());
+    expect(flat).toHaveLength(3);
+  });
+
+  it('親のない（子タスクのない）タスクのみのとき childCount.size === 0', () => {
+    const tasks = [makeTask({ id: 'a' }), makeTask({ id: 'b' })];
+    const { childCount } = buildTree(tasks);
+    expect(childCount.size).toBe(0);
+  });
+
+  it('一部だけ折りたたんだ後 expandAll で全件復元', () => {
+    const tasks = [
+      makeTask({ id: 'r1' }),
+      makeTask({ id: 'c1', parentId: 'r1' }),
+      makeTask({ id: 'r2' }),
+      makeTask({ id: 'c2', parentId: 'r2' }),
+    ];
+    const { roots } = buildTree(tasks);
+    // r1 だけ折りたたんだ状態
+    const partialFlat = flattenTree(roots, new Set(['r1']));
+    expect(partialFlat).toHaveLength(3); // r1, r2, c2
+    // expandAll 後
+    const fullFlat = flattenTree(roots, new Set());
+    expect(fullFlat).toHaveLength(4);
+  });
+});

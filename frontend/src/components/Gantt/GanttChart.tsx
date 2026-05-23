@@ -575,6 +575,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const { roots, childCount } = buildTree(sorted);
   const flatRows = flattenTree(roots, collapsed);
 
+  const collapseAll = () => setCollapsed(new Set(childCount.keys()));
+  const expandAll   = () => setCollapsed(new Set());
+
   const start  = ganttStartDate || undefined;
   const period = ganttPeriod    || undefined;
   const range  = calcGanttRange(sorted, start, period);
@@ -753,15 +756,36 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   ? LEFT_COLS.map(col => {
                       const w = colWidths[col.key as keyof typeof colWidths] ?? col.width;
                       const resizable = RESIZABLE_COL_KEYS.has(col.key);
+                      const isTitleCol = col.key === 'title';
                       return (
                         <div
                           key={col.key}
                           style={{ ...TH, width: w, cursor: col.sortable ? 'pointer' : 'default',
-                            position: resizable ? 'relative' : undefined }}
+                            position: resizable ? 'relative' : undefined,
+                            justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
                           onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
                         >
                           {col.label}
                           {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                          {isTitleCol && childCount.size > 0 && (
+                            <div style={{ display: 'flex', gap: 1, marginLeft: 'auto', paddingRight: 6 }}>
+                              {[
+                                { icon: '⊞', title: 'すべて展開', action: expandAll },
+                                { icon: '⊟', title: 'すべて折りたたむ', action: collapseAll },
+                              ].map(({ icon, title, action }) => (
+                                <button key={icon} title={title}
+                                  onClick={e => { e.stopPropagation(); action(); }}
+                                  style={{ border: 'none', background: 'none', cursor: 'pointer',
+                                    fontSize: 12, color: '#9ca3af', padding: '1px 2px', borderRadius: 2,
+                                    lineHeight: 1, fontWeight: 400 }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#9ca3af'; }}
+                                >
+                                  {icon}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                           {resizable && (
                             <div
                               style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
