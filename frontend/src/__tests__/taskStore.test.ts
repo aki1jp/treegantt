@@ -27,6 +27,8 @@ beforeEach(() => {
     ganttStartDate: '',
     ganttPeriod: '3m',
     showLightningLine: true,
+    showWeekend: true,
+    showCriticalPath: false,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
   });
 });
@@ -126,6 +128,32 @@ describe('setShowLightningLine', () => {
   it('false に設定できる', () => {
     useTaskStore.getState().setShowLightningLine(false);
     expect(useTaskStore.getState().showLightningLine).toBe(false);
+  });
+});
+
+describe('setShowWeekend', () => {
+  it('false に設定できる', () => {
+    useTaskStore.getState().setShowWeekend(false);
+    expect(useTaskStore.getState().showWeekend).toBe(false);
+  });
+
+  it('true に戻せる', () => {
+    useTaskStore.setState({ showWeekend: false });
+    useTaskStore.getState().setShowWeekend(true);
+    expect(useTaskStore.getState().showWeekend).toBe(true);
+  });
+});
+
+describe('setShowCriticalPath', () => {
+  it('true に設定できる', () => {
+    useTaskStore.getState().setShowCriticalPath(true);
+    expect(useTaskStore.getState().showCriticalPath).toBe(true);
+  });
+
+  it('false に戻せる', () => {
+    useTaskStore.setState({ showCriticalPath: true });
+    useTaskStore.getState().setShowCriticalPath(false);
+    expect(useTaskStore.getState().showCriticalPath).toBe(false);
   });
 });
 

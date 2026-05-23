@@ -71,7 +71,7 @@ export function calcLightningPoints(
   flatRows.forEach(({ task, effectiveProgress }, i) => {
     const centerY = i * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
 
-    if (task.startDate && task.endDate) {
+    if (task.startDate && task.endDate && !task.isMilestone) {
       let pointX: number;
       if (task.status === 'done' || task.status === 'wait') {
         // 完了・待機タスクは進捗位置ではなく今日の日付を頂点とする
@@ -117,8 +117,8 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
   while (queue.length > 0) {
     const id = queue.shift()!;
     sorted.push(id);
-    (successors.get(id) ?? []).forEach(sid => {
-      const d = (inDeg.get(sid) ?? 1) - 1;
+    successors.get(id)!.forEach(sid => {
+      const d = inDeg.get(sid)! - 1;
       inDeg.set(sid, d);
       if (d === 0) queue.push(sid);
     });
@@ -129,19 +129,19 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
   const EF = new Map<string, number>();
   for (const id of sorted) {
     const task = taskMap.get(id)!;
-    const predEFs = task.predecessors.filter(p => taskMap.has(p)).map(p => EF.get(p) ?? 0);
+    const predEFs = task.predecessors.filter(p => taskMap.has(p)).map(p => EF.get(p)!);
     const es = predEFs.length > 0 ? Math.max(...predEFs) : 0;
     ES.set(id, es);
     EF.set(id, es + dur(task));
   }
 
-  const projectEF = EF.size > 0 ? Math.max(...EF.values()) : 0;
+  const projectEF = Math.max(...EF.values());
 
   // Backward pass: LS = latest start
   const LS = new Map<string, number>();
   for (const id of [...sorted].reverse()) {
     const task = taskMap.get(id)!;
-    const sucLSs = (successors.get(id) ?? []).filter(s => taskMap.has(s)).map(s => LS.get(s) ?? projectEF);
+    const sucLSs = successors.get(id)!.filter(s => taskMap.has(s)).map(s => LS.get(s)!);
     const lf = sucLSs.length > 0 ? Math.min(...sucLSs) : projectEF;
     LS.set(id, lf - dur(task));
   }
@@ -149,11 +149,20 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
   // Critical: total float = LS - ES == 0
   const critical = new Set<string>();
   for (const id of sorted) {
-    if ((LS.get(id) ?? 0) === (ES.get(id) ?? 0)) {
+    if (LS.get(id)! === ES.get(id)!) {
       critical.add(id);
     }
   }
   return critical;
+}
+
+// 期間（日数）= endDate - startDate + 1。日付なし・逆順は null
+export function calcDuration(task: Task): number | null {
+  if (!task.startDate || !task.endDate) return null;
+  const days = Math.round(
+    (new Date(task.endDate).getTime() - new Date(task.startDate).getTime()) / 86400000,
+  ) + 1;
+  return days >= 1 ? days : null;
 }
 
 export function ganttTotalWidth(tasks: Task[], zoom: ZoomLevel, startDate?: string, period?: GanttPeriod): number {

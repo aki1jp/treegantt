@@ -8,6 +8,8 @@ import { sortAndFilter } from '../utils/sort';
 import {
   calcGanttRange,
   calcLightningPoints,
+  calcCriticalPath,
+  calcDuration,
   calcTodayX,
   ganttTotalWidth,
   dateToX,
@@ -104,6 +106,16 @@ describe('§3 タスクデータ項目', () => {
 
   it('parentId = null はルートタスクを意味する', () => {
     expect(makeTask({ parentId: null }).parentId).toBeNull();
+  });
+
+  it('isMilestone はデフォルト false', () => {
+    expect(makeTask().isMilestone).toBe(false);
+  });
+
+  it('isMilestone: true のタスクを生成できる', () => {
+    const t = makeTask({ isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+    expect(t.isMilestone).toBe(true);
+    expect(t.startDate).toBe(t.endDate); // マイルストーンは期間ゼロ
   });
 });
 
@@ -398,6 +410,20 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     const ptsMonth = calcLightningPoints(rows, minDate, 'month')!;
     expect(ptsDay[0].x).toBeGreaterThan(ptsWeek[0].x);
     expect(ptsWeek[0].x).toBeGreaterThan(ptsMonth[0].x);
+  });
+
+  it('マイルストーンは頂点としてスキップされる', () => {
+    const ms = makeRow(makeTask({ startDate: '2026-05-10', endDate: '2026-05-10', isMilestone: true }));
+    const pts = calcLightningPoints([ms], minDate, 'day');
+    expect(pts).toBeNull();
+  });
+
+  it('マイルストーンと通常タスクが混在 → 通常タスクの点のみ返す', () => {
+    const ms     = makeRow(makeTask({ startDate: '2026-05-10', endDate: '2026-05-10', isMilestone: true, progress: 50 }));
+    const normal = makeRow(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10', progress: 0 }));
+    const pts = calcLightningPoints([ms, normal], minDate, 'day')!;
+    expect(pts).toHaveLength(1); // ms 行はスキップ
+    expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（index 1）
   });
 });
 
@@ -1050,6 +1076,19 @@ describe('§8 Import / Export', () => {
       expect(header).toContain('title');
       expect(header).toContain('status');
       expect(header).toContain('predecessors');
+      expect(header).toContain('isMilestone');
+    });
+
+    it('isMilestone: false のタスクは "0" で出力される', () => {
+      const csv = exportToCsv([makeTask({ id: 'ms', isMilestone: false })]);
+      const dataLine = csv.split('\n').find(l => l.startsWith('ms'))!;
+      expect(dataLine).toContain('0');
+    });
+
+    it('isMilestone: true のタスクは "1" で出力される', () => {
+      const csv = exportToCsv([makeTask({ id: 'ms', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' })]);
+      const dataLine = csv.split('\n').find(l => l.startsWith('ms'))!;
+      expect(dataLine).toContain('1');
     });
 
     it('predecessors はセミコロン区切りで 1 列（CSV カンマと混在しない）', () => {
@@ -1128,6 +1167,18 @@ describe('§8 Import / Export', () => {
       expect(ta.endDate).toBe('2026-05-10');
     });
 
+    it('isMilestone が CSV インポートで復元される（true）', () => {
+      const original = [makeTask({ id: 'ms', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' })];
+      const { tasks } = importFromCsv(exportToCsv(original));
+      expect(tasks.find(t => t.id === 'ms')!.isMilestone).toBe(true);
+    });
+
+    it('isMilestone が CSV インポートで復元される（false）', () => {
+      const original = [makeTask({ id: 'nm', isMilestone: false })];
+      const { tasks } = importFromCsv(exportToCsv(original));
+      expect(tasks.find(t => t.id === 'nm')!.isMilestone).toBe(false);
+    });
+
     it('空の CSV → 0 件', () => {
       expect(importFromCsv('').tasks).toHaveLength(0);
     });
@@ -1154,7 +1205,14 @@ describe('§8 Import / Export', () => {
         expect(imp.endDate).toBe(orig.endDate);
         expect(imp.predecessors).toEqual(orig.predecessors);
         expect(imp.parentId).toBe(orig.parentId);
+        expect(imp.isMilestone).toBe(orig.isMilestone);
       }
+    });
+
+    it('isMilestone: true のタスクが JSON ラウンドトリップで保持される', () => {
+      const ms = makeTask({ id: 'ms', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+      const { tasks } = importFromJson(exportToJson(project, [ms]));
+      expect(tasks[0].isMilestone).toBe(true);
     });
   });
 
@@ -1167,7 +1225,117 @@ describe('§8 Import / Export', () => {
         expect(imp.title).toBe(orig.title);
         expect(imp.status).toBe(orig.status);
         expect(imp.predecessors).toEqual(orig.predecessors);
+        expect(imp.isMilestone).toBe(orig.isMilestone);
       }
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════
+// §Phase 2-A  ガント拡張機能
+// ═══════════════════════════════════════════════════
+describe('§Phase 2-A クリティカルパス (calcCriticalPath)', () => {
+  it('依存関係がない場合は空セットを返す', () => {
+    const tasks = [
+      makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }),
+      makeTask({ startDate: '2026-05-01', endDate: '2026-05-20' }),
+    ];
+    expect(calcCriticalPath(tasks).size).toBe(0);
+  });
+
+  it('タスクが 0 件のとき空セットを返す', () => {
+    expect(calcCriticalPath([]).size).toBe(0);
+  });
+
+  it('A→B の 2 タスク: 両方がクリティカル', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' });
+    const b = makeTask({ startDate: '2026-05-11', endDate: '2026-05-20', predecessors: [a.id] });
+    const cp = calcCriticalPath([a, b]);
+    expect(cp.has(a.id)).toBe(true);
+    expect(cp.has(b.id)).toBe(true);
+  });
+
+  it('並列タスク: 長い経路のみクリティカル', () => {
+    const short = makeTask({ startDate: '2026-05-01', endDate: '2026-05-05' });
+    const long  = makeTask({ startDate: '2026-05-01', endDate: '2026-05-15' });
+    const merge = makeTask({ startDate: '2026-05-16', endDate: '2026-05-20', predecessors: [short.id, long.id] });
+    const cp = calcCriticalPath([short, long, merge]);
+    expect(cp.has(long.id)).toBe(true);
+    expect(cp.has(merge.id)).toBe(true);
+    expect(cp.has(short.id)).toBe(false);
+  });
+
+  it('A→B→C の全チェーンがクリティカル（唯一経路）', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-05' });
+    const b = makeTask({ startDate: '2026-05-06', endDate: '2026-05-10', predecessors: [a.id] });
+    const c = makeTask({ startDate: '2026-05-11', endDate: '2026-05-15', predecessors: [b.id] });
+    const cp = calcCriticalPath([a, b, c]);
+    expect(cp.has(a.id)).toBe(true);
+    expect(cp.has(b.id)).toBe(true);
+    expect(cp.has(c.id)).toBe(true);
+  });
+
+  it('日付なしタスクが混在しても例外を投げない', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' });
+    const b = makeTask({ startDate: null, endDate: null, predecessors: [a.id] });
+    expect(() => calcCriticalPath([a, b])).not.toThrow();
+  });
+
+  it('存在しない predecessor ID を持つタスクでも例外を投げない（孤立 predecessor）', () => {
+    const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10', predecessors: ['ghost-id'] });
+    expect(() => calcCriticalPath([a])).not.toThrow();
+  });
+});
+
+describe('§Phase 2-A 期間フィールド (calcDuration)', () => {
+  it('1日タスク（開始日=終了日）→ 1', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-01', endDate: '2026-05-01' }))).toBe(1);
+  });
+
+  it('10日タスク → 10', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }))).toBe(10);
+  });
+
+  it('startDate が null → null', () => {
+    expect(calcDuration(makeTask({ startDate: null, endDate: '2026-05-10' }))).toBeNull();
+  });
+
+  it('endDate が null → null', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-01', endDate: null }))).toBeNull();
+  });
+
+  it('終了日 < 開始日 → null（不正範囲）', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-10', endDate: '2026-05-01' }))).toBeNull();
+  });
+
+  it('マイルストーン（開始日=終了日）→ 1', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-06-01', endDate: '2026-06-01', isMilestone: true }))).toBe(1);
+  });
+});
+
+describe('§Phase 2-A 期限超過判定', () => {
+  const TODAY_STR = '2026-05-22';
+
+  function isOverdue(task: Task): boolean {
+    return task.endDate !== null && task.endDate < TODAY_STR && task.status !== 'done';
+  }
+
+  it('endDate が今日より前かつ未完了 → 超過', () => {
+    expect(isOverdue(makeTask({ endDate: '2026-05-20', status: 'todo' }))).toBe(true);
+    expect(isOverdue(makeTask({ endDate: '2026-05-21', status: 'wip' }))).toBe(true);
+    expect(isOverdue(makeTask({ endDate: '2026-05-21', status: 'wait' }))).toBe(true);
+  });
+
+  it('endDate が今日以降 → 超過ではない', () => {
+    expect(isOverdue(makeTask({ endDate: '2026-05-22', status: 'todo' }))).toBe(false);
+    expect(isOverdue(makeTask({ endDate: '2026-05-30', status: 'wip' }))).toBe(false);
+  });
+
+  it('status が done → 期限超過扱いにならない', () => {
+    expect(isOverdue(makeTask({ endDate: '2026-05-01', status: 'done' }))).toBe(false);
+  });
+
+  it('endDate が null → 超過ではない', () => {
+    expect(isOverdue(makeTask({ endDate: null, status: 'todo' }))).toBe(false);
   });
 });

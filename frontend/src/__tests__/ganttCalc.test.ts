@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -120,6 +120,51 @@ describe('calcLightningPoints', () => {
     const noDate = { task: makeTask({ status: 'wip', progress: 50 }), effectiveProgress: 50 };
     const pts = calcLightningPoints([noDate], minDate, zoom);
     expect(pts).toBeNull();
+  });
+
+  it('マイルストーンはスキップされる', () => {
+    const milestone = {
+      task: makeTask({ status: 'wip', progress: 0, startDate: '2026-05-01', endDate: '2026-05-01', isMilestone: true }),
+      effectiveProgress: 0,
+    };
+    const pts = calcLightningPoints([milestone], minDate, zoom);
+    expect(pts).toBeNull();
+  });
+
+  it('マイルストーンと通常タスクが混在 → 通常タスクのみ点が生成される', () => {
+    const milestone = {
+      task: makeTask({ status: 'wip', progress: 50, startDate: '2026-05-01', endDate: '2026-05-01', isMilestone: true }),
+      effectiveProgress: 50,
+    };
+    const normal = {
+      task: makeTask({ status: 'wip', progress: 50, startDate: '2026-05-01', endDate: '2026-05-11' }),
+      effectiveProgress: 50,
+    };
+    const pts = calcLightningPoints([milestone, normal], minDate, zoom)!;
+    expect(pts).toHaveLength(1); // マイルストーンの行はスキップ
+    expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（index=1）の中心Y
+  });
+});
+
+describe('calcDuration', () => {
+  it('1日タスク（開始日=終了日）→ 1', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-01', endDate: '2026-05-01' }))).toBe(1);
+  });
+
+  it('10日タスク → 10', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }))).toBe(10);
+  });
+
+  it('startDate が null → null', () => {
+    expect(calcDuration(makeTask({ startDate: null, endDate: '2026-05-10' }))).toBeNull();
+  });
+
+  it('endDate が null → null', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-01', endDate: null }))).toBeNull();
+  });
+
+  it('終了日 < 開始日 → null', () => {
+    expect(calcDuration(makeTask({ startDate: '2026-05-10', endDate: '2026-05-01' }))).toBeNull();
   });
 });
 
