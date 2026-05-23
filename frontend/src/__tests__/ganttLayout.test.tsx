@@ -8,7 +8,7 @@
  * - 垂直スクロールはガントパネルの onScroll で WBS パネルの scrollTop を同期
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
 
@@ -26,6 +26,7 @@ beforeEach(() => {
     filterStatus: '',
     filterAssignee: '',
     filterPriority: '',
+    filterSearch: '',
     zoomLevel: 'week',
     ganttStartDate: '',
     ganttPeriod: '3m',
@@ -36,6 +37,7 @@ beforeEach(() => {
     uiRowHeight: 36,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
     theme: 'auto',
+    ganttBarOpen: true,
   });
 });
 
@@ -86,6 +88,7 @@ describe('GanttChart スクロール分離レイアウト', () => {
   });
 
   it('WBSパネル上でホイール操作すると WBS ボディの scrollTop も同期される', () => {
+
     const { getByTestId, container } = renderChart();
     const gantt = getByTestId('gantt-panel') as HTMLElement;
 
@@ -96,5 +99,46 @@ describe('GanttChart スクロール分離レイアウト', () => {
     // WBS ボディ（wbsBodyRef）の scrollTop が更新されていること
     const wbsBody = container.querySelector('[data-testid="wbs-panel"] > div:last-child') as HTMLElement;
     expect(wbsBody?.scrollTop).toBe(200);
+  });
+});
+
+describe('ガントヘッダー 曜日表示', () => {
+  function renderDayZoom() {
+    useTaskStore.setState({
+      zoomLevel: 'day',
+      ganttStartDate: '2026-05-18',
+      ganttPeriod: '1m',
+      ganttHeaderLevels: { year: false, month: false, week: false, day: true },
+    });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP} onQuickAdd={NOOP} onAddSubTask={NOOP} />
+    );
+  }
+
+  it('日ヘッダーセルに data-dow 属性が付与される', () => {
+    const { container } = renderDayZoom();
+    expect(container.querySelector('[data-dow]')).toBeTruthy();
+  });
+
+  it('土曜日セルに data-dow="6" が付与される', () => {
+    const { container } = renderDayZoom();
+    expect(container.querySelector('[data-dow="6"]')).toBeTruthy();
+  });
+
+  it('日曜日セルに data-dow="0" が付与される', () => {
+    const { container } = renderDayZoom();
+    expect(container.querySelector('[data-dow="0"]')).toBeTruthy();
+  });
+
+  it('土曜日セルのテキストに "土" が含まれる', () => {
+    const { container } = renderDayZoom();
+    const satCell = container.querySelector('[data-dow="6"]');
+    expect(satCell?.textContent).toContain('土');
+  });
+
+  it('日曜日セルのテキストに "日" が含まれる', () => {
+    const { container } = renderDayZoom();
+    const sunCell = container.querySelector('[data-dow="0"]');
+    expect(sunCell?.textContent).toContain('日');
   });
 });
