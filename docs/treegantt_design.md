@@ -828,7 +828,7 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 | `GanttBar` | 1タスク分のバー。クリックでモーダル起動。`isMilestone` 時は菱形◇表示。`isCritical` 時は黄背景+インディゴ枠。`isOverdue` 時は赤背景。左右端6pxをドラッグでリサイズ、中央をドラッグで移動。右クリックはGanttChart側のネイティブリスナーで処理 |
 | `DependencyArrow` | SVGで矢印描画。props: `fromTask`, `toTask`, `minDate`, `zoom` |
 | `LightningLine` | イナズマライン（polyline）と今日ライン（line）を描画。`calcLightningPoints` が返す `{x,y}[]` を受け取り斜線で結ぶ |
-| `TaskModal` | 新規作成・編集フォーム。親タスク選択セレクト・先行タスクのmulti-select・進捗率スライダー含む |
+| `TaskModal` | 新規作成・編集フォーム。親タスク選択セレクト・先行タスクのmulti-select・進捗率スライダー含む。説明フィールドは「編集」/「プレビュー」タブで切り替え（`react-markdown` でレンダリング） |
 
 ### 7.6 インライン編集仕様（★v1.3追加・v1.6更新）
 
@@ -848,6 +848,19 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 **インライン編集できるフィールド：** タイトル、ステータス（セレクト）、優先度（セレクト）、進捗（数値入力）、担当者、開始日、終了日
 
 **TaskModal でのみ編集できるフィールド：** サマリ、説明、親タスク、先行タスク
+
+#### 説明フィールドの Markdown プレビュー（★v2.1追加）
+
+説明フィールドは「編集」/「プレビュー」タブで切り替えできる。
+
+| タブ | 内容 |
+|------|------|
+| 編集（デフォルト） | `<textarea>` で Markdown を入力 |
+| プレビュー | `react-markdown` でレンダリングした HTML を表示 |
+
+- タブ状態はモーダル開閉ごとにリセット（デフォルト「編集」）
+- 空の場合は「説明がありません」とプレースホルダー表示
+- ライブラリ: `react-markdown`（XSSセーフ、デフォルト設定）
 
 ### 7.7 ツリー表示仕様（★v1.3追加）
 
