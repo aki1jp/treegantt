@@ -765,10 +765,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                             justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
                           onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
                         >
-                          {col.label}
-                          {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
                           {isTitleCol && childCount.size > 0 && (
-                            <div style={{ display: 'flex', gap: 1, marginLeft: 'auto', paddingRight: 6 }}>
+                            <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
                               {[
                                 { icon: '⊞', title: 'すべて展開', action: expandAll },
                                 { icon: '⊟', title: 'すべて折りたたむ', action: collapseAll },
@@ -786,6 +784,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                               ))}
                             </div>
                           )}
+                          {col.label}
+                          {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
                           {resizable && (
                             <div
                               style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
