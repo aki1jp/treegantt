@@ -33,6 +33,8 @@
 | Phase 1-I | リアルタイム同期根本修正（onAuthenticate削除・updateTask REST化）・リロード時消失修正・ガント末行クイック追加・表示期間コントロール | ✅ 完了 |
 | Phase 1-J | ガント行ズレ修正・親タスク進捗自動計算（子平均・編集不可）・イナズマラインON/OFF・マルチレベルヘッダー（年/月/週/日個別トグル） | ✅ 完了 |
 | Phase 1-K | Y.js + Hocuspocus 廃止・WebSocket broadcast 導入・ConnectionBadge/TodoList 削除・apiFetch 統合・taskTree.ts 分離・シナリオテスト追加 | ✅ 完了 |
+| Phase 1-L | イナズマライン done/wait → todayX 固定・本番 Dockerfile（マルチステージ）・docker-compose 本番化・API URL 自動検出（window.location.hostname）| ✅ 完了 |
+| テスト強化 | フロントエンド全ファイル Statements/Branches/Lines 100% 達成（210件）・useWebSocket を renderHook + MockWebSocket でテスト | ✅ 完了 |
 | Phase 2 | LDAP認証 | ⏳ 未着手（スタブのみ） |
 
 ---
@@ -41,11 +43,12 @@
 
 ```bash
 cd /workspace/api
-npm test                # API 46テスト実行（約600ms）
-npm run test:coverage   # カバレッジ付き
+npm test                    # API 46テスト実行（約600ms）
+npm run test:coverage       # カバレッジ付き
 
 cd /workspace/frontend
-npm test -- --run       # フロントエンド 153テスト実行
+npm test -- --run           # フロントエンド 210テスト実行
+npx vitest run --coverage   # カバレッジ付き（Statements/Branches/Lines 100%）
 ```
 
 **APIテストファイル:**
@@ -55,23 +58,30 @@ npm test -- --run       # フロントエンド 153テスト実行
 - `src/__tests__/routes.test.ts` — Fastify inject による統合テスト health/projects/tasks/import/export (20件)
 
 **フロントエンドテストファイル:**
-- `src/__tests__/ganttCalc.test.ts` — ガント計算ロジックテスト (6件)
-- `src/__tests__/importExport.test.ts` — JSON/CSV import・export ユーティリティテスト (9件)
-- `src/__tests__/scenarios.test.ts` — FEATURES.md §3〜§8 対応シナリオテスト (138件)
+- `src/__tests__/ganttCalc.test.ts` — ガント計算ロジックテスト (15件)
+- `src/__tests__/importExport.test.ts` — JSON/CSV import・export・downloadFile テスト (12件)
+- `src/__tests__/scenarios.test.ts` — FEATURES.md §3〜§8 対応シナリオテスト (143件)
+- `src/__tests__/api.test.ts` — apiFetch 単体テスト・fetchモック (4件)
+- `src/__tests__/taskStore.test.ts` — Zustand ストア全アクションテスト (16件)
+- `src/__tests__/useTasks.test.ts` — CRUD フック・fetchモック (7件)
+- `src/__tests__/useWebSocket.test.ts` — WebSocket フック・MockWebSocket + renderHook (15件)
+
+**フロントエンドカバレッジ（utils・store・hooks）:**
+- Statements: 100% / Branches: 100% / Lines: 100% / Functions: 98.57%
 
 ---
 
 ## 動作確認
 
 ```bash
-# API起動
-cd /workspace/api && npm install && npm run dev
-# → http://localhost:4000/health  (REST API)
-# → ws://localhost:4001           (WebSocket broadcast)
+# 開発環境（ローカル）
+bash start.sh
+# → http://localhost:3000 / http://localhost:4000/health / ws://localhost:4001
 
-# フロントエンド起動（別ターミナル）
-cd /workspace/frontend && npm install && npm run dev
-# → http://localhost:3000
+# 本番環境（社内サーバー等）
+docker compose build
+docker compose up -d
+# → http://サーバーIP:3000  ※API・WebSocket URL はブラウザが自動検出
 ```
 
 ---
@@ -100,6 +110,7 @@ cd /workspace/frontend && npm install && npm run dev
 - `src/components/TaskModal/TaskModal.tsx`
 - `src/components/Gantt/GanttChart.tsx`, `GanttBar.tsx`, `DependencyArrow.tsx`, `LightningLine.tsx`
 - `src/App.tsx`, `src/main.tsx`
+- `src/__tests__/ganttCalc.test.ts`, `importExport.test.ts`, `scenarios.test.ts`, `api.test.ts`, `taskStore.test.ts`, `useTasks.test.ts`, `useWebSocket.test.ts`
 
 ### インフラ
 - `docker-compose.yml`, `.env.example`, `.gitignore`
@@ -111,4 +122,7 @@ cd /workspace/frontend && npm install && npm run dev
 - APIポート: 4000 (REST), 4001 (WebSocket broadcast)
 - SQLite: `/workspace/api/data/taskflow.db`（唯一の真の状態）
 - WebSocket: `ws` ライブラリによる broadcast サーバー（port 4001）。SQLite は REST 経由でのみ更新
+- フロントエンドの API/WS URL: `VITE_API_URL`/`VITE_WS_URL` 環境変数で上書き可。未設定時は `window.location.hostname` を自動使用（社内サーバー対応）
+- イナズマライン: `done`/`wait` ステータスのタスクは進捗率ではなく todayX（今日の縦線位置）を頂点として表示
+- 本番デプロイ: `docker compose build && docker compose up -d`。フロントエンドは `serve` で静的配信、API は `node dist/index.js`
 - テストはインメモリSQLiteを使用（DB依存の副作用なし）
