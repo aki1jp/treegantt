@@ -580,16 +580,29 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
+  // SVG へのネイティブ contextmenu リスナー（React 合成イベントは SVG で不安定なため）
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    function handleContextMenu(e: MouseEvent) {
+      e.preventDefault();
+      const el = (e.target as Element).closest('[data-task-id]');
+      if (!el) return;
+      const taskId = el.getAttribute('data-task-id');
+      if (taskId) setBarCtxMenu({ x: e.clientX, y: e.clientY, taskId });
+    }
+    svg.addEventListener('contextmenu', handleContextMenu);
+    return () => svg.removeEventListener('contextmenu', handleContextMenu);
+  }, []);
+
+  // メニューを閉じる
   useEffect(() => {
     if (!barCtxMenu) return;
     const close = () => setBarCtxMenu(null);
-    window.addEventListener('click', close);
-    window.addEventListener('contextmenu', close);
-    return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('contextmenu', close);
-    };
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
   }, [barCtxMenu]);
 
   useEffect(() => {
@@ -755,7 +768,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </div>
 
           {/* 右パネル：ガントSVG */}
-          <svg width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block', flexShrink: 0 }}>
+          <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block', flexShrink: 0 }}>
             <defs>
               <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
                 <path d="M0,0 L6,3 L0,6 Z" fill="#378ADD" />
@@ -793,7 +806,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => startDrag(e, id, 'resize-right')}
                   onClick={() => !dragState && onEditTask(task)}
-                  onContextMenu={(e, id) => setBarCtxMenu({ x: e.clientX, y: e.clientY, taskId: id })}
                 />
               );
             })}
@@ -831,6 +843,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6,
               boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 9999, minWidth: 140,
             }}
+            onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
             <button

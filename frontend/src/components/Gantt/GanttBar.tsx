@@ -12,7 +12,6 @@ interface Props {
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
   onClick: () => void;
-  onContextMenu: (e: React.MouseEvent, taskId: string) => void;
 }
 
 const STATUS_COLOR: Record<TaskStatus, string> = {
@@ -24,7 +23,7 @@ const HANDLE_W = 6;
 
 export function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, dragPreview,
-  onMoveStart, onResizeLeftStart, onResizeRightStart, onClick, onContextMenu,
+  onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
   const effectiveEnd   = dragPreview?.endDate   ?? task.endDate;
@@ -42,10 +41,7 @@ export function GanttBar({
     const r  = (ROW_HEIGHT_PX - 14) / 2;
     const pts = `${cx},${centerY - r} ${cx + r},${centerY} ${cx},${centerY + r} ${cx - r},${centerY}`;
     return (
-      <g
-        style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
-        onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}
-      >
+      <g data-task-id={task.id} style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
         <polygon
           points={pts}
           fill={isOverdue ? '#fca5a5' : color + 'cc'}
@@ -56,11 +52,9 @@ export function GanttBar({
         <text x={cx + r + 5} y={centerY + 4} fontSize={11} fill={color} fontWeight={600}>
           {task.title}
         </text>
-        {/* 透明な広いクリック領域 */}
         <rect
           x={cx - r - 4} y={centerY - r - 4} width={r * 2 + 8} height={r * 2 + 8}
-          fill="transparent" onClick={onClick}
-          style={{ cursor: 'pointer' }}
+          fill="transparent" onClick={onClick} style={{ cursor: 'pointer' }}
         />
       </g>
     );
@@ -77,7 +71,7 @@ export function GanttBar({
   const progressWidth = Math.round(width * task.progress / 100);
 
   return (
-    <g onContextMenu={e => { e.preventDefault(); onContextMenu(e, task.id); }}>
+    <g data-task-id={task.id}>
       {/* バー背景 */}
       <rect
         x={x} y={y} width={width} height={barHeight} rx={3}
