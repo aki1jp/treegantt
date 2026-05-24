@@ -21,8 +21,6 @@ beforeEach(() => {
   useTaskStore.setState({
     tasks: [],
     needsReload: false,
-    sortKey: '',
-    sortDir: 'asc',
     filterStatus: '',
     filterAssignee: '',
     filterPriority: '',
@@ -33,6 +31,7 @@ beforeEach(() => {
     showLightningLine: true,
     showWeekend: true,
     showCriticalPath: false,
+    showResourceView: true,
     uiFontSize: 13,
     uiRowHeight: 36,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
@@ -50,6 +49,7 @@ describe('GanttChart スクロール分離レイアウト', () => {
         onInlineUpdate={NOOP}
         onQuickAdd={NOOP}
         onAddSubTask={NOOP}
+        onReorder={NOOP}
       />
     );
   }
@@ -111,7 +111,7 @@ describe('ガントヘッダー 曜日表示', () => {
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
     });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP} onQuickAdd={NOOP} onAddSubTask={NOOP} />
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP} onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
     );
   }
 

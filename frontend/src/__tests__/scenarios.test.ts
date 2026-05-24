@@ -875,7 +875,7 @@ describe('§5.6 親タスクの進捗自動計算', () => {
 // ═══════════════════════════════════════════════════
 // §7 フィルタ・ソート
 // ═══════════════════════════════════════════════════
-describe('§7 フィルタ・ソート', () => {
+describe('§7 フィルタ', () => {
   const tasks = () => [
     makeTask({ id: 't1', status: 'todo',  priority: 'high',     assignee: 'Alice', order: 1, progress: 0,   startDate: '2026-05-10', endDate: '2026-05-20' }),
     makeTask({ id: 't2', status: 'wip',   priority: 'medium',   assignee: 'Bob',   order: 2, progress: 50,  startDate: '2026-03-01', endDate: '2026-04-30' }),
