@@ -21,6 +21,7 @@ interface TaskStore {
   showLightningLine:  boolean;
   showWeekend:        boolean;
   showCriticalPath:   boolean;
+  showResourceView:   boolean;
   uiFontSize:         number;
   uiRowHeight:        number;
   ganttHeaderLevels:  GanttHeaderLevels;
@@ -36,6 +37,7 @@ interface TaskStore {
   setShowLightningLine:   (show: boolean) => void;
   setShowWeekend:         (show: boolean) => void;
   setShowCriticalPath:    (show: boolean) => void;
+  setShowResourceView:    (show: boolean) => void;
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
@@ -60,6 +62,7 @@ export const useTaskStore = create<TaskStore>()(
       showLightningLine:  true,
       showWeekend:        true,
       showCriticalPath:   false,
+      showResourceView:   true,
       uiFontSize:         13,
       uiRowHeight:        36,
       ganttHeaderLevels:  { year: true, month: true, week: true, day: true },
@@ -79,6 +82,7 @@ export const useTaskStore = create<TaskStore>()(
       setShowLightningLine:   (showLightningLine) => set({ showLightningLine }),
       setShowWeekend:         (showWeekend) => set({ showWeekend }),
       setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
+      setShowResourceView:    (showResourceView) => set({ showResourceView }),
       setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
       setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
       setGanttHeaderLevels:   (levels) => set((s) => ({
@@ -97,6 +101,7 @@ export const useTaskStore = create<TaskStore>()(
         showLightningLine: s.showLightningLine,
         showWeekend:       s.showWeekend,
         showCriticalPath:  s.showCriticalPath,
+        showResourceView:  s.showResourceView,
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,
         ganttHeaderLevels: s.ganttHeaderLevels,

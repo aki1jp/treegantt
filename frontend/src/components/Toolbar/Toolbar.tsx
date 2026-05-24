@@ -95,10 +95,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
     ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setGanttBarOpen,
   } = useTaskStore();
 
@@ -370,6 +370,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
             label="クリティカルパス"
             title="クリティカルパスをハイライト表示"
             onClick={() => setShowCriticalPath(!showCriticalPath)}
+          />
+          <ToggleBtn
+            active={showResourceView}
+            label="担当者ビュー"
+            title="担当者別スイムレーンを表示"
+            onClick={() => setShowResourceView(!showResourceView)}
           />
 
           <div style={DIVIDER} />

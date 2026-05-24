@@ -547,7 +547,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, uiFontSize, uiRowHeight, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
     setSortKey,
   } = useTaskStore();
 
@@ -1035,15 +1035,17 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     </div>{/* メインエリア終了 */}
 
     {/* ── 担当者別スイムレーン（リソースビュー）── */}
-    <ResourceView
-      tasks={sorted}
-      min={min}
-      zoomLevel={zoomLevel}
-      totalWidth={totalWidth}
-      labelWidth={LEFT_TOTAL}
-      scrollRef={workloadScrollRef}
-      onEditTask={onEditTask}
-    />
+    {showResourceView && (
+      <ResourceView
+        tasks={sorted}
+        min={min}
+        zoomLevel={zoomLevel}
+        totalWidth={totalWidth}
+        labelWidth={LEFT_TOTAL}
+        scrollRef={workloadScrollRef}
+        onEditTask={onEditTask}
+      />
+    )}
     </div>
   );
 }
