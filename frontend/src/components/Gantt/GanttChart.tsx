@@ -28,8 +28,8 @@ const LEFT_COLS = [
   { key: 'priority',  label: '優先',     width: 56,  sortable: true  },
   { key: 'progress',  label: '進捗',     width: 76,  sortable: true  },
   { key: 'assignee',  label: '担当',     width: 76,  sortable: true  },
-  { key: 'startDate', label: '開始',     width: 88,  sortable: true  },
-  { key: 'endDate',   label: '終了',     width: 88,  sortable: true  },
+  { key: 'startDate', label: '開始',     width: 96,  sortable: true  },
+  { key: 'endDate',   label: '終了',     width: 96,  sortable: true  },
   { key: 'duration',  label: '日数',     width: 50,  sortable: false },
 ] as const;
 
@@ -262,7 +262,7 @@ function GanttLeftRow({
 
   const CELL: React.CSSProperties = {
     height: rowHeight, display: 'flex', alignItems: 'center',
-    padding: '0 6px', fontSize, overflow: 'hidden',
+    padding: '0 6px', fontSize, overflow: 'hidden', whiteSpace: 'nowrap',
     boxSizing: 'border-box', color: 'var(--th-text2)',
   };
   const INPUT_S: React.CSSProperties = {
@@ -412,7 +412,7 @@ function GanttLeftRow({
       </div>
 
       {/* 開始日 */}
-      <div style={{ ...CELL, width: 88 }}>
+      <div style={{ ...CELL, width: 96 }}>
         {editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -427,7 +427,7 @@ function GanttLeftRow({
       </div>
 
       {/* 終了日 */}
-      <div style={{ ...CELL, width: 88 }}>
+      <div style={{ ...CELL, width: 96 }}>
         {editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -527,7 +527,7 @@ function QuickAddRow({ onAdd, titleWidth, assigneeWidth }: { onAdd: (title: stri
           </span>
         )}
       </div>
-      {[66, 56, 76, assigneeWidth, 88, 88, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
+      {[66, 56, 76, assigneeWidth, 96, 96, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
     </div>
   );
 }
