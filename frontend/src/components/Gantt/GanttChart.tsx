@@ -28,8 +28,8 @@ const LEFT_COLS = [
   { key: 'priority',  label: '優先',     width: 56,  sortable: true  },
   { key: 'progress',  label: '進捗',     width: 76,  sortable: true  },
   { key: 'assignee',  label: '担当',     width: 76,  sortable: true  },
-  { key: 'startDate', label: '開始',     width: 96,  sortable: true  },
-  { key: 'endDate',   label: '終了',     width: 96,  sortable: true  },
+  { key: 'startDate', label: '開始',     width: 88,  sortable: true  },
+  { key: 'endDate',   label: '終了',     width: 88,  sortable: true  },
   { key: 'duration',  label: '日数',     width: 50,  sortable: false },
 ] as const;
 
@@ -201,6 +201,7 @@ interface LeftRowProps {
   rowHeight: number;
   titleWidth: number;
   assigneeWidth: number;
+  dateColWidth: number;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onRowContextMenu: (x: number, y: number) => void;
@@ -208,7 +209,7 @@ interface LeftRowProps {
 
 function GanttLeftRow({
   task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
-  titleWidth, assigneeWidth,
+  titleWidth, assigneeWidth, dateColWidth,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: LeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -412,7 +413,7 @@ function GanttLeftRow({
       </div>
 
       {/* 開始日 */}
-      <div style={{ ...CELL, width: 96 }}>
+      <div style={{ ...CELL, width: dateColWidth }}>
         {editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -427,7 +428,7 @@ function GanttLeftRow({
       </div>
 
       {/* 終了日 */}
-      <div style={{ ...CELL, width: 96 }}>
+      <div style={{ ...CELL, width: dateColWidth }}>
         {editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -480,7 +481,7 @@ function GanttLeftRow({
 }
 
 // ── クイック追加行 ──────────────────────────────────
-function QuickAddRow({ onAdd, titleWidth, assigneeWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number }) {
+function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number; dateColWidth: number }) {
   const { uiRowHeight, uiFontSize } = useTaskStore();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
@@ -527,7 +528,7 @@ function QuickAddRow({ onAdd, titleWidth, assigneeWidth }: { onAdd: (title: stri
           </span>
         )}
       </div>
-      {[66, 56, 76, assigneeWidth, 96, 96, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
+      {[66, 56, 76, assigneeWidth, dateColWidth, dateColWidth, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
     </div>
   );
 }
@@ -557,8 +558,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const colResizeRef = useRef<typeof colResize>(null);
   useEffect(() => { colResizeRef.current = colResize; }, [colResize]);
 
-  const LEFT_TOTAL = LEFT_COLS.reduce((s, c) =>
-    s + (colWidths[c.key as keyof typeof colWidths] ?? c.width), 0);
+  // フォントサイズに連動した日付列幅 (YYYY-MM-DD の10文字が収まる幅)
+  const dateColWidth = 80 + (uiFontSize - 11) * 5; // 11px→80, 13px→90, 15px→100
+
+  const LEFT_TOTAL = LEFT_COLS.reduce((s, c) => {
+    if (c.key === 'startDate' || c.key === 'endDate') return s + dateColWidth;
+    return s + (colWidths[c.key as keyof typeof colWidths] ?? c.width);
+  }, 0);
 
   const handleColMouseMove = useCallback((e: MouseEvent) => {
     const cr = colResizeRef.current;
@@ -773,7 +779,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           display: 'flex', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
         }}>
           {LEFT_COLS.map(col => {
-            const w = colWidths[col.key as keyof typeof colWidths] ?? col.width;
+            const w = (col.key === 'startDate' || col.key === 'endDate')
+              ? dateColWidth
+              : (colWidths[col.key as keyof typeof colWidths] ?? col.width);
             const resizable = RESIZABLE_COL_KEYS.has(col.key);
             const isTitleCol = col.key === 'title';
             return (
@@ -835,12 +843,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               rowHeight={uiRowHeight}
               titleWidth={colWidths.title}
               assigneeWidth={colWidths.assignee}
+              dateColWidth={dateColWidth}
               onToggleCollapse={() => toggleCollapse(task.id)}
               onInlineUpdate={onInlineUpdate}
               onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
             />
           ))}
-          <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} />
+          <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
         </div>
       </div>
 
