@@ -776,7 +776,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div style={{
           flexShrink: 0, height: headerRows.length * HEADER_ROW_H,
-          display: 'flex', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
+          display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
         }}>
           {LEFT_COLS.map(col => {
             const w = (col.key === 'startDate' || col.key === 'endDate')
