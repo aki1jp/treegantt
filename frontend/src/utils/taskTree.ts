@@ -49,6 +49,23 @@ export function flattenTree(
   return result;
 }
 
+export function includeAncestors(filtered: Task[], all: Task[]): Task[] {
+  const ids = new Set(filtered.map(t => t.id));
+  const allMap = new Map(all.map(t => [t.id, t]));
+  const result = [...filtered];
+  for (const t of filtered) {
+    let pid = t.parentId;
+    while (pid && !ids.has(pid)) {
+      const parent = allMap.get(pid);
+      if (!parent) break;
+      ids.add(pid);
+      result.push(parent);
+      pid = parent.parentId;
+    }
+  }
+  return result.sort((a, b) => a.order - b.order);
+}
+
 export function calcEffectiveProgress(
   taskId: string,
   childCountMap: Map<string, number>,

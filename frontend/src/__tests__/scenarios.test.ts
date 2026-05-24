@@ -28,6 +28,7 @@ import {
   buildTree,
   flattenTree,
   calcEffectiveProgress,
+  includeAncestors,
 } from '../utils/taskTree';
 import { clampMenuPos } from '../utils/menuPos';
 import { resolveTheme } from '../utils/theme';
@@ -495,6 +496,68 @@ describe('§5.5 ツリー構造・折りたたみ', () => {
     it('タスクが 0 件のとき roots は空', () => {
       const { roots } = buildTree([]);
       expect(roots).toHaveLength(0);
+    });
+  });
+
+  describe('includeAncestors', () => {
+    it('フィルタ後に親が除外されていた場合、先祖を補完する', () => {
+      const parent = makeTask({ id: 'p', status: 'done', order: 1 });
+      const child  = makeTask({ id: 'c', parentId: 'p', status: 'todo', order: 2 });
+      const all    = [parent, child];
+      const filtered = [child]; // 親は !done フィルタで除外済み
+      const result = includeAncestors(filtered, all);
+      expect(result.map(t => t.id)).toContain('p');
+      expect(result.map(t => t.id)).toContain('c');
+    });
+
+    it('フィルタ後の結果が既に先祖を含む場合は重複しない', () => {
+      const parent = makeTask({ id: 'p', order: 1 });
+      const child  = makeTask({ id: 'c', parentId: 'p', order: 2 });
+      const all    = [parent, child];
+      const filtered = [parent, child];
+      const result = includeAncestors(filtered, all);
+      expect(result.filter(t => t.id === 'p')).toHaveLength(1);
+    });
+
+    it('孫タスクの祖父母まで補完する', () => {
+      const gp    = makeTask({ id: 'gp',   status: 'done', order: 1 });
+      const p     = makeTask({ id: 'p',    parentId: 'gp', status: 'done', order: 2 });
+      const child = makeTask({ id: 'c',    parentId: 'p',  status: 'todo', order: 3 });
+      const all   = [gp, p, child];
+      const filtered = [child];
+      const result = includeAncestors(filtered, all);
+      const ids = result.map(t => t.id);
+      expect(ids).toContain('gp');
+      expect(ids).toContain('p');
+      expect(ids).toContain('c');
+    });
+
+    it('フィルタ後が空のとき空を返す', () => {
+      const parent = makeTask({ id: 'p', order: 1 });
+      const result = includeAncestors([], [parent]);
+      expect(result).toHaveLength(0);
+    });
+
+    it('結果が order 順にソートされる', () => {
+      const parent = makeTask({ id: 'p', status: 'done', order: 1 });
+      const child  = makeTask({ id: 'c', parentId: 'p', status: 'todo', order: 2 });
+      const all    = [parent, child];
+      const result = includeAncestors([child], all);
+      expect(result[0].id).toBe('p');
+      expect(result[1].id).toBe('c');
+    });
+
+    it('includeAncestors → buildTree で子が正しい depth を持つ', () => {
+      const parent = makeTask({ id: 'p', status: 'done', order: 1 });
+      const child  = makeTask({ id: 'c', parentId: 'p', status: 'todo', order: 2 });
+      const all    = [parent, child];
+      const filtered = [child];
+      const withAnc = includeAncestors(filtered, all);
+      const { roots } = buildTree(withAnc);
+      expect(roots).toHaveLength(1);
+      expect(roots[0].task.id).toBe('p');
+      expect(roots[0].children[0].task.id).toBe('c');
+      expect(roots[0].children[0].depth).toBe(1);
     });
   });
 

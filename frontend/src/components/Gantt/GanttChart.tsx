@@ -9,7 +9,7 @@ import {
   ganttTotalWidth, ZOOM_CONFIG,
   calcCriticalPath,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, calcEffectiveProgress } from '../../utils/taskTree';
+import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
@@ -590,7 +590,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }, [colResize, handleColMouseMove, handleColMouseUp]);
 
   const [collapsed, setCollapsed] = useState(new Set<string>());
-  const { roots, childCount } = buildTree(sorted);
+  const withAncestors = includeAncestors(sorted, tasks);
+  const { roots, childCount } = buildTree(withAncestors);
   const flatRows = flattenTree(roots, collapsed);
 
   const collapseAll = () => setCollapsed(new Set(childCount.keys()));
