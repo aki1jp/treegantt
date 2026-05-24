@@ -29,6 +29,7 @@
 | 2.3 | 2026年5月 | ガントヘッダーに曜日行（dow）追加（土=青背景、日=赤背景）・WBSヘッダーを最下段揃え・GanttBarのフォントサイズを行高さに比例させる・開始日/終了日列幅をフォントサイズに応じて自動調整 |
 | 2.4 | 2026年5月 | 担当者別負荷ビュー（ResourceView）：ガントエリア下部に担当者×日付の1行ヒートマップを表示。各日セルにタスク数と色を表示（1=緑/2=黄/3=橙/4+=赤）。ツールバー「担当者ビュー」トグルでON/OFF・状態をlocalStorage永続化。水平スクロールをガントと同期。 |
 | 2.5 | 2026年5月 | ツールバー行2を複数行対応（flexWrap:wrap）・フィルタ（ステータス/優先度/担当者）を行2インライン直列表示に変更・フィルタドロップダウン廃止。ソート機能全廃（列ヘッダークリック・ソート解除・依存順ボタン）。 |
+| 2.6 | 2026年5月 | WBSヘッダー高さ式を修正（`n×HEADER_ROW_H + 2`）。グローバル `box-sizing: border-box` により `borderBottom:2px` が `height` 内に含まれることを考慮し、ガントstickyヘッダー（`n×26 + 2px` auto-height）と一致させる。 |
 
 ---
 
@@ -708,9 +709,10 @@ export function calcGanttRange(
 | 週 (week) | `W21` | 月曜日ごと |
 | 日 (day) | `22` | 1日ごと |
 
-- デフォルトは全4行表示
-- 1行あたりの高さ: `HEADER_ROW_H = 26px`
-- `ganttHeaderLevels` の有効行数 × 26px = 合計ヘッダー高さ（`position: sticky; top: 0`）
+- デフォルトは全4行表示（day 行が有効のとき dow 行も自動生成されるため最大5行）
+- 1行あたりの高さ: `HEADER_ROW_H = 26px`（各行は `boxSizing: 'border-box'` で正確に 26px）
+- ガントstickyヘッダー合計高さ = `n × HEADER_ROW_H + 2px`（n行の内側divの合計 + 外側の `borderBottom: 2px`）
+- **WBSヘッダー高さの注意**: `index.html` でグローバル `box-sizing: border-box` を設定しているため、明示的な `height` に `borderBottom` が含まれる。ガントと一致させるには `height: n × HEADER_ROW_H + 2` と指定する必要がある。
 - 非表示にしたい行は Toolbar のトグルボタンで切り替え
 
 #### イナズマライン (Lightning Line) の定義
@@ -796,6 +798,17 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 
 垂直スクロールはガント右パネルの `onScroll` で WBS 左パネルの `scrollTop` を同期する（1行の JS）。
 旧実装（`position: sticky; left: 0`）ではスクロールバーが WBS 幅まで及んでいたため廃止。
+
+**★v2.6追加 — WBS/ガントヘッダー高さ揃えの制約:**
+
+`index.html` に `*, *::before, *::after { box-sizing: border-box }` を適用しているため、`height` を明示した要素は `borderBottom` が **高さ内に含まれる**。
+
+| 要素 | height指定 | 実高さ | 備考 |
+|------|-----------|--------|------|
+| WBSヘッダー（明示height） | `n × HEADER_ROW_H + 2` | `n×26 + 2` | border-box: border は height 内に含まれる。+2 がないとガントより 2px 低くなる |
+| ガントstickyヘッダー（auto-height） | なし | `n×26 + 2` | inner rows の合計 n×26 に、外側 div の borderBottom 2px が自動付加される |
+
+> **auto-height 要素では box-sizing は height に影響しない**。height 未指定要素はコンテンツが自動決定し、border は常に外側に追加される。
 
 **★v1.6追加 — Toolbar ガント期間コントロール:**
 
