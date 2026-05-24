@@ -72,6 +72,9 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    let sd = startDate || null;
+    let ed = endDate || null;
+    if (sd && ed && ed < sd) { [sd, ed] = [ed, sd]; }
     onSave({
       title: title.trim(),
       summary,
@@ -80,8 +83,8 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
       priority,
       progress,
       assignee,
-      startDate: startDate || null,
-      endDate: endDate || null,
+      startDate: sd,
+      endDate: ed,
       isMilestone: false,
       parentId: parentId || null,
       predecessors,

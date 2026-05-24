@@ -73,3 +73,54 @@ describe('TaskModal — 説明フィールドのタブ切り替え', () => {
     expect(screen.getByText('項目A')).toBeTruthy();
   });
 });
+
+describe('TaskModal — 開始日・終了日バリデーション', () => {
+  it('終了日 < 開始日のとき保存すると日付が自動スワップされる', () => {
+    const onSave = vi.fn();
+    render(
+      <TaskModal
+        task={makeTask({ startDate: '2026-06-10', endDate: '2026-06-01' })}
+        allTasks={[]}
+        onSave={onSave}
+        onClose={NOOP}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /保存/ }));
+    expect(onSave).toHaveBeenCalledOnce();
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(saved.startDate).toBe('2026-06-01');
+    expect(saved.endDate).toBe('2026-06-10');
+  });
+
+  it('終了日 >= 開始日のとき日付はそのまま保存される', () => {
+    const onSave = vi.fn();
+    render(
+      <TaskModal
+        task={makeTask({ startDate: '2026-06-01', endDate: '2026-06-10' })}
+        allTasks={[]}
+        onSave={onSave}
+        onClose={NOOP}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /保存/ }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(saved.startDate).toBe('2026-06-01');
+    expect(saved.endDate).toBe('2026-06-10');
+  });
+
+  it('開始日のみ設定のとき終了日は null のまま', () => {
+    const onSave = vi.fn();
+    render(
+      <TaskModal
+        task={makeTask({ startDate: '2026-06-01', endDate: null })}
+        allTasks={[]}
+        onSave={onSave}
+        onClose={NOOP}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /保存/ }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(saved.startDate).toBe('2026-06-01');
+    expect(saved.endDate).toBeNull();
+  });
+});
