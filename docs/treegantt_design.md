@@ -710,9 +710,11 @@ export function calcGanttRange(
 | 日 (day) | `22` | 1日ごと |
 
 - デフォルトは全4行表示（day 行が有効のとき dow 行も自動生成されるため最大5行）
-- 1行あたりの高さ: `HEADER_ROW_H = 26px`（各行は `boxSizing: 'border-box'` で正確に 26px）
-- ガントstickyヘッダー合計高さ = `n × HEADER_ROW_H + 2px`（n行の内側divの合計 + 外側の `borderBottom: 2px`）
-- **WBSヘッダー高さの注意**: `index.html` でグローバル `box-sizing: border-box` を設定しているため、明示的な `height` に `borderBottom` が含まれる。ガントと一致させるには `height: n × HEADER_ROW_H + 2` と指定する必要がある。
+- 1行あたりの高さ: `HEADER_ROW_H = 26px`
+- **ガントヘッダー内行は必ず `boxSizing: 'border-box'`** を指定する。ri > 0 の行に `borderTop: 1px` が付くが、border-box なら行全体がなお 26px に収まる。border-box なしだと 1行ごとに +1px され、n行で最大 (n-1)px のズレが生じる
+- ガントstickyヘッダー合計高さ = `n × HEADER_ROW_H + 2px`（n行の内側divの合計 + 外側の `borderBottom: 2px`。外側 div は auto-height のため border は外に加算される）
+- **WBSヘッダー高さの注意**: `index.html` でグローバル `box-sizing: border-box` を設定しているため、明示的な `height` に `borderBottom` が含まれる。ガントと一致させるには `height: n × HEADER_ROW_H + 2` と指定する必要がある
+- `data-testid="gantt-header"` が付与されており、内行の `boxSizing` スタイルはテストで保護される
 - 非表示にしたい行は Toolbar のトグルボタンで切り替え
 
 #### イナズマライン (Lightning Line) の定義
