@@ -10,6 +10,7 @@ import {
   calcCriticalPath,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress } from '../../utils/taskTree';
+import { calcWorkloadMatrix, workloadColor } from '../../utils/workloadCalc';
 import { GanttBar } from './GanttBar';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
@@ -647,11 +648,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const wbsBodyRef   = useRef<HTMLDivElement>(null);
-  const ganttPanelRef = useRef<HTMLDivElement>(null);
+  const wbsBodyRef      = useRef<HTMLDivElement>(null);
+  const ganttPanelRef   = useRef<HTMLDivElement>(null);
+  const workloadScrollRef = useRef<HTMLDivElement>(null);
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     if (wbsBodyRef.current) wbsBodyRef.current.scrollTop = e.currentTarget.scrollTop;
+    if (workloadScrollRef.current) workloadScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
   }
 
   // WBSパネル上のホイール操作をガントパネルに転送（WBSはoverflow:hiddenのため）
@@ -762,11 +765,19 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     boxSizing: 'border-box', padding: '0 4px',
   };
 
+  // ── 担当者別負荷マトリクス ───────────────────────────
+  const workload = calcWorkloadMatrix(sorted, min, max);
+  const WORKLOAD_ROW_H = 22;
+  const WORKLOAD_LABEL_W = LEFT_TOTAL;
+
   return (
     <div style={{
-      flex: 1, display: 'flex', overflow: 'hidden',
+      flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
       cursor: dragState ? 'grabbing' : colResize ? 'col-resize' : 'default',
     }}>
+
+    {/* ── メインエリア（WBS + ガント）── */}
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
       <div data-testid="wbs-panel" onWheel={handleWbsWheel} style={{
@@ -1026,6 +1037,107 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </ContextMenu>
         );
       })}
+    </div>{/* メインエリア終了 */}
+
+    {/* ── 担当者別負荷ヒートマップ ── */}
+    {workload.assignees.length > 0 && (
+      <div data-testid="workload-panel" style={{
+        flexShrink: 0, display: 'flex', flexDirection: 'column',
+        borderTop: '2px solid var(--th-border-strong)',
+        background: 'var(--th-bg)',
+      }}>
+        {/* ラベル行（左固定）＋スクロール行 */}
+        <div style={{ display: 'flex' }}>
+          {/* 左固定ラベル列 */}
+          <div style={{
+            flexShrink: 0, width: WORKLOAD_LABEL_W,
+            borderRight: '2px solid var(--th-border-strong)',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              height: WORKLOAD_ROW_H, display: 'flex', alignItems: 'center',
+              padding: '0 8px', fontSize: 10, fontWeight: 700, color: 'var(--th-text-muted)',
+              background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
+            }}>
+              担当者別負荷
+            </div>
+            {workload.assignees.map(assignee => (
+              <div key={assignee} style={{
+                height: WORKLOAD_ROW_H, display: 'flex', alignItems: 'center',
+                padding: '0 8px', fontSize: 11, color: 'var(--th-text2)',
+                borderBottom: '1px solid var(--th-border)',
+                overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+              }}>
+                {assignee}
+              </div>
+            ))}
+          </div>
+
+          {/* スクロール領域 */}
+          <div
+            ref={workloadScrollRef}
+            style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden' }}
+          >
+            <div style={{ width: totalWidth, display: 'flex', flexDirection: 'column' }}>
+              {/* ヘッダー行（日付）*/}
+              <div style={{
+                height: WORKLOAD_ROW_H, position: 'relative',
+                background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
+              }}>
+                {workload.days.map((day, di) => {
+                  const { dayWidth: dw } = ZOOM_CONFIG[zoomLevel];
+                  const x = di * dw;
+                  const d = new Date(day);
+                  const dow = d.getUTCDay();
+                  const isSat = dow === 6;
+                  const isSun = dow === 0;
+                  return (
+                    <div key={day} style={{
+                      position: 'absolute', left: x, width: dw, height: WORKLOAD_ROW_H,
+                      background: isSat ? 'rgba(59,130,246,0.18)' : isSun ? 'rgba(239,68,68,0.18)' : 'transparent',
+                      borderRight: '1px solid var(--th-border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 9, color: isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)',
+                      overflow: 'hidden', boxSizing: 'border-box',
+                    }}>
+                      {dw >= 14 ? d.getUTCDate() : ''}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 担当者行 */}
+              {workload.assignees.map((assignee, ai) => (
+                <div key={assignee} style={{
+                  height: WORKLOAD_ROW_H, position: 'relative',
+                  borderBottom: '1px solid var(--th-border)',
+                }}>
+                  {workload.matrix[ai].map((count, di) => {
+                    const { dayWidth: dw } = ZOOM_CONFIG[zoomLevel];
+                    const x = di * dw;
+                    const bg = workloadColor(count);
+                    return (
+                      <div key={di} style={{
+                        position: 'absolute', left: x, width: dw, height: WORKLOAD_ROW_H,
+                        background: bg,
+                        borderRight: '1px solid rgba(0,0,0,0.04)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 9, color: count > 0 ? 'rgba(0,0,0,0.6)' : 'transparent',
+                        boxSizing: 'border-box',
+                      }}
+                        title={count > 0 ? `${assignee} ${workload.days[di]}: ${count}件` : undefined}
+                      >
+                        {dw >= 20 && count > 0 ? count : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
