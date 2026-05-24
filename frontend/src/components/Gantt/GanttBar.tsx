@@ -74,6 +74,46 @@ export function GanttBar({
   const y = rowIndex * rowHeight + 6;
   const progressWidth = Math.round(width * task.progress / 100);
 
+  // ── 親タスク：サマリーバー（上部横バー＋左右下向き三角） ────
+  if (isParent) {
+    const topH = Math.round(barHeight * 0.42);
+    const legW = topH + 2;
+    const barColor = isCritical ? '#6366f1' : color;
+    const textY = y + Math.round(topH * 0.55 + (barFontSize - 1) * 0.35);
+
+    return (
+      <g data-task-id={task.id} onClick={onClick} style={{ cursor: 'pointer' }}>
+        {/* 上部横バー */}
+        <rect x={x} y={y} width={width} height={topH} rx={2}
+          fill={barColor + 'cc'} stroke={barColor} strokeWidth={1} />
+        {/* 進捗オーバーレイ */}
+        {task.progress > 0 && (
+          <rect x={x} y={y} width={progressWidth} height={topH} rx={2}
+            fill={barColor} style={{ pointerEvents: 'none' }} />
+        )}
+        {/* 左下向き三角（左辺垂直・右辺斜め） */}
+        <polygon
+          points={`${x},${y + topH} ${x + legW},${y + topH} ${x},${y + barHeight}`}
+          fill={barColor} style={{ pointerEvents: 'none' }}
+        />
+        {/* 右下向き三角（右辺垂直・左辺斜め） */}
+        <polygon
+          points={`${x + width - legW},${y + topH} ${x + width},${y + topH} ${x + width},${y + barHeight}`}
+          fill={barColor} style={{ pointerEvents: 'none' }}
+        />
+        {/* タイトル */}
+        <text x={x + legW + 2} y={textY}
+          fontSize={barFontSize - 1} fill={barColor} fontWeight={700}
+          clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
+          {task.title}
+        </text>
+        <clipPath id={`clip-${task.id}`}>
+          <rect x={x + legW} y={y} width={Math.max(width - legW * 2, 0)} height={topH} />
+        </clipPath>
+      </g>
+    );
+  }
+
   return (
     <g data-task-id={task.id}>
       {/* バー背景 */}
@@ -101,30 +141,26 @@ export function GanttBar({
 
       {/* 移動ゾーン（中央） */}
       <rect
-        x={x + (isParent ? 0 : HANDLE_W)} y={y}
-        width={Math.max(width - (isParent ? 0 : HANDLE_W * 2), 0)} height={barHeight}
+        x={x + HANDLE_W} y={y}
+        width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight}
         fill="transparent"
-        style={{ cursor: isParent ? 'not-allowed' : (dragPreview ? 'grabbing' : 'move') }}
+        style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
       />
-      {/* 左リサイズハンドル（親タスクは非表示） */}
-      {!isParent && (
-        <rect
-          x={x} y={y} width={HANDLE_W} height={barHeight}
-          fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
-          style={{ cursor: 'ew-resize' }}
-          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
-        />
-      )}
-      {/* 右リサイズハンドル（親タスクは非表示） */}
-      {!isParent && (
-        <rect
-          x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
-          fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
-          style={{ cursor: 'ew-resize' }}
-          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
-        />
-      )}
+      {/* 左リサイズハンドル */}
+      <rect
+        x={x} y={y} width={HANDLE_W} height={barHeight}
+        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
+        style={{ cursor: 'ew-resize' }}
+        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
+      />
+      {/* 右リサイズハンドル */}
+      <rect
+        x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
+        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
+        style={{ cursor: 'ew-resize' }}
+        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
+      />
     </g>
   );
 }

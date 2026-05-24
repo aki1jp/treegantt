@@ -51,7 +51,7 @@ describe('GanttBar 非親タスク', () => {
   });
 });
 
-describe('GanttBar 親タスク（isParent=true）', () => {
+describe('GanttBar 親タスク（isParent=true）— サマリーバーデザイン', () => {
   it('リサイズハンドルが描画されない', () => {
     const { container } = renderBar(true);
     const handles = Array.from(container.querySelectorAll('rect')).filter(
@@ -60,11 +60,15 @@ describe('GanttBar 親タスク（isParent=true）', () => {
     expect(handles.length).toBe(0);
   });
 
-  it('移動ゾーンの cursor は "not-allowed"', () => {
+  it('下向き三角（突起）が左右に2つ描画される', () => {
     const { container } = renderBar(true);
-    const notAllowed = Array.from(container.querySelectorAll('rect')).find(
-      r => (r as HTMLElement).style.cursor === 'not-allowed'
-    );
-    expect(notAllowed).toBeTruthy();
+    const polygons = container.querySelectorAll('polygon');
+    expect(polygons.length).toBe(2);
+  });
+
+  it('サマリーバーの g 要素に cursor: pointer が設定される', () => {
+    const { container } = renderBar(true);
+    const g = container.querySelector('[data-task-id]') as SVGGElement;
+    expect(g?.style.cursor).toBe('pointer');
   });
 });
