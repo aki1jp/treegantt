@@ -544,9 +544,10 @@ interface Props {
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
+  onReorder: (orders: { id: string; order: number }[]) => Promise<void>;
 }
 
-export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask }: Props) {
+export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onReorder }: Props) {
   const {
     tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
@@ -645,12 +646,50 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   // クリティカルパス
   const criticalSet = showCriticalPath ? calcCriticalPath(sorted) : new Set<string>();
 
-  // ── ドラッグ状態 ────────────────────────────────────
+  // ── ドラッグ状態（バー移動・リサイズ） ──────────────
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
+
+  // ── 行 D&D（ソートなし時の並び替え） ─────────────────
+  const [rowDragId,  setRowDragId]  = useState<string | null>(null);
+  const [rowDropIdx, setRowDropIdx] = useState<number | null>(null);
+
+  function handleRowDragStart(e: React.DragEvent, taskId: string) {
+    e.dataTransfer.effectAllowed = 'move';
+    setRowDragId(taskId);
+  }
+
+  function handleRowDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setRowDropIdx(idx);
+  }
+
+  function handleRowDrop(e: React.DragEvent, dropIdx: number) {
+    e.preventDefault();
+    if (!rowDragId) return;
+    const dragIdx = flatRows.findIndex(r => r.task.id === rowDragId);
+    if (dragIdx === -1 || dragIdx === dropIdx) { setRowDragId(null); setRowDropIdx(null); return; }
+
+    // 新しい順序を計算: dragIdx の行を dropIdx の前に挿入
+    const newRows = [...flatRows.map(r => r.task)];
+    const [moved] = newRows.splice(dragIdx, 1);
+    const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
+    newRows.splice(insertAt, 0, moved);
+
+    const orders = newRows.map((t, i) => ({ id: t.id, order: i + 1 }));
+    onReorder(orders);
+    setRowDragId(null);
+    setRowDropIdx(null);
+  }
+
+  function handleRowDragEnd() {
+    setRowDragId(null);
+    setRowDropIdx(null);
+  }
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
@@ -841,23 +880,37 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
         {/* WBS ボディ（垂直スクロールはガントパネルと同期） */}
         <div ref={wbsBodyRef} style={{ flex: 1, overflowY: 'hidden' }}>
-          {flatRows.map(({ task, depth }) => (
-            <GanttLeftRow
+          {flatRows.map(({ task, depth }, idx) => (
+            <div
               key={task.id}
-              task={task}
-              depth={depth}
-              hasChildren={(childCount.get(task.id) ?? 0) > 0}
-              isCollapsed={collapsed.has(task.id)}
-              effectiveProgress={progressMap.get(task.id) ?? task.progress}
-              fontSize={uiFontSize}
-              rowHeight={uiRowHeight}
-              titleWidth={colWidths.title}
-              assigneeWidth={colWidths.assignee}
-              dateColWidth={dateColWidth}
-              onToggleCollapse={() => toggleCollapse(task.id)}
-              onInlineUpdate={onInlineUpdate}
-              onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
-            />
+              draggable={sortKey === ''}
+              onDragStart={sortKey === '' ? (e) => handleRowDragStart(e, task.id) : undefined}
+              onDragOver={sortKey === '' ? (e) => handleRowDragOver(e, idx) : undefined}
+              onDrop={sortKey === '' ? (e) => handleRowDrop(e, idx) : undefined}
+              onDragEnd={handleRowDragEnd}
+              style={{
+                opacity: rowDragId === task.id ? 0.4 : 1,
+                borderTop: rowDropIdx === idx && rowDragId !== task.id
+                  ? '2px solid #4f46e5' : '2px solid transparent',
+                cursor: sortKey === '' ? 'grab' : undefined,
+              }}
+            >
+              <GanttLeftRow
+                task={task}
+                depth={depth}
+                hasChildren={(childCount.get(task.id) ?? 0) > 0}
+                isCollapsed={collapsed.has(task.id)}
+                effectiveProgress={progressMap.get(task.id) ?? task.progress}
+                fontSize={uiFontSize}
+                rowHeight={uiRowHeight}
+                titleWidth={colWidths.title}
+                assigneeWidth={colWidths.assignee}
+                dateColWidth={dateColWidth}
+                onToggleCollapse={() => toggleCollapse(task.id)}
+                onInlineUpdate={onInlineUpdate}
+                onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
+              />
+            </div>
           ))}
           <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
         </div>

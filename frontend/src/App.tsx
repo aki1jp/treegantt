@@ -26,7 +26,7 @@ export default function App() {
   // WebSocket: プロジェクトのリアルタイム同期
   useWebSocket(currentProject?.id ?? null);
 
-  const { createTask, updateTask, deleteTask } = useTasks(currentProject?.id ?? '');
+  const { createTask, updateTask, deleteTask, reorderTasks } = useTasks(currentProject?.id ?? '');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -240,6 +240,7 @@ export default function App() {
               onInlineUpdate={handleInlineUpdate}
               onQuickAdd={handleQuickAdd}
               onAddSubTask={handleAddSubTask}
+              onReorder={reorderTasks}
             />
           </div>
         </>
