@@ -68,6 +68,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
 
   const selectableTasks = allTasks.filter(t => t.id !== task?.id);
   const parentCandidates = selectableTasks.filter(t => !t.isMilestone);
+  const hasChildren = task ? allTasks.some(t => t.parentId === task.id) : false;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -207,12 +208,22 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div style={FIELD}>
-              <label style={LABEL}>開始日</label>
-              <input style={INPUT} type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+              <label style={LABEL}>
+                開始日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
+              </label>
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" value={startDate}
+                disabled={hasChildren}
+                onChange={e => setStartDate(e.target.value)}
+                title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
             </div>
             <div style={FIELD}>
-              <label style={LABEL}>終了日</label>
-              <input style={INPUT} type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              <label style={LABEL}>
+                終了日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
+              </label>
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" value={endDate}
+                disabled={hasChildren}
+                onChange={e => setEndDate(e.target.value)}
+                title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
             </div>
           </div>
 

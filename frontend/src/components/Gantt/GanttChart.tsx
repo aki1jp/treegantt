@@ -415,14 +415,15 @@ function GanttLeftRow({
 
       {/* 開始日 */}
       <div style={{ ...CELL, width: dateColWidth }}>
-        {editField === 'startDate' ? (
+        {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             onChange={e => setEditVal(e.target.value)}
             onBlur={() => commit('startDate', editVal || null)}
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
         ) : (
-          <span onClick={() => startEdit('startDate', task.startDate ?? '')}
-            style={{ cursor: 'text', color: task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
+          <span onClick={() => !hasChildren && startEdit('startDate', task.startDate ?? '')}
+            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
+            style={{ cursor: hasChildren ? 'default' : 'text', color: task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
             {task.startDate ?? '—'}
           </span>
         )}
@@ -430,14 +431,15 @@ function GanttLeftRow({
 
       {/* 終了日 */}
       <div style={{ ...CELL, width: dateColWidth }}>
-        {editField === 'endDate' ? (
+        {!hasChildren && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             onChange={e => setEditVal(e.target.value)}
             onBlur={() => commit('endDate', editVal || null)}
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
         ) : (
-          <span onClick={() => startEdit('endDate', task.endDate ?? '')}
-            style={{ cursor: 'text', color: task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
+          <span onClick={() => !hasChildren && startEdit('endDate', task.endDate ?? '')}
+            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
+            style={{ cursor: hasChildren ? 'default' : 'text', color: task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
             {task.endDate ?? '—'}
           </span>
         )}
@@ -445,7 +447,7 @@ function GanttLeftRow({
 
       {/* 期間（日数） */}
       <div style={{ ...CELL, width: 50 }}>
-        {editField === 'duration' ? (
+        {!hasChildren && editField === 'duration' ? (
           <input ref={inputRef}
             style={{ ...INPUT_S, width: 38 }} type="number" min={1} value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -457,10 +459,11 @@ function GanttLeftRow({
         ) : (
           <span
             onClick={() => {
-              if (task.startDate) startEdit('duration', String(duration ?? ''));
+              if (!hasChildren && task.startDate) startEdit('duration', String(duration ?? ''));
             }}
+            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
             style={{
-              cursor: task.startDate ? 'text' : 'default',
+              cursor: (!hasChildren && task.startDate) ? 'text' : 'default',
               color: duration !== null ? 'var(--th-text2)' : 'var(--th-text-ph)',
             }}>
             {duration !== null ? duration : '—'}
@@ -935,6 +938,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* タスクバー */}
             {flatRows.map(({ task }, i) => {
               const preview = dragPreview?.taskId === task.id ? dragPreview : null;
+              const isParent = (childCount.get(task.id) ?? 0) > 0;
               return (
                 <GanttBar
                   key={task.id}
@@ -945,9 +949,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   isCritical={criticalSet.has(task.id)}
                   dragPreview={preview}
                   rowHeight={uiRowHeight}
-                  onMoveStart={(e, id) => startDrag(e, id, 'move')}
-                  onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}
-                  onResizeRightStart={(e, id) => startDrag(e, id, 'resize-right')}
+                  onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
+                  onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
+                  onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}
                   onClick={() => !dragState && onEditTask(task)}
                 />
               );
