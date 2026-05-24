@@ -928,7 +928,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   rowIndex={i}
                   isCritical={criticalSet.has(task.id)}
                   dragPreview={preview}
-                  fontSize={uiFontSize}
                   rowHeight={uiRowHeight}
                   onMoveStart={(e, id) => startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => startDrag(e, id, 'resize-left')}

@@ -8,7 +8,6 @@ interface Props {
   rowIndex: number;
   isCritical?: boolean;
   dragPreview?: { startDate: string; endDate: string } | null;
-  fontSize?: number;
   rowHeight?: number;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
@@ -24,7 +23,7 @@ const TODAY = new Date().toISOString().slice(0, 10);
 const HANDLE_W = 6;
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, dragPreview, fontSize = 11, rowHeight = ROW_HEIGHT_PX,
+  task, minDate, zoom, rowIndex, isCritical, dragPreview, rowHeight = ROW_HEIGHT_PX,
   onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
@@ -36,6 +35,9 @@ export function GanttBar({
   const color = STATUS_COLOR[task.status];
   const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done';
   const centerY = rowIndex * rowHeight + rowHeight / 2;
+  const barHeight = rowHeight - 12;
+  // バー高さに比例したフォントサイズ（行高さを大きくすると文字も大きくなる）
+  const barFontSize = Math.max(11, Math.min(15, Math.round(barHeight * 0.58)));
 
   // ── マイルストーン描画 ──────────────────────────────
   if (task.isMilestone) {
@@ -51,7 +53,7 @@ export function GanttBar({
           strokeWidth={isOverdue ? 2.5 : isCritical ? 2 : 1.5}
           onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
         />
-        <text x={cx + r + 5} y={centerY + 4} fontSize={fontSize} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
+        <text x={cx + r + 5} y={centerY + 4} fontSize={barFontSize} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
           {task.title}
         </text>
         <rect
@@ -69,7 +71,6 @@ export function GanttBar({
   const endX = dateToX(effectiveEnd, minDate, zoom) + dayWidth;
   const width = Math.max(endX - x, dayWidth);
   const y = rowIndex * rowHeight + 6;
-  const barHeight = rowHeight - 12;
   const progressWidth = Math.round(width * task.progress / 100);
 
   return (
@@ -89,7 +90,7 @@ export function GanttBar({
           fill={color + 'aa'} style={{ pointerEvents: 'none' }} />
       )}
       {/* タイトル */}
-      <text x={x + HANDLE_W + 2} y={y + barHeight / 2 + 4} fontSize={fontSize} fill={color} fontWeight={600}
+      <text x={x + HANDLE_W + 2} y={y + barHeight / 2 + 4} fontSize={barFontSize} fill={color} fontWeight={600}
         clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
         {task.title}
       </text>
