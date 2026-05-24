@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
@@ -102,29 +102,17 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
     setGanttBarOpen,
   } = useTaskStore();
 
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [menuOpen,   setMenuOpen]   = useState(false);
-  const [filterPos,  setFilterPos]  = useState<{ top: number; left: number } | null>(null);
-  const [menuPos,    setMenuPos]    = useState<{ top: number; right: number } | null>(null);
-  const filterRef = useRef<HTMLDivElement>(null);
-  const menuRef   = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos,  setMenuPos]  = useState<{ top: number; right: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
-      if (menuRef.current   && !menuRef.current.contains(e.target as Node))   setMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
-    if (filterOpen || menuOpen) document.addEventListener('mousedown', onOutside);
+    if (menuOpen) document.addEventListener('mousedown', onOutside);
     return () => document.removeEventListener('mousedown', onOutside);
-  }, [filterOpen, menuOpen]);
-
-  function openFilter() {
-    if (!filterOpen && filterRef.current) {
-      const r = filterRef.current.getBoundingClientRect();
-      setFilterPos({ top: r.bottom + 4, left: r.left });
-    }
-    setFilterOpen(v => !v);
-  }
+  }, [menuOpen]);
 
   function openMenu() {
     if (!menuOpen && menuRef.current) {
@@ -134,7 +122,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
     setMenuOpen(v => !v);
   }
 
-  const activeCount = [
+  const activeFilterCount = [
     filterStatus !== '',
     filterPriority !== '',
     filterAssignee !== '',
@@ -176,67 +164,6 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
               outline: filterSearch ? '2px solid #4f46e5' : undefined,
             }}
           />
-        </div>
-
-        <div style={DIVIDER} />
-
-        {/* フィルタ ▼ */}
-        <div style={{ position: 'relative' }} ref={filterRef}>
-          <button
-            style={{
-              ...BTN,
-              background: activeCount > 0 ? '#ede9fe' : 'var(--th-bg)',
-              color: activeCount > 0 ? '#4f46e5' : 'var(--th-text2)',
-              border: `1px solid ${activeCount > 0 ? '#a5b4fc' : 'var(--th-input-border)'}`,
-              display: 'flex', alignItems: 'center', gap: 5,
-            }}
-            onClick={openFilter}
-          >
-            フィルタ
-            {activeCount > 0 && (
-              <span style={{
-                background: '#4f46e5', color: '#fff', borderRadius: '50%',
-                width: 16, height: 16, fontSize: 10, fontWeight: 700,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              }}>{activeCount}</span>
-            )}
-          </button>
-
-          {filterOpen && filterPos && (
-            <div style={{
-              position: 'fixed', top: filterPos.top, left: filterPos.left, zIndex: 1000,
-              ...dropdownStyle, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10,
-              minWidth: 220,
-            }}>
-              <div style={FILTER_GROUP}>
-                <span style={{ ...LABEL, width: 46 }}>ステータス</span>
-                <select style={SELECT} value={filterStatus}
-                  onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
-                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-              <div style={FILTER_GROUP}>
-                <span style={{ ...LABEL, width: 46 }}>優先度</span>
-                <select style={SELECT} value={filterPriority}
-                  onChange={e => setFilter({ filterPriority: e.target.value })}>
-                  {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-              <div style={FILTER_GROUP}>
-                <span style={{ ...LABEL, width: 46 }}>担当者</span>
-                <input style={{ ...SELECT, width: 120 }} placeholder="部分一致" value={filterAssignee}
-                  onChange={e => setFilter({ filterAssignee: e.target.value })} />
-              </div>
-              {activeCount > 0 && (
-                <button
-                  style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)', alignSelf: 'flex-end' }}
-                  onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '' })}
-                >
-                  クリア
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         <div style={DIVIDER} />
@@ -293,12 +220,50 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
         </div>
       </div>
 
-      {/* ── 行2: ガント表示設定（折りたたみ可） ── */}
+      {/* ── 行2: フィルタ + ガント表示設定（折りたたみ可・複数行対応） ── */}
       {ganttBarOpen && (
         <div
           data-testid="toolbar-row2"
-          style={{ ...ROW, height: 40, borderTop: '1px solid var(--th-border)' }}
+          style={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6,
+            padding: '6px 14px', borderTop: '1px solid var(--th-border)',
+          }}
         >
+          {/* フィルタ（インライン直列） */}
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>ステータス</span>
+            <select style={SELECT} value={filterStatus}
+              onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
+              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>優先度</span>
+            <select style={SELECT} value={filterPriority}
+              onChange={e => setFilter({ filterPriority: e.target.value })}>
+              {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>担当者</span>
+            <input style={{ ...SELECT, width: 100 }} placeholder="部分一致" value={filterAssignee}
+              onChange={e => setFilter({ filterAssignee: e.target.value })} />
+          </div>
+
+          {activeFilterCount > 0 && (
+            <button
+              style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
+              onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '' })}
+              title="フィルタをクリア"
+            >
+              ✕ クリア
+            </button>
+          )}
+
+          <div style={DIVIDER} />
+
           {/* ズーム */}
           <div style={FILTER_GROUP}>
             <span style={LABEL}>ズーム</span>
