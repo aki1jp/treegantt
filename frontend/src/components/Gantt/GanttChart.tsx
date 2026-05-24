@@ -77,8 +77,10 @@ function calcDuration(start: string | null, end: string | null): number | null {
 }
 
 // ── マルチレベルヘッダー構築 ─────────────────────────
+const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+
 type HeaderCell = { label: string; x: number; width: number; dow?: number };
-type HeaderRow = { level: 'year' | 'month' | 'week' | 'day'; cells: HeaderCell[] };
+type HeaderRow = { level: 'year' | 'month' | 'week' | 'day' | 'dow'; cells: HeaderCell[] };
 
 function buildMultiLevelHeaders(
   min: Date, max: Date, zoom: ZoomLevel,
@@ -133,15 +135,19 @@ function buildMultiLevelHeaders(
   }
 
   if (levels.day) {
-    const cells: HeaderRow['cells'] = [];
+    const dayCells: HeaderRow['cells'] = [];
+    const dowCells: HeaderRow['cells'] = [];
     let cur = dayjs(min);
     const end = dayjs(max);
     while (cur.isBefore(end)) {
       const x = toX(cur);
-      cells.push({ label: cur.format('D'), x, width: dayWidth, dow: cur.day() });
+      const dow = cur.day();
+      dayCells.push({ label: cur.format('D'), x, width: dayWidth, dow });
+      dowCells.push({ label: DOW_LABELS[dow], x, width: dayWidth, dow });
       cur = cur.add(1, 'day');
     }
-    rows.push({ level: 'day', cells });
+    rows.push({ level: 'day', cells: dayCells });
+    rows.push({ level: 'dow', cells: dowCells });
   }
 
   return rows;
@@ -853,8 +859,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined,
               }}>
                 {row.cells.map((cell, ci) => {
-                  const isSat = row.level === 'day' && cell.dow === 6;
-                  const isSun = row.level === 'day' && cell.dow === 0;
+                  const isSat = (row.level === 'day' || row.level === 'dow') && cell.dow === 6;
+                  const isSun = (row.level === 'day' || row.level === 'dow') && cell.dow === 0;
                   const bg = isSat
                     ? 'rgba(59,130,246,0.18)'
                     : isSun
@@ -863,35 +869,23 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   return (
                     <div
                       key={ci}
-                      data-dow={row.level === 'day' ? cell.dow : undefined}
+                      data-dow={row.level === 'dow' ? cell.dow : undefined}
                       style={{
                         position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
                         background: bg,
                         borderRight: '1px solid var(--th-border)',
-                        display: 'flex',
-                        flexDirection: row.level === 'day' ? 'column' : 'row',
-                        alignItems: 'center',
-                        justifyContent: row.level === 'day' ? 'center' : undefined,
-                        paddingLeft: row.level === 'day' ? 0 : 4,
-                        fontSize: row.level === 'day' ? 9 : 10,
+                        display: 'flex', alignItems: 'center',
+                        justifyContent: (row.level === 'day' || row.level === 'dow') ? 'center' : undefined,
+                        paddingLeft: (row.level === 'day' || row.level === 'dow') ? 0 : 4,
+                        fontSize: row.level === 'dow' ? 10 : row.level === 'day' ? 10 : 10,
                         fontWeight: row.level === 'year' ? 800 : 600,
-                        color: row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
+                        color: row.level === 'dow'
+                          ? (isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)')
+                          : row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
                         boxSizing: 'border-box', overflow: 'hidden',
                       }}
                     >
-                      {row.level === 'day' ? (
-                        <>
-                          <span style={{ lineHeight: 1 }}>{cell.label}</span>
-                          {dayWidth >= 20 && (
-                            <span style={{
-                              fontSize: 7, lineHeight: 1,
-                              color: isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)',
-                            }}>
-                              {['日','月','火','水','木','金','土'][cell.dow!]}
-                            </span>
-                          )}
-                        </>
-                      ) : cell.label}
+                      {cell.label}
                     </div>
                   );
                 })}
