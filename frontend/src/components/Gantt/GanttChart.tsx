@@ -919,7 +919,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         <div style={{ width: totalWidth }}>
 
           {/* ガントヘッダー（マルチレベル・sticky） */}
-          <div style={{
+          <div data-testid="gantt-header" style={{
             position: 'sticky', top: 0, zIndex: 20,
             borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
           }}>

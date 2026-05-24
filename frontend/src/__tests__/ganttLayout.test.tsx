@@ -88,6 +88,22 @@ describe('GanttChart スクロール分離レイアウト', () => {
     expect(wbsHeader.style.height).toBe(`${expectedRows * HEADER_ROW_H + 2}px`);
   });
 
+  it('ガントヘッダーに data-testid="gantt-header" が存在する', () => {
+    const { getByTestId } = renderChart();
+    expect(getByTestId('gantt-header')).toBeTruthy();
+  });
+
+  it('ガントヘッダーの内行すべてに boxSizing:border-box が設定されている', () => {
+    // borderTop:1px が付く ri>0 の行も合計高さ26pxになるよう border-box が必須
+    const { getByTestId } = renderChart();
+    const ganttHeader = getByTestId('gantt-header') as HTMLElement;
+    const innerRows = Array.from(ganttHeader.children) as HTMLElement[];
+    expect(innerRows.length).toBeGreaterThan(0);
+    innerRows.forEach(row => {
+      expect(row.style.boxSizing).toBe('border-box');
+    });
+  });
+
   it('WBSパネル上でホイール操作するとガントパネルの scrollTop が変化する', () => {
     const { getByTestId } = renderChart();
     const wbs  = getByTestId('wbs-panel') as HTMLElement;
