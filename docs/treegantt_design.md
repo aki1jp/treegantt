@@ -32,6 +32,7 @@
 | 2.6 | 2026年5月 | WBSヘッダー高さ式を修正（`n×HEADER_ROW_H + 2`）。グローバル `box-sizing: border-box` により `borderBottom:2px` が `height` 内に含まれることを考慮し、ガントstickyヘッダー（`n×26 + 2px` auto-height）と一致させる。 |
 | 2.7 | 2026年5月 | 親タスクの日付・期間セルを視覚的非インタラクティブ化（WBS: テキスト色をvar(--th-text-dim)に変更）。ガントバーの親タスクリサイズハンドルを非表示にし `cursor:not-allowed` を適用。 |
 | 2.8 | 2026年5月 | WBSインライン編集中のテキスト選択（マウスドラッグ）で行D&Dが発動するバグを修正。`handleRowDragStart` でイベントのターゲットが `INPUT`/`SELECT`/`TEXTAREA` のとき `e.preventDefault()` でドラッグをキャンセル。 |
+| 2.9 | 2026年5月 | v2.8修正: ブラウザが `dragstart` を draggable 行ラッパー自身に対して発火するため `e.target` ではなく `document.activeElement` で判定するように修正。 |
 
 ---
 
@@ -816,20 +817,23 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 垂直スクロールはガント右パネルの `onScroll` で WBS 左パネルの `scrollTop` を同期する（1行の JS）。
 旧実装（`position: sticky; left: 0`）ではスクロールバーが WBS 幅まで及んでいたため廃止。
 
-**★v2.8追加 — WBS行D&D中のインライン編集テキスト選択干渉対策:**
+**★v2.8追加（v2.9修正） — WBS行D&D中のインライン編集テキスト選択干渉対策:**
 
-WBS行は `draggable` 属性でD&Dを実現している。インライン編集中（タイトル・担当者等の `<input>` にフォーカスがある状態）にテキストをマウスドラッグで選択しようとすると、ブラウザが行D&Dの `dragstart` を発火してしまうことがある。
+WBS行は `draggable` 属性でD&Dを実現している。インライン編集中（タイトル・担当者等の `<input>` にフォーカスがある状態）にテキストをマウスドラッグで選択しようとすると、ブラウザが行D&Dの `dragstart` を発火してしまう。
 
-`handleRowDragStart` の先頭で `e.target` を確認し、`INPUT` / `SELECT` / `TEXTAREA` の場合は `e.preventDefault()` でドラッグをキャンセルする。これにより入力フィールド内での文字選択が正常に動作する。
+**実装上の注意**: `dragstart` イベントはブラウザが draggable 要素（行ラッパー `<div>`）を起点として発火する。そのため `e.target` は行ラッパー自身になり、子要素の `<input>` を `e.target` で検出することはできない。
+
+正しいアプローチは `document.activeElement` を確認すること。インライン編集中は `<input>` がフォーカスを持つため、`activeElement.tagName` で判定できる。
 
 ```typescript
 function handleRowDragStart(e: React.DragEvent, taskId: string) {
-  const tag = (e.target as HTMLElement).tagName;
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+  const active = document.activeElement;
+  const tag = active?.tagName ?? '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
     e.preventDefault();
     return;
   }
-  e.dataTransfer.effectAllowed = 'move';
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   setRowDragId(taskId);
 }
 ```
