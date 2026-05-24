@@ -9,8 +9,6 @@ export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; 
 interface TaskStore {
   tasks:              Task[];
   needsReload:        boolean;
-  sortKey:            keyof Task | '' | 'deps';
-  sortDir:            'asc' | 'desc';
   filterStatus:       TaskStatus | '' | '!done';
   filterAssignee:     string;
   filterPriority:     string;
@@ -29,9 +27,6 @@ interface TaskStore {
   ganttBarOpen:       boolean;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
-  setSortKey:             (key: keyof Task | 'deps') => void;
-  toggleSortDir:          () => void;
-  resetSort:              () => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
   setZoomLevel:           (z: ZoomLevel) => void;
   setGanttRange:          (startDate: string, period: GanttPeriod) => void;
@@ -52,8 +47,6 @@ export const useTaskStore = create<TaskStore>()(
     (set) => ({
       tasks:              [],
       needsReload:        false,
-      sortKey:            '',
-      sortDir:            'asc',
       filterStatus:       '' as TaskStatus | '' | '!done',
       filterAssignee:     '',
       filterPriority:     '',
@@ -72,13 +65,6 @@ export const useTaskStore = create<TaskStore>()(
       ganttBarOpen:       true,
       setTasks:               (tasks) => set({ tasks }),
       setNeedsReload:         (needsReload) => set({ needsReload }),
-      setSortKey:             (key) =>
-        set((s) => ({
-          sortKey: key,
-          sortDir: key === 'deps' ? 'asc' : (s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc'),
-        })),
-      toggleSortDir:          () => set((s) => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' })),
-      resetSort:              () => set({ sortKey: '', sortDir: 'asc' }),
       setFilter:              (filter) => set((s) => ({ ...s, ...filter })),
       setZoomLevel:           (zoomLevel) => set({ zoomLevel }),
       setGanttRange:          (ganttStartDate, ganttPeriod) => set({ ganttStartDate, ganttPeriod }),

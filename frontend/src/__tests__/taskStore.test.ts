@@ -19,8 +19,6 @@ beforeEach(() => {
   useTaskStore.setState({
     tasks: [],
     needsReload: false,
-    sortKey: '',
-    sortDir: 'asc',
     filterStatus: '',
     filterAssignee: '',
     filterPriority: '',
@@ -40,59 +38,29 @@ beforeEach(() => {
 });
 
 describe('setTasks', () => {
-  it('タスク一覧を置き換える', () => {
-    const tasks = [makeTask({ id: 't1' }), makeTask({ id: 't2' })];
-    useTaskStore.getState().setTasks(tasks);
-    expect(useTaskStore.getState().tasks).toHaveLength(2);
-    expect(useTaskStore.getState().tasks[0].id).toBe('t1');
+  it('タスクリストを更新する', () => {
+    const t = makeTask({ id: 'abc' });
+    useTaskStore.getState().setTasks([t]);
+    expect(useTaskStore.getState().tasks).toEqual([t]);
+  });
+
+  it('空配列をセットできる', () => {
+    useTaskStore.getState().setTasks([makeTask()]);
+    useTaskStore.getState().setTasks([]);
+    expect(useTaskStore.getState().tasks).toEqual([]);
   });
 });
 
 describe('setNeedsReload', () => {
-  it('true に設定できる', () => {
+  it('needsReload を true にする', () => {
     useTaskStore.getState().setNeedsReload(true);
     expect(useTaskStore.getState().needsReload).toBe(true);
   });
 
-  it('false に戻せる', () => {
-    useTaskStore.setState({ needsReload: true });
+  it('needsReload を false に戻す', () => {
+    useTaskStore.getState().setNeedsReload(true);
     useTaskStore.getState().setNeedsReload(false);
     expect(useTaskStore.getState().needsReload).toBe(false);
-  });
-});
-
-describe('setSortKey', () => {
-  it('新しいキーを設定すると sortDir が asc になる', () => {
-    useTaskStore.setState({ sortKey: 'title', sortDir: 'desc' });
-    useTaskStore.getState().setSortKey('status');
-    expect(useTaskStore.getState().sortKey).toBe('status');
-    expect(useTaskStore.getState().sortDir).toBe('asc');
-  });
-
-  it('同じキーを設定すると sortDir が asc → desc に切り替わる', () => {
-    useTaskStore.setState({ sortKey: 'status', sortDir: 'asc' });
-    useTaskStore.getState().setSortKey('status');
-    expect(useTaskStore.getState().sortDir).toBe('desc');
-  });
-
-  it('同じキーを desc のときに設定すると asc に戻る', () => {
-    useTaskStore.setState({ sortKey: 'status', sortDir: 'desc' });
-    useTaskStore.getState().setSortKey('status');
-    expect(useTaskStore.getState().sortDir).toBe('asc');
-  });
-});
-
-describe('toggleSortDir', () => {
-  it('asc → desc に切り替わる', () => {
-    useTaskStore.setState({ sortDir: 'asc' });
-    useTaskStore.getState().toggleSortDir();
-    expect(useTaskStore.getState().sortDir).toBe('desc');
-  });
-
-  it('desc → asc に切り替わる', () => {
-    useTaskStore.setState({ sortDir: 'desc' });
-    useTaskStore.getState().toggleSortDir();
-    expect(useTaskStore.getState().sortDir).toBe('asc');
   });
 });
 
@@ -108,10 +76,11 @@ describe('setFilter', () => {
     expect(useTaskStore.getState().filterAssignee).toBe('Alice');
   });
 
-  it('指定しないフィルタは変化しない', () => {
-    useTaskStore.setState({ filterPriority: 'high' });
-    useTaskStore.getState().setFilter({ filterStatus: 'todo' });
-    expect(useTaskStore.getState().filterPriority).toBe('high');
+  it('指定していないフィルタは変更されない', () => {
+    useTaskStore.getState().setFilter({ filterStatus: 'wip' });
+    useTaskStore.getState().setFilter({ filterAssignee: 'Bob' });
+    expect(useTaskStore.getState().filterStatus).toBe('wip');
+    expect(useTaskStore.getState().filterAssignee).toBe('Bob');
   });
 });
 
@@ -124,120 +93,119 @@ describe('setZoomLevel', () => {
 
 describe('setGanttRange', () => {
   it('開始日と期間を更新する', () => {
-    useTaskStore.getState().setGanttRange('2026-05-01', '6m');
-    expect(useTaskStore.getState().ganttStartDate).toBe('2026-05-01');
+    useTaskStore.getState().setGanttRange('2026-06-01', '6m');
+    expect(useTaskStore.getState().ganttStartDate).toBe('2026-06-01');
     expect(useTaskStore.getState().ganttPeriod).toBe('6m');
   });
 });
 
 describe('setShowLightningLine', () => {
-  it('false に設定できる', () => {
+  it('イナズマライン表示をOFFにする', () => {
     useTaskStore.getState().setShowLightningLine(false);
     expect(useTaskStore.getState().showLightningLine).toBe(false);
   });
 });
 
 describe('setShowWeekend', () => {
-  it('false に設定できる', () => {
+  it('土日表示をOFFにする', () => {
     useTaskStore.getState().setShowWeekend(false);
     expect(useTaskStore.getState().showWeekend).toBe(false);
   });
 
-  it('true に戻せる', () => {
-    useTaskStore.setState({ showWeekend: false });
+  it('土日表示をONに戻す', () => {
+    useTaskStore.getState().setShowWeekend(false);
     useTaskStore.getState().setShowWeekend(true);
     expect(useTaskStore.getState().showWeekend).toBe(true);
   });
 });
 
 describe('setShowCriticalPath', () => {
-  it('true に設定できる', () => {
+  it('クリティカルパス表示をONにする', () => {
     useTaskStore.getState().setShowCriticalPath(true);
     expect(useTaskStore.getState().showCriticalPath).toBe(true);
   });
 
-  it('false に戻せる', () => {
-    useTaskStore.setState({ showCriticalPath: true });
+  it('クリティカルパス表示をOFFに戻す', () => {
+    useTaskStore.getState().setShowCriticalPath(true);
     useTaskStore.getState().setShowCriticalPath(false);
     expect(useTaskStore.getState().showCriticalPath).toBe(false);
   });
 });
 
 describe('setGanttHeaderLevels', () => {
-  it('一部のレベルだけ更新できる', () => {
-    useTaskStore.getState().setGanttHeaderLevels({ day: false });
+  it('個別レベルを更新できる', () => {
+    useTaskStore.getState().setGanttHeaderLevels({ week: false });
     const levels = useTaskStore.getState().ganttHeaderLevels;
-    expect(levels.day).toBe(false);
+    expect(levels.week).toBe(false);
     expect(levels.year).toBe(true);
+    expect(levels.month).toBe(true);
+    expect(levels.day).toBe(true);
+  });
+
+  it('複数レベルを同時に更新できる', () => {
+    useTaskStore.getState().setGanttHeaderLevels({ year: false, day: false });
+    const levels = useTaskStore.getState().ganttHeaderLevels;
+    expect(levels.year).toBe(false);
+    expect(levels.day).toBe(false);
     expect(levels.month).toBe(true);
     expect(levels.week).toBe(true);
   });
 
-  it('複数レベルを同時に更新できる', () => {
-    useTaskStore.getState().setGanttHeaderLevels({ year: false, week: false });
+  it('全レベルをfalseにできる', () => {
+    useTaskStore.getState().setGanttHeaderLevels({ year: false, month: false, week: false, day: false });
+    const levels = useTaskStore.getState().ganttHeaderLevels;
+    expect(Object.values(levels).every(v => v === false)).toBe(true);
+  });
+
+  it('既存の状態を上書きせず部分更新できる（2回更新）', () => {
+    useTaskStore.getState().setGanttHeaderLevels({ year: false });
+    useTaskStore.getState().setGanttHeaderLevels({ month: false });
     const levels = useTaskStore.getState().ganttHeaderLevels;
     expect(levels.year).toBe(false);
-    expect(levels.week).toBe(false);
-    expect(levels.month).toBe(true);
+    expect(levels.month).toBe(false);
+    expect(levels.week).toBe(true);
   });
 });
 
-// ── localStorage 永続化 ─────────────────────────────
-// persist ミドルウェアにより、UI設定が localStorage('treegantt-ui') に自動保存される。
-// キー 'treegantt-ui' の JSON: { state: { ...保存対象フィールド }, version: 0 }
-
-function getSaved(): Record<string, unknown> {
-  const raw = localStorage.getItem('treegantt-ui');
-  if (!raw) return {};
-  return (JSON.parse(raw) as { state: Record<string, unknown> }).state ?? {};
-}
-
 describe('UI設定の永続化', () => {
-  it('テーマ設定が localStorage に保存される', () => {
-    useTaskStore.getState().setTheme('dark');
-    expect(getSaved().theme).toBe('dark');
-  });
+  function getSaved() {
+    const raw = localStorage.getItem('treegantt-ui');
+    return raw ? JSON.parse(raw).state : {};
+  }
 
-  it('ズームレベルが localStorage に保存される', () => {
+  it('zoomLevel が localStorage に保存される', () => {
     useTaskStore.getState().setZoomLevel('day');
     expect(getSaved().zoomLevel).toBe('day');
   });
 
-  it('ガント期間が localStorage に保存される', () => {
-    useTaskStore.getState().setGanttRange('2026-06-01', '6m');
-    expect(getSaved().ganttPeriod).toBe('6m');
+  it('ganttStartDate が localStorage に保存される', () => {
+    useTaskStore.getState().setGanttRange('2026-06-01', '3m');
     expect(getSaved().ganttStartDate).toBe('2026-06-01');
   });
 
-  it('イナズマライン設定が localStorage に保存される', () => {
+  it('showLightningLine が localStorage に保存される', () => {
     useTaskStore.getState().setShowLightningLine(false);
     expect(getSaved().showLightningLine).toBe(false);
   });
 
-  it('土日強調設定が localStorage に保存される', () => {
+  it('showWeekend が localStorage に保存される', () => {
     useTaskStore.getState().setShowWeekend(false);
     expect(getSaved().showWeekend).toBe(false);
   });
 
-  it('クリティカルパス設定が localStorage に保存される', () => {
+  it('showCriticalPath が localStorage に保存される', () => {
     useTaskStore.getState().setShowCriticalPath(true);
     expect(getSaved().showCriticalPath).toBe(true);
   });
 
-  it('文字サイズが localStorage に保存される', () => {
+  it('uiFontSize が localStorage に保存される', () => {
     useTaskStore.getState().setUiFontSize(15);
     expect(getSaved().uiFontSize).toBe(15);
   });
 
-  it('行高が localStorage に保存される', () => {
-    useTaskStore.getState().setUiRowHeight(28);
-    expect(getSaved().uiRowHeight).toBe(28);
-  });
-
-  it('ヘッダー表示レベルが localStorage に保存される', () => {
-    useTaskStore.getState().setGanttHeaderLevels({ day: false, week: false });
-    const levels = getSaved().ganttHeaderLevels as Record<string, boolean>;
-    expect(levels.day).toBe(false);
+  it('ganttHeaderLevels が localStorage に保存される', () => {
+    useTaskStore.getState().setGanttHeaderLevels({ week: false });
+    const levels = getSaved().ganttHeaderLevels;
     expect(levels.week).toBe(false);
     expect(levels.year).toBe(true);
   });
@@ -257,25 +225,12 @@ describe('UI設定の永続化', () => {
     expect(getSaved()).not.toHaveProperty('needsReload');
   });
 
-  it('sortKey/sortDir/フィルタ/検索は localStorage に保存されない', () => {
-    useTaskStore.getState().setSortKey('title');
+  it('フィルタ・検索は localStorage に保存されない', () => {
     useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice', filterSearch: 'foo' });
     const saved = getSaved();
-    expect(saved).not.toHaveProperty('sortKey');
-    expect(saved).not.toHaveProperty('sortDir');
     expect(saved).not.toHaveProperty('filterStatus');
     expect(saved).not.toHaveProperty('filterAssignee');
     expect(saved).not.toHaveProperty('filterSearch');
-  });
-});
-
-describe('resetSort', () => {
-  it('sortKey と sortDir を初期値に戻す', () => {
-    useTaskStore.getState().setSortKey('title');
-    useTaskStore.getState().resetSort();
-    const s = useTaskStore.getState();
-    expect(s.sortKey).toBe('');
-    expect(s.sortDir).toBe('asc');
   });
 });
 

@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import type { Task, TaskStatus, TaskPriority, ZoomLevel } from '../../types/task';
 import { useTaskStore } from '../../store/taskStore';
-import { sortAndFilter } from '../../utils/sort';
+import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcTodayX, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG,
@@ -549,13 +549,12 @@ interface Props {
 
 export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onReorder }: Props) {
   const {
-    tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, filterSearch,
+    tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
-    setSortKey,
   } = useTaskStore();
 
-  const sorted = sortAndFilter(tasks, sortKey, sortDir, filterStatus, filterAssignee, filterPriority, filterSearch);
+  const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch);
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
   const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });
@@ -836,10 +835,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             return (
               <div
                 key={col.key}
-                style={{ ...TH, width: w, cursor: col.sortable ? 'pointer' : 'default',
+                style={{ ...TH, width: w,
                   position: resizable ? 'relative' : undefined,
                   justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
-                onClick={() => col.sortable && setSortKey(col.key as keyof Task)}
               >
                 {isTitleCol && childCount.size > 0 && (
                   <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
@@ -861,7 +859,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   </div>
                 )}
                 {col.label}
-                {sortKey === col.key && <span style={{ marginLeft: 2 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
                 {resizable && (
                   <div
                     style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
@@ -883,16 +880,16 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           {flatRows.map(({ task, depth }, idx) => (
             <div
               key={task.id}
-              draggable={sortKey === ''}
-              onDragStart={sortKey === '' ? (e) => handleRowDragStart(e, task.id) : undefined}
-              onDragOver={sortKey === '' ? (e) => handleRowDragOver(e, idx) : undefined}
-              onDrop={sortKey === '' ? (e) => handleRowDrop(e, idx) : undefined}
+              draggable
+              onDragStart={(e) => handleRowDragStart(e, task.id)}
+              onDragOver={(e) => handleRowDragOver(e, idx)}
+              onDrop={(e) => handleRowDrop(e, idx)}
               onDragEnd={handleRowDragEnd}
               style={{
                 opacity: rowDragId === task.id ? 0.4 : 1,
                 borderTop: rowDropIdx === idx && rowDragId !== task.id
                   ? '2px solid #4f46e5' : '2px solid transparent',
-                cursor: sortKey === '' ? 'grab' : undefined,
+                cursor: 'grab',
               }}
             >
               <GanttLeftRow

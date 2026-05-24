@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Task } from '../types/task';
-import { sortAndFilter } from '../utils/sort';
+import { filterTasks } from '../utils/sort';
 import {
   calcGanttRange,
   calcLightningPoints,
@@ -885,41 +885,41 @@ describe('§7 フィルタ・ソート', () => {
 
   describe('ステータスフィルタ', () => {
     it('空文字 → 全件返す', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', '')).toHaveLength(4);
+      expect(filterTasks(tasks(), '', '', '')).toHaveLength(4);
     });
 
     it('todo → todo のみ 1 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'todo', '', '');
+      const r = filterTasks(tasks(), 'todo', '', '');
       expect(r).toHaveLength(1);
       expect(r[0].status).toBe('todo');
     });
 
     it('wip → wip のみ 1 件（DB 値は wip、表示ラベルは Doing）', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'wip', '', '');
+      const r = filterTasks(tasks(), 'wip', '', '');
       expect(r).toHaveLength(1);
       expect(r[0].status).toBe('wip');
     });
 
     it('done → done のみ 1 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'done', '', '');
+      const r = filterTasks(tasks(), 'done', '', '');
       expect(r).toHaveLength(1);
       expect(r[0].status).toBe('done');
     });
 
     it('wait → wait のみ 1 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'wait', '', '');
+      const r = filterTasks(tasks(), 'wait', '', '');
       expect(r).toHaveLength(1);
       expect(r[0].status).toBe('wait');
     });
 
     it('!done → done 以外の 3 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '!done', '', '');
+      const r = filterTasks(tasks(), '!done', '', '');
       expect(r).toHaveLength(3);
       expect(r.every(t => t.status !== 'done')).toBe(true);
     });
 
     it('!done: todo / wip / wait がすべて含まれる', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '!done', '', '');
+      const r = filterTasks(tasks(), '!done', '', '');
       const statuses = r.map(t => t.status);
       expect(statuses).toContain('todo');
       expect(statuses).toContain('wip');
@@ -928,302 +928,128 @@ describe('§7 フィルタ・ソート', () => {
 
     it('!done: 全タスクが done のとき 0 件', () => {
       const allDone = tasks().map(t => ({ ...t, status: 'done' as const }));
-      expect(sortAndFilter(allDone, '', 'asc', '!done', '', '')).toHaveLength(0);
+      expect(filterTasks(allDone, '!done', '', '')).toHaveLength(0);
     });
 
     it('!done: タスクが 0 件のとき 0 件', () => {
-      expect(sortAndFilter([], '', 'asc', '!done', '', '')).toHaveLength(0);
+      expect(filterTasks([], '!done', '', '')).toHaveLength(0);
     });
   });
 
   describe('担当者フィルタ（部分一致）', () => {
     it('完全一致: Alice → 2 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', 'Alice', '')).toHaveLength(2);
+      expect(filterTasks(tasks(), '', 'Alice', '')).toHaveLength(2);
     });
 
     it('部分一致: "li" → Alice 2 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '', 'li', '');
+      const r = filterTasks(tasks(), '', 'li', '');
       expect(r.every(t => t.assignee.includes('li'))).toBe(true);
     });
 
     it('大文字小文字は区別する', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', 'alice', '')).toHaveLength(0);
+      expect(filterTasks(tasks(), '', 'alice', '')).toHaveLength(0);
     });
 
     it('一致なし → 0 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', 'Zara', '')).toHaveLength(0);
+      expect(filterTasks(tasks(), '', 'Zara', '')).toHaveLength(0);
     });
 
     it('空文字 → フィルタなし（全件）', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', '')).toHaveLength(4);
+      expect(filterTasks(tasks(), '', '', '')).toHaveLength(4);
     });
   });
 
   describe('優先度フィルタ', () => {
     it('critical → 1 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', 'critical')).toHaveLength(1);
+      expect(filterTasks(tasks(), '', '', 'critical')).toHaveLength(1);
     });
 
     it('high → 1 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', 'high')).toHaveLength(1);
+      expect(filterTasks(tasks(), '', '', 'high')).toHaveLength(1);
     });
 
     it('medium → 1 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', 'medium')).toHaveLength(1);
+      expect(filterTasks(tasks(), '', '', 'medium')).toHaveLength(1);
     });
 
     it('low → 1 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', 'low')).toHaveLength(1);
+      expect(filterTasks(tasks(), '', '', 'low')).toHaveLength(1);
     });
 
     it('空文字 → 全件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', '')).toHaveLength(4);
+      expect(filterTasks(tasks(), '', '', '')).toHaveLength(4);
     });
   });
 
   describe('フィルタの AND 組み合わせ', () => {
     it('ステータス todo + 担当者 Alice → 1 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'todo', 'Alice', '');
+      const r = filterTasks(tasks(), 'todo', 'Alice', '');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t1');
     });
 
     it('!done + 担当者 Alice → 1 件 (t1 のみ)', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '!done', 'Alice', '');
+      const r = filterTasks(tasks(), '!done', 'Alice', '');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t1');
     });
 
     it('wip + 優先度 medium → 1 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'wip', '', 'medium');
+      const r = filterTasks(tasks(), 'wip', '', 'medium');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t2');
     });
 
     it('ステータス + 担当者 + 優先度の 3 重フィルタ', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'todo', 'Alice', 'high');
+      const r = filterTasks(tasks(), 'todo', 'Alice', 'high');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t1');
     });
 
     it('条件を満たすものがない → 0 件', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', 'done', 'Bob', '');
+      const r = filterTasks(tasks(), 'done', 'Bob', '');
       expect(r).toHaveLength(0);
     });
   });
 
   describe('テキスト検索（filterSearch）', () => {
     it('空文字 → 全件返す', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', '', '')).toHaveLength(4);
+      expect(filterTasks(tasks(), '', '', '', '')).toHaveLength(4);
     });
 
     it('タイトル部分一致で絞り込める', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'タスク1');
+      const r = filterTasks(tasks(), '', '', '', 'タスク1');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t1');
     });
 
     it('担当者名で絞り込める', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'Alice');
+      const r = filterTasks(tasks(), '', '', '', 'Alice');
       expect(r).toHaveLength(2); // t1(Alice) + t3(Alice Bob)
     });
 
     it('大文字小文字を区別しない', () => {
-      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'alice');
+      const r = filterTasks(tasks(), '', '', '', 'alice');
       expect(r).toHaveLength(2);
     });
 
     it('タイトルと担当者をまたいで OR で検索', () => {
       // "Carol" は t4 の担当者。"Carol" というタイトルはないがヒットする
-      const r = sortAndFilter(tasks(), '', 'asc', '', '', '', 'Carol');
+      const r = filterTasks(tasks(), '', '', '', 'Carol');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t4');
     });
 
     it('マッチなし → 0 件', () => {
-      expect(sortAndFilter(tasks(), '', 'asc', '', '', '', 'zzz')).toHaveLength(0);
+      expect(filterTasks(tasks(), '', '', '', 'zzz')).toHaveLength(0);
     });
 
     it('他フィルタと AND 条件になる', () => {
       // Alice でヒットするのは t1(todo) と t3(done) の2件
       // ステータス todo 絞り込みと組み合わせると t1 の 1 件のみ
-      const r = sortAndFilter(tasks(), '', 'asc', 'todo', '', '', 'Alice');
+      const r = filterTasks(tasks(), 'todo', '', '', 'Alice');
       expect(r).toHaveLength(1);
       expect(r[0].id).toBe('t1');
-    });
-  });
-
-  describe('ソート — デフォルト（order 順）', () => {
-    it('ソートキーなしは order 昇順', () => {
-      const shuffled = [...tasks()].reverse();
-      const r = sortAndFilter(shuffled, '', 'asc', '', '', '');
-      expect(r.map(t => t.id)).toEqual(['t1', 't2', 't3', 't4']);
-    });
-  });
-
-  describe('ソート — ステータス固定順', () => {
-    it('昇順: todo → wip → done → wait', () => {
-      const r = sortAndFilter(tasks(), 'status', 'asc', '', '', '');
-      expect(r.map(t => t.status)).toEqual(['todo', 'wip', 'done', 'wait']);
-    });
-
-    it('降順: wait → done → wip → todo', () => {
-      const r = sortAndFilter(tasks(), 'status', 'desc', '', '', '');
-      expect(r.map(t => t.status)).toEqual(['wait', 'done', 'wip', 'todo']);
-    });
-  });
-
-  describe('ソート — 優先度固定順', () => {
-    it('昇順: critical → high → medium → low', () => {
-      const r = sortAndFilter(tasks(), 'priority', 'asc', '', '', '');
-      expect(r.map(t => t.priority)).toEqual(['critical', 'high', 'medium', 'low']);
-    });
-
-    it('降順: low → medium → high → critical', () => {
-      const r = sortAndFilter(tasks(), 'priority', 'desc', '', '', '');
-      expect(r.map(t => t.priority)).toEqual(['low', 'medium', 'high', 'critical']);
-    });
-  });
-
-  describe('ソート — 進捗率', () => {
-    it('昇順: 0 → 20 → 50 → 100', () => {
-      const r = sortAndFilter(tasks(), 'progress', 'asc', '', '', '');
-      expect(r.map(t => t.progress)).toEqual([0, 20, 50, 100]);
-    });
-
-    it('降順: 100 → 50 → 20 → 0', () => {
-      const r = sortAndFilter(tasks(), 'progress', 'desc', '', '', '');
-      expect(r.map(t => t.progress)).toEqual([100, 50, 20, 0]);
-    });
-  });
-
-  describe('ソート — 日付（null は常に末尾）', () => {
-    it('startDate 昇順: 古い順、null 末尾', () => {
-      const r = sortAndFilter(tasks(), 'startDate', 'asc', '', '', '');
-      expect(r[0].startDate).toBe('2026-01-01');
-      expect(r[1].startDate).toBe('2026-03-01');
-      expect(r[2].startDate).toBe('2026-05-10');
-      expect(r[3].startDate).toBeNull();
-    });
-
-    it('startDate 降順: 新しい順、null 末尾', () => {
-      const r = sortAndFilter(tasks(), 'startDate', 'desc', '', '', '');
-      expect(r[0].startDate).toBe('2026-05-10');
-      expect(r[1].startDate).toBe('2026-03-01');
-      expect(r[2].startDate).toBe('2026-01-01');
-      expect(r[3].startDate).toBeNull();  // ← バグ修正確認
-    });
-
-    it('endDate 昇順: 古い順、null 末尾', () => {
-      const r = sortAndFilter(tasks(), 'endDate', 'asc', '', '', '');
-      expect(r[0].endDate).toBe('2026-02-28');
-      expect(r[3].endDate).toBeNull();
-    });
-
-    it('endDate 降順: 新しい順、null 末尾', () => {
-      const r = sortAndFilter(tasks(), 'endDate', 'desc', '', '', '');
-      expect(r[0].endDate).toBe('2026-05-20');
-      expect(r[3].endDate).toBeNull();  // ← バグ修正確認
-    });
-
-    it('null が複数あっても末尾に集まる', () => {
-      const ts = [
-        makeTask({ id: 'x1', startDate: '2026-05-01' }),
-        makeTask({ id: 'x2', startDate: null }),
-        makeTask({ id: 'x3', startDate: null }),
-        makeTask({ id: 'x4', startDate: '2026-03-01' }),
-      ];
-      const ascResult  = sortAndFilter(ts, 'startDate', 'asc',  '', '', '');
-      const descResult = sortAndFilter(ts, 'startDate', 'desc', '', '', '');
-      // 両方向とも null が末尾 2 件
-      expect(ascResult.slice(2).every(t => t.startDate === null)).toBe(true);
-      expect(descResult.slice(2).every(t => t.startDate === null)).toBe(true);
-    });
-  });
-
-  describe('ソート — テキスト列', () => {
-    it('title ロケール昇順', () => {
-      const ts = [
-        makeTask({ id: 'a', title: 'ガントチャート' }),
-        makeTask({ id: 'b', title: 'アイコン' }),
-        makeTask({ id: 'c', title: 'ツールバー' }),
-      ];
-      const r = sortAndFilter(ts, 'title', 'asc', '', '', '');
-      // 日本語ロケール順: ア < ガ < ツ
-      expect(r[0].title).toBe('アイコン');
-    });
-
-    it('assignee 降順', () => {
-      const r = sortAndFilter(tasks(), 'assignee', 'desc', '', '', '');
-      expect(r[0].assignee >= r[1].assignee).toBe(true);
-    });
-
-    it('null になりうるフィールド（parentId）のソートで ?? フォールバックを通る', () => {
-      const ts = [
-        makeTask({ id: 'a', parentId: 'parent-1' }),
-        makeTask({ id: 'b', parentId: null }),
-        makeTask({ id: 'c', parentId: 'parent-2' }),
-      ];
-      const r = sortAndFilter(ts, 'parentId', 'asc', '', '', '');
-      // null は '' に変換されるので昇順先頭になる
-      expect(r[0].parentId).toBeNull();
-    });
-  });
-
-  describe('ソート — 同一値での安定動作', () => {
-    it('同一 startDate が複数あっても全件返る（cmp = 0 を通す）', () => {
-      // 3要素で比較関数が必ず呼ばれ、等値ケース(cmp=0)を強制的に通す
-      const ts = [
-        makeTask({ id: 'a', startDate: '2026-03-01', order: 1 }),
-        makeTask({ id: 'b', startDate: '2026-05-01', order: 2 }),
-        makeTask({ id: 'c', startDate: '2026-05-01', order: 3 }),
-      ];
-      const r = sortAndFilter(ts, 'startDate', 'asc', '', '', '');
-      expect(r).toHaveLength(3);
-      expect(r[0].startDate).toBe('2026-03-01');
-      expect(r.filter(t => t.startDate === '2026-05-01')).toHaveLength(2);
-    });
-  });
-
-  describe('ソート — 依存順（deps）', () => {
-    it('先行タスクが後続タスクより前に来る', () => {
-      const a = makeTask({ id: 'a', predecessors: [],    order: 1 });
-      const b = makeTask({ id: 'b', predecessors: ['a'], order: 2 });
-      const c = makeTask({ id: 'c', predecessors: ['b'], order: 3 });
-      // 逆順で渡す
-      const r = sortAndFilter([c, b, a], 'deps', 'asc', '', '', '');
-      const ids = r.map(t => t.id);
-      expect(ids.indexOf('a')).toBeLessThan(ids.indexOf('b'));
-      expect(ids.indexOf('b')).toBeLessThan(ids.indexOf('c'));
-    });
-
-    it('依存関係なしのタスクは order 順に並ぶ', () => {
-      const a = makeTask({ id: 'a', predecessors: [], order: 1 });
-      const b = makeTask({ id: 'b', predecessors: [], order: 2 });
-      const c = makeTask({ id: 'c', predecessors: [], order: 3 });
-      const r = sortAndFilter([c, b, a], 'deps', 'asc', '', '', '');
-      expect(r.map(t => t.id)).toEqual(['a', 'b', 'c']);
-    });
-
-    it('分岐がある依存グラフでも全件返る', () => {
-      const a = makeTask({ id: 'a', predecessors: [],         order: 1 });
-      const b = makeTask({ id: 'b', predecessors: ['a'],      order: 2 });
-      const c = makeTask({ id: 'c', predecessors: ['a'],      order: 3 });
-      const d = makeTask({ id: 'd', predecessors: ['b', 'c'], order: 4 });
-      const r = sortAndFilter([d, c, b, a], 'deps', 'asc', '', '', '');
-      expect(r).toHaveLength(4);
-      const ids = r.map(t => t.id);
-      expect(ids.indexOf('a')).toBeLessThan(ids.indexOf('b'));
-      expect(ids.indexOf('a')).toBeLessThan(ids.indexOf('c'));
-      expect(ids.indexOf('b')).toBeLessThan(ids.indexOf('d'));
-      expect(ids.indexOf('c')).toBeLessThan(ids.indexOf('d'));
-    });
-
-    it('循環依存があっても全件返す（クラッシュしない）', () => {
-      const a = makeTask({ id: 'a', predecessors: ['b'], order: 1 });
-      const b = makeTask({ id: 'b', predecessors: ['a'], order: 2 });
-      const r = sortAndFilter([a, b], 'deps', 'asc', '', '', '');
-      expect(r).toHaveLength(2);
     });
   });
 });

@@ -163,7 +163,7 @@ treegantt/
 │       ├── types/
 │       │   └── task.ts           # 共通型定義
 │       ├── store/
-│       │   └── taskStore.ts      # Zustandストア（タスク・ソート・ズーム・needsReload）
+│       │   └── taskStore.ts      # Zustandストア（タスク・フィルタ・ズーム・needsReload）
 │       ├── components/
 │       │   ├── ConflictDialog/
 │       │   │   └── ConflictDialog.tsx # 編集競合解決ダイアログ
@@ -183,7 +183,7 @@ treegantt/
 │           ├── api.ts            # 共通 apiFetch ユーティリティ
 │           ├── ganttCalc.ts      # ガントチャート計算・ズームレベル
 │           ├── importExport.ts   # Import/Export
-│           ├── sort.ts           # 並び替え・フィルタロジック
+│           ├── sort.ts           # フィルタロジック（filterTasks）
 │           └── taskTree.ts       # buildTree / flattenTree / calcEffectiveProgress
 └── api/
     ├── Dockerfile
@@ -582,8 +582,6 @@ Zustand の `taskStore` 1つに統一する（★v1.9: `connectionStore` / `yjsS
 interface TaskStore {
   tasks:              Task[];
   needsReload:        boolean;       // ★v1.9: import後のre-fetchトリガー
-  sortKey:            keyof Task | '';
-  sortDir:            'asc' | 'desc';
   filterStatus:       TaskStatus | '' | '!done'; // '!done' = DONE以外をすべて表示
   filterAssignee:     string;
   filterPriority:     string;
@@ -600,7 +598,6 @@ interface TaskStore {
   };
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
-  setSortKey:             (key: keyof Task) => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority'>>) => void;
   setZoomLevel:           (z: ZoomLevel) => void;
   setGanttRange:          (startDate: string, period: GanttPeriod) => void;
@@ -745,20 +742,9 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 // stroke='#378ADD' strokeWidth={1.5} markerEnd='url(#arrowhead)'
 ```
 
-### 7.3 並び替え・フィルタリング仕様
+### 7.3 フィルタリング仕様
 
-**ソートキー**
-
-| ソートキー | 対象フィールド | 備考 |
-|-----------|--------------|------|
-| タイトル | `title` | ロケール昇順 |
-| ステータス | `status` | `todo→wip→done→wait` の固定順 |
-| 優先度 | `priority` | `critical→high→medium→low` の固定順 |
-| 担当者 | `assignee` | ロケール昇順 |
-| 開始日 | `startDate` | 日付昇順、null末尾 |
-| 終了日 | `endDate` | 日付昇順、null末尾 |
-| 進捗率 | `progress` | 数値昇順 |
-| デフォルト | `order` | DBの `ord` フィールド順 |
+**表示順:** 常に `order`（DBの `ord` フィールド）昇順。ソート機能は持たない。ドラッグ＆ドロップで並び順を変更できる（ソートなし時のみ有効）。
 
 **フィルタリング:** ステータス・担当者・優先度をフロントエンドのメモリ上でフィルタリングする。APIへの追加問い合わせは不要。
 
@@ -773,7 +759,7 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 | `'wait'` | 待機 | status === 'wait' |
 | `'!done'` | **DONE以外** | status !== 'done' |
 
-> ソート・フィルタはいずれもフロントエンドのメモリ上で行う。
+> フィルタはフロントエンドのメモリ上で行う。
 
 ### 7.4 画面レイアウト（★v1.4変更）
 
@@ -860,7 +846,7 @@ Toolbar 最左端に常時表示するインクリメンタル検索ボックス
 | 対象フィールド | タイトル・担当者（部分一致・大文字小文字無視） |
 | 状態 | `filterSearch: string`（Zustand。localStorage には保存しない） |
 | 適用タイミング | 1文字入力ごとにリアルタイムでWBS/ガントを絞り込み |
-| ロジック | `sortAndFilter` の引数に追加（他フィルタと AND 条件） |
+| ロジック | `filterTasks` の引数に追加（他フィルタと AND 条件） |
 
 **TaskModal でのみ編集できるフィールド：** サマリ、説明、親タスク、先行タスク
 
