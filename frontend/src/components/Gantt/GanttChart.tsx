@@ -667,7 +667,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowDropIdx, setRowDropIdx] = useState<number | null>(null);
 
   function handleRowDragStart(e: React.DragEvent, taskId: string) {
-    e.dataTransfer.effectAllowed = 'move';
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+      e.preventDefault();
+      return;
+    }
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
     setRowDragId(taskId);
   }
 

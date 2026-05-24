@@ -226,3 +226,53 @@ describe('ガントヘッダー 曜日表示', () => {
     expect(sunCell?.textContent).toContain('日');
   });
 });
+
+describe('WBS 行D&D — インライン編集中のテキスト選択干渉防止', () => {
+  const TASK: Task = {
+    id: 'drag-t1', projectId: 'p1', parentId: null,
+    title: 'ドラッグテスト', summary: '', description: '',
+    status: 'todo', priority: 'medium', progress: 0, assignee: '',
+    startDate: '2026-05-01', endDate: '2026-05-31',
+    isMilestone: false, predecessors: [], order: 1,
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+
+  function renderWithTask() {
+    useTaskStore.setState({ tasks: [TASK], ganttStartDate: '2026-05-01', showResourceView: false });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+  }
+
+  it('INPUTを起点としたdragstartはpreventDefaultされる（行D&Dが発動しない）', () => {
+    const { getByTestId } = renderWithTask();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rowWrapper = wbsPanel.querySelector('[draggable="true"]') as HTMLElement;
+    expect(rowWrapper).toBeTruthy();
+
+    const input = document.createElement('input');
+    rowWrapper.appendChild(input);
+
+    // fireEvent はイベントが preventDefault されたとき false を返す
+    const notPrevented = fireEvent.dragStart(input);
+    expect(notPrevented).toBe(false); // false = preventDefault が呼ばれた
+
+    rowWrapper.removeChild(input);
+  });
+
+  it('SPAN を起点としたdragstartはpreventDefaultされない（通常の行D&D発動）', () => {
+    const { getByTestId } = renderWithTask();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rowWrapper = wbsPanel.querySelector('[draggable="true"]') as HTMLElement;
+    expect(rowWrapper).toBeTruthy();
+
+    const span = document.createElement('span');
+    rowWrapper.appendChild(span);
+
+    const notPrevented = fireEvent.dragStart(span);
+    expect(notPrevented).toBe(true); // true = preventDefault されていない
+
+    rowWrapper.removeChild(span);
+  });
+});
