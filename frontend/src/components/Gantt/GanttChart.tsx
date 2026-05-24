@@ -421,9 +421,14 @@ function GanttLeftRow({
             onBlur={() => commit('startDate', editVal || null)}
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
         ) : (
-          <span onClick={() => !hasChildren && startEdit('startDate', task.startDate ?? '')}
+          <span
+            data-testid={hasChildren ? 'date-readonly' : undefined}
+            onClick={() => !hasChildren && startEdit('startDate', task.startDate ?? '')}
             title={hasChildren ? '子タスクの日付から自動計算' : undefined}
-            style={{ cursor: hasChildren ? 'default' : 'text', color: task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
+            style={{
+              cursor: hasChildren ? 'default' : 'text',
+              color: hasChildren ? 'var(--th-text-dim)' : (task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
+            }}>
             {task.startDate ?? '—'}
           </span>
         )}
@@ -437,9 +442,14 @@ function GanttLeftRow({
             onBlur={() => commit('endDate', editVal || null)}
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
         ) : (
-          <span onClick={() => !hasChildren && startEdit('endDate', task.endDate ?? '')}
+          <span
+            data-testid={hasChildren ? 'date-readonly' : undefined}
+            onClick={() => !hasChildren && startEdit('endDate', task.endDate ?? '')}
             title={hasChildren ? '子タスクの日付から自動計算' : undefined}
-            style={{ cursor: hasChildren ? 'default' : 'text', color: task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
+            style={{
+              cursor: hasChildren ? 'default' : 'text',
+              color: hasChildren ? 'var(--th-text-dim)' : (task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
+            }}>
             {task.endDate ?? '—'}
           </span>
         )}
@@ -464,7 +474,7 @@ function GanttLeftRow({
             title={hasChildren ? '子タスクの日付から自動計算' : undefined}
             style={{
               cursor: (!hasChildren && task.startDate) ? 'text' : 'default',
-              color: duration !== null ? 'var(--th-text2)' : 'var(--th-text-ph)',
+              color: hasChildren ? 'var(--th-text-dim)' : (duration !== null ? 'var(--th-text2)' : 'var(--th-text-ph)'),
             }}>
             {duration !== null ? duration : '—'}
           </span>
@@ -1002,6 +1012,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   isCritical={criticalSet.has(task.id)}
                   dragPreview={preview}
                   rowHeight={uiRowHeight}
+                  isParent={isParent}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}

@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
+import type { Task } from '../types/task';
 
 const NOOP = vi.fn();
 
@@ -127,6 +128,61 @@ describe('GanttChart スクロール分離レイアウト', () => {
     // WBS ボディ（wbsBodyRef）の scrollTop が更新されていること
     const wbsBody = container.querySelector('[data-testid="wbs-panel"] > div:last-child') as HTMLElement;
     expect(wbsBody?.scrollTop).toBe(200);
+  });
+});
+
+describe('親タスク WBS日付セル 読み取り専用スタイル', () => {
+  function makeTask(overrides: Partial<Task>): Task {
+    return {
+      id: 'x', projectId: 'p1', parentId: null,
+      title: 'Task', summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: '2026-05-01', endDate: '2026-05-31',
+      isMilestone: false, predecessors: [], order: 1,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      ...overrides,
+    };
+  }
+
+  function renderWithParentChild() {
+    useTaskStore.setState({
+      tasks: [
+        makeTask({ id: 'parent', title: '親タスク', startDate: '2026-05-01', endDate: '2026-05-31' }),
+        makeTask({ id: 'child',  title: '子タスク', parentId: 'parent', startDate: '2026-05-01', endDate: '2026-05-15' }),
+      ],
+      ganttStartDate: '2026-05-01',
+      showResourceView: false,
+    });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+  }
+
+  it('親タスクの日付セルに data-testid="date-readonly" が付与される', () => {
+    const { container } = renderWithParentChild();
+    const cells = container.querySelectorAll('[data-testid="date-readonly"]');
+    expect(cells.length).toBeGreaterThan(0);
+  });
+
+  it('親タスク日付セルの cursor は "default"', () => {
+    const { container } = renderWithParentChild();
+    const cell = container.querySelector('[data-testid="date-readonly"]') as HTMLElement;
+    expect(cell?.style.cursor).toBe('default');
+  });
+
+  it('親タスク日付セルのテキスト色は var(--th-text-dim)（薄グレー）', () => {
+    const { container } = renderWithParentChild();
+    const cell = container.querySelector('[data-testid="date-readonly"]') as HTMLElement;
+    expect(cell?.style.color).toBe('var(--th-text-dim)');
+  });
+
+  it('子タスクの日付セルには data-testid="date-readonly" が付与されない', () => {
+    const { container } = renderWithParentChild();
+    // 子タスク行は通常スタイル（date-readonly なし）
+    const allRows = container.querySelectorAll('[data-testid="date-readonly"]');
+    // 親のみ → startDate + endDate の 2 セルだけのはず
+    expect(allRows.length).toBe(2);
   });
 });
 

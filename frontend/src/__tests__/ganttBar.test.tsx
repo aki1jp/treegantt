@@ -1,0 +1,70 @@
+// @vitest-environment jsdom
+/**
+ * GanttBar — 親タスク非インタラクティブデザインテスト
+ *
+ * 親タスク（isParent=true）のバーにはリサイズハンドルを表示しない。
+ * 非親タスクには左右2つのハンドルを表示する。
+ */
+import { describe, it, expect, vi } from 'vitest';
+import { render } from '@testing-library/react';
+import { GanttBar } from '../components/Gantt/GanttBar';
+import type { Task } from '../types/task';
+
+const BASE_TASK: Task = {
+  id: 't1', projectId: 'p1', parentId: null,
+  title: 'テストタスク', summary: '', description: '',
+  status: 'todo', priority: 'medium', progress: 0, assignee: '',
+  startDate: '2026-05-01', endDate: '2026-05-31',
+  isMilestone: false, predecessors: [], order: 1,
+  createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+};
+const MIN = new Date('2026-05-01');
+const NOOP = vi.fn();
+
+function renderBar(isParent: boolean) {
+  return render(
+    <svg>
+      <GanttBar
+        task={BASE_TASK} minDate={MIN} zoom="month" rowIndex={0}
+        isParent={isParent}
+        onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+      />
+    </svg>
+  );
+}
+
+describe('GanttBar 非親タスク', () => {
+  it('リサイズハンドル（ew-resize）が2つ描画される', () => {
+    const { container } = renderBar(false);
+    const handles = Array.from(container.querySelectorAll('rect')).filter(
+      r => (r as HTMLElement).style.cursor === 'ew-resize'
+    );
+    expect(handles.length).toBe(2);
+  });
+
+  it('移動ゾーンの cursor は "move"', () => {
+    const { container } = renderBar(false);
+    const moveZone = Array.from(container.querySelectorAll('rect')).find(
+      r => (r as HTMLElement).style.cursor === 'move'
+    );
+    expect(moveZone).toBeTruthy();
+  });
+});
+
+describe('GanttBar 親タスク（isParent=true）', () => {
+  it('リサイズハンドルが描画されない', () => {
+    const { container } = renderBar(true);
+    const handles = Array.from(container.querySelectorAll('rect')).filter(
+      r => (r as HTMLElement).style.cursor === 'ew-resize'
+    );
+    expect(handles.length).toBe(0);
+  });
+
+  it('移動ゾーンの cursor は "not-allowed"', () => {
+    const { container } = renderBar(true);
+    const notAllowed = Array.from(container.querySelectorAll('rect')).find(
+      r => (r as HTMLElement).style.cursor === 'not-allowed'
+    );
+    expect(notAllowed).toBeTruthy();
+  });
+});

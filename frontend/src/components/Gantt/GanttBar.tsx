@@ -7,6 +7,7 @@ interface Props {
   zoom: ZoomLevel;
   rowIndex: number;
   isCritical?: boolean;
+  isParent?: boolean;
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
@@ -23,7 +24,7 @@ const TODAY = new Date().toISOString().slice(0, 10);
 const HANDLE_W = 6;
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, dragPreview, rowHeight = ROW_HEIGHT_PX,
+  task, minDate, zoom, rowIndex, isCritical, isParent = false, dragPreview, rowHeight = ROW_HEIGHT_PX,
   onMoveStart, onResizeLeftStart, onResizeRightStart, onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
@@ -100,26 +101,30 @@ export function GanttBar({
 
       {/* 移動ゾーン（中央） */}
       <rect
-        x={x + HANDLE_W} y={y}
-        width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight}
+        x={x + (isParent ? 0 : HANDLE_W)} y={y}
+        width={Math.max(width - (isParent ? 0 : HANDLE_W * 2), 0)} height={barHeight}
         fill="transparent"
-        style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
+        style={{ cursor: isParent ? 'not-allowed' : (dragPreview ? 'grabbing' : 'move') }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
       />
-      {/* 左リサイズハンドル */}
-      <rect
-        x={x} y={y} width={HANDLE_W} height={barHeight}
-        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
-        style={{ cursor: 'ew-resize' }}
-        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
-      />
-      {/* 右リサイズハンドル */}
-      <rect
-        x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
-        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
-        style={{ cursor: 'ew-resize' }}
-        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
-      />
+      {/* 左リサイズハンドル（親タスクは非表示） */}
+      {!isParent && (
+        <rect
+          x={x} y={y} width={HANDLE_W} height={barHeight}
+          fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
+          style={{ cursor: 'ew-resize' }}
+          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
+        />
+      )}
+      {/* 右リサイズハンドル（親タスクは非表示） */}
+      {!isParent && (
+        <rect
+          x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
+          fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
+          style={{ cursor: 'ew-resize' }}
+          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
+        />
+      )}
     </g>
   );
 }
