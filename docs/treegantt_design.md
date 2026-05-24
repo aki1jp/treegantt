@@ -33,6 +33,7 @@
 | 2.7 | 2026年5月 | 親タスクの日付・期間セルを視覚的非インタラクティブ化（WBS: テキスト色をvar(--th-text-dim)に変更）。ガントバーの親タスクリサイズハンドルを非表示にし `cursor:not-allowed` を適用。 |
 | 2.8 | 2026年5月 | WBSインライン編集中のテキスト選択（マウスドラッグ）で行D&Dが発動するバグを修正。`handleRowDragStart` でイベントのターゲットが `INPUT`/`SELECT`/`TEXTAREA` のとき `e.preventDefault()` でドラッグをキャンセル。 |
 | 2.9 | 2026年5月 | v2.8修正: ブラウザが `dragstart` を draggable 行ラッパー自身に対して発火するため `e.target` ではなく `document.activeElement` で判定するように修正。 |
+| 2.10 | 2026年5月 | 親タスクのガントバーをサマリーバーデザインに変更。上部横バー＋左右に下向き三角（突起）を描画し、子タスクの日付範囲を囲む視覚表現を実現。`isParent=true` 時は専用の SVG `path` で描画し、移動ゾーン・リサイズハンドルを完全除去。 |
 
 ---
 
@@ -837,6 +838,27 @@ function handleRowDragStart(e: React.DragEvent, taskId: string) {
   setRowDragId(taskId);
 }
 ```
+
+**★v2.10追加 — 親タスク サマリーバーデザイン:**
+
+`GanttBar` の `isParent=true` 時に専用の SVG 構造を描画する。
+
+| 要素 | 内容 |
+|------|------|
+| 上部横バー | `<rect>` で全幅・高さ `topH = Math.round(barHeight × 0.42)` |
+| 左下向き三角 | `<polygon>` — 左辺垂直、斜辺が左上→右下方向 |
+| 右下向き三角 | `<polygon>` — 右辺垂直、斜辺が右上→左下方向（左の鏡像） |
+| タイトル | `<text>` + `<clipPath>` で横バー内に表示 |
+
+```
+topH = Math.round(barHeight * 0.42)  // 上部バー高さ
+legW = topH + 2                       // 三角の底辺幅（≈topH）
+
+左三角: (x, y+topH) → (x+legW, y+topH) → (x, y+barHeight)
+右三角: (x+w-legW, y+topH) → (x+w, y+topH) → (x+w, y+barHeight)
+```
+
+移動・リサイズハンドルは描画しない。`<g>` 全体に `cursor: pointer` を設定し、クリックで詳細ダイアログを開く。
 
 **★v2.6追加 — WBS/ガントヘッダー高さ揃えの制約:**
 
