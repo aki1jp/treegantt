@@ -207,4 +207,68 @@ describe('taskService', () => {
       expect(r2?.order).toBe(5);
     });
   });
+
+  describe('親タスク日付自動伝播', () => {
+    it('子タスクの日付更新時に親の開始日・終了日が子の範囲に更新される', () => {
+      createTask({ id: 'parent', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'child', projectId: PROJECT_ID, title: '子', parentId: 'parent' });
+
+      updateTask('child', { startDate: '2026-06-01', endDate: '2026-06-30' });
+
+      const parent = getTask('parent');
+      expect(parent?.startDate).toBe('2026-06-01');
+      expect(parent?.endDate).toBe('2026-06-30');
+    });
+
+    it('複数の子タスクで親の日付が全子の最小開始・最大終了になる', () => {
+      createTask({ id: 'parent', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'c1', projectId: PROJECT_ID, title: '子1', parentId: 'parent',
+        startDate: '2026-06-01', endDate: '2026-06-15' });
+      createTask({ id: 'c2', projectId: PROJECT_ID, title: '子2', parentId: 'parent',
+        startDate: '2026-06-10', endDate: '2026-06-30' });
+
+      updateTask('c1', { startDate: '2026-06-01', endDate: '2026-06-15' });
+
+      const parent = getTask('parent');
+      expect(parent?.startDate).toBe('2026-06-01');
+      expect(parent?.endDate).toBe('2026-06-30');
+    });
+
+    it('祖父タスクまで日付が伝播する', () => {
+      createTask({ id: 'gp', projectId: PROJECT_ID, title: '祖父' });
+      createTask({ id: 'p',  projectId: PROJECT_ID, title: '親', parentId: 'gp' });
+      createTask({ id: 'c',  projectId: PROJECT_ID, title: '子', parentId: 'p' });
+
+      updateTask('c', { startDate: '2026-07-01', endDate: '2026-07-31' });
+
+      const p  = getTask('p');
+      const gp = getTask('gp');
+      expect(p?.startDate).toBe('2026-07-01');
+      expect(p?.endDate).toBe('2026-07-31');
+      expect(gp?.startDate).toBe('2026-07-01');
+      expect(gp?.endDate).toBe('2026-07-31');
+    });
+
+    it('子タスクに日付がない場合、親の日付は変更しない', () => {
+      createTask({ id: 'parent', projectId: PROJECT_ID, title: '親',
+        startDate: '2026-06-01', endDate: '2026-06-30' });
+      createTask({ id: 'child', projectId: PROJECT_ID, title: '子', parentId: 'parent' });
+
+      updateTask('child', { title: '子（更新）' });
+
+      const parent = getTask('parent');
+      expect(parent?.startDate).toBe('2026-06-01');
+      expect(parent?.endDate).toBe('2026-06-30');
+    });
+
+    it('createTask でも日付が親に伝播する', () => {
+      createTask({ id: 'parent', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'child', projectId: PROJECT_ID, title: '子', parentId: 'parent',
+        startDate: '2026-08-01', endDate: '2026-08-31' });
+
+      const parent = getTask('parent');
+      expect(parent?.startDate).toBe('2026-08-01');
+      expect(parent?.endDate).toBe('2026-08-31');
+    });
+  });
 });
