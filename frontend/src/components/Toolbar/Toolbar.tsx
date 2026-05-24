@@ -94,10 +94,11 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
 export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onExportCsv }: Props) {
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
+    sortKey,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
     ganttBarOpen,
-    setZoomLevel, setFilter, setGanttRange,
+    setZoomLevel, setFilter, setGanttRange, resetSort, resetUi,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setGanttBarOpen,
   } = useTaskStore();
@@ -238,6 +239,16 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
             </div>
           )}
         </div>
+
+        {sortKey !== '' && (
+          <button
+            style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)' }}
+            title="ソートを解除"
+            onClick={resetSort}
+          >
+            ソート解除
+          </button>
+        )}
 
         <div style={DIVIDER} />
 
@@ -427,6 +438,16 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
                 </button>
               ))}
             </div>
+          </div>
+
+          <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            <button
+              style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)' }}
+              title="表示設定をデフォルトに戻す"
+              onClick={resetUi}
+            >
+              デフォルト
+            </button>
           </div>
         </div>
       )}

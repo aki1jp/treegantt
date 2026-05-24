@@ -31,6 +31,7 @@ interface TaskStore {
   setNeedsReload:         (v: boolean) => void;
   setSortKey:             (key: keyof Task) => void;
   toggleSortDir:          () => void;
+  resetSort:              () => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
   setZoomLevel:           (z: ZoomLevel) => void;
   setGanttRange:          (startDate: string, period: GanttPeriod) => void;
@@ -43,6 +44,7 @@ interface TaskStore {
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
   setTheme:               (theme: ThemeMode) => void;
   setGanttBarOpen:        (open: boolean) => void;
+  resetUi:                () => void;
 }
 
 export const useTaskStore = create<TaskStore>()(
@@ -76,6 +78,7 @@ export const useTaskStore = create<TaskStore>()(
           sortDir: s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc',
         })),
       toggleSortDir:          () => set((s) => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' })),
+      resetSort:              () => set({ sortKey: '', sortDir: 'asc' }),
       setFilter:              (filter) => set((s) => ({ ...s, ...filter })),
       setZoomLevel:           (zoomLevel) => set({ zoomLevel }),
       setGanttRange:          (ganttStartDate, ganttPeriod) => set({ ganttStartDate, ganttPeriod }),
@@ -90,6 +93,18 @@ export const useTaskStore = create<TaskStore>()(
       })),
       setTheme:               (theme) => set({ theme }),
       setGanttBarOpen:        (ganttBarOpen) => set({ ganttBarOpen }),
+      resetUi:                () => set({
+        zoomLevel:         'week',
+        ganttStartDate:    '',
+        ganttPeriod:       '3m',
+        showLightningLine: true,
+        showWeekend:       true,
+        showCriticalPath:  false,
+        showResourceView:  true,
+        uiFontSize:        13,
+        uiRowHeight:       36,
+        ganttHeaderLevels: { year: true, month: true, week: true, day: true },
+      }),
     }),
     {
       name: 'treegantt-ui',

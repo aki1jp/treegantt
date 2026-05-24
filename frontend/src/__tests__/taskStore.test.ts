@@ -268,3 +268,42 @@ describe('UI設定の永続化', () => {
     expect(saved).not.toHaveProperty('filterSearch');
   });
 });
+
+describe('resetSort', () => {
+  it('sortKey と sortDir を初期値に戻す', () => {
+    useTaskStore.getState().setSortKey('title');
+    useTaskStore.getState().resetSort();
+    const s = useTaskStore.getState();
+    expect(s.sortKey).toBe('');
+    expect(s.sortDir).toBe('asc');
+  });
+});
+
+describe('resetUi', () => {
+  it('UI設定（ズーム・期間・フォント・行高・ヘッダー・トグル）を初期値に戻す', () => {
+    const st = useTaskStore.getState();
+    st.setZoomLevel('day');
+    st.setGanttRange('2026-01-01', '6m');
+    st.setUiFontSize(15);
+    st.setUiRowHeight(44);
+    st.setGanttHeaderLevels({ year: false });
+    st.setShowLightningLine(false);
+    st.setShowWeekend(false);
+    st.setShowCriticalPath(true);
+    st.setShowResourceView(false);
+
+    useTaskStore.getState().resetUi();
+
+    const s = useTaskStore.getState();
+    expect(s.zoomLevel).toBe('week');
+    expect(s.ganttStartDate).toBe('');
+    expect(s.ganttPeriod).toBe('3m');
+    expect(s.uiFontSize).toBe(13);
+    expect(s.uiRowHeight).toBe(36);
+    expect(s.ganttHeaderLevels).toEqual({ year: true, month: true, week: true, day: true });
+    expect(s.showLightningLine).toBe(true);
+    expect(s.showWeekend).toBe(true);
+    expect(s.showCriticalPath).toBe(false);
+    expect(s.showResourceView).toBe(true);
+  });
+});
