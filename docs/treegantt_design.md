@@ -31,6 +31,7 @@
 | 2.5 | 2026年5月 | ツールバー行2を複数行対応（flexWrap:wrap）・フィルタ（ステータス/優先度/担当者）を行2インライン直列表示に変更・フィルタドロップダウン廃止。ソート機能全廃（列ヘッダークリック・ソート解除・依存順ボタン）。 |
 | 2.6 | 2026年5月 | WBSヘッダー高さ式を修正（`n×HEADER_ROW_H + 2`）。グローバル `box-sizing: border-box` により `borderBottom:2px` が `height` 内に含まれることを考慮し、ガントstickyヘッダー（`n×26 + 2px` auto-height）と一致させる。 |
 | 2.7 | 2026年5月 | 親タスクの日付・期間セルを視覚的非インタラクティブ化（WBS: テキスト色をvar(--th-text-dim)に変更）。ガントバーの親タスクリサイズハンドルを非表示にし `cursor:not-allowed` を適用。 |
+| 2.8 | 2026年5月 | WBSインライン編集中のテキスト選択（マウスドラッグ）で行D&Dが発動するバグを修正。`handleRowDragStart` でイベントのターゲットが `INPUT`/`SELECT`/`TEXTAREA` のとき `e.preventDefault()` でドラッグをキャンセル。 |
 
 ---
 
@@ -814,6 +815,24 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 
 垂直スクロールはガント右パネルの `onScroll` で WBS 左パネルの `scrollTop` を同期する（1行の JS）。
 旧実装（`position: sticky; left: 0`）ではスクロールバーが WBS 幅まで及んでいたため廃止。
+
+**★v2.8追加 — WBS行D&D中のインライン編集テキスト選択干渉対策:**
+
+WBS行は `draggable` 属性でD&Dを実現している。インライン編集中（タイトル・担当者等の `<input>` にフォーカスがある状態）にテキストをマウスドラッグで選択しようとすると、ブラウザが行D&Dの `dragstart` を発火してしまうことがある。
+
+`handleRowDragStart` の先頭で `e.target` を確認し、`INPUT` / `SELECT` / `TEXTAREA` の場合は `e.preventDefault()` でドラッグをキャンセルする。これにより入力フィールド内での文字選択が正常に動作する。
+
+```typescript
+function handleRowDragStart(e: React.DragEvent, taskId: string) {
+  const tag = (e.target as HTMLElement).tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+    e.preventDefault();
+    return;
+  }
+  e.dataTransfer.effectAllowed = 'move';
+  setRowDragId(taskId);
+}
+```
 
 **★v2.6追加 — WBS/ガントヘッダー高さ揃えの制約:**
 
