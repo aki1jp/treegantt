@@ -23,15 +23,15 @@ const HEADER_ROW_H = 26;
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
-  { key: 'order',     label: '#',        width: 36,  sortable: true  },
-  { key: 'title',     label: 'タイトル', width: 180, sortable: true  },
-  { key: 'status',    label: 'ST',       width: 66,  sortable: true  },
-  { key: 'priority',  label: '優先',     width: 56,  sortable: true  },
-  { key: 'progress',  label: '進捗',     width: 76,  sortable: true  },
-  { key: 'assignee',  label: '担当',     width: 76,  sortable: true  },
-  { key: 'startDate', label: '開始',     width: 88,  sortable: true  },
-  { key: 'endDate',   label: '終了',     width: 88,  sortable: true  },
-  { key: 'duration',  label: '日数',     width: 50,  sortable: false },
+  { key: 'order',     label: '#',        width: 36  },
+  { key: 'title',     label: 'タイトル', width: 180 },
+  { key: 'status',    label: 'ST',       width: 66  },
+  { key: 'priority',  label: '優先',     width: 56  },
+  { key: 'progress',  label: '進捗',     width: 76  },
+  { key: 'assignee',  label: '担当',     width: 76  },
+  { key: 'startDate', label: '開始',     width: 88  },
+  { key: 'endDate',   label: '終了',     width: 88  },
+  { key: 'duration',  label: '日数',     width: 50  },
 ] as const;
 
 const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
