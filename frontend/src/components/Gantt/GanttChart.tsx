@@ -667,8 +667,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowDropIdx, setRowDropIdx] = useState<number | null>(null);
 
   function handleRowDragStart(e: React.DragEvent, taskId: string) {
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+    const tag = document.activeElement?.tagName ?? '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
       e.preventDefault();
       return;
     }
