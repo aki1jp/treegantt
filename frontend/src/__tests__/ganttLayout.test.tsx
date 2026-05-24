@@ -76,6 +76,18 @@ describe('GanttChart スクロール分離レイアウト', () => {
     expect(gantt.style.overflow).toBe('auto');
   });
 
+  it('WBSヘッダーの高さが n×HEADER_ROW_H+2 である（グローバルborder-box補正）', () => {
+    // デフォルト: ganttHeaderLevels={year,month,week,day} すべてON
+    // buildMultiLevelHeaders が year/month/week/day/dow の5行を生成
+    // HEADER_ROW_H=26、borderBottom=2px（border-box内に含まれる）
+    // 正しい height = 5*26+2 = 132px
+    const { getByTestId } = renderChart();
+    const wbsHeader = getByTestId('wbs-header') as HTMLElement;
+    const HEADER_ROW_H = 26;
+    const expectedRows = 5; // year + month + week + day + dow
+    expect(wbsHeader.style.height).toBe(`${expectedRows * HEADER_ROW_H + 2}px`);
+  });
+
   it('WBSパネル上でホイール操作するとガントパネルの scrollTop が変化する', () => {
     const { getByTestId } = renderChart();
     const wbs  = getByTestId('wbs-panel') as HTMLElement;

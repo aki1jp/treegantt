@@ -822,8 +822,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
-        <div style={{
-          flexShrink: 0, height: headerRows.length * HEADER_ROW_H,
+        <div data-testid="wbs-header" style={{
+          flexShrink: 0, height: headerRows.length * HEADER_ROW_H + 2,
           display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
         }}>
           {LEFT_COLS.map(col => {
