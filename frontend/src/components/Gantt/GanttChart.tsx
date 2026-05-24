@@ -887,8 +887,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               onDragEnd={handleRowDragEnd}
               style={{
                 opacity: rowDragId === task.id ? 0.4 : 1,
-                borderTop: rowDropIdx === idx && rowDragId !== task.id
-                  ? '2px solid #4f46e5' : '2px solid transparent',
+                // boxShadow はレイアウトに影響しないため行高が SVG とずれない
+                boxShadow: rowDropIdx === idx && rowDragId !== task.id
+                  ? 'inset 0 2px 0 #4f46e5' : 'none',
                 cursor: 'grab',
               }}
             >
@@ -924,7 +925,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           }}>
             {headerRows.map((row, ri) => (
               <div key={row.level} style={{
-                width: totalWidth, position: 'relative', height: HEADER_ROW_H, background: 'var(--th-bg2)',
+                width: totalWidth, position: 'relative',
+                height: HEADER_ROW_H, boxSizing: 'border-box',
+                background: 'var(--th-bg2)',
                 borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined,
               }}>
                 {row.cells.map((cell, ci) => {
