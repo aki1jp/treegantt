@@ -1184,6 +1184,48 @@ describe('§7 フィルタ・ソート', () => {
       expect(r.filter(t => t.startDate === '2026-05-01')).toHaveLength(2);
     });
   });
+
+  describe('ソート — 依存順（deps）', () => {
+    it('先行タスクが後続タスクより前に来る', () => {
+      const a = makeTask({ id: 'a', predecessors: [],    order: 1 });
+      const b = makeTask({ id: 'b', predecessors: ['a'], order: 2 });
+      const c = makeTask({ id: 'c', predecessors: ['b'], order: 3 });
+      // 逆順で渡す
+      const r = sortAndFilter([c, b, a], 'deps', 'asc', '', '', '');
+      const ids = r.map(t => t.id);
+      expect(ids.indexOf('a')).toBeLessThan(ids.indexOf('b'));
+      expect(ids.indexOf('b')).toBeLessThan(ids.indexOf('c'));
+    });
+
+    it('依存関係なしのタスクは order 順に並ぶ', () => {
+      const a = makeTask({ id: 'a', predecessors: [], order: 1 });
+      const b = makeTask({ id: 'b', predecessors: [], order: 2 });
+      const c = makeTask({ id: 'c', predecessors: [], order: 3 });
+      const r = sortAndFilter([c, b, a], 'deps', 'asc', '', '', '');
+      expect(r.map(t => t.id)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('分岐がある依存グラフでも全件返る', () => {
+      const a = makeTask({ id: 'a', predecessors: [],         order: 1 });
+      const b = makeTask({ id: 'b', predecessors: ['a'],      order: 2 });
+      const c = makeTask({ id: 'c', predecessors: ['a'],      order: 3 });
+      const d = makeTask({ id: 'd', predecessors: ['b', 'c'], order: 4 });
+      const r = sortAndFilter([d, c, b, a], 'deps', 'asc', '', '', '');
+      expect(r).toHaveLength(4);
+      const ids = r.map(t => t.id);
+      expect(ids.indexOf('a')).toBeLessThan(ids.indexOf('b'));
+      expect(ids.indexOf('a')).toBeLessThan(ids.indexOf('c'));
+      expect(ids.indexOf('b')).toBeLessThan(ids.indexOf('d'));
+      expect(ids.indexOf('c')).toBeLessThan(ids.indexOf('d'));
+    });
+
+    it('循環依存があっても全件返す（クラッシュしない）', () => {
+      const a = makeTask({ id: 'a', predecessors: ['b'], order: 1 });
+      const b = makeTask({ id: 'b', predecessors: ['a'], order: 2 });
+      const r = sortAndFilter([a, b], 'deps', 'asc', '', '', '');
+      expect(r).toHaveLength(2);
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════

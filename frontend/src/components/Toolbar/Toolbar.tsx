@@ -98,7 +98,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
     ganttBarOpen,
-    setZoomLevel, setFilter, setGanttRange, resetSort, resetUi,
+    setZoomLevel, setFilter, setGanttRange, resetSort, resetUi, setSortKey,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setGanttBarOpen,
   } = useTaskStore();
@@ -387,6 +387,16 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
             label="担当者ビュー"
             title="担当者別スイムレーンを表示"
             onClick={() => setShowResourceView(!showResourceView)}
+          />
+
+          <div style={DIVIDER} />
+
+          {/* 依存順ソート */}
+          <ToggleBtn
+            active={sortKey === 'deps'}
+            label="依存順"
+            title="先行タスク順（依存関係順）に並び替え"
+            onClick={() => sortKey === 'deps' ? resetSort() : setSortKey('deps')}
           />
 
           <div style={DIVIDER} />

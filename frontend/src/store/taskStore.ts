@@ -9,7 +9,7 @@ export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; 
 interface TaskStore {
   tasks:              Task[];
   needsReload:        boolean;
-  sortKey:            keyof Task | '';
+  sortKey:            keyof Task | '' | 'deps';
   sortDir:            'asc' | 'desc';
   filterStatus:       TaskStatus | '' | '!done';
   filterAssignee:     string;
@@ -29,7 +29,7 @@ interface TaskStore {
   ganttBarOpen:       boolean;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
-  setSortKey:             (key: keyof Task) => void;
+  setSortKey:             (key: keyof Task | 'deps') => void;
   toggleSortDir:          () => void;
   resetSort:              () => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
@@ -75,7 +75,7 @@ export const useTaskStore = create<TaskStore>()(
       setSortKey:             (key) =>
         set((s) => ({
           sortKey: key,
-          sortDir: s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc',
+          sortDir: key === 'deps' ? 'asc' : (s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc'),
         })),
       toggleSortDir:          () => set((s) => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' })),
       resetSort:              () => set({ sortKey: '', sortDir: 'asc' }),
