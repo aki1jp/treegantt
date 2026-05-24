@@ -66,8 +66,10 @@ docker compose build && docker compose up -d
 | `useTasks.test.ts` | CRUD フック |
 | `useWebSocket.test.ts` | WebSocket フック |
 | `api.test.ts` | apiFetch |
-| `ganttLayout.test.tsx` | GanttChart 2 パネルレイアウト構造 |
+| `ganttLayout.test.tsx` | GanttChart 2 パネルレイアウト構造・ガントヘッダー曜日表示 |
 | `taskModal.test.tsx` | TaskModal Markdown プレビュータブ |
+| `toolbar.test.tsx` | Toolbar 2段レイアウト・折りたたみ |
+| `workloadCalc.test.ts` | 担当者別負荷マトリクス計算 |
 
 ---
 
