@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createTestDb } from './helpers.js';
 import type Database from 'better-sqlite3';
 import Fastify from 'fastify';
@@ -35,13 +35,22 @@ async function buildApp() {
 }
 
 describe('GET /health', () => {
-  it('returns 200 with ok status', async () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeEach(async () => {
     testDb = createTestDb();
-    const app = await buildApp();
+    app = await buildApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
+  });
+
+  it('returns 200 with ok status', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: 'ok' });
-    await app.close();
   });
 });
 
@@ -51,6 +60,11 @@ describe('Projects API', () => {
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
   });
 
   it('GET /api/v1/projects returns empty list initially', async () => {
@@ -111,6 +125,11 @@ describe('Tasks API', () => {
       payload: { name: 'Test Project' },
     });
     projectId = res.json().project.id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
   });
 
   async function createTask(overrides = {}) {
@@ -233,6 +252,11 @@ describe('Import/Export API', () => {
       payload: { name: 'Export Test' },
     });
     projectId = res.json().project.id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
   });
 
   it('GET /api/v1/projects/:id/export/json returns valid JSON', async () => {
