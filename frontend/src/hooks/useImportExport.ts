@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import type { Task, Project } from '../types/task';
-import { useTaskStore } from '../store/taskStore';
 import { apiFetch } from '../utils/api';
 import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from '../utils/importExport';
 
@@ -17,10 +16,13 @@ function exportFileName(project: Project, ext: string): string {
   return `treegantt-${safeName}-${ts}.${ext}`;
 }
 
-export function useImportExport(currentProject: Project | null) {
+export function useImportExport(
+  currentProject: Project | null,
+  tasks: Task[],
+  setTasks: (tasks: Task[]) => void,
+) {
   const [importMode, setImportMode] = useState<'append' | 'restore' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { tasks, setTasks } = useTaskStore();
 
   function handleExportJson() {
     if (!currentProject) return;

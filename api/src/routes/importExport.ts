@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/client.js';
 import { listTasks, propagateDatesToParent } from '../services/taskService.js';
+import { getProject } from '../services/projectService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
 const CSV_HEADERS = 'id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,predecessors';
@@ -45,7 +46,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       }
 
       const projectId = req.params.id;
-      const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+      const project = getProject(projectId);
       if (!project) {
         return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
       }
@@ -140,9 +141,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/projects/:id/export/json',
     async (req, reply) => {
-      const project = db
-        .prepare('SELECT * FROM projects WHERE id = ?')
-        .get(req.params.id) as { id: string; name: string; created_at: string } | undefined;
+      const project = getProject(req.params.id);
 
       if (!project) {
         return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
@@ -165,9 +164,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
   fastify.get<{ Params: { id: string } }>(
     '/projects/:id/export/csv',
     async (req, reply) => {
-      const project = db
-        .prepare('SELECT id FROM projects WHERE id = ?')
-        .get(req.params.id);
+      const project = getProject(req.params.id);
 
       if (!project) {
         return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });

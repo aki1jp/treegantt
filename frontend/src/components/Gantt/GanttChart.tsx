@@ -13,7 +13,7 @@ import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
-import { ContextMenu } from './ContextMenu';
+import { ContextMenu } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
 
 const HEADER_ROW_H = 26;

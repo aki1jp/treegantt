@@ -8,6 +8,7 @@ import {
   deleteTask,
   reorderTasks,
   wouldCreateCycle,
+  getAncestorTasks,
 } from '../services/taskService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
@@ -143,6 +144,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
         });
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
         notifyRoom(task.projectId, { type: 'task_updated', projectId: task.projectId, task });
+        if (req.body.startDate !== undefined || req.body.endDate !== undefined) {
+          for (const ancestor of getAncestorTasks(req.params.id)) {
+            notifyRoom(ancestor.projectId, { type: 'task_updated', projectId: ancestor.projectId, task: ancestor });
+          }
+        }
         return { task };
       },
     }

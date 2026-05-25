@@ -6,13 +6,13 @@ import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 const STATUS_COLOR: Record<TaskStatus, string> = {
   todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
 };
-export const STATUS_LABEL: Record<TaskStatus, string> = {
+const STATUS_LABEL: Record<TaskStatus, string> = {
   todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機',
 };
 const PRIORITY_COLOR: Record<TaskPriority, string> = {
   critical: '#ef4444', high: '#f97316', medium: '#6b7280', low: '#d1d5db',
 };
-export const PRIORITY_LABEL: Record<TaskPriority, string> = {
+const PRIORITY_LABEL: Record<TaskPriority, string> = {
   critical: '最高', high: '高', medium: '中', low: '低',
 };
 

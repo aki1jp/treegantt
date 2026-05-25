@@ -24,9 +24,8 @@ export function getProject(id: string): Project | null {
 
 export function createProject(name: string): Project {
   const id = uuidv4();
-  db.prepare('INSERT INTO projects (id, name) VALUES (?, ?)').run(id, name);
   return rawToProject(
-    db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as RawProject
+    db.prepare('INSERT INTO projects (id, name) VALUES (?, ?) RETURNING *').get(id, name) as RawProject
   );
 }
 

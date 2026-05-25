@@ -9,7 +9,7 @@ import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
-import type { Task } from './types/task';
+import type { Task, Project } from './types/task';
 import { apiFetch } from './utils/api';
 
 export default function App() {
@@ -25,7 +25,7 @@ export default function App() {
 
   const { createTask, updateTask, deleteTask, reorderTasks } = useTasks(currentProject?.id ?? '');
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
-    useImportExport(currentProject);
+    useImportExport(currentProject, tasks, setTasks);
 
   // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function App() {
     await createProject(name);
   }
 
-  async function handleDeleteProject(project: import('./types/task').Project) {
+  async function handleDeleteProject(project: Project) {
     if (!confirm(`プロジェクト「${project.name}」を削除しますか？\n\n※ このプロジェクトのタスクもすべて削除されます。この操作は取り消せません。`)) return;
     try {
       await deleteProject(project);

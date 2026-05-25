@@ -28,11 +28,9 @@ export function useProjects() {
 
   async function deleteProject(project: Project): Promise<void> {
     await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
-    setProjects(prev => {
-      const remaining = prev.filter(p => p.id !== project.id);
-      setCurrentProject(remaining.length > 0 ? remaining[0] : null);
-      return remaining;
-    });
+    const remaining = projects.filter(p => p.id !== project.id);
+    setProjects(remaining);
+    setCurrentProject(remaining.length > 0 ? remaining[0] : null);
   }
 
   return { projects, currentProject, setCurrentProject, loading, createProject, deleteProject };

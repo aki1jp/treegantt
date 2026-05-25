@@ -193,28 +193,28 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
 
 export type UpdateTaskInput = Partial<Omit<CreateTaskInput, 'id' | 'projectId'>>;
 
+type ColEntry = [keyof UpdateTaskInput, string, ((v: unknown) => unknown)?];
+const COLUMN_MAP: ColEntry[] = [
+  ['parentId',    'parent_id'],
+  ['title',       'title'],
+  ['summary',     'summary'],
+  ['description', 'description'],
+  ['status',      'status'],
+  ['priority',    'priority'],
+  ['progress',    'progress'],
+  ['assignee',    'assignee'],
+  ['startDate',   'start_date'],
+  ['endDate',     'end_date'],
+  ['isMilestone', 'is_milestone', (v) => v ? 1 : 0],
+  ['order',       'ord'],
+];
+
 export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccessors | null {
   const row = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
   if (!row) return null;
 
   const fields: string[] = [];
   const params: unknown[] = [];
-
-  type ColEntry = [keyof typeof input, string, ((v: unknown) => unknown)?];
-  const COLUMN_MAP: ColEntry[] = [
-    ['parentId',    'parent_id'],
-    ['title',       'title'],
-    ['summary',     'summary'],
-    ['description', 'description'],
-    ['status',      'status'],
-    ['priority',    'priority'],
-    ['progress',    'progress'],
-    ['assignee',    'assignee'],
-    ['startDate',   'start_date'],
-    ['endDate',     'end_date'],
-    ['isMilestone', 'is_milestone', (v) => v ? 1 : 0],
-    ['order',       'ord'],
-  ];
   for (const [key, col, transform] of COLUMN_MAP) {
     if (input[key] !== undefined) {
       fields.push(`${col} = ?`);
@@ -268,6 +268,23 @@ export function propagateDatesToParent(taskId: string): void {
     db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`).run(...params, parentId);
     propagateDatesToParent(parentId);
   }
+}
+
+export function getAncestorTasks(taskId: string): TaskWithSuccessors[] {
+  const ancestors: TaskWithSuccessors[] = [];
+  let current = taskId;
+  const visited = new Set<string>();
+  while (true) {
+    if (visited.has(current)) break;
+    visited.add(current);
+    const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(current) as { parent_id: string | null } | undefined;
+    if (!row?.parent_id) break;
+    const parent = getTask(row.parent_id);
+    if (!parent) break;
+    ancestors.push(parent);
+    current = row.parent_id;
+  }
+  return ancestors;
 }
 
 export function deleteTask(id: string): boolean {
