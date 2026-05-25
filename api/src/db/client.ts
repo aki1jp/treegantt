@@ -13,28 +13,24 @@ export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-const migrationSql = readFileSync(
-  join(__dirname, 'migrations/001_init.sql'),
-  'utf-8'
-);
-db.exec(migrationSql);
+// Bootstrap: create migration tracking table before anything else
+db.exec(`CREATE TABLE IF NOT EXISTS _migrations (
+  name       TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
 
-try {
-  const migration002 = readFileSync(
-    join(__dirname, 'migrations/002_parent.sql'),
-    'utf-8'
-  );
-  db.exec(migration002);
-} catch {
-  // duplicate column name — migration already applied
+function runMigration(name: string, sql: string): void {
+  if (db.prepare('SELECT 1 FROM _migrations WHERE name = ?').get(name)) return;
+  try {
+    db.exec(sql);
+  } catch (e) {
+    // "duplicate column name" means the migration was applied before tracking was introduced
+    if (!(e instanceof Error) || !e.message.includes('duplicate column name')) throw e;
+  }
+  db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(name);
 }
 
-try {
-  const migration003 = readFileSync(
-    join(__dirname, 'migrations/003_milestone.sql'),
-    'utf-8'
-  );
-  db.exec(migration003);
-} catch {
-  // duplicate column name — migration already applied
-}
+const migrationsDir = join(__dirname, 'migrations');
+runMigration('001_init',    readFileSync(join(migrationsDir, '001_init.sql'),    'utf-8'));
+runMigration('002_parent',  readFileSync(join(migrationsDir, '002_parent.sql'),  'utf-8'));
+runMigration('003_milestone', readFileSync(join(migrationsDir, '003_milestone.sql'), 'utf-8'));
