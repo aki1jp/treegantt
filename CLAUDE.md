@@ -14,8 +14,8 @@ bash start.sh
 # → http://localhost:3000 / API: 4000 / WS: 4001
 
 # テスト
-cd /workspace/api      && npm test            # 78件
-cd /workspace/frontend && npm test -- --run   # 366件
+cd /workspace/api      && npm test            # 107件
+cd /workspace/frontend && npm test -- --run   # 392件
 
 # 本番
 docker compose build && docker compose up -d
