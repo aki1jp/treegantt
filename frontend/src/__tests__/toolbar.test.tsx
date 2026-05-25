@@ -17,6 +17,7 @@ function renderToolbar() {
       onAddTask={NOOP}
       onAddMilestone={NOOP}
       onImport={NOOP}
+      onRestore={NOOP}
       onExportJson={NOOP}
       onExportCsv={NOOP}
     />

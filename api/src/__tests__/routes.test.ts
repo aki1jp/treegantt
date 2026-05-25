@@ -653,4 +653,71 @@ describe('Import/Export API', () => {
     const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
     expect(list.json().tasks).toHaveLength(3);
   });
+
+  // ── レストアモード ────────────────────────────────────
+  it('mode=restore で既存タスクが全削除されてからインポートされる', async () => {
+    // 既存タスクを2件登録
+    await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '既存1' } });
+    await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '既存2' } });
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { mode: 'restore', tasks: [{ title: 'レストアタスク' }] },
+    });
+    expect(res.json().imported).toBe(1);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    const tasks = list.json().tasks;
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe('レストアタスク');
+  });
+
+  it('mode=restore で親子関係・predecessors が正しく保持される', async () => {
+    // 既存タスクを登録しておく
+    await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '古いタスク' } });
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { mode: 'restore', tasks: [
+        { id: 'rp', title: '親',   startDate: '2026-06-01', endDate: '2026-06-30' },
+        { id: 'rc', title: '子',   parentId: 'rp', startDate: '2026-06-01', endDate: '2026-06-15' },
+        { id: 'rd', title: '依存', predecessors: ['rc'] },
+      ]},
+    });
+    expect(res.json().imported).toBe(3);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    const tasks = list.json().tasks;
+    expect(tasks).toHaveLength(3);
+    const parent = tasks.find((t: { title: string }) => t.title === '親');
+    const child  = tasks.find((t: { title: string }) => t.title === '子');
+    const dep    = tasks.find((t: { title: string }) => t.title === '依存');
+    expect(child.parentId).toBe(parent.id);
+    expect(dep.predecessors).toContain(child.id);
+  });
+
+  it('mode=restore で空タスク配列を渡すと全タスクが削除される', async () => {
+    await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '消えるタスク' } });
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { mode: 'restore', tasks: [] },
+    });
+    expect(res.json().imported).toBe(0);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    expect(list.json().tasks).toHaveLength(0);
+  });
+
+  it('mode 未指定（デフォルト）は追記モードとして動作する', async () => {
+    await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '既存タスク' } });
+
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { tasks: [{ title: '追記タスク' }] },
+    });
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    expect(list.json().tasks).toHaveLength(2);
+  });
 });

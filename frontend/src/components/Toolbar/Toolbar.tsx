@@ -7,6 +7,7 @@ interface Props {
   onAddTask: () => void;
   onAddMilestone: () => void;
   onImport: () => void;
+  onRestore: () => void;
   onExportJson: () => void;
   onExportCsv: () => void;
 }
@@ -91,7 +92,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
   );
 }
 
-export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onExportCsv }: Props) {
+export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv }: Props) {
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
@@ -195,7 +196,11 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onExportJson, onE
                 position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 1000,
                 ...dropdownStyle, minWidth: 160, overflow: 'hidden',
               }}>
-                <MenuItem label="📥 インポート" onClick={() => { onImport(); setMenuOpen(false); }} />
+                <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                  📥 インポート
+                </div>
+                <MenuItem label="追記（既存を保持）" indent onClick={() => { onImport(); setMenuOpen(false); }} />
+                <MenuItem label="レストア（既存を削除）" indent onClick={() => { onRestore(); setMenuOpen(false); }} />
 
                 <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 

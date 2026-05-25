@@ -39,7 +39,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { id: string }; Body: unknown }>(
     '/projects/:id/import',
     async (req, reply) => {
-      const body = req.body as { tasks?: unknown };
+      const body = req.body as { tasks?: unknown; mode?: unknown };
       if (!body || !Array.isArray(body.tasks)) {
         return reply.code(400).send({ error: 'Invalid import format', code: 'INVALID_FORMAT' });
       }
@@ -50,10 +50,16 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
       }
 
+      const isRestore = body.mode === 'restore';
       const inputTasks = body.tasks as Array<Record<string, unknown>>;
 
+      // restore モード: 既存タスクを全削除（task_deps は CASCADE で自動削除）
+      if (isRestore) {
+        db.prepare('DELETE FROM tasks WHERE project_id = ?').run(projectId);
+      }
+
       // Step 0: 既存の最大 ord を取得（追記用オフセット）
-      const maxOrd = (
+      const maxOrd = isRestore ? 0 : (
         db.prepare('SELECT COALESCE(MAX(ord), 0) AS m FROM tasks WHERE project_id = ?')
           .get(projectId) as { m: number }
       ).m;

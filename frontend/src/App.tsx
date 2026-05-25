@@ -18,6 +18,7 @@ export default function App() {
   const [modalIsMilestone, setModalIsMilestone] = useState(false);
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
   const [loading, setLoading]               = useState(true);
+  const [importMode, setImportMode] = useState<'append' | 'restore' | null>(null);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
 
@@ -142,16 +143,23 @@ export default function App() {
     downloadFile(exportToCsv(tasks), exportFileName('csv'), 'text/csv');
   }
 
+  function handleImportClick(mode: 'append' | 'restore') {
+    setImportMode(mode);
+    fileInputRef.current?.click();
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !currentProject) return;
     const text = await file.text();
+    const mode = importMode ?? 'append';
+    setImportMode(null);
     try {
       const isCsv = file.name.endsWith('.csv') || file.type === 'text/csv';
       const { tasks: importedTasks } = isCsv ? importFromCsv(text) : importFromJson(text);
       await apiFetch(`/projects/${currentProject.id}/import`, {
         method: 'POST',
-        body: JSON.stringify({ tasks: importedTasks }),
+        body: JSON.stringify({ tasks: importedTasks, mode }),
       });
       // import 後は自分のタブも即時リフレッシュ（他タブは reload broadcast で更新される）
       const data = await apiFetch(`/projects/${currentProject.id}/tasks`);
@@ -229,7 +237,8 @@ export default function App() {
           <Toolbar
             onAddTask={() => { setModalIsMilestone(false); setModalTask(null); }}
             onAddMilestone={() => { setModalIsMilestone(true); setModalTask(null); }}
-            onImport={() => fileInputRef.current?.click()}
+            onImport={() => handleImportClick('append')}
+            onRestore={() => handleImportClick('restore')}
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
           />
