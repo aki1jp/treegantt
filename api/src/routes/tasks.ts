@@ -11,6 +11,21 @@ import {
 } from '../services/taskService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
+const TASK_BODY_PROPERTIES = {
+  parentId:     { type: ['string', 'null'] },
+  title:        { type: 'string', minLength: 1, maxLength: 200 },
+  summary:      { type: 'string' },
+  description:  { type: 'string' },
+  status:       { type: 'string', enum: ['todo', 'wip', 'done', 'wait'] },
+  priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+  progress:     { type: 'number', minimum: 0, maximum: 100 },
+  assignee:     { type: 'string' },
+  startDate:    { type: ['string', 'null'] },
+  endDate:      { type: ['string', 'null'] },
+  isMilestone:  { type: 'boolean' },
+  predecessors: { type: 'array', items: { type: 'string' } },
+} as const;
+
 export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Params: { id: string };
@@ -33,20 +48,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
         body: {
           type: 'object',
           required: ['title'],
-          properties: {
-            parentId:     { type: ['string', 'null'] },
-            title:        { type: 'string', minLength: 1, maxLength: 200 },
-            summary:      { type: 'string' },
-            description:  { type: 'string' },
-            status:       { type: 'string', enum: ['todo', 'wip', 'done', 'wait'] },
-            priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
-            progress:     { type: 'number', minimum: 0, maximum: 100 },
-            assignee:     { type: 'string' },
-            startDate:    { type: ['string', 'null'] },
-            endDate:      { type: ['string', 'null'] },
-            isMilestone:  { type: 'boolean' },
-            predecessors: { type: 'array', items: { type: 'string' } },
-          },
+          properties: TASK_BODY_PROPERTIES,
         },
       },
       async handler(req, reply) {
@@ -114,21 +116,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       schema: {
         body: {
           type: 'object',
-          properties: {
-            parentId:     { type: ['string', 'null'] },
-            title:        { type: 'string', minLength: 1, maxLength: 200 },
-            summary:      { type: 'string' },
-            description:  { type: 'string' },
-            status:       { type: 'string', enum: ['todo', 'wip', 'done', 'wait'] },
-            priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
-            progress:     { type: 'number', minimum: 0, maximum: 100 },
-            assignee:     { type: 'string' },
-            startDate:    { type: ['string', 'null'] },
-            endDate:      { type: ['string', 'null'] },
-            isMilestone:  { type: 'boolean' },
-            predecessors: { type: 'array', items: { type: 'string' } },
-            order:        { type: 'number' },
-          },
+          properties: { ...TASK_BODY_PROPERTIES, order: { type: 'number' } },
         },
       },
       async handler(req, reply) {

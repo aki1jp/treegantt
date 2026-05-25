@@ -200,18 +200,27 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
   const fields: string[] = [];
   const params: unknown[] = [];
 
-  if (input.parentId !== undefined)    { fields.push('parent_id = ?');   params.push(input.parentId); }
-  if (input.title !== undefined)       { fields.push('title = ?');       params.push(input.title); }
-  if (input.summary !== undefined)     { fields.push('summary = ?');     params.push(input.summary); }
-  if (input.description !== undefined) { fields.push('description = ?'); params.push(input.description); }
-  if (input.status !== undefined)      { fields.push('status = ?');      params.push(input.status); }
-  if (input.priority !== undefined)    { fields.push('priority = ?');    params.push(input.priority); }
-  if (input.progress !== undefined)    { fields.push('progress = ?');    params.push(input.progress); }
-  if (input.assignee !== undefined)    { fields.push('assignee = ?');    params.push(input.assignee); }
-  if (input.startDate !== undefined)   { fields.push('start_date = ?');    params.push(input.startDate); }
-  if (input.endDate !== undefined)     { fields.push('end_date = ?');      params.push(input.endDate); }
-  if (input.isMilestone !== undefined) { fields.push('is_milestone = ?');  params.push(input.isMilestone ? 1 : 0); }
-  if (input.order !== undefined)       { fields.push('ord = ?');           params.push(input.order); }
+  type ColEntry = [keyof typeof input, string, ((v: unknown) => unknown)?];
+  const COLUMN_MAP: ColEntry[] = [
+    ['parentId',    'parent_id'],
+    ['title',       'title'],
+    ['summary',     'summary'],
+    ['description', 'description'],
+    ['status',      'status'],
+    ['priority',    'priority'],
+    ['progress',    'progress'],
+    ['assignee',    'assignee'],
+    ['startDate',   'start_date'],
+    ['endDate',     'end_date'],
+    ['isMilestone', 'is_milestone', (v) => v ? 1 : 0],
+    ['order',       'ord'],
+  ];
+  for (const [key, col, transform] of COLUMN_MAP) {
+    if (input[key] !== undefined) {
+      fields.push(`${col} = ?`);
+      params.push(transform ? transform(input[key]) : input[key]);
+    }
+  }
 
   if (fields.length > 0) {
     db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);
