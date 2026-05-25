@@ -82,24 +82,132 @@ describe('exportToJson / importFromJson', () => {
 
 describe('importFromCsv — 欠損フィールドのフォールバック', () => {
   it('最低限 title だけのCSVで全フォールバック値が適用される', () => {
-    // id なし・status/priority/assignee なし → デフォルト値が使われるケース
     const csv = 'title\n仮タスク';
     const { tasks } = importFromCsv(csv);
-    expect(tasks[0].id).toBeUndefined();       // row.id || undefined
+    expect(tasks[0].id).toBeUndefined();
     expect(tasks[0].title).toBe('仮タスク');
-    expect(tasks[0].summary).toBe('');          // ?? ''
-    expect(tasks[0].description).toBe('');      // ?? ''
-    expect(tasks[0].status).toBe('todo');       // || 'todo'
-    expect(tasks[0].priority).toBe('medium');   // || 'medium'
-    expect(tasks[0].assignee).toBe('');         // ?? ''
-    expect(tasks[0].progress).toBe(0);          // || 0
+    expect(tasks[0].summary).toBe('');
+    expect(tasks[0].description).toBe('');
+    expect(tasks[0].status).toBe('todo');
+    expect(tasks[0].priority).toBe('medium');
+    expect(tasks[0].assignee).toBe('');
+    expect(tasks[0].progress).toBe(0);
   });
 
   it('title 列が存在しない行では title が空文字になる', () => {
-    // row.title が undefined → ?? '' のフォールバックを通す
     const csv = 'id\nabc-123';
     const { tasks } = importFromCsv(csv);
-    expect(tasks[0].title).toBe('');  // undefined ?? '' = ''
+    expect(tasks[0].title).toBe('');
+  });
+});
+
+describe('importFromCsv — 複数タスク・意地悪テスト', () => {
+  it('複数行が全件パースされる（最後だけにならない）', () => {
+    const csv = exportToCsv([
+      makeTask({ id: 'a', title: 'Task A', status: 'todo' }),
+      makeTask({ id: 'b', title: 'Task B', status: 'wip' }),
+      makeTask({ id: 'c', title: 'Task C', status: 'done' }),
+    ]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks).toHaveLength(3);
+    expect(tasks[0].title).toBe('Task A');
+    expect(tasks[1].title).toBe('Task B');
+    expect(tasks[2].title).toBe('Task C');
+  });
+
+  it('各タスクが独立したオブジェクト（参照共有なし）', () => {
+    const csv = exportToCsv([
+      makeTask({ id: 'a', title: 'Task A', predecessors: ['x'] }),
+      makeTask({ id: 'b', title: 'Task B', predecessors: ['y'] }),
+    ]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0]).not.toBe(tasks[1]);
+    expect(tasks[0].predecessors).not.toBe(tasks[1].predecessors);
+    expect(tasks[0].predecessors).toEqual(['x']);
+    expect(tasks[1].predecessors).toEqual(['y']);
+  });
+
+  it('parentId を持つ複数タスクが正しくパースされる', () => {
+    const csv = exportToCsv([
+      makeTask({ id: 'parent', title: '親', parentId: null }),
+      makeTask({ id: 'child',  title: '子', parentId: 'parent' }),
+    ]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks).toHaveLength(2);
+    expect(tasks[0].parentId).toBeNull();
+    expect(tasks[1].parentId).toBe('parent');
+  });
+
+  it('空行がスキップされる', () => {
+    const csv = 'title,status\nTask A,todo\n\nTask B,wip\n';
+    const { tasks } = importFromCsv(csv);
+    expect(tasks).toHaveLength(2);
+  });
+
+  it('100件のタスクが全件パースされる', () => {
+    const manyTasks = Array.from({ length: 100 }, (_, i) =>
+      makeTask({ id: `t${i}`, title: `Task ${i}`, order: i + 1 })
+    );
+    const csv = exportToCsv(manyTasks);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks).toHaveLength(100);
+    expect(tasks[0].title).toBe('Task 0');
+    expect(tasks[99].title).toBe('Task 99');
+  });
+
+  it('カンマを含むフィールドが正しくパースされる', () => {
+    const csv = exportToCsv([makeTask({ title: 'タスク, 特殊' })]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].title).toBe('タスク, 特殊');
+  });
+
+  it('ダブルクォートを含むフィールドが正しくパースされる', () => {
+    const csv = exportToCsv([makeTask({ title: '彼は"天才"だ' })]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].title).toBe('彼は"天才"だ');
+  });
+});
+
+describe('importFromJson — 意地悪テスト', () => {
+  it('tasks が空配列でエラーにならない', () => {
+    const json = JSON.stringify({ version: '1.1', project: { id: 'p1', name: 'P' }, tasks: [] });
+    const result = importFromJson(json);
+    expect(result.tasks).toHaveLength(0);
+  });
+
+  it('無効なJSONは例外を投げる', () => {
+    expect(() => importFromJson('not-json{')).toThrow();
+  });
+
+  it('tasks が配列でない場合は例外を投げる', () => {
+    const json = JSON.stringify({ tasks: 'string' });
+    expect(() => importFromJson(json)).toThrow('Invalid format');
+  });
+
+  it('tasks キーがない場合は例外を投げる', () => {
+    const json = JSON.stringify({ version: '1.1' });
+    expect(() => importFromJson(json)).toThrow('Invalid format');
+  });
+
+  it('100件のラウンドトリップが全件復元できる', () => {
+    const tasks = Array.from({ length: 100 }, (_, i) =>
+      makeTask({ id: `task-${i}`, title: `Task ${i}`, order: i + 1 })
+    );
+    const json = exportToJson({ id: 'p1', name: 'Project' }, tasks);
+    const result = importFromJson(json);
+    expect(result.tasks).toHaveLength(100);
+    expect(result.tasks[0].title).toBe('Task 0');
+    expect(result.tasks[99].title).toBe('Task 99');
+  });
+
+  it('親子関係を含むJSONがラウンドトリップできる', () => {
+    const tasks = [
+      makeTask({ id: 'p1', title: '親', parentId: null }),
+      makeTask({ id: 'c1', title: '子', parentId: 'p1' }),
+    ];
+    const json = exportToJson({ id: 'proj', name: 'P' }, tasks);
+    const result = importFromJson(json);
+    expect(result.tasks[1].parentId).toBe('p1');
   });
 });
 

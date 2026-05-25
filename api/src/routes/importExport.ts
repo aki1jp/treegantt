@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
+import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/client.js';
-import { createTask, updateTask, listTasks } from '../services/taskService.js';
+import { listTasks, propagateDatesToParent } from '../services/taskService.js';
 import { broadcast } from '../ws/broadcast.js';
-import type { Task } from '../types/task.js';
 
 const CSV_HEADERS = 'id,title,summary,description,status,priority,progress,assignee,startDate,endDate,predecessors';
 
@@ -13,55 +13,120 @@ function escapeCsv(val: string): string {
   return val;
 }
 
+const VALID_STATUSES   = new Set(['todo', 'wip', 'done', 'wait']);
+const VALID_PRIORITIES = new Set(['critical', 'high', 'medium', 'low']);
+
+function toStatus(v: unknown): string {
+  const s = String(v ?? '');
+  return VALID_STATUSES.has(s) ? s : 'todo';
+}
+function toPriority(v: unknown): string {
+  const s = String(v ?? '');
+  return VALID_PRIORITIES.has(s) ? s : 'medium';
+}
+function toProgress(v: unknown): number {
+  const n = Number(v);
+  return isNaN(n) ? 0 : Math.max(0, Math.min(100, Math.round(n)));
+}
+function toStr(v: unknown): string {
+  return v == null ? '' : String(v);
+}
+function toNullableStr(v: unknown): string | null {
+  return v == null || v === '' ? null : String(v);
+}
+
 export async function importExportRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { id: string }; Body: unknown }>(
     '/projects/:id/import',
     async (req, reply) => {
-      const body = req.body as { version?: string; tasks?: Task[] };
+      const body = req.body as { tasks?: unknown };
       if (!body || !Array.isArray(body.tasks)) {
         return reply.code(400).send({ error: 'Invalid import format', code: 'INVALID_FORMAT' });
       }
 
-      let imported = 0;
-      for (const task of body.tasks) {
-        const existing = db.prepare('SELECT id FROM tasks WHERE id = ?').get(task.id);
-        if (existing) {
-          updateTask(task.id, {
-            title: task.title,
-            summary: task.summary,
-            description: task.description,
-            status: task.status,
-            priority: task.priority,
-            progress: task.progress,
-            assignee: task.assignee,
-            startDate: task.startDate,
-            endDate: task.endDate,
-            predecessors: task.predecessors,
-            order: task.order,
-          });
-        } else {
-          createTask({
-            id: task.id,
-            projectId: req.params.id,
-            title: task.title,
-            summary: task.summary,
-            description: task.description,
-            status: task.status,
-            priority: task.priority,
-            progress: task.progress,
-            assignee: task.assignee,
-            startDate: task.startDate,
-            endDate: task.endDate,
-            predecessors: task.predecessors,
-            order: task.order,
-          });
-        }
-        imported++;
+      const projectId = req.params.id;
+      const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+      if (!project) {
+        return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
       }
 
-      // 他のクライアントへリロード通知
-      broadcast(req.params.id, { type: 'reload', projectId: req.params.id });
+      const inputTasks = body.tasks as Array<Record<string, unknown>>;
 
+      // Step 0: 既存の最大 ord を取得（追記用オフセット）
+      const maxOrd = (
+        db.prepare('SELECT COALESCE(MAX(ord), 0) AS m FROM tasks WHERE project_id = ?')
+          .get(projectId) as { m: number }
+      ).m;
+
+      // Step 1: 全タスクに新 UUID を割り当て、oldId → newId マッピングを構築
+      const idMap = new Map<string, string>();
+      const newIds: string[] = inputTasks.map(task => {
+        const newId = uuidv4();
+        const oldId = typeof task.id === 'string' && task.id ? task.id : null;
+        if (oldId) idMap.set(oldId, newId);
+        return newId;
+      });
+
+      const doImport = db.transaction(() => {
+        // Pass 1: 全タスクを parent_id=NULL でINSERT（FK 順序問題を回避）
+        const insertTask = db.prepare(`
+          INSERT INTO tasks
+            (id, project_id, parent_id, title, summary, description,
+             status, priority, progress, assignee, start_date, end_date, is_milestone, ord)
+          VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        inputTasks.forEach((task, i) => {
+          insertTask.run(
+            newIds[i],
+            projectId,
+            toStr(task.title),
+            toStr(task.summary),
+            toStr(task.description),
+            toStatus(task.status),
+            toPriority(task.priority),
+            toProgress(task.progress),
+            toStr(task.assignee),
+            toNullableStr(task.startDate),
+            toNullableStr(task.endDate),
+            task.isMilestone ? 1 : 0,
+            maxOrd + i + 1,
+          );
+        });
+
+        // Pass 2: parent_id をリマップして UPDATE（バッチ外 ID は null 扱い）
+        const setParent = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');
+        inputTasks.forEach((task, i) => {
+          const oldParentId = typeof task.parentId === 'string' ? task.parentId : null;
+          const newParentId = oldParentId ? (idMap.get(oldParentId) ?? null) : null;
+          if (newParentId) setParent.run(newParentId, newIds[i]);
+        });
+
+        // Pass 3: predecessors をリマップして task_deps に INSERT（バッチ外 ID は除外）
+        const insertDep = db.prepare(
+          'INSERT OR IGNORE INTO task_deps (predecessor_id, successor_id) VALUES (?, ?)'
+        );
+        inputTasks.forEach((task, i) => {
+          const preds = Array.isArray(task.predecessors) ? task.predecessors : [];
+          for (const oldPredId of preds) {
+            if (typeof oldPredId !== 'string') continue;
+            const newPredId = idMap.get(oldPredId);
+            if (newPredId) insertDep.run(newPredId, newIds[i]);
+          }
+        });
+
+        // Pass 4: 親を持つタスクの日付を上位に伝播
+        inputTasks.forEach((task, i) => {
+          const oldParentId = typeof task.parentId === 'string' ? task.parentId : null;
+          if (oldParentId && idMap.has(oldParentId)) {
+            propagateDatesToParent(newIds[i]);
+          }
+        });
+
+        return inputTasks.length;
+      });
+
+      const imported = doImport();
+      broadcast(projectId, { type: 'reload', projectId });
       return { imported };
     }
   );

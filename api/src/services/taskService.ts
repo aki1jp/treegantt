@@ -234,7 +234,7 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
   return getTask(id);
 }
 
-function propagateDatesToParent(taskId: string): void {
+export function propagateDatesToParent(taskId: string): void {
   const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(taskId) as { parent_id: string | null } | undefined;
   if (!row?.parent_id) return;
   const parentId = row.parent_id;

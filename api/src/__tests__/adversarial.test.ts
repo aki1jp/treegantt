@@ -287,24 +287,32 @@ describe('API 悪意テスト — インポートの悪用', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('同一 ID のタスクを 2 回インポートすると上書きになる（PK 重複エラーにならない）', async () => {
+  it('同一 ID のタスクを 2 回インポートすると別タスクとして追加される（上書きしない・PK 衝突なし）', async () => {
+    // 新仕様: インポートは常に新 UUID を生成するため、同じ oldId でも別タスクになる
     const task = {
       id: 'dup-id', title: 'First',
       status: 'todo', priority: 'medium', progress: 0, predecessors: [],
     };
-    await app.inject({
+    const res1 = await app.inject({
       method: 'POST', url: `/api/v1/projects/${pid}/import`,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ tasks: [task] }),
     });
-    const res = await app.inject({
+    expect(res1.statusCode).toBe(200);
+
+    const res2 = await app.inject({
       method: 'POST', url: `/api/v1/projects/${pid}/import`,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ tasks: [{ ...task, title: 'Updated' }] }),
     });
-    expect(res.statusCode).toBe(200);
-    const t = await app.inject({ method: 'GET', url: '/api/v1/tasks/dup-id' });
-    expect(t.json().task.title).toBe('Updated');
+    expect(res2.statusCode).toBe(200);
+
+    // 2回インポートで2件になる（上書きではなく追加）
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${pid}/tasks` });
+    const titles = list.json().tasks.map((t: { title: string }) => t.title);
+    expect(titles).toContain('First');
+    expect(titles).toContain('Updated');
+    expect(list.json().tasks).toHaveLength(2);
   });
 });
 
