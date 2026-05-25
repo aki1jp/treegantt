@@ -1,44 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useTasks } from './hooks/useTasks';
+import { useProjects } from './hooks/useProjects';
+import { useImportExport } from './hooks/useImportExport';
 import { useTaskStore } from './store/taskStore';
 import { useTheme } from './hooks/useTheme';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
-import type { Task, Project } from './types/task';
-import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from './utils/importExport';
+import type { Task } from './types/task';
 import { apiFetch } from './utils/api';
 
 export default function App() {
-  const [projects, setProjects]             = useState<Project[]>([]);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
   const [modalIsMilestone, setModalIsMilestone] = useState(false);
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
-  const [loading, setLoading]               = useState(true);
-  const [importMode, setImportMode] = useState<'append' | 'restore' | null>(null);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
+  const { projects, currentProject, setCurrentProject, loading, createProject, deleteProject } = useProjects();
 
   useTheme();
-
-  // WebSocket: プロジェクトのリアルタイム同期
   useWebSocket(currentProject?.id ?? null);
 
   const { createTask, updateTask, deleteTask, reorderTasks } = useTasks(currentProject?.id ?? '');
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 初期ロード: プロジェクト一覧
-  useEffect(() => {
-    apiFetch('/projects').then(d => {
-      setProjects(d.projects);
-      if (d.projects.length > 0) setCurrentProject(d.projects[0]);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+  const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
+    useImportExport(currentProject);
 
   // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
@@ -60,9 +47,16 @@ export default function App() {
   async function handleCreateProject() {
     const name = prompt('プロジェクト名を入力してください');
     if (!name) return;
-    const data = await apiFetch('/projects', { method: 'POST', body: JSON.stringify({ name }) });
-    setProjects(prev => [data.project, ...prev]);
-    setCurrentProject(data.project);
+    await createProject(name);
+  }
+
+  async function handleDeleteProject(project: import('./types/task').Project) {
+    if (!confirm(`プロジェクト「${project.name}」を削除しますか？\n\n※ このプロジェクトのタスクもすべて削除されます。この操作は取り消せません。`)) return;
+    try {
+      await deleteProject(project);
+    } catch (err) {
+      alert('削除に失敗しました: ' + (err as Error).message);
+    }
   }
 
   async function handleSaveTask(data: Partial<Task> & { title: string }) {
@@ -88,18 +82,6 @@ export default function App() {
     }
   }
 
-  async function handleDeleteProject(project: Project) {
-    if (!confirm(`プロジェクト「${project.name}」を削除しますか？\n\n※ このプロジェクトのタスクもすべて削除されます。この操作は取り消せません。`)) return;
-    try {
-      await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
-      const remaining = projects.filter(p => p.id !== project.id);
-      setProjects(remaining);
-      setCurrentProject(remaining.length > 0 ? remaining[0] : null);
-    } catch (err) {
-      alert('削除に失敗しました: ' + (err as Error).message);
-    }
-  }
-
   async function handleDeleteTask(id: string) {
     if (!confirm('このタスクを削除しますか？')) return;
     await deleteTask(id);
@@ -118,56 +100,6 @@ export default function App() {
     setModalIsMilestone(false);
     setModalInitialParentId(parentId);
     setModalTask(null);
-  }
-
-  function exportFileName(ext: string) {
-    const safeName = currentProject!.name.replace(/[/\\:*?"<>|]/g, '_');
-    const now = new Date();
-    const ts = now.getFullYear().toString()
-      + String(now.getMonth() + 1).padStart(2, '0')
-      + String(now.getDate()).padStart(2, '0')
-      + '-'
-      + String(now.getHours()).padStart(2, '0')
-      + String(now.getMinutes()).padStart(2, '0')
-      + String(now.getSeconds()).padStart(2, '0');
-    return `treegantt-${safeName}-${ts}.${ext}`;
-  }
-
-  function handleExportJson() {
-    if (!currentProject) return;
-    downloadFile(exportToJson(currentProject, tasks), exportFileName('json'), 'application/json');
-  }
-
-  function handleExportCsv() {
-    if (!currentProject) return;
-    downloadFile(exportToCsv(tasks), exportFileName('csv'), 'text/csv');
-  }
-
-  function handleImportClick(mode: 'append' | 'restore') {
-    setImportMode(mode);
-    fileInputRef.current?.click();
-  }
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !currentProject) return;
-    const text = await file.text();
-    const mode = importMode ?? 'append';
-    setImportMode(null);
-    try {
-      const isCsv = file.name.endsWith('.csv') || file.type === 'text/csv';
-      const { tasks: importedTasks } = isCsv ? importFromCsv(text) : importFromJson(text);
-      await apiFetch(`/projects/${currentProject.id}/import`, {
-        method: 'POST',
-        body: JSON.stringify({ tasks: importedTasks, mode }),
-      });
-      // import 後は自分のタブも即時リフレッシュ（他タブは reload broadcast で更新される）
-      const data = await apiFetch(`/projects/${currentProject.id}/tasks`);
-      setTasks(data.tasks);
-    } catch (err) {
-      alert('インポートに失敗しました: ' + (err as Error).message);
-    }
-    e.target.value = '';
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>読み込み中...</div>;
