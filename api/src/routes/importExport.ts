@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/client.js';
 import { listTasks, propagateDatesToParent } from '../services/taskService.js';
-import { broadcast } from '../ws/broadcast.js';
+import { notifyRoom } from '../ws/wsRoom.js';
 
 const CSV_HEADERS = 'id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,predecessors';
 
@@ -132,7 +132,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       });
 
       const imported = doImport();
-      broadcast(projectId, { type: 'reload', projectId });
+      notifyRoom(projectId, { type: 'reload', projectId });
       return { imported };
     }
   );

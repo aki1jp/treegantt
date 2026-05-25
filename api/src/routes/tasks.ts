@@ -9,7 +9,7 @@ import {
   reorderTasks,
   wouldCreateCycle,
 } from '../services/taskService.js';
-import { broadcast } from '../ws/broadcast.js';
+import { notifyRoom } from '../ws/wsRoom.js';
 
 export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get<{
@@ -66,7 +66,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           isMilestone: req.body.isMilestone as boolean | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
         });
-        broadcast(req.params.id, { type: 'task_created', projectId: req.params.id, task });
+        notifyRoom(req.params.id, { type: 'task_created', projectId: req.params.id, task });
         reply.code(201).send({ task });
       },
     }
@@ -96,7 +96,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
       },
       async handler(req) {
         reorderTasks(req.body.orders);
-        broadcast(req.params.id, { type: 'tasks_reordered', projectId: req.params.id, orders: req.body.orders });
+        notifyRoom(req.params.id, { type: 'tasks_reordered', projectId: req.params.id, orders: req.body.orders });
         return { ok: true };
       },
     }
@@ -154,7 +154,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           order:        req.body.order        as number | undefined,
         });
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
-        broadcast(task.projectId, { type: 'task_updated', projectId: task.projectId, task });
+        notifyRoom(task.projectId, { type: 'task_updated', projectId: task.projectId, task });
         return { task };
       },
     }
@@ -164,7 +164,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const task = getTask(req.params.id);
     if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
     deleteTask(req.params.id);
-    broadcast(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: req.params.id });
+    notifyRoom(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: req.params.id });
     reply.code(204).send();
   });
 }

@@ -10,9 +10,9 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-// WebSocket broadcast はテストでは不要なのでスタブ化
-vi.mock('../ws/broadcast.js', () => ({
-  broadcast: vi.fn(),
+// WebSocket room 通知はテストでは不要なのでスタブ化
+vi.mock('../ws/wsRoom.js', () => ({
+  notifyRoom: vi.fn(),
   wss: { on: vi.fn() },
 }));
 

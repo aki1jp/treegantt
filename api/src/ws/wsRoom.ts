@@ -27,7 +27,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-export function broadcast(projectId: string, message: unknown): void {
+export function notifyRoom(projectId: string, message: unknown): void {
   const room = rooms.get(projectId);
   if (!room) return;
   const payload = JSON.stringify(message);

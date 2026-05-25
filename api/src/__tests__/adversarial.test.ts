@@ -10,8 +10,8 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-vi.mock('../ws/broadcast.js', () => ({
-  broadcast: vi.fn(),
+vi.mock('../ws/wsRoom.js', () => ({
+  notifyRoom: vi.fn(),
   wss: { on: vi.fn() },
 }));
 
