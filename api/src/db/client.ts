@@ -1,10 +1,12 @@
 import Database from 'better-sqlite3';
-import { readFileSync } from 'fs';
+import { mkdirSync, readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH ?? join(__dirname, '../../data/treegantt.db');
+
+mkdirSync(dirname(dbPath), { recursive: true });
 
 export const db = new Database(dbPath);
 
