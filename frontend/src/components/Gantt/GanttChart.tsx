@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { Task, ZoomLevel } from '../../types/task';
+import type { Task } from '../../types/task';
 import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcTodayX, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
   addDays, buildMultiLevelHeaders,
-  type HeaderRow,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
