@@ -128,6 +128,7 @@ describe('Tasks API', () => {
   });
 
   afterEach(async () => {
+    await app.inject({ method: 'DELETE', url: `/api/v1/projects/${projectId}` });
     await app.close();
     testDb.close();
   });
@@ -255,6 +256,7 @@ describe('Import/Export API', () => {
   });
 
   afterEach(async () => {
+    await app.inject({ method: 'DELETE', url: `/api/v1/projects/${projectId}` });
     await app.close();
     testDb.close();
   });
