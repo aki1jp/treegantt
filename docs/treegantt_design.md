@@ -34,6 +34,7 @@
 | 2.8 | 2026年5月 | WBSインライン編集中のテキスト選択（マウスドラッグ）で行D&Dが発動するバグを修正。`handleRowDragStart` でイベントのターゲットが `INPUT`/`SELECT`/`TEXTAREA` のとき `e.preventDefault()` でドラッグをキャンセル。 |
 | 2.9 | 2026年5月 | v2.8修正: ブラウザが `dragstart` を draggable 行ラッパー自身に対して発火するため `e.target` ではなく `document.activeElement` で判定するように修正。 |
 | 2.10 | 2026年5月 | 親タスクのガントバーをサマリーバーデザインに変更。上部横バー＋左右に下向き三角（突起）を描画し、子タスクの日付範囲を囲む視覚表現を実現。`isParent=true` 時は専用の SVG `path` で描画し、移動ゾーン・リサイズハンドルを完全除去。 |
+| 2.11 | 2026年5月 | インポート機能を完全修正。①常に新 UUID を生成（既存タスクを上書きしない）②oldId→newId マッピングで parentId・predecessors を付け替え③3パス方式（INSERT→UPDATE parent_id→INSERT task_deps）でFK順序問題を解消④トランザクションで原子性を保証⑤不正な status/priority はフォールバック。 |
 
 ---
 
