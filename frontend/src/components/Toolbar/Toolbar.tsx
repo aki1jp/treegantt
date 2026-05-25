@@ -343,7 +343,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           />
           <ToggleBtn
             active={showResourceView}
-            label="担当者ビュー"
+            label="リソースビュー"
             title="担当者別スイムレーンを表示"
             onClick={() => setShowResourceView(!showResourceView)}
           />
