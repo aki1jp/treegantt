@@ -1062,25 +1062,25 @@ describe('§8 Import / Export', () => {
 
   const sampleTasks = (): Task[] => [
     makeTask({
-      id: 'task-a', projectId: 'p1',
+      id: 'task-a', projectId: 'p1', order: 1,
       title: 'タスクA', status: 'todo', priority: 'high', progress: 0,
       assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-10',
       predecessors: [],
     }),
     makeTask({
-      id: 'task-b', projectId: 'p1',
+      id: 'task-b', projectId: 'p1', order: 2,
       title: 'タスクB', status: 'wip', priority: 'medium', progress: 50,
       assignee: 'Bob', startDate: '2026-05-11', endDate: '2026-05-20',
       predecessors: ['task-a'],
     }),
     makeTask({
-      id: 'task-c', projectId: 'p1',
+      id: 'task-c', projectId: 'p1', order: 3,
       title: 'タスクC', status: 'done', priority: 'low', progress: 100,
       startDate: '2026-05-01', endDate: '2026-05-30',
       predecessors: ['task-a', 'task-b'],
     }),
     makeTask({
-      id: 'task-d', projectId: 'p1',
+      id: 'task-d', projectId: 'p1', order: 4,
       title: '日付なしタスク', status: 'wait',
       startDate: null, endDate: null,
       predecessors: [],
@@ -1196,33 +1196,34 @@ describe('§8 Import / Export', () => {
     });
 
     it('isMilestone: false のタスクは "0" で出力される', () => {
-      const csv = exportToCsv([makeTask({ id: 'ms', isMilestone: false })]);
-      const dataLine = csv.split('\n').find(l => l.startsWith('ms'))!;
+      const csv = exportToCsv([makeTask({ id: 'ms', order: 1, isMilestone: false })]);
+      const dataLine = csv.split('\n')[1]; // ヘッダーの次行
       expect(dataLine).toContain('0');
     });
 
     it('isMilestone: true のタスクは "1" で出力される', () => {
-      const csv = exportToCsv([makeTask({ id: 'ms', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' })]);
-      const dataLine = csv.split('\n').find(l => l.startsWith('ms'))!;
+      const csv = exportToCsv([makeTask({ id: 'ms', order: 1, isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' })]);
+      const dataLine = csv.split('\n')[1];
       expect(dataLine).toContain('1');
     });
 
     it('predecessors はセミコロン区切りで 1 列（CSV カンマと混在しない）', () => {
       const csv = exportToCsv(sampleTasks());
-      expect(csv).toContain('task-a;task-b');
+      // task-c(order=3) の predecessors: task-a(1) と task-b(2) → "1;2"
+      expect(csv).toContain('1;2');
     });
 
     it('predecessors が 1 件のときはセミコロンなし', () => {
       const csv = exportToCsv(sampleTasks());
-      expect(csv).toContain('task-a');
-      // task-b の行に "task-a" が単独で含まれる（セミコロンなし）
-      const taskBLine = csv.split('\n').find(l => l.startsWith('task-b'))!;
+      // task-b(order=2) の predecessors: task-a(1) → セミコロンなし
+      const taskBLine = csv.split('\n').find(l => l.startsWith('2,'))!;
       expect(taskBLine).toBeTruthy();
     });
 
     it('predecessors が空のタスクは空文字列', () => {
       const csv = exportToCsv(sampleTasks());
-      const taskALine = csv.split('\n').find(l => l.startsWith('task-a'))!;
+      // task-a(order=1) の行が存在する
+      const taskALine = csv.split('\n').find(l => l.startsWith('1,'))!;
       expect(taskALine).toBeTruthy();
     });
 
@@ -1240,7 +1241,8 @@ describe('§8 Import / Export', () => {
 
     it('null の日付は空文字列になる', () => {
       const csv = exportToCsv(sampleTasks());
-      const taskDLine = csv.split('\n').find(l => l.startsWith('task-d'))!;
+      // task-d(order=4) の行が存在する
+      const taskDLine = csv.split('\n').find(l => l.startsWith('4,'))!;
       expect(taskDLine).toBeTruthy();
     });
   });
@@ -1253,46 +1255,47 @@ describe('§8 Import / Export', () => {
 
     it('セミコロン区切り predecessors が配列に復元される', () => {
       const { tasks } = importFromCsv(exportToCsv(sampleTasks()));
-      const tc = tasks.find(t => t.id === 'task-c')!;
-      expect(tc.predecessors).toEqual(['task-a', 'task-b']);
+      // task-c(order=3) の predecessors: task-a(1)・task-b(2) → 数値文字列
+      const tc = tasks.find(t => t.title === 'タスクC')!;
+      expect(tc.predecessors).toEqual(['1', '2']);
     });
 
     it('predecessors が空のタスクは空配列', () => {
       const { tasks } = importFromCsv(exportToCsv(sampleTasks()));
-      const ta = tasks.find(t => t.id === 'task-a')!;
+      const ta = tasks.find(t => t.title === 'タスクA')!;
       expect(ta.predecessors).toEqual([]);
     });
 
     it('ステータス・優先度が復元される', () => {
       const { tasks } = importFromCsv(exportToCsv(sampleTasks()));
-      const tb = tasks.find(t => t.id === 'task-b')!;
+      const tb = tasks.find(t => t.title === 'タスクB')!;
       expect(tb.status).toBe('wip');
       expect(tb.priority).toBe('medium');
     });
 
     it('progress 数値が復元される', () => {
       const { tasks } = importFromCsv(exportToCsv(sampleTasks()));
-      const tb = tasks.find(t => t.id === 'task-b')!;
+      const tb = tasks.find(t => t.title === 'タスクB')!;
       expect(tb.progress).toBe(50);
     });
 
     it('startDate・endDate が復元される', () => {
       const { tasks } = importFromCsv(exportToCsv(sampleTasks()));
-      const ta = tasks.find(t => t.id === 'task-a')!;
+      const ta = tasks.find(t => t.title === 'タスクA')!;
       expect(ta.startDate).toBe('2026-05-01');
       expect(ta.endDate).toBe('2026-05-10');
     });
 
     it('isMilestone が CSV インポートで復元される（true）', () => {
-      const original = [makeTask({ id: 'ms', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' })];
+      const original = [makeTask({ id: 'ms', order: 1, isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' })];
       const { tasks } = importFromCsv(exportToCsv(original));
-      expect(tasks.find(t => t.id === 'ms')!.isMilestone).toBe(true);
+      expect(tasks[0].isMilestone).toBe(true);
     });
 
     it('isMilestone が CSV インポートで復元される（false）', () => {
-      const original = [makeTask({ id: 'nm', isMilestone: false })];
+      const original = [makeTask({ id: 'nm', order: 1, isMilestone: false })];
       const { tasks } = importFromCsv(exportToCsv(original));
-      expect(tasks.find(t => t.id === 'nm')!.isMilestone).toBe(false);
+      expect(tasks[0].isMilestone).toBe(false);
     });
 
     it('空の CSV → 0 件', () => {
@@ -1336,12 +1339,18 @@ describe('§8 Import / Export', () => {
     it('主要フィールドが復元される', () => {
       const original = sampleTasks();
       const { tasks } = importFromCsv(exportToCsv(original));
+      // id は order の数値文字列になるため title で照合
       for (const orig of original) {
-        const imp = tasks.find(t => t.id === orig.id)!;
+        const imp = tasks.find(t => t.title === orig.title)!;
         expect(imp.title).toBe(orig.title);
         expect(imp.status).toBe(orig.status);
-        expect(imp.predecessors).toEqual(orig.predecessors);
         expect(imp.isMilestone).toBe(orig.isMilestone);
+        // predecessors は参照先の order 数値文字列に変換される
+        const expectedPreds = orig.predecessors.map(predId => {
+          const predTask = original.find(t => t.id === predId)!;
+          return String(predTask.order);
+        });
+        expect(imp.predecessors).toEqual(expectedPreds);
       }
     });
   });

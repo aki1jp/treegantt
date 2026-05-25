@@ -175,10 +175,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
       const { tasks } = listTasks(req.params.id, { limit: 100000 });
 
+      const orderMap = new Map(tasks.map(t => [t.id, t.order]));
       const rows = tasks.map(t =>
         [
-          t.id,
-          t.parentId ?? '',
+          String(t.order),
+          t.parentId != null ? String(orderMap.get(t.parentId) ?? '') : '',
           t.title,
           t.summary,
           t.description,
@@ -189,7 +190,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           t.startDate ?? '',
           t.endDate ?? '',
           t.isMilestone ? '1' : '0',
-          t.predecessors.join(';'),
+          t.predecessors.map(p => orderMap.get(p)).filter(v => v != null).join(';'),
         ]
           .map(escapeCsv)
           .join(',')

@@ -25,9 +25,10 @@ export function importFromJson(jsonStr: string): { tasks: Task[]; project: Pick<
 }
 
 export function exportToCsv(tasks: Task[]): string {
+  const orderMap = new Map(tasks.map(t => [t.id, t.order]));
   const rows = tasks.map(t => ({
-    id: t.id,
-    parentId: t.parentId ?? '',
+    id: t.order,
+    parentId: t.parentId != null ? (orderMap.get(t.parentId) ?? '') : '',
     title: t.title,
     summary: t.summary,
     description: t.description,
@@ -38,7 +39,7 @@ export function exportToCsv(tasks: Task[]): string {
     startDate: t.startDate ?? '',
     endDate: t.endDate ?? '',
     isMilestone: t.isMilestone ? '1' : '0',
-    predecessors: t.predecessors.join(';'),
+    predecessors: t.predecessors.map(p => orderMap.get(p)).filter(v => v != null).join(';'),
   }));
   return Papa.unparse(rows);
 }

@@ -16,14 +16,21 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 
 describe('exportToCsv', () => {
   it('parentId列を含む', () => {
-    const csv = exportToCsv([makeTask({ parentId: 'parent-1' })]);
+    const parent = makeTask({ id: 'p', order: 1, parentId: null });
+    const child  = makeTask({ id: 'c', order: 2, parentId: 'p' });
+    const csv = exportToCsv([parent, child]);
     expect(csv).toContain('parentId');
-    expect(csv).toContain('parent-1');
+    // 子行の parentId は親の order 値（1）
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[1].parentId).toBe('1');
   });
 
   it('predecessorsをセミコロン区切りで出力する', () => {
-    const csv = exportToCsv([makeTask({ predecessors: ['a', 'b'] })]);
-    expect(csv).toContain('a;b');
+    const taskA = makeTask({ id: 'a', order: 1 });
+    const taskB = makeTask({ id: 'b', order: 2 });
+    const taskC = makeTask({ id: 'c', order: 3, predecessors: ['a', 'b'] });
+    const csv = exportToCsv([taskA, taskB, taskC]);
+    expect(csv).toContain('1;2'); // order 値でセミコロン区切り
   });
 
   it('空のタスクリストは空文字を返す', () => {
@@ -43,9 +50,12 @@ describe('importFromCsv', () => {
   });
 
   it('parentIdをパースする', () => {
-    const csv = exportToCsv([makeTask({ parentId: 'parent-999' })]);
+    const parent = makeTask({ id: 'p', order: 5, parentId: null });
+    const child  = makeTask({ id: 'c', order: 6, parentId: 'p' });
+    const csv = exportToCsv([parent, child]);
     const { tasks } = importFromCsv(csv);
-    expect(tasks[0].parentId).toBe('parent-999');
+    // parentId は親の order 値（数値文字列）
+    expect(tasks[1].parentId).toBe('5');
   });
 
   it('parentIdが空のときnullになる', () => {
@@ -55,9 +65,14 @@ describe('importFromCsv', () => {
   });
 
   it('predecessorsをセミコロン区切りで復元する', () => {
-    const csv = exportToCsv([makeTask({ predecessors: ['x', 'y', 'z'] })]);
+    const taskX = makeTask({ id: 'x', order: 10 });
+    const taskY = makeTask({ id: 'y', order: 11 });
+    const taskZ = makeTask({ id: 'z', order: 12 });
+    const taskT = makeTask({ id: 't', order: 13, predecessors: ['x', 'y', 'z'] });
+    const csv = exportToCsv([taskX, taskY, taskZ, taskT]);
     const { tasks } = importFromCsv(csv);
-    expect(tasks[0].predecessors).toEqual(['x', 'y', 'z']);
+    // predecessors は参照先の order 値（数値文字列）
+    expect(tasks[3].predecessors).toEqual(['10', '11', '12']);
   });
 
   it('日付フィールドをパースする', () => {
@@ -116,26 +131,26 @@ describe('importFromCsv — 複数タスク・意地悪テスト', () => {
   });
 
   it('各タスクが独立したオブジェクト（参照共有なし）', () => {
-    const csv = exportToCsv([
-      makeTask({ id: 'a', title: 'Task A', predecessors: ['x'] }),
-      makeTask({ id: 'b', title: 'Task B', predecessors: ['y'] }),
-    ]);
+    const predA = makeTask({ id: 'x', order: 1 });
+    const predB = makeTask({ id: 'y', order: 2 });
+    const taskA = makeTask({ id: 'a', order: 3, title: 'Task A', predecessors: ['x'] });
+    const taskB = makeTask({ id: 'b', order: 4, title: 'Task B', predecessors: ['y'] });
+    const csv = exportToCsv([predA, predB, taskA, taskB]);
     const { tasks } = importFromCsv(csv);
-    expect(tasks[0]).not.toBe(tasks[1]);
-    expect(tasks[0].predecessors).not.toBe(tasks[1].predecessors);
-    expect(tasks[0].predecessors).toEqual(['x']);
-    expect(tasks[1].predecessors).toEqual(['y']);
+    expect(tasks[2]).not.toBe(tasks[3]);
+    expect(tasks[2].predecessors).not.toBe(tasks[3].predecessors);
+    expect(tasks[2].predecessors).toEqual(['1']); // predA の order
+    expect(tasks[3].predecessors).toEqual(['2']); // predB の order
   });
 
   it('parentId を持つ複数タスクが正しくパースされる', () => {
-    const csv = exportToCsv([
-      makeTask({ id: 'parent', title: '親', parentId: null }),
-      makeTask({ id: 'child',  title: '子', parentId: 'parent' }),
-    ]);
+    const parent = makeTask({ id: 'parent', order: 1, title: '親', parentId: null });
+    const child  = makeTask({ id: 'child',  order: 2, title: '子', parentId: 'parent' });
+    const csv = exportToCsv([parent, child]);
     const { tasks } = importFromCsv(csv);
     expect(tasks).toHaveLength(2);
     expect(tasks[0].parentId).toBeNull();
-    expect(tasks[1].parentId).toBe('parent');
+    expect(tasks[1].parentId).toBe('1'); // 親の order（数値文字列）
   });
 
   it('空行がスキップされる', () => {
