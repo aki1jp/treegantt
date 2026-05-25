@@ -1,4 +1,8 @@
+import dayjs from 'dayjs';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
 import type { ZoomLevel, Task } from '../types/task';
+
+dayjs.extend(weekOfYear);
 
 export type GanttPeriod = '2w' | '1m' | '3m' | '6m';
 
@@ -171,4 +175,85 @@ export function ganttTotalWidth(tasks: Task[], zoom: ZoomLevel, startDate?: stri
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const days = Math.ceil((range.max.getTime() - range.min.getTime()) / 86400000);
   return days * dayWidth;
+}
+
+export function addDays(date: string, n: number): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// ── マルチレベルヘッダー ─────────────────────────────
+
+export type HeaderCell = { label: string; x: number; width: number; dow?: number };
+export type HeaderRow  = { level: 'year' | 'month' | 'week' | 'day' | 'dow'; cells: HeaderCell[] };
+
+const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+
+export function buildMultiLevelHeaders(
+  min: Date, max: Date, zoom: ZoomLevel,
+  levels: { year: boolean; month: boolean; week: boolean; day: boolean },
+): HeaderRow[] {
+  const { dayWidth } = ZOOM_CONFIG[zoom];
+  const toX = (d: dayjs.Dayjs) =>
+    Math.round((d.toDate().getTime() - min.getTime()) / 86400000) * dayWidth;
+
+  const rows: HeaderRow[] = [];
+
+  if (levels.year) {
+    const cells: HeaderCell[] = [];
+    let cur = dayjs(min).startOf('year');
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const next = cur.add(1, 'year');
+      const x = Math.max(0, toX(cur));
+      cells.push({ label: cur.format('YYYY'), x, width: toX(next.isBefore(end) ? next : end) - x });
+      cur = next;
+    }
+    rows.push({ level: 'year', cells });
+  }
+
+  if (levels.month) {
+    const cells: HeaderCell[] = [];
+    let cur = dayjs(min).startOf('month');
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const next = cur.add(1, 'month');
+      const x = Math.max(0, toX(cur));
+      cells.push({ label: cur.format('YYYY-MM'), x, width: toX(next.isBefore(end) ? next : end) - x });
+      cur = next;
+    }
+    rows.push({ level: 'month', cells });
+  }
+
+  if (levels.week) {
+    const cells: HeaderCell[] = [];
+    let cur = dayjs(min).startOf('week');
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const next = cur.add(1, 'week');
+      const x = Math.max(0, toX(cur));
+      cells.push({ label: `W${cur.week()}`, x, width: toX(next.isBefore(end) ? next : end) - x });
+      cur = next;
+    }
+    rows.push({ level: 'week', cells });
+  }
+
+  if (levels.day) {
+    const dayCells: HeaderCell[] = [];
+    const dowCells: HeaderCell[] = [];
+    let cur = dayjs(min);
+    const end = dayjs(max);
+    while (cur.isBefore(end)) {
+      const x = toX(cur);
+      const dow = cur.day();
+      dayCells.push({ label: cur.format('D'), x, width: dayWidth, dow });
+      dowCells.push({ label: DOW_LABELS[dow], x, width: dayWidth, dow });
+      cur = cur.add(1, 'day');
+    }
+    rows.push({ level: 'day', cells: dayCells });
+    rows.push({ level: 'dow', cells: dowCells });
+  }
+
+  return rows;
 }

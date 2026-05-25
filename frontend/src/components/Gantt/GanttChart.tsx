@@ -1,23 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import dayjs from 'dayjs';
-import weekOfYear from 'dayjs/plugin/weekOfYear';
-import type { Task, TaskStatus, TaskPriority, ZoomLevel } from '../../types/task';
+import type { Task, ZoomLevel } from '../../types/task';
 import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcTodayX, calcLightningPoints,
-  ganttTotalWidth, ZOOM_CONFIG,
-  calcCriticalPath,
+  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
+  addDays, buildMultiLevelHeaders,
+  type HeaderRow,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
-import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
-import { clampMenuPos } from '../../utils/menuPos';
-
-dayjs.extend(weekOfYear);
+import { ContextMenu } from './ContextMenu';
+import { GanttLeftRow } from './GanttLeftRow';
 
 const HEADER_ROW_H = 26;
 
@@ -37,20 +34,6 @@ const LEFT_COLS = [
 const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
-// ── 色マップ ────────────────────────────────────────
-const STATUS_COLOR: Record<TaskStatus, string> = {
-  todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
-};
-const STATUS_LABEL: Record<TaskStatus, string> = {
-  todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機',
-};
-const PRIORITY_COLOR: Record<TaskPriority, string> = {
-  critical: '#ef4444', high: '#f97316', medium: '#6b7280', low: '#d1d5db',
-};
-const PRIORITY_LABEL: Record<TaskPriority, string> = {
-  critical: '最高', high: '高', medium: '中', low: '低',
-};
-
 // ── ドラッグ状態 ────────────────────────────────────
 type DragType = 'move' | 'resize-left' | 'resize-right';
 interface DragState {
@@ -66,433 +49,7 @@ interface DragPreview {
   endDate: string;
 }
 
-function addDays(date: string, n: number): string {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
 
-function calcDuration(start: string | null, end: string | null): number | null {
-  if (!start || !end || end < start) return null;
-  return Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86400000) + 1;
-}
-
-// ── マルチレベルヘッダー構築 ─────────────────────────
-const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
-
-type HeaderCell = { label: string; x: number; width: number; dow?: number };
-type HeaderRow = { level: 'year' | 'month' | 'week' | 'day' | 'dow'; cells: HeaderCell[] };
-
-function buildMultiLevelHeaders(
-  min: Date, max: Date, zoom: ZoomLevel,
-  levels: { year: boolean; month: boolean; week: boolean; day: boolean },
-): HeaderRow[] {
-  const { dayWidth } = ZOOM_CONFIG[zoom];
-  const toX = (d: dayjs.Dayjs) =>
-    Math.round((d.toDate().getTime() - min.getTime()) / 86400000) * dayWidth;
-
-  const rows: HeaderRow[] = [];
-
-  if (levels.year) {
-    const cells: HeaderRow['cells'] = [];
-    let cur = dayjs(min).startOf('year');
-    const end = dayjs(max);
-    while (cur.isBefore(end)) {
-      const next = cur.add(1, 'year');
-      const x = Math.max(0, toX(cur));
-      const xe = toX(next.isBefore(end) ? next : end);
-      cells.push({ label: cur.format('YYYY'), x, width: xe - x });
-      cur = next;
-    }
-    rows.push({ level: 'year', cells });
-  }
-
-  if (levels.month) {
-    const cells: HeaderRow['cells'] = [];
-    let cur = dayjs(min).startOf('month');
-    const end = dayjs(max);
-    while (cur.isBefore(end)) {
-      const next = cur.add(1, 'month');
-      const x = Math.max(0, toX(cur));
-      const xe = toX(next.isBefore(end) ? next : end);
-      cells.push({ label: cur.format('YYYY-MM'), x, width: xe - x });
-      cur = next;
-    }
-    rows.push({ level: 'month', cells });
-  }
-
-  if (levels.week) {
-    const cells: HeaderRow['cells'] = [];
-    let cur = dayjs(min).startOf('week');
-    const end = dayjs(max);
-    while (cur.isBefore(end)) {
-      const next = cur.add(1, 'week');
-      const x = Math.max(0, toX(cur));
-      const xe = toX(next.isBefore(end) ? next : end);
-      cells.push({ label: `W${cur.week()}`, x, width: xe - x });
-      cur = next;
-    }
-    rows.push({ level: 'week', cells });
-  }
-
-  if (levels.day) {
-    const dayCells: HeaderRow['cells'] = [];
-    const dowCells: HeaderRow['cells'] = [];
-    let cur = dayjs(min);
-    const end = dayjs(max);
-    while (cur.isBefore(end)) {
-      const x = toX(cur);
-      const dow = cur.day();
-      dayCells.push({ label: cur.format('D'), x, width: dayWidth, dow });
-      dowCells.push({ label: DOW_LABELS[dow], x, width: dayWidth, dow });
-      cur = cur.add(1, 'day');
-    }
-    rows.push({ level: 'day', cells: dayCells });
-    rows.push({ level: 'dow', cells: dowCells });
-  }
-
-  return rows;
-}
-
-// ── コンテキストメニュー（自動位置調整） ──────────────
-function ContextMenu({
-  x, y, onMouseDown, onClick, children,
-}: {
-  x: number; y: number;
-  onMouseDown: (e: React.MouseEvent) => void;
-  onClick: (e: React.MouseEvent) => void;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const { width, height } = ref.current.getBoundingClientRect();
-    setPos(clampMenuPos(x, y, width, height));
-  }, [x, y]);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: 'fixed',
-        top: pos?.top ?? y,
-        left: pos?.left ?? x,
-        visibility: pos ? 'visible' : 'hidden',
-        background: 'var(--th-bg)', border: '1px solid var(--th-border)', borderRadius: 6,
-        boxShadow: '0 4px 16px rgba(0,0,0,.18)', zIndex: 9999, minWidth: 160,
-      }}
-      onMouseDown={onMouseDown}
-      onClick={onClick}
-    >
-      {children}
-    </div>
-  );
-}
-
-// ── 左セル 1行コンポーネント ────────────────────────
-interface LeftRowProps {
-  task: Task;
-  depth: number;
-  hasChildren: boolean;
-  isCollapsed: boolean;
-  effectiveProgress: number;
-  fontSize: number;
-  rowHeight: number;
-  titleWidth: number;
-  assigneeWidth: number;
-  dateColWidth: number;
-  onToggleCollapse: () => void;
-  onInlineUpdate: (id: string, patch: Partial<Task>) => void;
-  onRowContextMenu: (x: number, y: number) => void;
-}
-
-function GanttLeftRow({
-  task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
-  titleWidth, assigneeWidth, dateColWidth,
-  onToggleCollapse, onInlineUpdate, onRowContextMenu,
-}: LeftRowProps) {
-  const [editField, setEditField] = useState<string | null>(null);
-  const [editVal, setEditVal] = useState('');
-  const [editStartVal, setEditStartVal] = useState('');
-  const [conflict, setConflict] = useState<{ field: string; theirVal: string; myVal: string } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editField && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
-  }, [editField]);
-
-  function startEdit(field: string, val: string) {
-    setEditField(field);
-    setEditVal(val);
-    setEditStartVal(val);
-  }
-
-  function commit(field: string, myVal: string | number | null) {
-    const currentVal = String(task[field as keyof Task] ?? '');
-    if (currentVal !== editStartVal) {
-      setConflict({ field, theirVal: currentVal, myVal: String(myVal ?? '') });
-      setEditField(null);
-      return;
-    }
-    onInlineUpdate(task.id, { [field]: myVal });
-    setEditField(null);
-  }
-
-  function resolveConflict(useTheirs: boolean) {
-    if (!conflict) return;
-    if (!useTheirs) {
-      const parsed = isNaN(Number(conflict.myVal)) ? conflict.myVal : Number(conflict.myVal);
-      onInlineUpdate(task.id, { [conflict.field]: parsed });
-    }
-    setConflict(null);
-  }
-
-  function onKey(e: React.KeyboardEvent, field: string, val: string | null) {
-    if (e.key === 'Enter') commit(field, val);
-    if (e.key === 'Escape') setEditField(null);
-  }
-
-  function commitDuration(raw: string) {
-    const n = parseInt(raw, 10);
-    if (isNaN(n) || n < 1 || !task.startDate) { setEditField(null); return; }
-    const newEnd = addDays(task.startDate, n - 1);
-    onInlineUpdate(task.id, { endDate: newEnd });
-    setEditField(null);
-  }
-
-  const CELL: React.CSSProperties = {
-    height: rowHeight, display: 'flex', alignItems: 'center',
-    padding: '0 6px', fontSize, overflow: 'hidden', whiteSpace: 'nowrap',
-    boxSizing: 'border-box', color: 'var(--th-text2)',
-  };
-  const INPUT_S: React.CSSProperties = {
-    width: '100%', padding: '2px 4px', border: '1px solid #4f46e5',
-    borderRadius: 3, fontSize, outline: 'none',
-    background: 'var(--th-input-bg)', color: 'var(--th-text)',
-  };
-
-  const isRootParent = depth === 0 && hasChildren;
-  const indent = depth * 16;
-  const rowBg = isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)';
-  const duration = calcDuration(task.startDate, task.endDate);
-
-  return (
-    <div
-      style={{
-        display: 'flex', background: rowBg,
-        height: rowHeight, boxSizing: 'border-box',
-        borderBottom: '1px solid var(--th-border)',
-        borderLeft: isRootParent ? '3px solid var(--th-border-strong)' : '3px solid transparent',
-      }}
-      onContextMenu={e => { e.preventDefault(); onRowContextMenu(e.clientX, e.clientY); }}
-    >
-      {/* # (order) */}
-      <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
-        {task.isMilestone ? '◇' : task.order}
-      </div>
-
-      {/* タイトル */}
-      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 + indent }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
-          {/* アイコンスロット（常に16px固定・▼/└/スペーサーのいずれか1つ） */}
-          {hasChildren ? (
-            <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
-              width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
-              padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {isCollapsed ? '▶' : '▼'}
-            </button>
-          ) : depth > 0 ? (
-            <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
-          ) : (
-            <span style={{ width: 16, flexShrink: 0 }} />
-          )}
-          {editField === 'title' ? (
-            <input ref={inputRef} style={INPUT_S} value={editVal}
-              onChange={e => setEditVal(e.target.value)}
-              onBlur={() => { if (editVal.trim()) commit('title', editVal.trim()); else setEditField(null); }}
-              onKeyDown={e => onKey(e, 'title', editVal.trim() || null)} />
-          ) : (
-            <span onClick={() => startEdit('title', task.title)}
-              style={{
-                cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                fontWeight: isRootParent ? 700 : 400,
-                color: isRootParent ? 'var(--th-text-parent)' : 'var(--th-text2)',
-              }}>
-              {task.title}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ステータス */}
-      <div style={{ ...CELL, width: 66 }}>
-        {editField === 'status' ? (
-          <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
-            onChange={e => commit('status', e.target.value)}
-            onBlur={() => setEditField(null)}>
-            {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        ) : (
-          <span onClick={() => startEdit('status', task.status)} style={{ cursor: 'pointer' }}>
-            <span style={{
-              padding: '1px 5px', borderRadius: 9999, fontSize: 10, fontWeight: 600,
-              background: STATUS_COLOR[task.status] + '22', color: STATUS_COLOR[task.status],
-            }}>
-              {STATUS_LABEL[task.status]}
-            </span>
-          </span>
-        )}
-      </div>
-
-      {/* 優先度 */}
-      <div style={{ ...CELL, width: 56 }}>
-        {editField === 'priority' ? (
-          <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
-            onChange={e => commit('priority', e.target.value)}
-            onBlur={() => setEditField(null)}>
-            {Object.entries(PRIORITY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        ) : (
-          <span onClick={() => startEdit('priority', task.priority)} style={{ cursor: 'pointer' }}>
-            <span style={{
-              padding: '1px 5px', borderRadius: 9999, fontSize: 10, fontWeight: 600,
-              background: PRIORITY_COLOR[task.priority] + '22', color: PRIORITY_COLOR[task.priority],
-            }}>
-              {PRIORITY_LABEL[task.priority]}
-            </span>
-          </span>
-        )}
-      </div>
-
-      {/* 進捗 — 親タスクは自動計算・編集不可 */}
-      <div style={{ ...CELL, width: 76 }}>
-        {!hasChildren && editField === 'progress' ? (
-          <input ref={inputRef} style={{ ...INPUT_S, width: 52 }} type="number" min={0} max={100} value={editVal}
-            onChange={e => setEditVal(e.target.value)}
-            onBlur={() => commit('progress', Math.min(100, Math.max(0, Number(editVal))))}
-            onKeyDown={e => {
-              if (e.key === 'Enter') commit('progress', Math.min(100, Math.max(0, Number(editVal))));
-              if (e.key === 'Escape') setEditField(null);
-            }} />
-        ) : (
-          <div
-            onClick={() => { if (!hasChildren) startEdit('progress', String(task.progress)); }}
-            title={hasChildren ? '子タスクの平均（自動計算）' : undefined}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%',
-              cursor: hasChildren ? 'default' : 'text' }}>
-            <div style={{ width: 40, height: 5, background: 'var(--th-border)', borderRadius: 3, flexShrink: 0 }}>
-              <div style={{
-                width: `${effectiveProgress}%`, height: '100%', borderRadius: 3,
-                background: hasChildren ? '#a5b4fc' : '#4f46e5',
-              }} />
-            </div>
-            <span style={{ fontSize: 10, color: hasChildren ? '#a5b4fc' : 'var(--th-text-muted)' }}>
-              {effectiveProgress}%
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* 担当者 */}
-      <div style={{ ...CELL, width: assigneeWidth }}>
-        {editField === 'assignee' ? (
-          <input ref={inputRef} style={INPUT_S} value={editVal}
-            onChange={e => setEditVal(e.target.value)}
-            onBlur={() => commit('assignee', editVal)}
-            onKeyDown={e => onKey(e, 'assignee', editVal)} />
-        ) : (
-          <span onClick={() => startEdit('assignee', task.assignee)}
-            style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              color: task.assignee ? 'var(--th-text2)' : 'var(--th-text-ph)' }}>
-            {task.assignee || '—'}
-          </span>
-        )}
-      </div>
-
-      {/* 開始日 */}
-      <div style={{ ...CELL, width: dateColWidth }}>
-        {!hasChildren && editField === 'startDate' ? (
-          <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
-            onChange={e => setEditVal(e.target.value)}
-            onBlur={() => commit('startDate', editVal || null)}
-            onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
-        ) : (
-          <span
-            data-testid={hasChildren ? 'date-readonly' : undefined}
-            onClick={() => !hasChildren && startEdit('startDate', task.startDate ?? '')}
-            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
-            style={{
-              cursor: hasChildren ? 'default' : 'text',
-              color: hasChildren ? 'var(--th-text-dim)' : (task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
-            }}>
-            {task.startDate ?? '—'}
-          </span>
-        )}
-      </div>
-
-      {/* 終了日 */}
-      <div style={{ ...CELL, width: dateColWidth }}>
-        {!hasChildren && editField === 'endDate' ? (
-          <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
-            onChange={e => setEditVal(e.target.value)}
-            onBlur={() => commit('endDate', editVal || null)}
-            onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
-        ) : (
-          <span
-            data-testid={hasChildren ? 'date-readonly' : undefined}
-            onClick={() => !hasChildren && startEdit('endDate', task.endDate ?? '')}
-            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
-            style={{
-              cursor: hasChildren ? 'default' : 'text',
-              color: hasChildren ? 'var(--th-text-dim)' : (task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
-            }}>
-            {task.endDate ?? '—'}
-          </span>
-        )}
-      </div>
-
-      {/* 期間（日数） */}
-      <div style={{ ...CELL, width: 50 }}>
-        {!hasChildren && editField === 'duration' ? (
-          <input ref={inputRef}
-            style={{ ...INPUT_S, width: 38 }} type="number" min={1} value={editVal}
-            onChange={e => setEditVal(e.target.value)}
-            onBlur={() => commitDuration(editVal)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') commitDuration(editVal);
-              if (e.key === 'Escape') setEditField(null);
-            }} />
-        ) : (
-          <span
-            onClick={() => {
-              if (!hasChildren && task.startDate) startEdit('duration', String(duration ?? ''));
-            }}
-            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
-            style={{
-              cursor: (!hasChildren && task.startDate) ? 'text' : 'default',
-              color: hasChildren ? 'var(--th-text-dim)' : (duration !== null ? 'var(--th-text2)' : 'var(--th-text-ph)'),
-            }}>
-            {duration !== null ? duration : '—'}
-          </span>
-        )}
-      </div>
-
-      {conflict && (
-        <ConflictDialog
-          field={conflict.field}
-          theirVal={conflict.theirVal}
-          myVal={conflict.myVal}
-          onResolve={resolveConflict}
-        />
-      )}
-
-    </div>
-  );
-}
 
 // ── クイック追加行 ──────────────────────────────────
 function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number; dateColWidth: number }) {
@@ -627,15 +184,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   // 土日列
   const weekendXs: number[] = [];
   if (showWeekend) {
-    let cur = dayjs(min);
-    const end = dayjs(max);
-    while (cur.isBefore(end)) {
-      const dow = cur.day();
+    let curTime = min.getTime();
+    const endTime = max.getTime();
+    while (curTime < endTime) {
+      const dow = new Date(curTime).getDay();
       if (dow === 0 || dow === 6) {
-        const dayIdx = Math.round((cur.toDate().getTime() - min.getTime()) / 86400000);
-        weekendXs.push(dayIdx * dayWidth);
+        weekendXs.push(Math.round((curTime - min.getTime()) / 86400000) * dayWidth);
       }
-      cur = cur.add(1, 'day');
+      curTime += 86400000;
     }
   }
 

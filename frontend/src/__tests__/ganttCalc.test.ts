@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -225,5 +225,69 @@ describe('calcCriticalPath', () => {
     const a = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' });
     const b = makeTask({ startDate: null, endDate: null, predecessors: [a.id] });
     expect(() => calcCriticalPath([a, b])).not.toThrow();
+  });
+});
+
+describe('addDays', () => {
+  it('n日後を返す', () => {
+    expect(addDays('2026-01-01', 10)).toBe('2026-01-11');
+  });
+
+  it('月をまたいで正しく計算する', () => {
+    expect(addDays('2026-01-28', 5)).toBe('2026-02-02');
+  });
+
+  it('n=0 のとき同日を返す', () => {
+    expect(addDays('2026-05-15', 0)).toBe('2026-05-15');
+  });
+
+  it('負数のとき過去日を返す', () => {
+    expect(addDays('2026-05-15', -3)).toBe('2026-05-12');
+  });
+});
+
+describe('buildMultiLevelHeaders', () => {
+  const min = new Date('2026-01-01');
+  const max = new Date('2026-04-01');
+  const allLevels = { year: true, month: true, week: true, day: true };
+
+  it('全レベルONで5行を返す（day行 + dow行）', () => {
+    const rows = buildMultiLevelHeaders(min, max, 'week', allLevels);
+    expect(rows.length).toBe(5);
+    const levels = rows.map(r => r.level);
+    expect(levels).toContain('year');
+    expect(levels).toContain('month');
+    expect(levels).toContain('week');
+    expect(levels).toContain('day');
+    expect(levels).toContain('dow');
+  });
+
+  it('レベル指定で行数が変わる', () => {
+    const rows = buildMultiLevelHeaders(min, max, 'week', { year: true, month: true, week: false, day: false });
+    expect(rows.length).toBe(2);
+    const levels = rows.map(r => r.level);
+    expect(levels).toContain('year');
+    expect(levels).toContain('month');
+  });
+
+  it('全レベルOFFで0行を返す', () => {
+    const rows = buildMultiLevelHeaders(min, max, 'week', { year: false, month: false, week: false, day: false });
+    expect(rows.length).toBe(0);
+  });
+
+  it('yearヘッダーは2026が含まれるセルを返す', () => {
+    const rows = buildMultiLevelHeaders(min, max, 'week', { year: true, month: false, week: false, day: false });
+    const yearRow = rows[0];
+    expect(yearRow.cells.some(c => c.label === '2026')).toBe(true);
+  });
+
+  it('day行のセルの dow プロパティが0-6の範囲', () => {
+    const rows = buildMultiLevelHeaders(new Date('2026-01-01'), new Date('2026-01-10'), 'day', { year: false, month: false, week: false, day: true });
+    const dayRow = rows.find(r => r.level === 'day');
+    expect(dayRow).toBeDefined();
+    dayRow!.cells.forEach(c => {
+      expect(c.dow).toBeGreaterThanOrEqual(0);
+      expect(c.dow).toBeLessThanOrEqual(6);
+    });
   });
 });
