@@ -5,7 +5,7 @@ import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcTodayX, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
-  addDays, buildMultiLevelHeaders, dateToX, defaultGanttStart,
+  addDays, buildMultiLevelHeaders,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
 import { GanttBar } from './GanttBar';
@@ -349,14 +349,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     };
   }, [dragState, handleMouseMove, handleMouseUp]);
 
-  // 自動モード時、ズーム変更に合わせて「1単位前」へスクロール
-  useEffect(() => {
-    if (ganttStartDate) return;
-    const panel = ganttPanelRef.current;
-    if (!panel) return;
-    const targetX = dateToX(defaultGanttStart(zoomLevel), min, zoomLevel);
-    panel.scrollLeft = Math.max(0, targetX);
-  }, [zoomLevel, ganttStartDate, min]);
 
   function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
     if (e.button !== 0) return;

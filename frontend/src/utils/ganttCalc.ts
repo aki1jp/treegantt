@@ -57,7 +57,7 @@ export function calcGanttRange(
     maxTime = minTime + periodDays * 86400000;
   } else {
     const times = dates.map(d => new Date(d).getTime());
-    minTime = Math.min(Math.min(...times) - 3 * 86400000, defaultStart);
+    minTime = defaultStart;
     const taskMaxEnd = Math.max(...times) + 5 * 86400000;
     maxTime = Math.max(taskMaxEnd, minTime + periodDays * 86400000);
   }

@@ -182,10 +182,9 @@ describe('§4.4 表示期間コントロール', () => {
   });
 
   describe('自動モード — タスクあり', () => {
-    it('タスクの startDate / endDate を含む範囲を返す', () => {
+    it('タスクの endDate を max が含む', () => {
       const tasks = [makeTask({ startDate: '2026-03-01', endDate: '2026-08-31' })];
-      const { min, max } = calcGanttRange(tasks);
-      expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-03-01').getTime());
+      const { max } = calcGanttRange(tasks);
       expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-08-31').getTime());
     });
 
@@ -195,19 +194,18 @@ describe('§4.4 表示期間コントロール', () => {
       expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['3m']);
     });
 
-    it('startDate のみ持つタスクも範囲計算に使われる', () => {
-      const tasks = [makeTask({ startDate: '2026-01-01', endDate: null })];
-      const { min } = calcGanttRange(tasks);
-      expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-01-01').getTime());
+    it('startDate のみ持つタスクの日付が max 計算に使われる', () => {
+      const tasks = [makeTask({ startDate: '2026-08-01', endDate: null })];
+      const { max } = calcGanttRange(tasks);
+      expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-08-01').getTime());
     });
 
-    it('複数タスクで最小・最大を正しく取る', () => {
+    it('複数タスクで max は最大の endDate を含む', () => {
       const tasks = [
         makeTask({ startDate: '2026-06-01', endDate: '2026-06-30' }),
         makeTask({ startDate: '2026-03-01', endDate: '2026-09-30' }),
       ];
-      const { min, max } = calcGanttRange(tasks);
-      expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-03-01').getTime());
+      const { max } = calcGanttRange(tasks);
       expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-09-30').getTime());
     });
   });

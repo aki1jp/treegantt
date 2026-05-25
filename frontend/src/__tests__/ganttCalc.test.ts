@@ -34,12 +34,11 @@ describe('calcGanttRange', () => {
     expect(max.getTime()).toBeGreaterThan(TODAY.getTime());
   });
 
-  it('タスクの日付を含む範囲を返す', () => {
+  it('タスクの endDate を max が含む', () => {
     const tasks = [
       makeTask({ startDate: '2026-04-01', endDate: '2026-07-31' }),
     ];
-    const { min, max } = calcGanttRange(tasks);
-    expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-04-01').getTime());
+    const { max } = calcGanttRange(tasks);
     expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-07-31').getTime());
   });
 
@@ -75,10 +74,15 @@ describe('calcGanttRange + zoom', () => {
     const { min } = calcGanttRange([], undefined, undefined, 'month');
     expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-04-01').getTime());
   });
-  it('全タスクが defaultGanttStart より未来でも min が defaultGanttStart 以前になる', () => {
+  it('タスクの有無に関わらず min が defaultGanttStart と一致する', () => {
     const tasks = [makeTask({ startDate: '2026-06-01', endDate: '2026-06-30' })];
     const { min } = calcGanttRange(tasks, undefined, undefined, 'week');
-    expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-05-10').getTime());
+    expect(min.getTime()).toBe(new Date('2026-05-10').getTime());
+  });
+  it('タスクが defaultGanttStart より前にあっても min は defaultGanttStart のまま', () => {
+    const tasks = [makeTask({ startDate: '2026-01-01', endDate: '2026-01-31' })];
+    const { min } = calcGanttRange(tasks, undefined, undefined, 'week');
+    expect(min.getTime()).toBe(new Date('2026-05-10').getTime());
   });
 });
 
