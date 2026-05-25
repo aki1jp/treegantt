@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -49,6 +49,36 @@ describe('calcGanttRange', () => {
     const { min, max } = calcGanttRange(tasks);
     const span = (max.getTime() - min.getTime()) / 86400000;
     expect(span).toBeGreaterThanOrEqual(90);
+  });
+});
+
+describe('defaultGanttStart', () => {
+  // TODAY = 2026-05-21 (木)
+  it('month: 前月1日を返す', () => {
+    expect(defaultGanttStart('month')).toBe('2026-04-01');
+  });
+  it('week: 先週の週頭（日曜）を返す', () => {
+    // 2026-05-21 の1週前 = 2026-05-14(木)、その週の日曜 = 2026-05-10
+    expect(defaultGanttStart('week')).toBe('2026-05-10');
+  });
+  it('day: 昨日を返す', () => {
+    expect(defaultGanttStart('day')).toBe('2026-05-20');
+  });
+});
+
+describe('calcGanttRange + zoom', () => {
+  it('タスクがなく zoom=week のとき min が先週頭以前になる', () => {
+    const { min } = calcGanttRange([], undefined, undefined, 'week');
+    expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-05-10').getTime());
+  });
+  it('タスクがなく zoom=month のとき min が前月1日以前になる', () => {
+    const { min } = calcGanttRange([], undefined, undefined, 'month');
+    expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-04-01').getTime());
+  });
+  it('全タスクが defaultGanttStart より未来でも min が defaultGanttStart 以前になる', () => {
+    const tasks = [makeTask({ startDate: '2026-06-01', endDate: '2026-06-30' })];
+    const { min } = calcGanttRange(tasks, undefined, undefined, 'week');
+    expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-05-10').getTime());
   });
 });
 
