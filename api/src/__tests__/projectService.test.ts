@@ -36,7 +36,7 @@ describe('projectService', () => {
       expect(p.id).toBe('p1');
       expect(p.name).toBe('Test');
       expect(p.createdAt).toBeTruthy();
-      expect((p as Record<string, unknown>).created_at).toBeUndefined();
+      expect((p as unknown as Record<string, unknown>).created_at).toBeUndefined();
     });
   });
 
