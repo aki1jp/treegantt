@@ -2,29 +2,36 @@ version: '3.9'
 
 services:
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
     ports:
       - '3000:3000'
+    volumes:
+      - ./frontend:/app
+      - frontend_modules:/app/node_modules
+    environment:
+      - API_PROXY_TARGET=http://api:4000
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - api
 
   api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
     ports:
       - '4000:4000'
       - '4001:4001'
+    volumes:
+      - ./api:/app
+      - api_modules:/app/node_modules
     environment:
       - DB_PATH=/app/data/treegantt.db
       - PORT=4000
       - WS_PORT=4001
       - LDAP_ENABLED=false
       - CORS_ORIGIN=*
-    volumes:
-      - ./api/data:/app/data
 
   # 開発ツール（通常起動時は除外）
   # docker compose --profile dev-tools up
@@ -37,3 +44,7 @@ services:
     command: sqlite_web --host 0.0.0.0 /data/treegantt.db
     profiles:
       - dev-tools
+
+volumes:
+  frontend_modules:
+  api_modules:
