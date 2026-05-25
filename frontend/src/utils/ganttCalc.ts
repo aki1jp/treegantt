@@ -24,10 +24,18 @@ export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
   return Math.round((d.getTime() - minDate.getTime()) / 86400000) * dayWidth;
 }
 
+export function defaultGanttStart(zoom: ZoomLevel): string {
+  const d = dayjs();
+  if (zoom === 'month') return d.subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
+  if (zoom === 'week')  return d.subtract(1, 'week').startOf('week').format('YYYY-MM-DD');
+  return d.subtract(1, 'day').format('YYYY-MM-DD');
+}
+
 export function calcGanttRange(
   tasks: Task[],
   startDate?: string,
   period?: GanttPeriod,
+  zoom?: ZoomLevel,
 ): { min: Date; max: Date } {
   const today = Date.now();
   const periodDays = period ? PERIOD_DAYS[period] : 91;
@@ -40,15 +48,16 @@ export function calcGanttRange(
 
   // 自動モード: タスク日付から範囲を計算し、最低でも period 分を確保
   const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
+  const defaultStart = zoom ? new Date(defaultGanttStart(zoom)).getTime() : today - 7 * 86400000;
   let minTime: number;
   let maxTime: number;
 
   if (dates.length === 0) {
-    minTime = today - 7 * 86400000;
+    minTime = defaultStart;
     maxTime = minTime + periodDays * 86400000;
   } else {
     const times = dates.map(d => new Date(d).getTime());
-    minTime = Math.min(...times) - 3 * 86400000;
+    minTime = Math.min(Math.min(...times) - 3 * 86400000, defaultStart);
     const taskMaxEnd = Math.max(...times) + 5 * 86400000;
     maxTime = Math.max(taskMaxEnd, minTime + periodDays * 86400000);
   }
