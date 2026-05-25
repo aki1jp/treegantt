@@ -56,7 +56,7 @@ export function ResourceView({
           color: 'var(--th-text-muted)', background: 'var(--th-bg2)',
           borderBottom: '1px solid var(--th-border)', flexShrink: 0,
         }}>
-          担当者別負荷
+          リソースビュー（担当者別負荷）
         </div>
         {assignees.map((a, ai) => (
           <div key={a} style={{
