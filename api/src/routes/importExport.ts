@@ -4,7 +4,7 @@ import { db } from '../db/client.js';
 import { listTasks, propagateDatesToParent } from '../services/taskService.js';
 import { broadcast } from '../ws/broadcast.js';
 
-const CSV_HEADERS = 'id,title,summary,description,status,priority,progress,assignee,startDate,endDate,predecessors';
+const CSV_HEADERS = 'id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,predecessors';
 
 function escapeCsv(val: string): string {
   if (val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -172,6 +172,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
       const rows = tasks.map(t =>
         [
           t.id,
+          t.parentId ?? '',
           t.title,
           t.summary,
           t.description,
@@ -181,6 +182,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           t.assignee,
           t.startDate ?? '',
           t.endDate ?? '',
+          t.isMilestone ? '1' : '0',
           t.predecessors.join(';'),
         ]
           .map(escapeCsv)
