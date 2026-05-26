@@ -88,6 +88,20 @@ describe('updateTask', () => {
     );
   });
 
+  it('fetch 失敗時にストアを元の状態にロールバックする', async () => {
+    const task = makeTask({ id: 't1', title: '元タイトル' });
+    useTaskStore.setState({ tasks: [task] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false, status: 500,
+      json: async () => ({ error: 'Internal Server Error' }),
+    } as Response);
+
+    const { updateTask } = useTasks('p1');
+    await expect(updateTask('t1', { title: '新タイトル' })).rejects.toThrow();
+    // 楽観的更新がロールバックされて元の値に戻る
+    expect(useTaskStore.getState().tasks[0].title).toBe('元タイトル');
+  });
+
   it('対象外のタスクは変更しない', async () => {
     const t1 = makeTask({ id: 't1', title: 'A' });
     const t2 = makeTask({ id: 't2', title: 'B' });
@@ -124,6 +138,23 @@ describe('deleteTask', () => {
   });
 });
 
+describe('deleteTask fetch 失敗ロールバック', () => {
+  it('fetch 失敗時にストアを元の状態にロールバックする', async () => {
+    const task = makeTask({ id: 't1' });
+    useTaskStore.setState({ tasks: [task] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false, status: 404,
+      json: async () => ({ error: 'Not Found' }),
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await expect(deleteTask('t1')).rejects.toThrow();
+    // タスクが復元される
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+    expect(useTaskStore.getState().tasks[0].id).toBe('t1');
+  });
+});
+
 describe('reorderTasks', () => {
   it('ストアの order を更新し API を呼ぶ', async () => {
     const t1 = makeTask({ id: 't1', order: 1 });
@@ -144,6 +175,23 @@ describe('reorderTasks', () => {
       expect.stringContaining('/tasks/reorder'),
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+
+  it('fetch 失敗時にストアを元の状態にロールバックする', async () => {
+    const t1 = makeTask({ id: 't1', order: 1 });
+    const t2 = makeTask({ id: 't2', order: 2 });
+    useTaskStore.setState({ tasks: [t1, t2] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false, status: 500,
+      json: async () => ({ error: 'Server Error' }),
+    } as Response);
+
+    const { reorderTasks } = useTasks('p1');
+    await expect(reorderTasks([{ id: 't1', order: 2 }, { id: 't2', order: 1 }])).rejects.toThrow();
+    // order がロールバックされる
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks.find(t => t.id === 't1')?.order).toBe(1);
+    expect(tasks.find(t => t.id === 't2')?.order).toBe(2);
   });
 
   it('orders に含まれないタスクは order が変わらない', async () => {
