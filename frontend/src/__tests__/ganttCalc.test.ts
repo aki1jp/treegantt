@@ -10,7 +10,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     title: 'T', summary: '', description: '',
     status: 'todo', priority: 'medium', progress: 0,
     assignee: '', startDate: null, endDate: null, isMilestone: false,
-    predecessors: [], order: _seq, createdAt: '', updatedAt: '',
+    predecessors: [], seq: _seq, order: _seq, createdAt: '', updatedAt: '',
     ...overrides,
   };
 }

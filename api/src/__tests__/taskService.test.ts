@@ -66,6 +66,28 @@ describe('taskService', () => {
       expect(t2.order).toBe(t1.order + 1);
     });
 
+    it('assigns auto-incrementing seq (immutable creation ID)', () => {
+      const t1 = createTask({ id: 't1', projectId: PROJECT_ID, title: 'T1' });
+      const t2 = createTask({ id: 't2', projectId: PROJECT_ID, title: 'T2' });
+      expect(t1.seq).toBe(1);
+      expect(t2.seq).toBe(2);
+    });
+
+    it('seq does not change after reorder', () => {
+      const t1 = createTask({ id: 'r1', projectId: PROJECT_ID, title: 'R1' });
+      const t2 = createTask({ id: 'r2', projectId: PROJECT_ID, title: 'R2' });
+      const seqBefore1 = t1.seq;
+      const seqBefore2 = t2.seq;
+
+      reorderTasks([
+        { id: 'r1', order: 99 },
+        { id: 'r2', order: 1 },
+      ]);
+
+      expect(getTask('r1')?.seq).toBe(seqBefore1);
+      expect(getTask('r2')?.seq).toBe(seqBefore2);
+    });
+
     it('全タスク削除後の最初のタスクは #1 から始まる', () => {
       const t1 = createTask({ id: 'tmp1', projectId: PROJECT_ID, title: 'T1' });
       const t2 = createTask({ id: 'tmp2', projectId: PROJECT_ID, title: 'T2' });

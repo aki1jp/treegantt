@@ -18,6 +18,7 @@ function makeTask(partial: Partial<Task>): Task {
     parentId: null,
     predecessors: [],
     isMilestone: false,
+    seq: 1,
     order: 1,
     createdAt: '2026-01-01',
     updatedAt: '2026-01-01',

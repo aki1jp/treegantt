@@ -111,9 +111,9 @@ export function GanttLeftRow({
       }}
       onContextMenu={e => { e.preventDefault(); onRowContextMenu(e.clientX, e.clientY); }}
     >
-      {/* # (order) */}
+      {/* # (seq: 作成時発番・不変) */}
       <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
-        {task.isMilestone ? '◇' : task.order}
+        {task.isMilestone ? '◇' : task.seq}
       </div>
 
       {/* タイトル */}

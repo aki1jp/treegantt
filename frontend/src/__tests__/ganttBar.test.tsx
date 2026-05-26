@@ -15,7 +15,7 @@ const BASE_TASK: Task = {
   title: 'テストタスク', summary: '', description: '',
   status: 'todo', priority: 'medium', progress: 0, assignee: '',
   startDate: '2026-05-01', endDate: '2026-05-31',
-  isMilestone: false, predecessors: [], order: 1,
+  isMilestone: false, predecessors: [], seq: 1, order: 1,
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
 };
 const MIN = new Date('2026-05-01');

@@ -15,6 +15,7 @@ interface RawTask {
   start_date: string | null;
   end_date: string | null;
   is_milestone: number;
+  seq: number;
   ord: number;
   created_at: string;
   updated_at: string;
@@ -35,6 +36,7 @@ function rawToTask(row: RawTask): Task {
     startDate: row.start_date,
     endDate: row.end_date,
     isMilestone: row.is_milestone === 1,
+    seq: row.seq,
     order: row.ord,
     predecessors: [],
     createdAt: row.created_at,
@@ -149,15 +151,15 @@ export interface CreateTaskInput {
 }
 
 export function createTask(input: CreateTaskInput): TaskWithSuccessors {
-  const maxOrd = (
+  const { m: maxOrd, s: maxSeq } = (
     db
-      .prepare('SELECT COALESCE(MAX(ord), 0) as m FROM tasks WHERE project_id = ?')
-      .get(input.projectId) as { m: number }
-  ).m;
+      .prepare('SELECT COALESCE(MAX(ord), 0) as m, COALESCE(MAX(seq), 0) as s FROM tasks WHERE project_id = ?')
+      .get(input.projectId) as { m: number; s: number }
+  );
 
   db.prepare(
-    `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.id,
     input.projectId,
@@ -172,7 +174,8 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
     input.startDate ?? null,
     input.endDate ?? null,
     input.isMilestone ? 1 : 0,
-    input.order ?? maxOrd + 1
+    input.order ?? maxOrd + 1,
+    maxSeq + 1
   );
 
   if (input.predecessors?.length) {
