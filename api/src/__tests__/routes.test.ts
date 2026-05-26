@@ -195,12 +195,54 @@ describe('Tasks API', () => {
     expect(updated.progress).toBe(50);
   });
 
+  it('PATCH /api/v1/tasks/:id で isMilestone を更新できる（transform 関数のカバレッジ）', async () => {
+    const task = await createTask({ title: 'Non-milestone' });
+    // isMilestone: true に更新（transform(true) → 1）
+    const r1 = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { isMilestone: true },
+    });
+    expect(r1.statusCode).toBe(200);
+    expect(r1.json().task.isMilestone).toBe(true);
+    // isMilestone: false に戻す（transform(false) → 0）
+    const r2 = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { isMilestone: false },
+    });
+    expect(r2.statusCode).toBe(200);
+    expect(r2.json().task.isMilestone).toBe(false);
+  });
+
   it('PATCH /api/v1/tasks/:id returns 404 for unknown', async () => {
     const res = await app.inject({
       method: 'PATCH', url: '/api/v1/tasks/unknown',
       payload: { title: 'X' },
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  it('PATCH /api/v1/tasks/:id with valid parentId on non-existent task returns 404 (parentId validation passes, updateTask returns null)', async () => {
+    const parent = await createTask({ title: 'Parent' });
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/v1/tasks/non-existent-task-id',
+      payload: { parentId: parent.id },
+    });
+    // parentId は valid（同プロジェクト・非マイルストーン）なので parentId validation を通過し
+    // updateTask が null を返して 404 になる
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('GET /api/v1/projects/:id/tasks supports offset parameter', async () => {
+    // 3件作成して offset=1 で2件が返ることを確認
+    await createTask({ title: 'Task A' });
+    await createTask({ title: 'Task B' });
+    await createTask({ title: 'Task C' });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/tasks?limit=10&offset=1`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().tasks).toHaveLength(2);
   });
 
   it('DELETE /api/v1/tasks/:id deletes task', async () => {
@@ -505,6 +547,24 @@ describe('Import/Export API', () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/projects/unknown-proj/export/csv' });
     expect(res.statusCode).toBe(404);
     expect(res.json().code).toBe('NOT_FOUND');
+  });
+
+  it('GET /api/v1/projects/:id/export/csv isMilestone=true のタスクは "1" で出力される', async () => {
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'MilestoneTask', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/export/csv` });
+    expect(res.statusCode).toBe(200);
+    // ヘッダー行を除いたデータ行を確認（"isMilestone" を含むヘッダーを除外）
+    const [, ...dataLines] = res.payload.split('\n');
+    const taskLine = dataLines.find((l: string) => l.includes('MilestoneTask'));
+    expect(taskLine).toBeDefined();
+    // isMilestone 列が 1 であることを確認
+    const cols = taskLine!.split(',');
+    const headers = 'id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,predecessors'.split(',');
+    const milestoneIdx = headers.indexOf('isMilestone');
+    expect(cols[milestoneIdx]).toBe('1');
   });
 
   it('GET /api/v1/projects/:id/export/csv escapes titles with commas and quotes', async () => {
