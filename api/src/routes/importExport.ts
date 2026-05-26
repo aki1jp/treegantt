@@ -59,11 +59,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         db.prepare('DELETE FROM tasks WHERE project_id = ?').run(projectId);
       }
 
-      // Step 0: 既存の最大 ord を取得（追記用オフセット）
-      const maxOrd = isRestore ? 0 : (
-        db.prepare('SELECT COALESCE(MAX(ord), 0) AS m FROM tasks WHERE project_id = ?')
-          .get(projectId) as { m: number }
-      ).m;
+      // Step 0: 既存の最大 ord / seq を取得（追記用オフセット）
+      const { maxOrd, maxSeq } = isRestore ? { maxOrd: 0, maxSeq: 0 } : (
+        db.prepare('SELECT COALESCE(MAX(ord), 0) AS maxOrd, COALESCE(MAX(seq), 0) AS maxSeq FROM tasks WHERE project_id = ?')
+          .get(projectId) as { maxOrd: number; maxSeq: number }
+      );
 
       // Step 1: 全タスクに新 UUID を割り当て、oldId → newId マッピングを構築
       const idMap = new Map<string, string>();
@@ -79,8 +79,8 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         const insertTask = db.prepare(`
           INSERT INTO tasks
             (id, project_id, parent_id, title, summary, description,
-             status, priority, progress, assignee, start_date, end_date, is_milestone, ord)
-          VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
+          VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         inputTasks.forEach((task, i) => {
           insertTask.run(
@@ -97,6 +97,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             toNullableStr(task.endDate),
             task.isMilestone ? 1 : 0,
             maxOrd + i + 1,
+            maxSeq + i + 1,
           );
         });
 
@@ -172,11 +173,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
       const { tasks } = listTasks(req.params.id, { limit: 100000 });
 
-      const orderMap = new Map(tasks.map(t => [t.id, t.order]));
+      const seqMap = new Map(tasks.map(t => [t.id, t.seq]));
       const rows = tasks.map(t =>
         [
-          String(t.order),
-          t.parentId != null ? String(orderMap.get(t.parentId) ?? '') : '',
+          String(t.seq),
+          t.parentId != null ? String(seqMap.get(t.parentId) ?? '') : '',
           t.title,
           t.summary,
           t.description,
@@ -187,7 +188,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           t.startDate ?? '',
           t.endDate ?? '',
           t.isMilestone ? '1' : '0',
-          t.predecessors.map(p => orderMap.get(p)).filter(v => v != null).join(';'),
+          t.predecessors.map(p => seqMap.get(p)).filter(v => v != null).join(';'),
         ]
           .map(escapeCsv)
           .join(',')

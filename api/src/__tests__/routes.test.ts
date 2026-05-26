@@ -863,6 +863,38 @@ describe('Import/Export API', () => {
     expect(list.json().tasks).toHaveLength(0);
   });
 
+  // ── seq フィールド ────────────────────────────────────
+  it('インポートしたタスクに seq が 1 から採番される', async () => {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { tasks: [
+        { title: 'Imp A' },
+        { title: 'Imp B' },
+        { title: 'Imp C' },
+      ]},
+    });
+    expect(res.json().imported).toBe(3);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    const seqs = list.json().tasks.map((t: { seq: number }) => t.seq).sort((a: number, b: number) => a - b);
+    expect(seqs).toEqual([1, 2, 3]);
+  });
+
+  it('既存タスクにインポートすると seq が既存最大値の続番になる', async () => {
+    await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '既存' } });
+
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { tasks: [{ title: '追加A' }, { title: '追加B' }] },
+    });
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    const seqs = list.json().tasks.map((t: { seq: number }) => t.seq).sort((a: number, b: number) => a - b);
+    expect(seqs).toEqual([1, 2, 3]);
+    // 重複なし
+    expect(new Set(seqs).size).toBe(3);
+  });
+
   it('mode 未指定（デフォルト）は追記モードとして動作する', async () => {
     await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '既存タスク' } });
 
