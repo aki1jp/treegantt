@@ -368,6 +368,83 @@ describe('Tasks API', () => {
   });
 });
 
+describe('Tasks API — parentId バリデーション', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let projectId: string;
+  let otherProjectId: string;
+
+  beforeEach(async () => {
+    testDb = createTestDb();
+    app = await buildApp();
+    projectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P1' } })).json().project.id;
+    otherProjectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
+  });
+  afterEach(async () => { await app.close(); testDb.close(); });
+
+  // ── 別プロジェクト parentId ───────────────────────────
+  it('POST: 別プロジェクトのタスクを parentId に指定すると 400', async () => {
+    const otherTask = (await app.inject({ method: 'POST', url: `/api/v1/projects/${otherProjectId}/tasks`, payload: { title: '他P親' } })).json().task;
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: '子', parentId: otherTask.id },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PARENT');
+  });
+
+  it('PATCH: 別プロジェクトのタスクを parentId に指定すると 400', async () => {
+    const myTask   = (await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,      payload: { title: '自分' } })).json().task;
+    const otherTask = (await app.inject({ method: 'POST', url: `/api/v1/projects/${otherProjectId}/tasks`, payload: { title: '他P' } })).json().task;
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${myTask.id}`,
+      payload: { parentId: otherTask.id },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PARENT');
+  });
+
+  it('POST: 存在しない parentId を指定すると 400', async () => {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: '子', parentId: 'non-existent-uuid' },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PARENT');
+  });
+
+  // ── マイルストーンへの子追加 ─────────────────────────
+  it('POST: マイルストーンを parentId に指定すると 400', async () => {
+    const ms = (await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: 'MS', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' } })).json().task;
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: '子', parentId: ms.id },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('MILESTONE_CANNOT_BE_PARENT');
+  });
+
+  it('PATCH: マイルストーンを parentId に指定すると 400', async () => {
+    const ms   = (await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: 'MS', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' } })).json().task;
+    const task = (await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: 'T' } })).json().task;
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { parentId: ms.id },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('MILESTONE_CANNOT_BE_PARENT');
+  });
+
+  it('同プロジェクト内の通常タスクは parentId に指定できる（正常系）', async () => {
+    const parent = (await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '親' } })).json().task;
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: '子', parentId: parent.id },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().task.parentId).toBe(parent.id);
+  });
+});
+
 describe('Import/Export API', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let projectId: string;

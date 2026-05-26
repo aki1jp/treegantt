@@ -53,10 +53,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
         },
       },
       async handler(req, reply) {
+        const parentId = req.body.parentId as string | null | undefined;
+        if (parentId) {
+          const parent = getTask(parentId);
+          if (!parent || parent.projectId !== req.params.id)
+            return reply.code(400).send({ error: 'Invalid parentId', code: 'INVALID_PARENT' });
+          if (parent.isMilestone)
+            return reply.code(400).send({ error: 'Milestone cannot be a parent', code: 'MILESTONE_CANNOT_BE_PARENT' });
+        }
         const task = createTask({
           id: uuidv4(),
           projectId: req.params.id,
-          parentId:    req.body.parentId    as string | null | undefined,
+          parentId,
           title:       req.body.title       as string,
           summary:     req.body.summary     as string | undefined,
           description: req.body.description as string | undefined,
@@ -126,6 +134,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
               wouldCreateCycle(req.params.id, req.body.parentId)) {
             return reply.code(400).send({ error: 'Circular parentId detected', code: 'CYCLE_DETECTED' });
           }
+          const currentTask = getTask(req.params.id);
+          const parent = getTask(req.body.parentId);
+          if (!parent || (currentTask && parent.projectId !== currentTask.projectId))
+            return reply.code(400).send({ error: 'Invalid parentId', code: 'INVALID_PARENT' });
+          if (parent.isMilestone)
+            return reply.code(400).send({ error: 'Milestone cannot be a parent', code: 'MILESTONE_CANNOT_BE_PARENT' });
         }
         const task = updateTask(req.params.id, {
           parentId:     req.body.parentId     as string | null | undefined,
