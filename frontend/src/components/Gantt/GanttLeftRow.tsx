@@ -60,6 +60,17 @@ export function GanttLeftRow({
       setEditField(null);
       return;
     }
+    // 開始日・終了日の前後矛盾チェック: 矛盾する場合は両方を新しい値にクランプ
+    if (field === 'startDate' && myVal && task.endDate && (myVal as string) > task.endDate) {
+      onInlineUpdate(task.id, { startDate: myVal as string, endDate: myVal as string });
+      setEditField(null);
+      return;
+    }
+    if (field === 'endDate' && myVal && task.startDate && (myVal as string) < task.startDate) {
+      onInlineUpdate(task.id, { startDate: myVal as string, endDate: myVal as string });
+      setEditField(null);
+      return;
+    }
     onInlineUpdate(task.id, { [field]: myVal });
     setEditField(null);
   }
@@ -239,6 +250,7 @@ export function GanttLeftRow({
       <div style={{ ...CELL, width: dateColWidth }}>
         {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
+            max={task.endDate || undefined}
             onChange={e => { const v = e.target.value; setEditVal(v); if (v) commit('startDate', v); }}
             onBlur={() => commit('startDate', editVal || null)}
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
@@ -260,6 +272,7 @@ export function GanttLeftRow({
       <div style={{ ...CELL, width: dateColWidth }}>
         {!hasChildren && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
+            min={task.startDate || undefined}
             onChange={e => { const v = e.target.value; setEditVal(v); if (v) commit('endDate', v); }}
             onBlur={() => commit('endDate', editVal || null)}
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />

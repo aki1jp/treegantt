@@ -349,3 +349,72 @@ describe('WBS 日付インライン編集 — onChange で即時コミット', (
     expect(wbsPanel.querySelector('input[type="date"]')).toBeNull();
   });
 });
+
+describe('WBS 日付バリデーション — 開始日・終了日の前後矛盾防止', () => {
+  const onInlineUpdate = vi.fn();
+
+  function makeTask2(): Task {
+    return {
+      id: 'v1', projectId: 'p1', parentId: null,
+      title: 'バリデーションタスク', summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: '2026-05-10', endDate: '2026-05-20',
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+  }
+
+  beforeEach(() => {
+    onInlineUpdate.mockClear();
+    useTaskStore.setState({ tasks: [makeTask2()], ganttStartDate: '2026-05-01', showResourceView: false });
+  });
+
+  function renderValidationChart() {
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+  }
+
+  it('開始日を終了日より後に設定すると両方が新開始日にクランプされる', () => {
+    const { container } = renderValidationChart();
+    const wbsPanel = container.querySelector('[data-testid="wbs-panel"]') as HTMLElement;
+    const startSpan = Array.from(wbsPanel.querySelectorAll('span')).find(s => s.textContent === '2026-05-10');
+    fireEvent.click(startSpan!);
+    const input = wbsPanel.querySelector('input[type="date"]') as HTMLInputElement;
+    // 終了日(2026-05-20)より後の日付を設定
+    fireEvent.change(input, { target: { value: '2026-05-25' } });
+    expect(onInlineUpdate).toHaveBeenCalledWith('v1', { startDate: '2026-05-25', endDate: '2026-05-25' });
+  });
+
+  it('終了日を開始日より前に設定すると両方が新終了日にクランプされる', () => {
+    const { container } = renderValidationChart();
+    const wbsPanel = container.querySelector('[data-testid="wbs-panel"]') as HTMLElement;
+    const endSpan = Array.from(wbsPanel.querySelectorAll('span')).find(s => s.textContent === '2026-05-20');
+    fireEvent.click(endSpan!);
+    const input = wbsPanel.querySelector('input[type="date"]') as HTMLInputElement;
+    // 開始日(2026-05-10)より前の日付を設定
+    fireEvent.change(input, { target: { value: '2026-05-05' } });
+    expect(onInlineUpdate).toHaveBeenCalledWith('v1', { startDate: '2026-05-05', endDate: '2026-05-05' });
+  });
+
+  it('有効な開始日（終了日以前）は通常通りコミットされる', () => {
+    const { container } = renderValidationChart();
+    const wbsPanel = container.querySelector('[data-testid="wbs-panel"]') as HTMLElement;
+    const startSpan = Array.from(wbsPanel.querySelectorAll('span')).find(s => s.textContent === '2026-05-10');
+    fireEvent.click(startSpan!);
+    const input = wbsPanel.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '2026-05-15' } });
+    expect(onInlineUpdate).toHaveBeenCalledWith('v1', { startDate: '2026-05-15' });
+  });
+
+  it('有効な終了日（開始日以降）は通常通りコミットされる', () => {
+    const { container } = renderValidationChart();
+    const wbsPanel = container.querySelector('[data-testid="wbs-panel"]') as HTMLElement;
+    const endSpan = Array.from(wbsPanel.querySelectorAll('span')).find(s => s.textContent === '2026-05-20');
+    fireEvent.click(endSpan!);
+    const input = wbsPanel.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '2026-05-15' } });
+    expect(onInlineUpdate).toHaveBeenCalledWith('v1', { endDate: '2026-05-15' });
+  });
+});
