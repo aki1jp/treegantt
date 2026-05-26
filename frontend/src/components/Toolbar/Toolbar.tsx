@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
+import { todayStr } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 
 interface Props {
@@ -129,7 +130,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     filterAssignee !== '',
   ].filter(Boolean).length;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
 
   const dropdownStyle: React.CSSProperties = {
     background: 'var(--th-bg)', border: '1px solid var(--th-border)', borderRadius: 8,

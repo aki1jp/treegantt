@@ -65,8 +65,13 @@ export function calcGanttRange(
   return { min: new Date(minTime), max: new Date(maxTime) };
 }
 
+/** ブラウザのローカル日付を YYYY-MM-DD で返す（toISOString は UTC 基準になるため使わない） */
+export function todayStr(): string {
+  return dayjs().format('YYYY-MM-DD');
+}
+
 export function calcTodayX(minDate: Date, zoom: ZoomLevel): number {
-  return dateToX(new Date().toISOString().slice(0, 10), minDate, zoom);
+  return dateToX(todayStr(), minDate, zoom);
 }
 
 // イナズマライン: 各タスクの進捗率をX座標に変換し、行の中心点を斜線でつなぐ
@@ -187,9 +192,7 @@ export function ganttTotalWidth(tasks: Task[], zoom: ZoomLevel, startDate?: stri
 }
 
 export function addDays(date: string, n: number): string {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return dayjs(date).add(n, 'day').format('YYYY-MM-DD');
 }
 
 // ── マルチレベルヘッダー ─────────────────────────────

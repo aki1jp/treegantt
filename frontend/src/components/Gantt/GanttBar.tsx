@@ -1,5 +1,5 @@
 import type { Task, ZoomLevel, TaskStatus } from '../../types/task';
-import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG } from '../../utils/ganttCalc';
+import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr } from '../../utils/ganttCalc';
 
 interface Props {
   task: Task;
@@ -20,7 +20,7 @@ const STATUS_COLOR: Record<TaskStatus, string> = {
   todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
 };
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = todayStr();
 const HANDLE_W = 6;
 
 export function GanttBar({

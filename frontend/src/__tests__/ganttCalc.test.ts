@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -93,6 +93,14 @@ describe('calcTodayX', () => {
     const dayWidth = ZOOM_CONFIG['week'].dayWidth;
     const expectedDays = Math.round((TODAY.getTime() - min.getTime()) / 86400000);
     expect(x).toBe(expectedDays * dayWidth);
+  });
+});
+
+describe('todayStr', () => {
+  it('YYYY-MM-DD 形式のローカル日付を返す', () => {
+    // vi.setSystemTime で 2026-05-21T00:00:00Z にセット済み（テスト環境は UTC）
+    expect(todayStr()).toBe('2026-05-21');
+    expect(todayStr()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 
