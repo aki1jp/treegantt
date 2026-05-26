@@ -239,7 +239,7 @@ export function GanttLeftRow({
       <div style={{ ...CELL, width: dateColWidth }}>
         {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
-            onChange={e => setEditVal(e.target.value)}
+            onChange={e => { const v = e.target.value; setEditVal(v); if (v) commit('startDate', v); }}
             onBlur={() => commit('startDate', editVal || null)}
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
         ) : (
@@ -260,7 +260,7 @@ export function GanttLeftRow({
       <div style={{ ...CELL, width: dateColWidth }}>
         {!hasChildren && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
-            onChange={e => setEditVal(e.target.value)}
+            onChange={e => { const v = e.target.value; setEditVal(v); if (v) commit('endDate', v); }}
             onBlur={() => commit('endDate', editVal || null)}
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
         ) : (
