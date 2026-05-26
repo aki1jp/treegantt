@@ -495,6 +495,29 @@ describe('Import/Export API', () => {
     expect(res.payload).toContain('山田');
   });
 
+  it('GET /api/v1/projects/:id/export/json returns 404 for unknown project', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/projects/unknown-proj/export/json' });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe('NOT_FOUND');
+  });
+
+  it('GET /api/v1/projects/:id/export/csv returns 404 for unknown project', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/projects/unknown-proj/export/csv' });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe('NOT_FOUND');
+  });
+
+  it('GET /api/v1/projects/:id/export/csv escapes titles with commas and quotes', async () => {
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'Task, with "quotes"' },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/export/csv` });
+    expect(res.statusCode).toBe(200);
+    // CSV エスケープ: カンマ・引用符を含む値はダブルクォートで囲まれる
+    expect(res.payload).toContain('"Task, with ""quotes"""');
+  });
+
   // ── 基本インポート ───────────────────────────────────
   it('1件インポートできる', async () => {
     const res = await app.inject({

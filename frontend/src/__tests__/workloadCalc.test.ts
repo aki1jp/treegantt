@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcWorkloadMatrix } from '../utils/workloadCalc';
+import { calcWorkloadMatrix, workloadColor } from '../utils/workloadCalc';
 import type { Task } from '../types/task';
 
 function makeTask(partial: Partial<Task>): Task {
@@ -105,5 +105,28 @@ describe('calcWorkloadMatrix', () => {
     const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-01'));
     expect(result.assignees[0]).toBe('Alice');
     expect(result.assignees[1]).toBe('Zara');
+  });
+});
+
+describe('workloadColor', () => {
+  it('count=0 は transparent', () => {
+    expect(workloadColor(0)).toBe('transparent');
+  });
+
+  it('count=1 は green', () => {
+    expect(workloadColor(1)).toContain('34,197,94');
+  });
+
+  it('count=2 は yellow', () => {
+    expect(workloadColor(2)).toContain('234,179,8');
+  });
+
+  it('count=3 は orange', () => {
+    expect(workloadColor(3)).toContain('249,115,22');
+  });
+
+  it('count=4 以上は red', () => {
+    expect(workloadColor(4)).toContain('239,68,68');
+    expect(workloadColor(100)).toContain('239,68,68');
   });
 });

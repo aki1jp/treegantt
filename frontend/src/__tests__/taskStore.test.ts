@@ -234,6 +234,15 @@ describe('UI設定の永続化', () => {
   });
 });
 
+describe('setTheme', () => {
+  it('テーマを変更できる', () => {
+    useTaskStore.getState().setTheme('dark');
+    expect(useTaskStore.getState().theme).toBe('dark');
+    useTaskStore.getState().setTheme('light');
+    expect(useTaskStore.getState().theme).toBe('light');
+  });
+});
+
 describe('resetUi', () => {
   it('UI設定（ズーム・期間・フォント・行高・ヘッダー・トグル）を初期値に戻す', () => {
     const st = useTaskStore.getState();
