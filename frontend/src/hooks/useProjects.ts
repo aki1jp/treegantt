@@ -2,16 +2,28 @@ import { useState, useEffect } from 'react';
 import type { Project } from '../types/task';
 import { apiFetch } from '../utils/api';
 
+const LS_KEY = 'treegantt-current-project';
+
 export function useProjects() {
-  const [projects, setProjects]             = useState<Project[]>([]);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [loading, setLoading]               = useState(true);
+  const [projects, setProjects]                   = useState<Project[]>([]);
+  const [currentProject, setCurrentProjectState]  = useState<Project | null>(null);
+  const [loading, setLoading]                     = useState(true);
+
+  function setCurrentProject(p: Project | null) {
+    setCurrentProjectState(p);
+    if (p) localStorage.setItem(LS_KEY, p.id);
+    else   localStorage.removeItem(LS_KEY);
+  }
 
   useEffect(() => {
     apiFetch('/projects')
       .then(d => {
         setProjects(d.projects);
-        if (d.projects.length > 0) setCurrentProject(d.projects[0]);
+        if (d.projects.length > 0) {
+          const savedId = localStorage.getItem(LS_KEY);
+          const saved   = savedId ? (d.projects as Project[]).find(p => p.id === savedId) ?? null : null;
+          setCurrentProject(saved ?? d.projects[0]);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));

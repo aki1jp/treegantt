@@ -8,6 +8,7 @@ function makeProject(id: string, name: string) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   vi.stubGlobal('fetch', vi.fn());
 });
 afterEach(() => {
@@ -97,5 +98,56 @@ describe('useProjects', () => {
     await act(async () => {});
     await act(async () => { await result.current.deleteProject(p1); });
     expect(result.current.currentProject).toBeNull();
+  });
+});
+
+describe('useProjects — localStorage 永続化', () => {
+  const LS_KEY = 'treegantt-current-project';
+
+  function mockLoad(projects: ReturnType<typeof makeProject>[]) {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ projects }),
+    } as Response);
+  }
+
+  it('localStorage に保存された ID のプロジェクトをリロード時に復元する', async () => {
+    localStorage.setItem(LS_KEY, 'p2');
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.currentProject?.id).toBe('p2');
+  });
+
+  it('setCurrentProject を呼ぶと localStorage に ID が保存される', async () => {
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    act(() => { result.current.setCurrentProject(makeProject('p2', 'Beta')); });
+    expect(localStorage.getItem(LS_KEY)).toBe('p2');
+  });
+
+  it('localStorage に存在しない ID が保存されている場合は projects[0] にフォールバック', async () => {
+    localStorage.setItem(LS_KEY, 'deleted-project');
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.currentProject?.id).toBe('p1');
+  });
+
+  it('createProject 後にリロードすると新プロジェクトが復元される', async () => {
+    const existing = makeProject('p1', 'Existing');
+    const created  = makeProject('p2', 'Created');
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [existing] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ project: created }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    await act(async () => { await result.current.createProject('Created'); });
+    expect(localStorage.getItem(LS_KEY)).toBe('p2');
   });
 });
