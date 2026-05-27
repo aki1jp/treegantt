@@ -16,6 +16,7 @@ const INPUT: React.CSSProperties = {
 };
 
 export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
+  const [shaking, setShaking] = useState(false);
   const [title, setTitle]       = useState(task?.title    ?? '');
   const [date, setDate]         = useState(task?.startDate ?? '');
   const [assignee, setAssignee] = useState(task?.assignee  ?? '');
@@ -75,17 +76,34 @@ export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
     });
   }
 
-  const isDirty =
-    title !== (task?.title ?? '') ||
-    date !== (task?.startDate ?? '') ||
-    assignee !== (task?.assignee ?? '') ||
-    JSON.stringify([...predecessors].sort()) !== JSON.stringify([...(task?.predecessors ?? [])].sort());
+  const dirtyFields = {
+    title:        title    !== (task?.title     ?? ''),
+    date:         date     !== (task?.startDate ?? ''),
+    assignee:     assignee !== (task?.assignee  ?? ''),
+    predecessors: JSON.stringify([...predecessors].sort()) !== JSON.stringify([...(task?.predecessors ?? [])].sort()),
+  };
+  const isDirty = Object.values(dirtyFields).some(Boolean);
+
+  function handleBackdropClick() {
+    if (isDirty) {
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+    } else {
+      onClose();
+    }
+  }
+
+  function shakeProps(dirty: boolean) {
+    return dirty && shaking
+      ? { 'data-shaking': true, style: { ...FIELD, animation: 'field-shake 0.45s ease' } }
+      : { style: FIELD };
+  }
 
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }} onClick={() => { if (!isDirty) onClose(); }}>
+    }} onClick={handleBackdropClick}>
       <div style={{
         background: 'var(--th-bg)', borderRadius: 8, padding: 24, width: 480, maxHeight: '85vh',
         overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.3)', color: 'var(--th-text)',
@@ -99,25 +117,25 @@ export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
         </p>
 
         <form onSubmit={handleSubmit}>
-          <div style={FIELD}>
+          <div data-field="title" {...shakeProps(dirtyFields.title)}>
             <label style={LABEL}>タイトル *</label>
             <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)}
               required maxLength={200} autoFocus />
           </div>
 
-          <div style={FIELD}>
+          <div data-field="date" {...shakeProps(dirtyFields.date)}>
             <label style={LABEL}>日付</label>
             <input style={INPUT} type="date" value={date ?? ''}
               onChange={e => setDate(e.target.value)} />
           </div>
 
-          <div style={FIELD}>
+          <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
             <input style={INPUT} value={assignee} onChange={e => setAssignee(e.target.value)} />
           </div>
 
           {candidates.length > 0 && (
-            <div style={FIELD}>
+            <div data-field="predecessors" {...shakeProps(dirtyFields.predecessors)}>
               <label style={LABEL}>先行タスク（複数選択可）</label>
               <input
                 style={{ ...INPUT, marginBottom: 6 }}

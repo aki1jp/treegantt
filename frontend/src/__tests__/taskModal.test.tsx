@@ -2,8 +2,8 @@
 /**
  * TaskModal — Markdown プレビュータブ / 日付バリデーション / backdrop 閉じる挙動
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { render, cleanup, fireEvent, screen, act } from '@testing-library/react';
 import { TaskModal } from '../components/TaskModal/TaskModal';
 import type { Task } from '../types/task';
 
@@ -172,5 +172,63 @@ describe('TaskModal — backdrop クリックの閉じる/閉じない挙動', (
     fireEvent.change(screen.getByRole('slider'), { target: { value: '50' } });
     fireEvent.click(container.firstChild as HTMLElement);
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('TaskModal — backdrop クリック時の shake アニメーション', () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('変更なしで backdrop クリック → shake なし・onClose が呼ばれる', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(container.querySelector('[data-field="title"][data-shaking]')).toBeNull();
+  });
+
+  it('タイトル変更後 backdrop クリック → タイトルフィールドが shake する', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更後' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-field="title"][data-shaking]')).toBeTruthy();
+  });
+
+  it('タイトルのみ変更 → 未変更フィールド（サマリ）は shake しない', () => {
+    const { container } = render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更後' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(container.querySelector('[data-field="summary"][data-shaking]')).toBeNull();
+  });
+
+  it('shake は 500ms 後にリセットされる', () => {
+    const { container } = render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更後' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(container.querySelector('[data-field="title"][data-shaking]')).toBeTruthy();
+    act(() => { vi.advanceTimersByTime(500); });
+    expect(container.querySelector('[data-field="title"][data-shaking]')).toBeNull();
+  });
+
+  it('複数フィールド変更後 backdrop クリック → 変更した全フィールドが shake する', () => {
+    const { container } = render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={vi.fn()} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更タイトル' } });
+    fireEvent.change(screen.getAllByRole('textbox')[1], { target: { value: '変更サマリ' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(container.querySelector('[data-field="title"][data-shaking]')).toBeTruthy();
+    expect(container.querySelector('[data-field="summary"][data-shaking]')).toBeTruthy();
+    expect(container.querySelector('[data-field="status"][data-shaking]')).toBeNull();
   });
 });

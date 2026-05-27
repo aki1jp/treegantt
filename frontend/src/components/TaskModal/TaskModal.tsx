@@ -25,6 +25,7 @@ const INPUT: React.CSSProperties = {
 };
 
 export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: Props) {
+  const [shaking, setShaking] = useState(false);
   const [title, setTitle]             = useState(task?.title ?? '');
   const [summary, setSummary]         = useState(task?.summary ?? '');
   const [description, setDescription] = useState(task?.description ?? '');
@@ -105,24 +106,41 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     });
   }
 
-  const isDirty =
-    title !== (task?.title ?? '') ||
-    summary !== (task?.summary ?? '') ||
-    description !== (task?.description ?? '') ||
-    status !== (task?.status ?? 'todo') ||
-    priority !== (task?.priority ?? 'medium') ||
-    progress !== (task?.progress ?? 0) ||
-    assignee !== (task?.assignee ?? '') ||
-    startDate !== (task?.startDate ?? '') ||
-    endDate !== (task?.endDate ?? '') ||
-    parentId !== (task?.parentId ?? initialParentId ?? '') ||
-    JSON.stringify([...predecessors].sort()) !== JSON.stringify([...(task?.predecessors ?? [])].sort());
+  const dirtyFields = {
+    title:        title        !== (task?.title        ?? ''),
+    summary:      summary      !== (task?.summary      ?? ''),
+    description:  description  !== (task?.description  ?? ''),
+    status:       status       !== (task?.status       ?? 'todo'),
+    priority:     priority     !== (task?.priority     ?? 'medium'),
+    progress:     progress     !== (task?.progress     ?? 0),
+    assignee:     assignee     !== (task?.assignee     ?? ''),
+    startDate:    startDate    !== (task?.startDate    ?? ''),
+    endDate:      endDate      !== (task?.endDate      ?? ''),
+    parentId:     parentId     !== (task?.parentId ?? initialParentId ?? ''),
+    predecessors: JSON.stringify([...predecessors].sort()) !== JSON.stringify([...(task?.predecessors ?? [])].sort()),
+  };
+  const isDirty = Object.values(dirtyFields).some(Boolean);
+
+  function handleBackdropClick() {
+    if (isDirty) {
+      setShaking(true);
+      setTimeout(() => setShaking(false), 500);
+    } else {
+      onClose();
+    }
+  }
+
+  function shakeProps(dirty: boolean) {
+    return dirty && shaking
+      ? { 'data-shaking': true, style: { ...FIELD, animation: 'field-shake 0.45s ease' } }
+      : { style: FIELD };
+  }
 
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }} onClick={() => { if (!isDirty) onClose(); }}>
+    }} onClick={handleBackdropClick}>
       <div style={{
         background: 'var(--th-bg)', borderRadius: 8, padding: 24, width: 560, maxHeight: '90vh',
         overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.3)', color: 'var(--th-text)',
@@ -132,17 +150,17 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
         </h2>
 
         <form onSubmit={handleSubmit}>
-          <div style={FIELD}>
+          <div data-field="title" {...shakeProps(dirtyFields.title)}>
             <label style={LABEL}>タイトル *</label>
             <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} />
           </div>
 
-          <div style={FIELD}>
+          <div data-field="summary" {...shakeProps(dirtyFields.summary)}>
             <label style={LABEL}>サマリ</label>
             <input style={INPUT} value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} />
           </div>
 
-          <div style={FIELD}>
+          <div data-field="description" {...shakeProps(dirtyFields.description)}>
             {/* タブヘッダー */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--th-input-border)', marginBottom: 0 }}>
               <label style={{ ...LABEL, marginBottom: 0, marginRight: 12 }}>説明</label>
@@ -190,7 +208,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div style={FIELD}>
+            <div data-field="status" {...shakeProps(dirtyFields.status)}>
               <label style={LABEL}>ステータス</label>
               <select style={INPUT} value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>
                 {Object.entries(STATUS_LABELS).map(([v, l]) => (
@@ -198,7 +216,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                 ))}
               </select>
             </div>
-            <div style={FIELD}>
+            <div data-field="priority" {...shakeProps(dirtyFields.priority)}>
               <label style={LABEL}>優先度</label>
               <select style={INPUT} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}>
                 {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
@@ -208,19 +226,19 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
             </div>
           </div>
 
-          <div style={FIELD}>
+          <div data-field="progress" {...shakeProps(dirtyFields.progress)}>
             <label style={LABEL}>進捗率: {progress}%</label>
             <input type="range" min={0} max={100} value={progress}
               onChange={e => setProgress(Number(e.target.value))} style={{ width: '100%' }} />
           </div>
 
-          <div style={FIELD}>
+          <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
             <input style={INPUT} value={assignee} onChange={e => setAssignee(e.target.value)} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div style={FIELD}>
+            <div data-field="startDate" {...shakeProps(dirtyFields.startDate)}>
               <label style={LABEL}>
                 開始日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
               </label>
@@ -229,7 +247,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                 onChange={e => setStartDate(e.target.value)}
                 title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
             </div>
-            <div style={FIELD}>
+            <div data-field="endDate" {...shakeProps(dirtyFields.endDate)}>
               <label style={LABEL}>
                 終了日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
               </label>
@@ -241,7 +259,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
           </div>
 
           {/* 親タスク（マイルストーンは親になれない） */}
-          <div style={FIELD}>
+          <div data-field="parentId" {...shakeProps(dirtyFields.parentId)}>
             <label style={LABEL}>親タスク</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
@@ -269,7 +287,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
 
           {/* 先行タスク */}
           {selectableTasks.length > 0 && (
-            <div style={FIELD}>
+            <div data-field="predecessors" {...shakeProps(dirtyFields.predecessors)}>
               <label style={LABEL}>先行タスク（複数選択可）</label>
               <input
                 style={{ ...INPUT, marginBottom: 6 }}
