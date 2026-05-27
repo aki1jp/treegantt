@@ -233,7 +233,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   function handleRowDragOver(e: React.DragEvent, idx: number) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
     setRowDropIdx(idx);
   }
 
@@ -448,39 +448,52 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
         {/* WBS ボディ（垂直スクロールはガントパネルと同期） */}
         <div ref={wbsBodyRef} style={{ flex: 1, overflowY: 'hidden' }}>
-          {flatRows.map(({ task, depth }, idx) => (
-            <div
-              key={task.id}
-              draggable
-              onDragStart={(e) => handleRowDragStart(e, task.id)}
-              onDragOver={(e) => handleRowDragOver(e, idx)}
-              onDrop={(e) => handleRowDrop(e, idx)}
-              onDragEnd={handleRowDragEnd}
-              style={{
-                opacity: rowDragId === task.id ? 0.4 : 1,
-                // boxShadow はレイアウトに影響しないため行高が SVG とずれない
-                boxShadow: rowDropIdx === idx && rowDragId !== task.id
-                  ? 'inset 0 2px 0 #4f46e5' : 'none',
-                cursor: 'grab',
-              }}
-            >
-              <GanttLeftRow
-                task={task}
-                depth={depth}
-                hasChildren={(childCount.get(task.id) ?? 0) > 0}
-                isCollapsed={collapsed.has(task.id)}
-                effectiveProgress={progressMap.get(task.id) ?? task.progress}
-                fontSize={uiFontSize}
-                rowHeight={uiRowHeight}
-                titleWidth={colWidths.title}
-                assigneeWidth={colWidths.assignee}
-                dateColWidth={dateColWidth}
-                onToggleCollapse={() => toggleCollapse(task.id)}
-                onInlineUpdate={onInlineUpdate}
-                onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
-              />
-            </div>
-          ))}
+          {(() => {
+            const dragIdx = rowDragId ? flatRows.findIndex(r => r.task.id === rowDragId) : -1;
+            return flatRows.map(({ task, depth }, idx) => {
+              const isNoOp = dragIdx !== -1 && (rowDropIdx === dragIdx || rowDropIdx === dragIdx + 1);
+              const showDropLine = rowDropIdx === idx && !!rowDragId && !isNoOp;
+              return (
+                <div
+                  key={task.id}
+                  draggable
+                  onDragStart={(e) => handleRowDragStart(e, task.id)}
+                  onDragOver={(e) => handleRowDragOver(e, idx)}
+                  onDrop={(e) => handleRowDrop(e, idx)}
+                  onDragEnd={handleRowDragEnd}
+                  style={{
+                    opacity: rowDragId === task.id ? 0.4 : 1,
+                    cursor: 'grab',
+                    position: 'relative',
+                  }}
+                >
+                  {showDropLine && (
+                    <div data-drop-line style={{
+                      position: 'absolute', left: 0, right: 0, top: -2,
+                      height: 3, background: '#4f46e5',
+                      borderRadius: 2, boxShadow: '0 0 6px rgba(79,70,229,0.5)',
+                      pointerEvents: 'none', zIndex: 5,
+                    }} />
+                  )}
+                  <GanttLeftRow
+                    task={task}
+                    depth={depth}
+                    hasChildren={(childCount.get(task.id) ?? 0) > 0}
+                    isCollapsed={collapsed.has(task.id)}
+                    effectiveProgress={progressMap.get(task.id) ?? task.progress}
+                    fontSize={uiFontSize}
+                    rowHeight={uiRowHeight}
+                    titleWidth={colWidths.title}
+                    assigneeWidth={colWidths.assignee}
+                    dateColWidth={dateColWidth}
+                    onToggleCollapse={() => toggleCollapse(task.id)}
+                    onInlineUpdate={onInlineUpdate}
+                    onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
+                  />
+                </div>
+              );
+            });
+          })()}
           <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
         </div>
       </div>
