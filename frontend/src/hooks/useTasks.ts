@@ -44,11 +44,15 @@ export function useTasks(projectId: string) {
   }
 
   // 楽観的並び替え → REST PATCH → サーバーが全クライアントへ tasks_reordered をブロードキャスト
-  async function reorderTasks(orders: { id: string; order: number }[]): Promise<void> {
+  async function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): Promise<void> {
     const store = useTaskStore.getState();
     const prev = store.tasks;
-    const map = new Map(orders.map(o => [o.id, o.order]));
-    store.setTasks(prev.map(t => map.has(t.id) ? { ...t, order: map.get(t.id)! } : t));
+    const map = new Map(orders.map(o => [o.id, o]));
+    store.setTasks(prev.map(t => {
+      const o = map.get(t.id);
+      if (!o) return t;
+      return { ...t, order: o.order, ...(o.parentId !== undefined ? { parentId: o.parentId } : {}) };
+    }));
     try {
       await apiFetch(`/projects/${projectId}/tasks/reorder`, {
         method: 'PATCH',

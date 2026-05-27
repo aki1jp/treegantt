@@ -309,11 +309,13 @@ export function wouldCreateCycle(taskId: string, newParentId: string): boolean {
   return false;
 }
 
-export function reorderTasks(orders: { id: string; order: number }[]): void {
-  const update = db.prepare('UPDATE tasks SET ord = ? WHERE id = ?');
+export function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): void {
+  const updateOrd    = db.prepare('UPDATE tasks SET ord = ? WHERE id = ?');
+  const updateParent = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');
   db.transaction(() => {
-    for (const { id, order } of orders) {
-      update.run(order, id);
+    for (const { id, order, parentId } of orders) {
+      updateOrd.run(order, id);
+      if (parentId !== undefined) updateParent.run(parentId ?? null, id);
     }
   })();
 }

@@ -353,6 +353,98 @@ describe('WBS 行D&D — ドロップ位置インジケーター', () => {
   });
 });
 
+describe('WBS 行D&D — マウス位置によるインデント深さ選択', () => {
+  // flatRows の構成: root-a(depth=0), parent-p(depth=0), child-c(parentId=parent-p, depth=1)
+  function makeThreeTasks(): Task[] {
+    return [
+      {
+        id: 'root-a', projectId: 'p1', parentId: null,
+        title: 'ルートA', summary: '', description: '',
+        status: 'todo', priority: 'medium', progress: 0, assignee: '',
+        startDate: '2026-05-01', endDate: '2026-05-31',
+        isMilestone: false, predecessors: [], seq: 1, order: 1,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'parent-p', projectId: 'p1', parentId: null,
+        title: '親P', summary: '', description: '',
+        status: 'todo', priority: 'medium', progress: 0, assignee: '',
+        startDate: '2026-05-01', endDate: '2026-05-31',
+        isMilestone: false, predecessors: [], seq: 2, order: 2,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      {
+        id: 'child-c', projectId: 'p1', parentId: 'parent-p',
+        title: '子C', summary: '', description: '',
+        status: 'todo', priority: 'medium', progress: 0, assignee: '',
+        startDate: '2026-05-01', endDate: '2026-05-31',
+        isMilestone: false, predecessors: [], seq: 3, order: 3,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ];
+  }
+
+  function renderWith3Tasks(onReorder = vi.fn()) {
+    useTaskStore.setState({ tasks: makeThreeTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} />
+    );
+  }
+
+  it('clientX=58（depth=1）→ child-c の前にドロップすると parentId: parent-p が渡る', () => {
+    const onReorder = vi.fn();
+    const { getByTestId } = renderWith3Tasks(onReorder);
+    const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
+    // rows[0]=root-a, rows[1]=parent-p, rows[2]=child-c
+    // ▼マーク基点(42px) + depth=1 → clientX=58
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 58 }));
+    fireEvent(rows[2], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 58 }));
+    expect(onReorder).toHaveBeenCalledOnce();
+    const orders: { id: string; parentId?: string | null }[] = onReorder.mock.calls[0][0];
+    expect(orders.find(o => o.id === 'root-a')?.parentId).toBe('parent-p');
+  });
+
+  it('clientX=42（depth=0）→ child-c の前にドロップすると parentId: null（root）が渡る', () => {
+    const onReorder = vi.fn();
+    const { getByTestId } = renderWith3Tasks(onReorder);
+    const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
+    // ▼マーク基点(42px) → depth=0
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 42 }));
+    fireEvent(rows[2], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 42 }));
+    expect(onReorder).toHaveBeenCalledOnce();
+    const orders: { id: string; parentId?: string | null }[] = onReorder.mock.calls[0][0];
+    // root-a はもともと root なので parentId フィールド自体が存在しないか undefined
+    expect(orders.find(o => o.id === 'root-a')?.parentId).toBeUndefined();
+  });
+
+  it('dragOver 時のインジケーター left が clientX に連動した depth を反映する', () => {
+    const { getByTestId } = renderWith3Tasks();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rows = wbsPanel.querySelectorAll('[draggable="true"]');
+    // ▼マーク基点(42px) + depth=1(16px) → left=58px
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 58 }));
+    const line = wbsPanel.querySelector('[data-drop-line]') as HTMLElement;
+    expect(line).toBeTruthy();
+    expect(line.style.left).toBe('58px');
+  });
+
+  it('depth=0 のとき left=42px（▼マーク基点・フルバー）', () => {
+    const { getByTestId } = renderWith3Tasks();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rows = wbsPanel.querySelectorAll('[draggable="true"]');
+    // ▼マーク基点(42px) → depth=0 → left=42px
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 42 }));
+    const line = wbsPanel.querySelector('[data-drop-line]') as HTMLElement;
+    expect(line).toBeTruthy();
+    expect(line.style.left).toBe('42px');
+  });
+});
+
 describe('WBS 日付インライン編集 — onChange で即時コミット', () => {
   const TODAY = '2026-05-26';
   const onInlineUpdate = vi.fn();

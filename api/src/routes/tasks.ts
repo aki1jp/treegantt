@@ -83,7 +83,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.patch<{ Params: { id: string }; Body: { orders: { id: string; order: number }[] } }>(
+  fastify.patch<{ Params: { id: string }; Body: { orders: { id: string; order: number; parentId?: string | null }[] } }>(
     '/projects/:id/tasks/reorder',
     {
       schema: {
@@ -97,8 +97,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
                 type: 'object',
                 required: ['id', 'order'],
                 properties: {
-                  id:    { type: 'string' },
-                  order: { type: 'number' },
+                  id:       { type: 'string' },
+                  order:    { type: 'number' },
+                  parentId: { type: ['string', 'null'] },
                 },
               },
             },

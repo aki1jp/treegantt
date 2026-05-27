@@ -268,6 +268,20 @@ describe('Tasks API', () => {
     expect(t1Updated.order).toBe(10);
   });
 
+  it('PATCH /api/v1/projects/:id/tasks/reorder with parentId updates parent', async () => {
+    const parent = await createTask({ title: 'Parent' });
+    const child  = await createTask({ title: 'Child' });
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: child.id, order: 2, parentId: parent.id }] },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const updated = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${child.id}` })).json().task;
+    expect(updated.parentId).toBe(parent.id);
+  });
+
   it('GET tasks with status filter', async () => {
     await createTask({ title: 'Todo Task', status: 'todo' });
     await createTask({ title: 'WIP Task', status: 'wip' });

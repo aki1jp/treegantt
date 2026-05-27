@@ -110,7 +110,7 @@ interface Props {
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
-  onReorder: (orders: { id: string; order: number }[]) => Promise<void>;
+  onReorder: (orders: { id: string; order: number; parentId?: string | null }[]) => Promise<void>;
 }
 
 export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onReorder }: Props) {
@@ -218,8 +218,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
 
   // ── 行 D&D（ソートなし時の並び替え） ─────────────────
-  const [rowDragId,  setRowDragId]  = useState<string | null>(null);
-  const [rowDropIdx, setRowDropIdx] = useState<number | null>(null);
+  const wbsPanelRef  = useRef<HTMLDivElement>(null);
+  const [rowDragId,    setRowDragId]    = useState<string | null>(null);
+  const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
+  const [rowDropDepth, setRowDropDepth] = useState<number | null>(null);
 
   function handleRowDragStart(e: React.DragEvent, taskId: string) {
     const tag = document.activeElement?.tagName ?? '';
@@ -234,30 +236,63 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   function handleRowDragOver(e: React.DragEvent, idx: number) {
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+    const panelLeft = wbsPanelRef.current?.getBoundingClientRect().left ?? 0;
+    const mouseX    = e.clientX - panelLeft;
+    const rowAbove  = idx > 0 ? flatRows[idx - 1] : null;
+    const maxDepth  = rowAbove ? rowAbove.depth + 1 : 0;
+    const depth     = Math.min(Math.max(0, Math.floor((mouseX - 42) / 16)), maxDepth);
+
     setRowDropIdx(idx);
+    setRowDropDepth(depth);
   }
 
   function handleRowDrop(e: React.DragEvent, dropIdx: number) {
     e.preventDefault();
     if (!rowDragId) return;
     const dragIdx = flatRows.findIndex(r => r.task.id === rowDragId);
-    if (dragIdx === -1 || dragIdx === dropIdx) { setRowDragId(null); setRowDropIdx(null); return; }
+    if (dragIdx === -1 || dragIdx === dropIdx) { setRowDragId(null); setRowDropIdx(null); setRowDropDepth(null); return; }
 
-    // 新しい順序を計算: dragIdx の行を dropIdx の前に挿入
+    const moved = flatRows[dragIdx].task;
+
+    // マウス横位置から決定した深さ → 新しい parentId を逆引き
+    const d = rowDropDepth ?? 0;
+    const targetParentId: string | null = (() => {
+      if (d === 0) return null;
+      for (let i = dropIdx - 1; i >= 0; i--) {
+        if (flatRows[i].task.id === rowDragId) continue;
+        if (flatRows[i].depth === d - 1) return flatRows[i].task.id;
+        if (flatRows[i].depth < d - 1) break;
+      }
+      return null;
+    })();
+    // 循環参照防止・マイルストーン保護
+    const newParentId: string | null =
+      moved.isMilestone || targetParentId === moved.id ? moved.parentId : targetParentId;
+    const parentIdChanged = newParentId !== moved.parentId;
+
     const newRows = [...flatRows.map(r => r.task)];
-    const [moved] = newRows.splice(dragIdx, 1);
+    const [removed] = newRows.splice(dragIdx, 1);
     const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
-    newRows.splice(insertAt, 0, moved);
+    newRows.splice(insertAt, 0, removed);
 
-    const orders = newRows.map((t, i) => ({ id: t.id, order: i + 1 }));
+    // 位置も parentId も変わらない場合はスキップ
+    if (insertAt === dragIdx && !parentIdChanged) { setRowDragId(null); setRowDropIdx(null); setRowDropDepth(null); return; }
+
+    const orders = newRows.map((t, i) => ({
+      id: t.id, order: i + 1,
+      ...(t.id === moved.id && parentIdChanged ? { parentId: newParentId } : {}),
+    }));
     onReorder(orders);
     setRowDragId(null);
     setRowDropIdx(null);
+    setRowDropDepth(null);
   }
 
   function handleRowDragEnd() {
     setRowDragId(null);
     setRowDropIdx(null);
+    setRowDropDepth(null);
   }
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
@@ -388,7 +423,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
-      <div data-testid="wbs-panel" onWheel={handleWbsWheel} style={{
+      <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
         flexShrink: 0, width: LEFT_TOTAL, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
       }}>
@@ -469,7 +504,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 >
                   {showDropLine && (
                     <div data-drop-line style={{
-                      position: 'absolute', left: 0, right: 0, top: -2,
+                      position: 'absolute',
+                      left: 42 + (rowDropDepth ?? 0) * 16,
+                      right: 0, top: -2,
                       height: 3, background: '#4f46e5',
                       borderRadius: 2, boxShadow: '0 0 6px rgba(79,70,229,0.5)',
                       pointerEvents: 'none', zIndex: 5,

@@ -228,6 +228,33 @@ describe('taskService', () => {
       expect(r1?.order).toBe(10);
       expect(r2?.order).toBe(5);
     });
+
+    it('parentId を指定すると parent_id が更新される', () => {
+      createTask({ id: 'rp', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'rc', projectId: PROJECT_ID, title: '子候補' });
+
+      reorderTasks([{ id: 'rc', order: 2, parentId: 'rp' }]);
+
+      expect(getTask('rc')?.parentId).toBe('rp');
+    });
+
+    it('parentId を null にすると parent_id がクリアされる', () => {
+      createTask({ id: 'rparent2', projectId: PROJECT_ID, title: '親2' });
+      createTask({ id: 'rchild2', projectId: PROJECT_ID, title: '子2', parentId: 'rparent2' });
+
+      reorderTasks([{ id: 'rchild2', order: 1, parentId: null }]);
+
+      expect(getTask('rchild2')?.parentId).toBeNull();
+    });
+
+    it('parentId を省略すると parent_id は変わらない', () => {
+      createTask({ id: 'rparent3', projectId: PROJECT_ID, title: '親3' });
+      createTask({ id: 'rchild3', projectId: PROJECT_ID, title: '子3', parentId: 'rparent3' });
+
+      reorderTasks([{ id: 'rchild3', order: 5 }]);
+
+      expect(getTask('rchild3')?.parentId).toBe('rparent3');
+    });
   });
 
   describe('親タスク日付自動伝播', () => {
