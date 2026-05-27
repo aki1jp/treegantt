@@ -443,6 +443,71 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     expect(line).toBeTruthy();
     expect(line.style.left).toBe('61px');
   });
+
+  // ---- 同階層 sibling 間では maxDepth を sibling の depth にクランプする ----
+  // flatRows: root-a(0), parent-p(0), child-c1(1→parent-p), child-c2(1→parent-p)
+  function makeFourTasks(): Task[] {
+    const base = {
+      summary: '', description: '', status: 'todo' as const, priority: 'medium' as const,
+      progress: 0, assignee: '', startDate: '2026-05-01', endDate: '2026-05-31',
+      isMilestone: false, predecessors: [], projectId: 'p1',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    return [
+      { ...base, id: 'root-a',   parentId: null,       title: 'ルートA', seq: 1, order: 1 },
+      { ...base, id: 'parent-p', parentId: null,       title: '親P',    seq: 2, order: 2 },
+      { ...base, id: 'child-c1', parentId: 'parent-p', title: '子C1',   seq: 3, order: 3 },
+      { ...base, id: 'child-c2', parentId: 'parent-p', title: '子C2',   seq: 4, order: 4 },
+    ];
+  }
+
+  function renderWith4Tasks(onReorder = vi.fn()) {
+    useTaskStore.setState({ tasks: makeFourTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} />
+    );
+  }
+
+  it('sibling 間 (c1↔c2): clientX=93 (depth=2 域) でもインジケーターが depth=1 にクランプされる', () => {
+    const { getByTestId } = renderWith4Tasks();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rows = wbsPanel.querySelectorAll('[draggable="true"]');
+    // rows[0]=root-a, rows[1]=parent-p, rows[2]=child-c1, rows[3]=child-c2
+    // rowAbove=child-c1(depth=1), rowBelow=child-c2(depth=1) → maxDepth=1
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[3], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 93 }));
+    const line = wbsPanel.querySelector('[data-drop-line]') as HTMLElement;
+    expect(line).toBeTruthy();
+    // depth がクランプされて 1 → left = 61 + 1*16 = 77px
+    expect(line.style.left).toBe('77px');
+  });
+
+  it('sibling 間 (c1↔c2): depth クランプ後のドロップで parentId=parent-p が渡る', () => {
+    const onReorder = vi.fn();
+    const { getByTestId } = renderWith4Tasks(onReorder);
+    const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
+    fireEvent.dragStart(rows[0]);
+    // clientX=93 は depth=2 域だが maxDepth=1 にクランプ → parentId=parent-p
+    fireEvent(rows[3], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 93 }));
+    fireEvent(rows[3], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 93 }));
+    expect(onReorder).toHaveBeenCalledOnce();
+    const orders: { id: string; parentId?: string | null }[] = onReorder.mock.calls[0][0];
+    expect(orders.find(o => o.id === 'root-a')?.parentId).toBe('parent-p');
+  });
+
+  it('親→子の境界 (parent-p→child-c1): maxDepth は rowAbove.depth+1 のまま', () => {
+    const { getByTestId } = renderWith4Tasks();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rows = wbsPanel.querySelectorAll('[draggable="true"]');
+    // rowAbove=parent-p(depth=0), rowBelow=child-c1(depth=1) → maxDepth=1
+    // clientX=77 → depth=1 → left=77px（クランプ不要なのでそのまま）
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 77 }));
+    const line = wbsPanel.querySelector('[data-drop-line]') as HTMLElement;
+    expect(line).toBeTruthy();
+    expect(line.style.left).toBe('77px');
+  });
 });
 
 describe('WBS 日付インライン編集 — onChange で即時コミット', () => {

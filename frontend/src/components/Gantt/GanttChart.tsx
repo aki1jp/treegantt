@@ -240,7 +240,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const panelLeft = wbsPanelRef.current?.getBoundingClientRect().left ?? 0;
     const mouseX    = e.clientX - panelLeft;
     const rowAbove  = idx > 0 ? flatRows[idx - 1] : null;
-    const maxDepth  = rowAbove ? rowAbove.depth + 1 : 0;
+    const rowBelow  = flatRows[idx];
+    const maxDepth  = rowAbove
+      ? (rowBelow.depth <= rowAbove.depth ? rowAbove.depth : rowAbove.depth + 1)
+      : 0;
     const depth     = Math.min(Math.max(0, Math.floor((mouseX - 61) / 16)), maxDepth);
 
     setRowDropIdx(idx);
