@@ -105,11 +105,24 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     });
   }
 
+  const isDirty =
+    title !== (task?.title ?? '') ||
+    summary !== (task?.summary ?? '') ||
+    description !== (task?.description ?? '') ||
+    status !== (task?.status ?? 'todo') ||
+    priority !== (task?.priority ?? 'medium') ||
+    progress !== (task?.progress ?? 0) ||
+    assignee !== (task?.assignee ?? '') ||
+    startDate !== (task?.startDate ?? '') ||
+    endDate !== (task?.endDate ?? '') ||
+    parentId !== (task?.parentId ?? initialParentId ?? '') ||
+    JSON.stringify([...predecessors].sort()) !== JSON.stringify([...(task?.predecessors ?? [])].sort());
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }} onClick={onClose}>
+    }} onClick={() => { if (!isDirty) onClose(); }}>
       <div style={{
         background: 'var(--th-bg)', borderRadius: 8, padding: 24, width: 560, maxHeight: '90vh',
         overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.3)', color: 'var(--th-text)',

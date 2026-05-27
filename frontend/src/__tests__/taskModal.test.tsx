@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * TaskModal — 説明フィールドの Markdown プレビュータブ切り替えテスト
+ * TaskModal — Markdown プレビュータブ / 日付バリデーション / backdrop 閉じる挙動
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
@@ -122,5 +122,55 @@ describe('TaskModal — 開始日・終了日バリデーション', () => {
     const saved = onSave.mock.calls[0][0] as Partial<Task>;
     expect(saved.startDate).toBe('2026-06-01');
     expect(saved.endDate).toBeNull();
+  });
+});
+
+describe('TaskModal — backdrop クリックの閉じる/閉じない挙動', () => {
+  it('既存タスク・変更なし: backdrop クリックで onClose が呼ばれる', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('新規タスク・変更なし: backdrop クリックで onClose が呼ばれる', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={null} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('タイトル変更後: backdrop クリックで onClose が呼ばれない', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={makeTask({ title: '元タイトル' })} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更後タイトル' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('新規タスク: タイトル入力後 backdrop クリックで onClose が呼ばれない', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={null} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '新しいタスク' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('進捗変更後: backdrop クリックで onClose が呼ばれない', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <TaskModal task={makeTask({ progress: 0 })} allTasks={[]} onSave={NOOP} onClose={onClose} />
+    );
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '50' } });
+    fireEvent.click(container.firstChild as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
