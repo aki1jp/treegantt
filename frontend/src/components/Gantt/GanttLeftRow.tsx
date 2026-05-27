@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 import { addDays, calcDuration } from '../../utils/ganttCalc';
+import { titlePaddingLeft } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 
 const STATUS_COLOR: Record<TaskStatus, string> = {
@@ -108,7 +109,7 @@ export function GanttLeftRow({
   };
 
   const isRootParent = depth === 0 && hasChildren;
-  const indent = depth * 16;
+  const indent = titlePaddingLeft(depth);
   const rowBg = isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)';
   const duration = calcDuration(task);
 
@@ -128,7 +129,7 @@ export function GanttLeftRow({
       </div>
 
       {/* タイトル */}
-      <div style={{ ...CELL, width: titleWidth, paddingLeft: 6 + indent }}>
+      <div style={{ ...CELL, width: titleWidth, paddingLeft: indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
             <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{

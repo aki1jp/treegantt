@@ -8,6 +8,7 @@ import {
   addDays, buildMultiLevelHeaders,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
+import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
@@ -244,7 +245,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const maxDepth  = rowAbove
       ? (rowBelow.depth <= rowAbove.depth ? rowAbove.depth : rowAbove.depth + 1)
       : 0;
-    const depth     = Math.min(Math.max(0, Math.floor((mouseX - 61) / 16)), maxDepth);
+    const depth     = Math.min(Math.max(0, Math.floor((mouseX - textStartX(0)) / INDENT)), maxDepth);
 
     setRowDropIdx(idx);
     setRowDropDepth(depth);
@@ -508,7 +509,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   {showDropLine && (
                     <div data-drop-line style={{
                       position: 'absolute',
-                      left: 61 + (rowDropDepth ?? 0) * 16,
+                      left: textStartX(rowDropDepth ?? 0),
                       right: 0, top: -2,
                       height: 3, background: '#4f46e5',
                       borderRadius: 2, boxShadow: '0 0 6px rgba(79,70,229,0.5)',
