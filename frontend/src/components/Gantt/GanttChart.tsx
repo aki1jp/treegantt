@@ -241,7 +241,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const mouseX    = e.clientX - panelLeft;
     const rowAbove  = idx > 0 ? flatRows[idx - 1] : null;
     const maxDepth  = rowAbove ? rowAbove.depth + 1 : 0;
-    const depth     = Math.min(Math.max(0, Math.floor((mouseX - 42) / 16)), maxDepth);
+    const depth     = Math.min(Math.max(0, Math.floor((mouseX - 61) / 16)), maxDepth);
 
     setRowDropIdx(idx);
     setRowDropDepth(depth);
@@ -505,7 +505,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   {showDropLine && (
                     <div data-drop-line style={{
                       position: 'absolute',
-                      left: 42 + (rowDropDepth ?? 0) * 16,
+                      left: 61 + (rowDropDepth ?? 0) * 16,
                       right: 0, top: -2,
                       height: 3, background: '#4f46e5',
                       borderRadius: 2, boxShadow: '0 0 6px rgba(79,70,229,0.5)',

@@ -392,28 +392,28 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     );
   }
 
-  it('clientX=58（depth=1）→ child-c の前にドロップすると parentId: parent-p が渡る', () => {
+  it('clientX=77（depth=1）→ child-c の前にドロップすると parentId: parent-p が渡る', () => {
     const onReorder = vi.fn();
     const { getByTestId } = renderWith3Tasks(onReorder);
     const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
     // rows[0]=root-a, rows[1]=parent-p, rows[2]=child-c
-    // ▼マーク基点(42px) + depth=1 → clientX=58
+    // テキスト基点(61px) + depth=1(16px) → clientX=77
     fireEvent.dragStart(rows[0]);
-    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 58 }));
-    fireEvent(rows[2], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 58 }));
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 77 }));
+    fireEvent(rows[2], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 77 }));
     expect(onReorder).toHaveBeenCalledOnce();
     const orders: { id: string; parentId?: string | null }[] = onReorder.mock.calls[0][0];
     expect(orders.find(o => o.id === 'root-a')?.parentId).toBe('parent-p');
   });
 
-  it('clientX=42（depth=0）→ child-c の前にドロップすると parentId: null（root）が渡る', () => {
+  it('clientX=61（depth=0）→ child-c の前にドロップすると parentId: null（root）が渡る', () => {
     const onReorder = vi.fn();
     const { getByTestId } = renderWith3Tasks(onReorder);
     const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
-    // ▼マーク基点(42px) → depth=0
+    // テキスト基点(61px) → depth=0
     fireEvent.dragStart(rows[0]);
-    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 42 }));
-    fireEvent(rows[2], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 42 }));
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 61 }));
+    fireEvent(rows[2], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 61 }));
     expect(onReorder).toHaveBeenCalledOnce();
     const orders: { id: string; parentId?: string | null }[] = onReorder.mock.calls[0][0];
     // root-a はもともと root なので parentId フィールド自体が存在しないか undefined
@@ -424,24 +424,24 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     const { getByTestId } = renderWith3Tasks();
     const wbsPanel = getByTestId('wbs-panel');
     const rows = wbsPanel.querySelectorAll('[draggable="true"]');
-    // ▼マーク基点(42px) + depth=1(16px) → left=58px
+    // テキスト基点(61px) + depth=1(16px) → left=77px
     fireEvent.dragStart(rows[0]);
-    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 58 }));
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 77 }));
     const line = wbsPanel.querySelector('[data-drop-line]') as HTMLElement;
     expect(line).toBeTruthy();
-    expect(line.style.left).toBe('58px');
+    expect(line.style.left).toBe('77px');
   });
 
-  it('depth=0 のとき left=42px（▼マーク基点・フルバー）', () => {
+  it('depth=0 のとき left=61px（テキスト基点・フルバー）', () => {
     const { getByTestId } = renderWith3Tasks();
     const wbsPanel = getByTestId('wbs-panel');
     const rows = wbsPanel.querySelectorAll('[draggable="true"]');
-    // ▼マーク基点(42px) → depth=0 → left=42px
+    // テキスト基点(61px) → depth=0 → left=61px
     fireEvent.dragStart(rows[0]);
-    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 42 }));
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 61 }));
     const line = wbsPanel.querySelector('[data-drop-line]') as HTMLElement;
     expect(line).toBeTruthy();
-    expect(line.style.left).toBe('42px');
+    expect(line.style.left).toBe('61px');
   });
 });
 
