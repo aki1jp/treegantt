@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import { resolveWsPort } from '../config.js';
 
-const WS_PORT = parseInt(process.env.WS_PORT ?? '4001', 10);
+const WS_PORT = resolveWsPort();
 
 // projectId → 接続中クライアント一覧
 const rooms = new Map<string, Set<WebSocket>>();

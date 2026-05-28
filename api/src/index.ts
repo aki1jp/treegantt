@@ -6,8 +6,9 @@ import { projectRoutes } from './routes/projects.js';
 import { taskRoutes } from './routes/tasks.js';
 import { importExportRoutes } from './routes/importExport.js';
 import { wss } from './ws/wsRoom.js';
+import { resolveApiPort } from './config.js';
 
-const PORT = parseInt(process.env.PORT ?? '4000', 10);
+const PORT = resolveApiPort();
 
 const fastify = Fastify({ logger: true });
 

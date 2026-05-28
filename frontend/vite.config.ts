@@ -1,11 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { resolveFrontendPort } from './src/utils/portConfig';
 
 export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
-    port: parseInt(process.env.FRONTEND_PORT ?? '3000', 10),
+    port: resolveFrontendPort(),
     proxy: {
       '/api': { target: process.env.API_PROXY_TARGET ?? 'http://localhost:4000', changeOrigin: true },
     },
