@@ -74,6 +74,14 @@ export function calcTodayX(minDate: Date, zoom: ZoomLevel): number {
   return dateToX(todayStr(), minDate, zoom);
 }
 
+/** 現在時刻（ローカル時・分を含む）の X 座標を返す */
+export function calcNowX(minDate: Date, zoom: ZoomLevel, now = new Date()): number {
+  const { dayWidth } = ZOOM_CONFIG[zoom];
+  const todayColX = dateToX(dayjs(now).format('YYYY-MM-DD'), minDate, zoom);
+  const fraction = (now.getHours() * 60 + now.getMinutes()) / 1440;
+  return todayColX + fraction * dayWidth;
+}
+
 // イナズマライン: 各タスクの進捗率をX座標に変換し、行の中心点を斜線でつなぐ
 export interface LightningPoint { x: number; y: number; }
 

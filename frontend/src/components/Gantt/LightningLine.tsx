@@ -25,13 +25,17 @@ export function LightningLine({ points, color = '#7c3aed' }: Props) {
 interface TodayLineProps {
   x: number;
   height: number;
+  timeLabel?: string;
 }
 
-export function TodayLine({ x, height }: TodayLineProps) {
+export function TodayLine({ x, height, timeLabel }: TodayLineProps) {
   return (
     <g>
       <line x1={x} y1={0} x2={x} y2={height} stroke="#E24B4A" strokeWidth={2} strokeDasharray="4 3" />
-      <text x={x + 4} y={14} fontSize={10} fill="#E24B4A" fontWeight={600}>今日</text>
+      <text x={x + 4} y={12} fontSize={10} fill="#E24B4A" fontWeight={600}>今日</text>
+      {timeLabel && (
+        <text x={x + 4} y={24} fontSize={9} fill="#E24B4A">{timeLabel}</text>
+      )}
     </g>
   );
 }

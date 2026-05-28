@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -93,6 +93,41 @@ describe('calcTodayX', () => {
     const dayWidth = ZOOM_CONFIG['week'].dayWidth;
     const expectedDays = Math.round((TODAY.getTime() - min.getTime()) / 86400000);
     expect(x).toBe(expectedDays * dayWidth);
+  });
+});
+
+describe('calcNowX', () => {
+  const minDate = new Date('2026-05-20T00:00:00.000Z'); // UTC midnight の2日前
+  const dayWidth = ZOOM_CONFIG['day'].dayWidth;
+
+  it('ローカル0時はその日の列左端（calcTodayX と一致）', () => {
+    // vi.setSystemTime は 2026-05-21T00:00:00Z（UTC 環境では0時）
+    const x = calcNowX(minDate, 'day');
+    const todayX = calcTodayX(minDate, 'day');
+    expect(x).toBeCloseTo(todayX, 0);
+  });
+
+  it('ローカル12:00 は1日分の列の中央', () => {
+    // 2026-05-21T12:00:00Z にセット（UTC 環境）
+    vi.setSystemTime(new Date('2026-05-21T12:00:00.000Z'));
+    const todayX = calcTodayX(minDate, 'day');
+    const x = calcNowX(minDate, 'day');
+    expect(x).toBeCloseTo(todayX + dayWidth * 0.5, 1);
+  });
+
+  it('ローカル06:00 は1日分の列の1/4', () => {
+    vi.setSystemTime(new Date('2026-05-21T06:00:00.000Z'));
+    const todayX = calcTodayX(minDate, 'day');
+    const x = calcNowX(minDate, 'day');
+    expect(x).toBeCloseTo(todayX + dayWidth * 0.25, 1);
+  });
+
+  it('週ズームでも同様にローカル時刻の分数を加算する', () => {
+    vi.setSystemTime(new Date('2026-05-21T18:00:00.000Z'));
+    const wDayWidth = ZOOM_CONFIG['week'].dayWidth;
+    const todayX = calcTodayX(minDate, 'week');
+    const x = calcNowX(minDate, 'week');
+    expect(x).toBeCloseTo(todayX + wDayWidth * 0.75, 1);
   });
 });
 
