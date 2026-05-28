@@ -40,9 +40,10 @@ export function ConflictDialog({ field, theirVal, myVal, onResolve }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
           <div style={{
             padding: '10px 14px', borderRadius: 6,
-            background: '#fef3c7', border: '1px solid #fbbf24',
+            background: 'var(--th-conflict-their-bg)',
+            border: '1px solid var(--th-conflict-their-border)',
           }}>
-            <div style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--th-conflict-their-label)', fontWeight: 600, marginBottom: 4 }}>
               別のユーザーの変更
             </div>
             <div style={{ fontSize: 14 }}>{theirVal || '（空）'}</div>
@@ -50,9 +51,10 @@ export function ConflictDialog({ field, theirVal, myVal, onResolve }: Props) {
 
           <div style={{
             padding: '10px 14px', borderRadius: 6,
-            background: '#eff6ff', border: '1px solid #93c5fd',
+            background: 'var(--th-conflict-mine-bg)',
+            border: '1px solid var(--th-conflict-mine-border)',
           }}>
-            <div style={{ fontSize: 11, color: '#1e40af', fontWeight: 600, marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--th-conflict-mine-label)', fontWeight: 600, marginBottom: 4 }}>
               あなたの変更
             </div>
             <div style={{ fontSize: 14 }}>{myVal || '（空）'}</div>
