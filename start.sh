@@ -6,6 +6,16 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# ── .env 読み込み ────────────────────────────────────
+# プロジェクトルートに .env があれば環境変数として読み込む
+# .env.example をコピーして値を変更することでポートを変更できる
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 # ── npm のパスを確定 ─────────────────────────────────
 # 非インタラクティブシェルでは ~/.bashrc / ~/.zshrc が読み込まれず
 # nvm 管理の npm が見つからないことがある。よくある場所を順に探す。
@@ -39,10 +49,14 @@ if [ ! -d "frontend/node_modules" ]; then
   (cd frontend && npm install --silent)
 fi
 
+_API_PORT="${PORT:-4000}"
+_WS_PORT="${WS_PORT:-4001}"
+_FE_PORT="${FRONTEND_PORT:-3000}"
+
 echo ""
-echo "  API       → http://localhost:4000/health"
-echo "  WebSocket → ws://localhost:4001"
-echo "  Frontend  → http://localhost:3000"
+echo "  API       → http://localhost:${_API_PORT}/health"
+echo "  WebSocket → ws://localhost:${_WS_PORT}"
+echo "  Frontend  → http://localhost:${_FE_PORT}"
 echo ""
 echo "停止: Ctrl+C"
 echo ""
