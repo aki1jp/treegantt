@@ -4,6 +4,15 @@ import type { ZoomLevel, Task } from '../types/task';
 
 dayjs.extend(weekOfYear);
 
+/**
+ * 'YYYY-MM-DD' 文字列をブラウザのローカル午前0時の Date に変換する。
+ * `new Date('YYYY-MM-DD')` は常に UTC 0 時として解釈されるため、
+ * ローカルタイムゾーンがある環境では列の境界がズレる。dayjs 経由でローカル解釈する。
+ */
+function parseDateStr(str: string): Date {
+  return dayjs(str).toDate();
+}
+
 export type GanttPeriod = '2w' | '1m' | '3m' | '6m';
 
 export const PERIOD_DAYS: Record<GanttPeriod, number> = {
@@ -20,8 +29,7 @@ export const ROW_HEIGHT_PX = 36;
 
 export function dateToX(date: string, minDate: Date, zoom: ZoomLevel): number {
   const { dayWidth } = ZOOM_CONFIG[zoom];
-  const d = new Date(date);
-  return Math.round((d.getTime() - minDate.getTime()) / 86400000) * dayWidth;
+  return Math.round((parseDateStr(date).getTime() - minDate.getTime()) / 86400000) * dayWidth;
 }
 
 export function defaultGanttStart(zoom: ZoomLevel): string {
@@ -37,18 +45,19 @@ export function calcGanttRange(
   period?: GanttPeriod,
   zoom?: ZoomLevel,
 ): { min: Date; max: Date } {
-  const today = Date.now();
   const periodDays = period ? PERIOD_DAYS[period] : 91;
 
   if (startDate) {
     // 手動モード: 明示的な開始日 + 期間
-    const minTime = new Date(startDate).getTime();
+    const minTime = parseDateStr(startDate).getTime();
     return { min: new Date(minTime), max: new Date(minTime + periodDays * 86400000) };
   }
 
   // 自動モード: タスク日付から範囲を計算し、最低でも period 分を確保
   const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
-  const defaultStart = zoom ? new Date(defaultGanttStart(zoom)).getTime() : today - 7 * 86400000;
+  const defaultStart = zoom
+    ? parseDateStr(defaultGanttStart(zoom)).getTime()
+    : dayjs().subtract(7, 'day').startOf('day').valueOf();
   let minTime: number;
   let maxTime: number;
 
@@ -56,7 +65,7 @@ export function calcGanttRange(
     minTime = defaultStart;
     maxTime = minTime + periodDays * 86400000;
   } else {
-    const times = dates.map(d => new Date(d).getTime());
+    const times = dates.map(d => parseDateStr(d).getTime());
     minTime = defaultStart;
     const taskMaxEnd = Math.max(...times) + 5 * 86400000;
     maxTime = Math.max(taskMaxEnd, minTime + periodDays * 86400000);
@@ -134,7 +143,7 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
   // Duration in days (minimum 1)
   function dur(t: Task): number {
     if (!t.startDate || !t.endDate) return 1;
-    return Math.max(1, Math.round((new Date(t.endDate).getTime() - new Date(t.startDate).getTime()) / 86400000) + 1);
+    return Math.max(1, Math.round((parseDateStr(t.endDate).getTime() - parseDateStr(t.startDate).getTime()) / 86400000) + 1);
   }
 
   // Topological sort (Kahn's algorithm)
@@ -187,7 +196,7 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
 export function calcDuration(task: Task): number | null {
   if (!task.startDate || !task.endDate) return null;
   const days = Math.round(
-    (new Date(task.endDate).getTime() - new Date(task.startDate).getTime()) / 86400000,
+    (parseDateStr(task.endDate).getTime() - parseDateStr(task.startDate).getTime()) / 86400000,
   ) + 1;
   return days >= 1 ? days : null;
 }

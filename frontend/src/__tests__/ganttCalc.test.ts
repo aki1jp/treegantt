@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr } from '../utils/ganttCalc';
+import dayjs from 'dayjs';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -366,5 +367,33 @@ describe('buildMultiLevelHeaders', () => {
       expect(c.dow).toBeGreaterThanOrEqual(0);
       expect(c.dow).toBeLessThanOrEqual(6);
     });
+  });
+});
+
+describe('日付座標系の一貫性', () => {
+  // calcGanttRange が返す min はローカル 0 時であること（UTC midnight ではない）
+  it('calcGanttRange の min はローカル午前0時の Date を返す', () => {
+    const { min } = calcGanttRange([], '2026-05-20', undefined, 'day');
+    // dayjs('YYYY-MM-DD').toDate() はローカル 0 時。new Date('YYYY-MM-DD') は UTC 0 時なので
+    // UTC 以外のタイムゾーンでは異なる値になる。min はローカル 0 時であるべき
+    expect(min.getTime()).toBe(dayjs('2026-05-20').toDate().getTime());
+  });
+
+  it('dateToX の座標が buildMultiLevelHeaders の day セル x と一致する', () => {
+    const { min, max } = calcGanttRange([], '2026-05-20', '2w', 'day');
+    const dayWidth = ZOOM_CONFIG['day'].dayWidth;
+    const headers = buildMultiLevelHeaders(min, max, 'day', { year: false, month: false, week: false, day: true });
+    const dayRow = headers.find(r => r.level === 'day')!;
+    dayRow.cells.forEach((cell, i) => {
+      const dateStr = addDays('2026-05-20', i);
+      expect(dateToX(dateStr, min, 'day')).toBe(i * dayWidth);
+      expect(dateToX(dateStr, min, 'day')).toBe(cell.x);
+    });
+  });
+
+  it('calcDuration: ローカル日付差が正しく計算される', () => {
+    const task = { startDate: '2026-05-20', endDate: '2026-05-22' } as Task;
+    // 3日間（20,21,22）
+    expect(calcDuration(task)).toBe(3);
   });
 });
