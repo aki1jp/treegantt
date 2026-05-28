@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 import { addDays, calcDuration } from '../../utils/ganttCalc';
 import { titlePaddingLeft } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
+import { TaskTooltip } from './TaskTooltip';
 
 const STATUS_COLOR: Record<TaskStatus, string> = {
   todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
@@ -28,6 +29,7 @@ export interface GanttLeftRowProps {
   titleWidth: number;
   assigneeWidth: number;
   dateColWidth: number;
+  isDragging?: boolean;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onRowContextMenu: (x: number, y: number) => void;
@@ -36,6 +38,7 @@ export interface GanttLeftRowProps {
 export function GanttLeftRow({
   task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
+  isDragging = false,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -43,6 +46,33 @@ export function GanttLeftRow({
   const [editStartVal, setEditStartVal] = useState('');
   const [conflict, setConflict] = useState<{ field: string; theirVal: string; myVal: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── ツールチップ ──────────────────────────────────────────
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasTooltipContent = task.summary.trim().length > 0 || task.description.trim().length > 0;
+
+  const handleTitleMouseEnter = useCallback((e: React.MouseEvent) => {
+    if (isDragging || !hasTooltipContent) return;
+    setTooltipPos({ x: e.clientX, y: e.clientY });
+    tooltipTimer.current = setTimeout(() => setTooltipVisible(true), 250);
+  }, [isDragging, hasTooltipContent]);
+
+  const handleTitleMouseLeave = useCallback(() => {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setTooltipVisible(false);
+  }, []);
+
+  // ドラッグ開始時にツールチップを強制非表示
+  useEffect(() => {
+    if (isDragging) {
+      if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+      setTooltipVisible(false);
+    }
+  }, [isDragging]);
+
+  useEffect(() => () => { if (tooltipTimer.current) clearTimeout(tooltipTimer.current); }, []);
 
   useEffect(() => {
     if (editField && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
@@ -150,7 +180,10 @@ export function GanttLeftRow({
               onBlur={() => { if (editVal.trim()) commit('title', editVal.trim()); else setEditField(null); }}
               onKeyDown={e => onKey(e, 'title', editVal.trim() || null)} />
           ) : (
-            <span onClick={() => startEdit('title', task.title)}
+            <span
+              onClick={() => startEdit('title', task.title)}
+              onMouseEnter={handleTitleMouseEnter}
+              onMouseLeave={handleTitleMouseLeave}
               style={{
                 cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 fontWeight: isRootParent ? 700 : 400,
@@ -159,6 +192,7 @@ export function GanttLeftRow({
               {task.title}
             </span>
           )}
+          <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>
       </div>
 

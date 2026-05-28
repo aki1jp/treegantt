@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { GanttLeftRow } from '../components/Gantt/GanttLeftRow';
 import type { Task } from '../types/task';
 
@@ -204,5 +204,56 @@ describe('GanttLeftRow インライン編集 — 日付前後矛盾クランプ'
       startDate: '2026-05-20',
       endDate: '2026-05-20',
     });
+  });
+});
+
+// ─── タイトルホバーツールチップ ────────────────────────────────────────────────
+
+describe('GanttLeftRow タイトルホバーツールチップ', () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('summary がある場合、タイトルにマウスオーバーすると 250ms 後にツールチップが表示される', () => {
+    vi.useFakeTimers();
+    renderRow(makeTask({ summary: 'ホバーサマリ' }));
+    fireEvent.mouseEnter(screen.getByText('元のタイトル'), { clientX: 100, clientY: 100 });
+    // 遅延前は非表示
+    expect(screen.queryByText('ホバーサマリ')).toBeNull();
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(screen.getByText('ホバーサマリ')).toBeTruthy();
+  });
+
+  it('summary も description もない場合はツールチップが表示されない', () => {
+    vi.useFakeTimers();
+    renderRow(makeTask({ summary: '', description: '' }));
+    fireEvent.mouseEnter(screen.getByText('元のタイトル'), { clientX: 100, clientY: 100 });
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('マウスが離れるとツールチップが消える', () => {
+    vi.useFakeTimers();
+    renderRow(makeTask({ summary: 'ホバーサマリ' }));
+    const titleSpan = screen.getByText('元のタイトル');
+    fireEvent.mouseEnter(titleSpan, { clientX: 100, clientY: 100 });
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(screen.getByText('ホバーサマリ')).toBeTruthy();
+    fireEvent.mouseLeave(titleSpan);
+    expect(screen.queryByText('ホバーサマリ')).toBeNull();
+  });
+
+  it('isDragging=true のときはマウスオーバーしてもツールチップが表示されない', () => {
+    vi.useFakeTimers();
+    render(<GanttLeftRow {...rowProps(makeTask({ summary: 'ホバーサマリ' }), vi.fn())} isDragging={true} />);
+    fireEvent.mouseEnter(screen.getByText('元のタイトル'), { clientX: 100, clientY: 100 });
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(screen.queryByText('ホバーサマリ')).toBeNull();
+  });
+
+  it('description の markdown がツールチップ内でレンダリングされる', () => {
+    vi.useFakeTimers();
+    renderRow(makeTask({ description: '**強調テスト**' }));
+    fireEvent.mouseEnter(screen.getByText('元のタイトル'), { clientX: 100, clientY: 100 });
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(document.querySelector('strong')?.textContent).toBe('強調テスト');
   });
 });

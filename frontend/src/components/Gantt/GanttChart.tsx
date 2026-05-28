@@ -534,6 +534,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     titleWidth={colWidths.title}
                     assigneeWidth={colWidths.assignee}
                     dateColWidth={dateColWidth}
+                    isDragging={rowDragId !== null}
                     onToggleCollapse={() => toggleCollapse(task.id)}
                     onInlineUpdate={onInlineUpdate}
                     onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
