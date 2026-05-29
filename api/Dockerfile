@@ -1,21 +1,20 @@
 # ── 開発（docker compose up） ─────────────────────────
-FROM node:20-alpine AS dev
+FROM node:20-slim AS dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 CMD ["npm", "run", "dev"]
 
 # ── 本番ビルド ─────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
-RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:20-slim
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
