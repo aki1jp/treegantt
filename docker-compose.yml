@@ -16,13 +16,10 @@ services:
       - '${PORT:-4000}:${PORT:-4000}'
       - '${WS_PORT:-4001}:${WS_PORT:-4001}'
     volumes:
-      - api_data:/app/data
+      - ./api/data:/app/data
     environment:
       - DB_PATH=/app/data/treegantt.db
       - PORT=${PORT:-4000}
       - WS_PORT=${WS_PORT:-4001}
       - LDAP_ENABLED=false
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
-
-volumes:
-  api_data:
