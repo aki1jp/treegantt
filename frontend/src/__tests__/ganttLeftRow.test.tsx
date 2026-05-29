@@ -18,7 +18,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-function rowProps(task: Task, onInlineUpdate: ReturnType<typeof vi.fn>) {
+function rowProps(task: Task, onInlineUpdate: (id: string, patch: Partial<Task>) => void) {
   return {
     task,
     depth: 0,

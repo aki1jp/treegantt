@@ -6,10 +6,10 @@ services:
     build:
       context: ./frontend
       target: dev
-    command: npm run dev
+    command: sh -c "[ -f node_modules/.bin/vite ] || npm ci; npm run dev"
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - fe_node_modules:/app/node_modules
     environment:
       - API_PROXY_TARGET=http://api:${PORT:-4000}
       - CHOKIDAR_USEPOLLING=true
@@ -19,10 +19,10 @@ services:
     build:
       context: ./api
       target: dev
-    command: npm run dev
+    command: sh -c "[ -f node_modules/.bin/tsx ] || npm ci; npm run dev"
     volumes:
       - ./api:/app
-      - /app/node_modules
+      - api_node_modules:/app/node_modules
 
   # 開発ツール（docker compose --profile dev-tools up）
   db-ui:
@@ -34,3 +34,7 @@ services:
     command: sqlite_web --host 0.0.0.0 /data/treegantt.db
     profiles:
       - dev-tools
+
+volumes:
+  api_node_modules:
+  fe_node_modules:
