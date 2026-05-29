@@ -1,34 +1,20 @@
 services:
   frontend:
-    build:
-      context: ./frontend
-      target: dev
-    working_dir: /app
-    command: npm run dev
+    build: ./frontend
     ports:
       - '${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}'
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     environment:
       - FRONTEND_PORT=${FRONTEND_PORT:-3000}
-      - API_PROXY_TARGET=http://api:${PORT:-4000}
-      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - api
 
   api:
-    build:
-      context: ./api
-      target: dev
-    working_dir: /app
-    command: npm run dev
+    build: ./api
     ports:
       - '${PORT:-4000}:${PORT:-4000}'
       - '${WS_PORT:-4001}:${WS_PORT:-4001}'
     volumes:
-      - ./api:/app
-      - /app/node_modules
+      - api_data:/app/data
     environment:
       - DB_PATH=/app/data/treegantt.db
       - PORT=${PORT:-4000}
@@ -36,14 +22,5 @@ services:
       - LDAP_ENABLED=false
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
 
-  # 開発ツール（通常起動時は除外）
-  # docker compose --profile dev-tools up
-  db-ui:
-    image: coleifer/sqlite-web
-    ports:
-      - '8888:8080'
-    volumes:
-      - ./api/data:/data
-    command: sqlite_web --host 0.0.0.0 /data/treegantt.db
-    profiles:
-      - dev-tools
+volumes:
+  api_data:

@@ -1,0 +1,34 @@
+# 開発用オーバーライド（docker compose up で自動マージ）
+# 本番のみで起動する場合: docker compose -f docker-compose.yml up
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - API_PROXY_TARGET=http://api:${PORT:-4000}
+      - CHOKIDAR_USEPOLLING=true
+
+  api:
+    build:
+      context: ./api
+      target: dev
+    command: npm run dev
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+
+  # 開発ツール（docker compose --profile dev-tools up）
+  db-ui:
+    image: coleifer/sqlite-web
+    ports:
+      - '8888:8080'
+    volumes:
+      - ./api/data:/data
+    command: sqlite_web --host 0.0.0.0 /data/treegantt.db
+    profiles:
+      - dev-tools
