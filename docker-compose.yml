@@ -1,5 +1,6 @@
 services:
   frontend:
+    image: treegantt-frontend:prod
     build: ./frontend
     ports:
       - '${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}'
@@ -9,6 +10,7 @@ services:
       - api
 
   api:
+    image: treegantt-api:prod
     build: ./api
     ports:
       - '${PORT:-4000}:${PORT:-4000}'

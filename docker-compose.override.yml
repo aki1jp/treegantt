@@ -2,6 +2,7 @@
 # 本番のみで起動する場合: docker compose -f docker-compose.yml up
 services:
   frontend:
+    image: treegantt-frontend:dev
     build:
       context: ./frontend
       target: dev
@@ -14,6 +15,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
 
   api:
+    image: treegantt-api:dev
     build:
       context: ./api
       target: dev
