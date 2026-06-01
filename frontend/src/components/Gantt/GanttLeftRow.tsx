@@ -79,6 +79,8 @@ export function GanttLeftRow({
   }, [editField]);
 
   function startEdit(field: string, val: string) {
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setTooltipVisible(false);
     setEditField(field);
     setEditVal(val);
     setEditStartVal(val);
