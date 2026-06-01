@@ -268,4 +268,16 @@ describe('GanttLeftRow タイトルホバーツールチップ', () => {
     fireEvent.click(titleSpan);
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
+
+  it('ツールチップ表示中に右クリックすると即座に消える', () => {
+    vi.useFakeTimers();
+    renderRow(makeTask({ summary: '右クリックで消えるか確認' }));
+    const titleSpan = screen.getByText('元のタイトル');
+    fireEvent.mouseEnter(titleSpan, { clientX: 100, clientY: 100 });
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+
+    fireEvent.contextMenu(document.querySelector('div[style]')!);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
 });

@@ -153,7 +153,7 @@ export function GanttLeftRow({
         borderBottom: '1px solid var(--th-border)',
         borderLeft: isRootParent ? '3px solid var(--th-border-strong)' : '3px solid transparent',
       }}
-      onContextMenu={e => { e.preventDefault(); onRowContextMenu(e.clientX, e.clientY); }}
+      onContextMenu={e => { e.preventDefault(); if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setTooltipVisible(false); onRowContextMenu(e.clientX, e.clientY); }}
     >
       {/* # (seq: 作成時発番・不変) */}
       <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
