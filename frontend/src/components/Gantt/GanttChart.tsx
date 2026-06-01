@@ -230,6 +230,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowDragId,    setRowDragId]    = useState<string | null>(null);
   const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
   const [rowDropDepth, setRowDropDepth] = useState<number | null>(null);
+  const [rowDropTarget, setRowDropTarget] = useState<string | null>(null);
+
+  function clearDrop() {
+    setRowDragId(null);
+    setRowDropIdx(null);
+    setRowDropDepth(null);
+    setRowDropTarget(null);
+  }
 
   function handleRowDragStart(e: React.DragEvent, taskId: string) {
     const tag = document.activeElement?.tagName ?? '';
@@ -245,14 +253,35 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 
-    const panelLeft = wbsPanelRef.current?.getBoundingClientRect().left ?? 0;
-    const mouseX    = e.clientX - panelLeft;
-    const rowAbove  = idx > 0 ? flatRows[idx - 1] : null;
-    const rowBelow  = flatRows[idx];
-    const maxDepth  = rowAbove
-      ? (rowBelow.depth <= rowAbove.depth ? rowAbove.depth : rowAbove.depth + 1)
-      : 0;
-    const depth     = Math.min(Math.max(0, Math.floor((mouseX - textStartX(0)) / INDENT)), maxDepth);
+    // ── Y位置で子採用ゾーンか判定（行の下端70%）──
+    const rowRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const relY = e.clientY - rowRect.top;
+    const isAdoptZone = rowRect.height > 0 && relY / rowRect.height > 0.3;
+
+    const candidate = flatRows[idx];
+    if (isAdoptZone && candidate?.task.id !== rowDragId && !candidate?.task.isMilestone) {
+      setRowDropTarget(candidate.task.id);
+      setRowDropIdx(null);
+      setRowDropDepth(null);
+      return;
+    }
+
+    // ── バー挿入モード ──
+    setRowDropTarget(null);
+    const rowAbove = idx > 0 ? flatRows[idx - 1] : null;
+    const rowBelow = flatRows[idx];
+
+    let depth: number;
+    if (!rowAbove || rowAbove.depth === rowBelow.depth) {
+      // 同階層同士: 深さ固定（X軸不要）
+      depth = rowBelow.depth;
+    } else {
+      // 親子の境目: X軸で深さを選択
+      const panelLeft = wbsPanelRef.current?.getBoundingClientRect().left ?? 0;
+      const mouseX = e.clientX - panelLeft;
+      const maxDepth = rowBelow.depth <= rowAbove.depth ? rowAbove.depth : rowAbove.depth + 1;
+      depth = Math.min(Math.max(0, Math.floor((mouseX - textStartX(0)) / INDENT)), maxDepth);
+    }
 
     setRowDropIdx(idx);
     setRowDropDepth(depth);
@@ -262,12 +291,27 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     e.preventDefault();
     if (!rowDragId) return;
     const dragIdx = flatRows.findIndex(r => r.task.id === rowDragId);
-    if (dragIdx === -1 || dragIdx === dropIdx) { setRowDragId(null); setRowDropIdx(null); setRowDropDepth(null); return; }
+    if (dragIdx === -1) { clearDrop(); return; }
+
+    // ── 子採用モード ──
+    if (rowDropTarget) {
+      const moved = flatRows[dragIdx].task;
+      const siblings = flatRows.filter(r => r.task.parentId === rowDropTarget);
+      const maxSibOrder = siblings.length > 0
+        ? Math.max(...siblings.map(r => r.task.order))
+        : 0;
+      onReorder([{ id: moved.id, order: maxSibOrder + 1, parentId: rowDropTarget }]);
+      clearDrop();
+      return;
+    }
+
+    // ── バー挿入モード ──
+    if (dragIdx === dropIdx) { clearDrop(); return; }
 
     const moved = flatRows[dragIdx].task;
-
-    // マウス横位置から決定した深さ → 新しい parentId を逆引き
     const d = rowDropDepth ?? 0;
+
+    // 深さ → 新しい parentId を逆引き
     const targetParentId: string | null = (() => {
       if (d === 0) return null;
       for (let i = dropIdx - 1; i >= 0; i--) {
@@ -287,23 +331,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
     newRows.splice(insertAt, 0, removed);
 
-    // 位置も parentId も変わらない場合はスキップ
-    if (insertAt === dragIdx && !parentIdChanged) { setRowDragId(null); setRowDropIdx(null); setRowDropDepth(null); return; }
+    if (insertAt === dragIdx && !parentIdChanged) { clearDrop(); return; }
 
     const orders = newRows.map((t, i) => ({
       id: t.id, order: i + 1,
       ...(t.id === moved.id && parentIdChanged ? { parentId: newParentId } : {}),
     }));
     onReorder(orders);
-    setRowDragId(null);
-    setRowDropIdx(null);
-    setRowDropDepth(null);
+    clearDrop();
   }
 
   function handleRowDragEnd() {
-    setRowDragId(null);
-    setRowDropIdx(null);
-    setRowDropDepth(null);
+    clearDrop();
   }
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
@@ -511,6 +550,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     opacity: rowDragId === task.id ? 0.4 : 1,
                     cursor: 'grab',
                     position: 'relative',
+                    boxShadow: rowDropTarget === task.id ? 'inset 0 0 0 2px #4f46e5' : undefined,
                   }}
                 >
                   {showDropLine && (

@@ -508,6 +508,86 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     expect(line).toBeTruthy();
     expect(line.style.left).toBe('77px');
   });
+
+  // ── 子採用モード ──────────────────────────────────────────────────────────
+
+  function mockRowRect(row: Element, height = 32) {
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({
+      top: 0, bottom: height, height, left: 0, right: 400, width: 400, x: 0, y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+  }
+
+  it('adopt zone: 行下端70%にホバーするとハイライト・バーなし', () => {
+    const { getByTestId } = renderWith4Tasks();
+    const wbsPanel = getByTestId('wbs-panel');
+    const rows = wbsPanel.querySelectorAll('[draggable="true"]');
+    // rows: root-a(0), parent-p(1), child-c1(2), child-c2(3)
+    mockRowRect(rows[1]); // parent-p の高さを32pxにモック
+    fireEvent.dragStart(rows[0]);
+    // clientY=25: relY=25, height=32 → 25/32≈0.78 > 0.3 → adopt zone
+    fireEvent(rows[1], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
+    expect(wbsPanel.querySelector('[data-drop-line]')).toBeNull();
+    expect((rows[1] as HTMLElement).style.boxShadow).toContain('inset');
+    vi.restoreAllMocks();
+  });
+
+  it('adopt zone: ドロップで最終子として onReorder に渡る（既存子の最大order+1）', () => {
+    const onReorder = vi.fn();
+    const { getByTestId } = renderWith4Tasks(onReorder);
+    const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
+    mockRowRect(rows[1]); // parent-p
+    fireEvent.dragStart(rows[0]); // root-a をドラッグ
+    fireEvent(rows[1], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
+    fireEvent(rows[1], new MouseEvent('drop',     { bubbles: true, cancelable: true }));
+    expect(onReorder).toHaveBeenCalledOnce();
+    // child-c1(order=3), child-c2(order=4) → maxSibOrder=4 → root-a の order=5
+    expect(onReorder.mock.calls[0][0]).toEqual([{ id: 'root-a', order: 5, parentId: 'parent-p' }]);
+    vi.restoreAllMocks();
+  });
+
+  it('adopt zone: 自分自身の行はハイライトされず onReorder も呼ばれない', () => {
+    const onReorder = vi.fn();
+    const { getByTestId } = renderWith4Tasks(onReorder);
+    const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
+    mockRowRect(rows[0]); // root-a 自身
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[0], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
+    expect((rows[0] as HTMLElement).style.boxShadow).toBeFalsy();
+    fireEvent(rows[0], new MouseEvent('drop', { bubbles: true, cancelable: true }));
+    expect(onReorder).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+
+  it('adopt zone: マイルストーンはハイライトされずバー挿入にフォールバック', () => {
+    const taskBase = {
+      summary: '', description: '', status: 'todo' as const, priority: 'medium' as const,
+      progress: 0, assignee: '', startDate: '2026-05-01', endDate: '2026-05-01',
+      predecessors: [], projectId: 'p1',
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    useTaskStore.setState({
+      tasks: [
+        { ...taskBase, id: 'root-a', parentId: null, title: 'ルートA', isMilestone: false, seq: 1, order: 1 },
+        { ...taskBase, id: 'root-b', parentId: null, title: 'ルートB', isMilestone: false, seq: 2, order: 2 },
+        { ...taskBase, id: 'mile-m', parentId: null, title: 'マイルM', isMilestone: true,  seq: 3, order: 3 },
+      ],
+      ganttStartDate: '2026-05-01', showResourceView: false,
+    });
+    const { getByTestId } = render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={vi.fn()} />
+    );
+    const wbsPanel = getByTestId('wbs-panel');
+    const rows = wbsPanel.querySelectorAll('[draggable="true"]');
+    // rows: root-a(0), root-b(1), mile-m(2)
+    mockRowRect(rows[2]); // mile-m
+    fireEvent.dragStart(rows[0]);
+    fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
+    expect((rows[2] as HTMLElement).style.boxShadow).toBeFalsy(); // ハイライトなし
+    expect(wbsPanel.querySelector('[data-drop-line]')).toBeTruthy(); // バー表示
+    vi.restoreAllMocks();
+  });
 });
 
 describe('WBS 日付インライン編集 — onChange で即時コミット', () => {
