@@ -553,7 +553,7 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     mockRowRect(rows[0]); // root-a 自身
     fireEvent.dragStart(rows[0]);
     fireEvent(rows[0], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
-    expect((rows[0] as HTMLElement).style.boxShadow).toBeFalsy();
+    expect((rows[0] as HTMLElement).style.outline).toBeFalsy();
     fireEvent(rows[0], new MouseEvent('drop', { bubbles: true, cancelable: true }));
     expect(onReorder).not.toHaveBeenCalled();
     vi.restoreAllMocks();
@@ -584,7 +584,7 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     mockRowRect(rows[2]); // mile-m
     fireEvent.dragStart(rows[0]);
     fireEvent(rows[2], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
-    expect((rows[2] as HTMLElement).style.boxShadow).toBeFalsy(); // ハイライトなし
+    expect((rows[2] as HTMLElement).style.outline).toBeFalsy(); // ハイライトなし
     expect(wbsPanel.querySelector('[data-drop-line]')).toBeTruthy(); // バー表示
     vi.restoreAllMocks();
   });
