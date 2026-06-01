@@ -550,7 +550,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     opacity: rowDragId === task.id ? 0.4 : 1,
                     cursor: 'grab',
                     position: 'relative',
-                    boxShadow: rowDropTarget === task.id ? 'inset 0 0 0 2px #4f46e5' : undefined,
+                    outline: rowDropTarget === task.id ? '2px solid #4f46e5' : undefined,
+                    outlineOffset: '-1px',
+                    zIndex: rowDropTarget === task.id ? 1 : undefined,
                   }}
                 >
                   {showDropLine && (

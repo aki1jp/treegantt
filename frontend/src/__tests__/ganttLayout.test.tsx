@@ -528,7 +528,7 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
     // clientY=25: relY=25, height=32 → 25/32≈0.78 > 0.3 → adopt zone
     fireEvent(rows[1], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 100, clientY: 25 }));
     expect(wbsPanel.querySelector('[data-drop-line]')).toBeNull();
-    expect((rows[1] as HTMLElement).style.boxShadow).toContain('inset');
+    expect((rows[1] as HTMLElement).style.outline).toContain('#4f46e5');
     vi.restoreAllMocks();
   });
 
