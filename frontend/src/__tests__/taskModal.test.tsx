@@ -175,6 +175,95 @@ describe('TaskModal — backdrop クリックの閉じる/閉じない挙動', (
   });
 });
 
+describe('TaskModal — 先行タスク・親タスクの # 番号は seq (不変) で表示・解決される', () => {
+  function makeTaskWithSeq(id: string, title: string, seq: number, order: number): Task {
+    return {
+      id, projectId: 'p1', parentId: null,
+      title, summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0,
+      assignee: '', startDate: null, endDate: null,
+      isMilestone: false, predecessors: [], seq, order,
+      createdAt: '', updatedAt: '',
+    };
+  }
+
+  it('先行タスク一覧で表示される # は seq であり order ではない', () => {
+    // seq=3, order=1 のタスク（並び替え後に order が変わった状態）
+    const taskA = makeTaskWithSeq('tA', 'タスクA', 3, 1);
+    const editTarget = makeTaskWithSeq('tEdit', '編集対象', 5, 2);
+    const { container } = render(
+      <TaskModal
+        task={editTarget}
+        allTasks={[taskA, editTarget]}
+        onSave={NOOP}
+        onClose={NOOP}
+      />
+    );
+    // チェックボックスリストのラベル内 span に "#3"（seq=3）が表示される
+    const seqSpans = container.querySelectorAll('span[style*="monospace"]');
+    const texts = Array.from(seqSpans).map(s => s.textContent);
+    expect(texts).toContain('#3');
+    expect(texts).not.toContain('#1');
+  });
+
+  it('テキスト入力で seq 番号を入力すると正しい先行タスクが選択される', () => {
+    const onSave = vi.fn();
+    // taskA: seq=3, order=1（並び替え後）
+    const taskA = makeTaskWithSeq('tA', 'タスクA', 3, 1);
+    const editTarget = makeTaskWithSeq('tEdit', '編集対象', 5, 2);
+    render(
+      <TaskModal
+        task={editTarget}
+        allTasks={[taskA, editTarget]}
+        onSave={onSave}
+        onClose={NOOP}
+      />
+    );
+    // seq=3 の番号「3」を入力 → taskA が先行タスクに選択される
+    const input = screen.getByPlaceholderText(/# で指定/);
+    fireEvent.change(input, { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /保存/ }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(saved.predecessors).toContain('tA');
+  });
+
+  it('既存の先行タスクを開いたとき predecessorText は seq で初期化される', () => {
+    // taskA: seq=3, order=1
+    const taskA = makeTaskWithSeq('tA', 'タスクA', 3, 1);
+    const editTarget = makeTaskWithSeq('tEdit', '編集対象', 5, 2);
+    const taskWithPred = { ...editTarget, predecessors: ['tA'] };
+    render(
+      <TaskModal
+        task={taskWithPred}
+        allTasks={[taskA, editTarget]}
+        onSave={NOOP}
+        onClose={NOOP}
+      />
+    );
+    // 入力欄に "3"（seq=3）が表示されるべき。"1"（order=1）ではない
+    const input = screen.getByPlaceholderText(/# で指定/) as HTMLInputElement;
+    expect(input.value).toBe('3');
+  });
+
+  it('親タスク select で表示される # は seq であり order ではない', () => {
+    // taskA: seq=3, order=1
+    const taskA = makeTaskWithSeq('tA', 'タスクA', 3, 1);
+    const editTarget = makeTaskWithSeq('tEdit', '編集対象', 5, 2);
+    render(
+      <TaskModal
+        task={editTarget}
+        allTasks={[taskA, editTarget]}
+        onSave={NOOP}
+        onClose={NOOP}
+      />
+    );
+    const option = screen.getByRole('option', { name: /タスクA/ }) as HTMLOptionElement;
+    // option のラベルが "#3 タスクA"（seq=3）であること
+    expect(option.textContent).toContain('#3');
+    expect(option.textContent).not.toContain('#1');
+  });
+});
+
 describe('TaskModal — backdrop クリック時の shake アニメーション', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });

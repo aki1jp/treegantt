@@ -40,7 +40,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
   const [predecessors, setPredecessors] = useState<string[]>(task?.predecessors ?? []);
   const [predecessorText, setPredecessorText] = useState(
     (task?.predecessors ?? [])
-      .map(id => allTasks.find(t => t.id === id)?.order)
+      .map(id => allTasks.find(t => t.id === id)?.seq)
       .filter((o): o is number => o !== undefined)
       .join(', ')
   );
@@ -61,7 +61,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     setPredecessors(initPreds);
     setPredecessorText(
       initPreds
-        .map(id => allTasks.find(t => t.id === id)?.order)
+        .map(id => allTasks.find(t => t.id === id)?.seq)
         .filter((o): o is number => o !== undefined)
         .join(', ')
     );
@@ -98,7 +98,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
       const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
       setPredecessorText(
         next
-          .map(pid => selectableTasks.find(t => t.id === pid)?.order)
+          .map(pid => selectableTasks.find(t => t.id === pid)?.seq)
           .filter((o): o is number => o !== undefined)
           .join(', ')
       );
@@ -267,10 +267,10 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                 type="number"
                 min={1}
                 placeholder="#"
-                value={parentId ? (parentCandidates.find(t => t.id === parentId)?.order ?? '') : ''}
+                value={parentId ? (parentCandidates.find(t => t.id === parentId)?.seq ?? '') : ''}
                 onChange={e => {
                   const num = parseInt(e.target.value, 10);
-                  const found = parentCandidates.find(t => t.order === num);
+                  const found = parentCandidates.find(t => t.seq === num);
                   setParentId(found ? found.id : '');
                 }}
               />
@@ -278,7 +278,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                 <option value="">なし（ルートタスク）</option>
                 {parentCandidates.map(t => (
                   <option key={t.id} value={t.id}>
-                    #{t.order} {t.title}
+                    #{t.seq} {t.title}
                   </option>
                 ))}
               </select>
@@ -298,7 +298,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                   setPredecessorText(text);
                   const nums = text.split(/[\s,]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
                   const ids = nums
-                    .map(n => selectableTasks.find(t => t.order === n)?.id)
+                    .map(n => selectableTasks.find(t => t.seq === n)?.id)
                     .filter((id): id is string => !!id);
                   setPredecessors([...new Set(ids)]);
                 }}
@@ -310,7 +310,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                       onChange={() => togglePredecessor(t.id)} />
                     <span style={{ fontSize: 13 }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6366f1', marginRight: 4 }}>
-                        #{t.order}
+                        #{t.seq}
                       </span>
                       {t.title}
                     </span>
