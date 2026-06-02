@@ -209,7 +209,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   // イナズマライン
   const lightningPoints = calcLightningPoints(
-    flatRows.map(r => ({ task: r.task, effectiveProgress: progressMap.get(r.task.id) ?? 0 })),
+    flatRows.map(r => ({
+      task: r.task,
+      effectiveProgress: progressMap.get(r.task.id) ?? 0,
+      hasChildren: (childCount.get(r.task.id) ?? 0) > 0,
+      isCollapsed: collapsed.has(r.task.id),
+    })),
     min,
     zoomLevel,
     uiRowHeight,

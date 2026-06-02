@@ -321,36 +321,36 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     expect(pts[0].y).toBe(ROW_HEIGHT_PX / 2);
   });
 
-  it('進捗 0% → startX に点が打たれる', () => {
+  it('wip 進捗 0% → startX に点が打たれる', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
-    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 0 }))];
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 0, status: 'wip' }))];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
     const expectedX = 9 * dayWidth; // Jan10 - Jan01 = 9 days
     expect(pts[0].x).toBe(expectedX);
   });
 
-  it('進捗 100% → endX（終了日の翌日）に点が打たれる', () => {
+  it('wip 進捗 100% → endX（終了日の翌日）に点が打たれる', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
-    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 100 }))];
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 100, status: 'wip' }))];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
     // endX = (Jan20 - Jan01) + 1dayWidth = 19 * 28 + 28 = 20 * 28
     const expectedX = 20 * dayWidth;
     expect(pts[0].x).toBe(expectedX);
   });
 
-  it('進捗 50% → startX と endX の中間', () => {
+  it('wip 進捗 50% → startX と endX の中間', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
     const startX = 9 * dayWidth;  // Jan10
     const endX   = 20 * dayWidth; // Jan20 + 1day
-    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 50 }))];
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 50, status: 'wip' }))];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
     expect(pts[0].x).toBe(Math.round(startX + (endX - startX) * 0.5));
   });
 
   it('2 行のとき 2 点 → 斜線でつながる', () => {
     const rows = [
-      makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 })),
-      makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 100 })),
+      makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0,   status: 'wip' })),
+      makeRow(makeTask({ startDate: '2026-01-11', endDate: '2026-01-20', progress: 100, status: 'wip' })),
     ];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
     expect(pts).toHaveLength(2);
@@ -394,10 +394,11 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     expect(pts[0].y).toBe(ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2);  // 1行目の中心
   });
 
-  it('effectiveProgress が使われる（親タスク）', () => {
+  it('effectiveProgress が使われる（折りたたみ親タスク・wip）', () => {
     const { dayWidth } = ZOOM_CONFIG['day'];
-    const task = makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0 });
-    const rows = [{ task, effectiveProgress: 60 }]; // 実際の progress は 0 だが有効進捗は 60%
+    const task = makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 0, status: 'wip' });
+    // 実際の progress は 0 だが有効進捗は 60%、ツリーが折りたたまれている親タスク
+    const rows = [{ task, effectiveProgress: 60, hasChildren: true, isCollapsed: true }];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
     const startX = 0;
     const endX   = 10 * dayWidth;
@@ -426,6 +427,29 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     const pts = calcLightningPoints([ms, normal], minDate, 'day')!;
     expect(pts).toHaveLength(1); // ms 行はスキップ
     expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（index 1）
+  });
+
+  it('todo タスクは進捗率に関係なく todayX を返す', () => {
+    const todayX = calcTodayX(minDate, 'day');
+    const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 0, status: 'todo' }))];
+    const pts = calcLightningPoints(rows, minDate, 'day')!;
+    expect(pts[0].x).toBe(todayX);
+  });
+
+  it('親タスク展開中（hasChildren=true, isCollapsed=false）はスキップされる', () => {
+    const parent = { ...makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', status: 'wip', progress: 50 })), hasChildren: true, isCollapsed: false };
+    const child  = makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', status: 'wip', progress: 50 }));
+    const pts = calcLightningPoints([parent, child], minDate, 'day')!;
+    expect(pts).toHaveLength(1); // 親行はスキップ、子行のみ
+    expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（子）の中心Y
+  });
+
+  it('親タスク折りたたみ中（hasChildren=true, isCollapsed=true）は自身のステータスで参加する', () => {
+    const todayX = calcTodayX(minDate, 'day');
+    const parent = { ...makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', status: 'todo', progress: 0 })), hasChildren: true, isCollapsed: true };
+    const pts = calcLightningPoints([parent], minDate, 'day')!;
+    expect(pts).toHaveLength(1);
+    expect(pts[0].x).toBe(todayX); // todo → todayX
   });
 });
 

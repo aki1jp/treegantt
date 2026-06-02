@@ -165,10 +165,11 @@ describe('calcLightningPoints', () => {
     expect(pts[0].x).toBe(expectedX);
   });
 
-  it('todo タスクは進捗率 0 → startX を返す', () => {
+  it('todo タスクは進捗率に関係なく todayX を返す', () => {
+    const todayX = calcTodayX(minDate, zoom);
     const rows = [makeRow('todo', 0)];
     const pts = calcLightningPoints(rows, minDate, zoom)!;
-    expect(pts[0].x).toBe(0);
+    expect(pts[0].x).toBe(todayX);
   });
 
   it('done タスクは進捗率によらず todayX を返す', () => {

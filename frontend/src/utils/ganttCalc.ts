@@ -95,7 +95,7 @@ export function calcNowX(minDate: Date, zoom: ZoomLevel, now = new Date()): numb
 export interface LightningPoint { x: number; y: number; }
 
 export function calcLightningPoints(
-  flatRows: { task: Task; effectiveProgress: number }[],
+  flatRows: { task: Task; effectiveProgress: number; hasChildren?: boolean; isCollapsed?: boolean }[],
   minDate: Date,
   zoom: ZoomLevel,
   rowHeight: number = ROW_HEIGHT_PX,
@@ -104,18 +104,21 @@ export function calcLightningPoints(
   const todayX = calcTodayX(minDate, zoom);
   const pts: LightningPoint[] = [];
 
-  flatRows.forEach(({ task, effectiveProgress }, i) => {
+  flatRows.forEach(({ task, effectiveProgress, hasChildren = false, isCollapsed = false }, i) => {
+    // 親タスクが展開中 → 子が各自描画するのでスキップ
+    if (hasChildren && !isCollapsed) return;
+
     const centerY = i * rowHeight + rowHeight / 2;
 
     if (task.startDate && task.endDate && !task.isMilestone) {
       let pointX: number;
-      if (task.status === 'done' || task.status === 'wait') {
-        // 完了・待機タスクは進捗位置ではなく今日の日付を頂点とする
-        pointX = todayX;
-      } else {
+      if (task.status === 'wip') {
         const startX = dateToX(task.startDate, minDate, zoom);
         const endX   = dateToX(task.endDate,   minDate, zoom) + dayWidth;
         pointX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
+      } else {
+        // todo / done / wait → 全て今日を頂点とする
+        pointX = todayX;
       }
       pts.push({ x: pointX, y: centerY });
     }
