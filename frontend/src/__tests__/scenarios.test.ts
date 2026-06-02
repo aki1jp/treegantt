@@ -11,6 +11,7 @@ import {
   calcCriticalPath,
   calcDuration,
   calcTodayX,
+  calcNowX,
   ganttTotalWidth,
   dateToX,
   PERIOD_DAYS,
@@ -429,11 +430,11 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（index 1）
   });
 
-  it('todo タスクは進捗率に関係なく todayX を返す', () => {
-    const todayX = calcTodayX(minDate, 'day');
+  it('todo タスクは進捗率に関係なく nowX を返す', () => {
+    const nowX = Math.round(calcNowX(minDate, 'day'));
     const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 0, status: 'todo' }))];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
-    expect(pts[0].x).toBe(todayX);
+    expect(pts[0].x).toBe(nowX);
   });
 
   it('親タスク展開中（hasChildren=true, isCollapsed=false）はスキップされる', () => {
@@ -445,11 +446,11 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
   });
 
   it('親タスク折りたたみ中（hasChildren=true, isCollapsed=true）は自身のステータスで参加する', () => {
-    const todayX = calcTodayX(minDate, 'day');
+    const nowX = Math.round(calcNowX(minDate, 'day'));
     const parent = { ...makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', status: 'todo', progress: 0 })), hasChildren: true, isCollapsed: true };
     const pts = calcLightningPoints([parent], minDate, 'day')!;
     expect(pts).toHaveLength(1);
-    expect(pts[0].x).toBe(todayX); // todo → todayX
+    expect(pts[0].x).toBe(nowX); // todo → nowX
   });
 });
 

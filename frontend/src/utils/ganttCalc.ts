@@ -101,7 +101,7 @@ export function calcLightningPoints(
   rowHeight: number = ROW_HEIGHT_PX,
 ): LightningPoint[] | null {
   const { dayWidth } = ZOOM_CONFIG[zoom];
-  const todayX = calcTodayX(minDate, zoom);
+  const nowX = Math.round(calcNowX(minDate, zoom));
   const pts: LightningPoint[] = [];
 
   flatRows.forEach(({ task, effectiveProgress, hasChildren = false, isCollapsed = false }, i) => {
@@ -117,8 +117,8 @@ export function calcLightningPoints(
         const endX   = dateToX(task.endDate,   minDate, zoom) + dayWidth;
         pointX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
       } else {
-        // todo / done / wait → 全て今日を頂点とする
-        pointX = todayX;
+        // todo / done / wait → 現在時刻を頂点とする（時・分を含む）
+        pointX = nowX;
       }
       pts.push({ x: pointX, y: centerY });
     }

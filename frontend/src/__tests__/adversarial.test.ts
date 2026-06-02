@@ -6,6 +6,7 @@ import {
   calcGanttRange,
   calcLightningPoints,
   calcTodayX,
+  calcNowX,
   ganttTotalWidth,
 } from '../utils/ganttCalc';
 import {
@@ -64,8 +65,8 @@ describe('フロントエンド 悪意テスト — ganttCalc 境界値・不正
     expect(() => calcLightningPoints([{ task, effectiveProgress: NaN }], MIN, 'day')).not.toThrow();
   });
 
-  it('全タスクが done のとき全点が todayX になる', () => {
-    const todayX = calcTodayX(MIN, 'day');
+  it('全タスクが done のとき全点が nowX になる', () => {
+    const nowX = Math.round(calcNowX(MIN, 'day'));
     const tasks = [
       makeTask({ id: 'A', status: 'done' }),
       makeTask({ id: 'B', status: 'done' }),
@@ -75,17 +76,17 @@ describe('フロントエンド 悪意テスト — ganttCalc 境界値・不正
       MIN, 'day',
     );
     expect(pts).not.toBeNull();
-    pts!.forEach(p => expect(p.x).toBe(todayX));
+    pts!.forEach(p => expect(p.x).toBe(nowX));
   });
 
-  it('全タスクが wait のとき全点が todayX になる', () => {
-    const todayX = calcTodayX(MIN, 'day');
+  it('全タスクが wait のとき全点が nowX になる', () => {
+    const nowX = Math.round(calcNowX(MIN, 'day'));
     const tasks = [makeTask({ status: 'wait' }), makeTask({ id: 't2', status: 'wait' })];
     const pts = calcLightningPoints(
       tasks.map(t => ({ task: t, effectiveProgress: 0 })),
       MIN, 'day',
     );
-    pts!.forEach(p => expect(p.x).toBe(todayX));
+    pts!.forEach(p => expect(p.x).toBe(nowX));
   });
 
   it('1000 件タスクでも ganttTotalWidth はクラッシュしない', () => {

@@ -165,29 +165,29 @@ describe('calcLightningPoints', () => {
     expect(pts[0].x).toBe(expectedX);
   });
 
-  it('todo タスクは進捗率に関係なく todayX を返す', () => {
-    const todayX = calcTodayX(minDate, zoom);
+  it('todo タスクは進捗率に関係なく nowX を返す', () => {
+    const todayX = Math.round(calcNowX(minDate, zoom));
     const rows = [makeRow('todo', 0)];
     const pts = calcLightningPoints(rows, minDate, zoom)!;
     expect(pts[0].x).toBe(todayX);
   });
 
-  it('done タスクは進捗率によらず todayX を返す', () => {
-    const todayX = calcTodayX(minDate, zoom);
+  it('done タスクは進捗率によらず nowX を返す', () => {
+    const todayX = Math.round(calcNowX(minDate, zoom));
     const rows = [makeRow('done', 100)];
     const pts = calcLightningPoints(rows, minDate, zoom)!;
     expect(pts[0].x).toBe(todayX);
   });
 
-  it('wait タスクは進捗率によらず todayX を返す', () => {
-    const todayX = calcTodayX(minDate, zoom);
+  it('wait タスクは進捗率によらず nowX を返す', () => {
+    const todayX = Math.round(calcNowX(minDate, zoom));
     const rows = [makeRow('wait', 30)];
     const pts = calcLightningPoints(rows, minDate, zoom)!;
     expect(pts[0].x).toBe(todayX);
   });
 
-  it('done と wip が混在する場合、done は todayX・wip は進捗 X を返す', () => {
-    const todayX = calcTodayX(minDate, zoom);
+  it('done と wip が混在する場合、done は nowX・wip は進捗 X を返す', () => {
+    const todayX = Math.round(calcNowX(minDate, zoom));
     const rows = [makeRow('done', 100), makeRow('wip', 50)];
     const pts = calcLightningPoints(rows, minDate, zoom)!;
     const expectedWipX = Math.round((10 * dayWidth + dayWidth) * 0.5);
