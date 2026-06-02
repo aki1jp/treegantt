@@ -288,7 +288,7 @@ export function GanttLeftRow({
         {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             max={task.endDate || undefined}
-            onChange={e => { const v = e.target.value; setEditVal(v); if (v) commit('startDate', v); }}
+            onChange={e => setEditVal(e.target.value)}
             onBlur={() => commit('startDate', editVal || null)}
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
         ) : (
@@ -310,7 +310,7 @@ export function GanttLeftRow({
         {!hasChildren && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             min={task.startDate || undefined}
-            onChange={e => { const v = e.target.value; setEditVal(v); if (v) commit('endDate', v); }}
+            onChange={e => setEditVal(e.target.value)}
             onBlur={() => commit('endDate', editVal || null)}
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
         ) : (

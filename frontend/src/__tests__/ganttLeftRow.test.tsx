@@ -180,8 +180,9 @@ describe('GanttLeftRow インライン編集 — 日付前後矛盾クランプ'
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     expect(dateInput).toBeTruthy();
 
-    // 終了日より後の日付を入力 → 両方がクランプされる
+    // 終了日より後の日付を入力し blur で確定 → 両方がクランプされる
     fireEvent.change(dateInput, { target: { value: '2026-05-15' } });
+    fireEvent.blur(dateInput);
     expect(onInlineUpdate).toHaveBeenCalledWith('t1', {
       startDate: '2026-05-15',
       endDate: '2026-05-15',
@@ -198,8 +199,9 @@ describe('GanttLeftRow インライン編集 — 日付前後矛盾クランプ'
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     expect(dateInput).toBeTruthy();
 
-    // 開始日より前の日付を入力 → 両方がクランプされる
+    // 開始日より前の日付を入力し blur で確定 → 両方がクランプされる
     fireEvent.change(dateInput, { target: { value: '2026-05-20' } });
+    fireEvent.blur(dateInput);
     expect(onInlineUpdate).toHaveBeenCalledWith('t1', {
       startDate: '2026-05-20',
       endDate: '2026-05-20',
