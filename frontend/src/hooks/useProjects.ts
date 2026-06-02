@@ -38,6 +38,17 @@ export function useProjects() {
     setCurrentProject(data.project);
   }
 
+  async function renameProject(project: Project, name: string): Promise<void> {
+    const data = await apiFetch(`/projects/${project.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    setProjects(prev => prev.map(p => p.id === project.id ? data.project : p));
+    setCurrentProject(
+      currentProject?.id === project.id ? data.project : currentProject
+    );
+  }
+
   async function deleteProject(project: Project): Promise<void> {
     await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
     const remaining = projects.filter(p => p.id !== project.id);
@@ -45,5 +56,5 @@ export function useProjects() {
     setCurrentProject(remaining.length > 0 ? remaining[0] : null);
   }
 
-  return { projects, currentProject, setCurrentProject, loading, createProject, deleteProject };
+  return { projects, currentProject, setCurrentProject, loading, createProject, renameProject, deleteProject };
 }

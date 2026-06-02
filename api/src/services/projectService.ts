@@ -29,6 +29,13 @@ export function createProject(name: string): Project {
   );
 }
 
+export function renameProject(id: string, name: string): Project | null {
+  const row = db.prepare(
+    'UPDATE projects SET name = ? WHERE id = ? RETURNING *'
+  ).get(name, id) as RawProject | undefined;
+  return row ? rawToProject(row) : null;
+}
+
 export function deleteProject(id: string): boolean {
   return db.prepare('DELETE FROM projects WHERE id = ?').run(id).changes > 0;
 }

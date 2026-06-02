@@ -19,7 +19,7 @@ export default function App() {
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
-  const { projects, currentProject, setCurrentProject, loading, createProject, deleteProject } = useProjects();
+  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, deleteProject } = useProjects();
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);
@@ -49,6 +49,16 @@ export default function App() {
     const name = prompt('プロジェクト名を入力してください');
     if (!name) return;
     await createProject(name);
+  }
+
+  async function handleRenameProject(project: Project) {
+    const name = prompt('新しいプロジェクト名を入力してください', project.name);
+    if (!name || name === project.name) return;
+    try {
+      await renameProject(project, name);
+    } catch (err) {
+      alert('名前の変更に失敗しました: ' + (err as Error).message);
+    }
   }
 
   async function handleDeleteProject(project: Project) {
@@ -119,6 +129,7 @@ export default function App() {
             currentProject={currentProject}
             onSelect={setCurrentProject}
             onDelete={handleDeleteProject}
+            onRename={handleRenameProject}
           />
           <button onClick={handleCreateProject} style={{
             padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(255,255,255,.3)',

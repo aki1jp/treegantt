@@ -111,6 +111,43 @@ describe('Projects API', () => {
     const res = await app.inject({ method: 'DELETE', url: '/api/v1/projects/no-such-id' });
     expect(res.statusCode).toBe(404);
   });
+
+  it('PATCH /api/v1/projects/:id renames a project', async () => {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'Old Name' },
+    });
+    const { project } = createRes.json();
+
+    const patchRes = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${project.id}`,
+      payload: { name: 'New Name' },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.json().project.name).toBe('New Name');
+    expect(patchRes.json().project.id).toBe(project.id);
+  });
+
+  it('PATCH /api/v1/projects/:id returns 404 for unknown id', async () => {
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/v1/projects/no-such-id',
+      payload: { name: 'X' },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('PATCH /api/v1/projects/:id rejects empty name', async () => {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'Alpha' },
+    });
+    const { project } = createRes.json();
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${project.id}`,
+      payload: { name: '' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe('Tasks API', () => {

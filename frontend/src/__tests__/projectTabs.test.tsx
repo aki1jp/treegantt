@@ -24,6 +24,7 @@ describe('ProjectTabs — バツボタンが表示されない', () => {
         currentProject={projects[0]}
         onSelect={NOOP}
         onDelete={NOOP}
+        onRename={NOOP}
       />
     );
     // ✕ / × の文字を持つボタンがない
@@ -42,6 +43,7 @@ describe('ProjectTabs — 右クリックでコンテキストメニューが表
         currentProject={projects[0]}
         onSelect={NOOP}
         onDelete={NOOP}
+        onRename={NOOP}
       />
     );
     const tab = screen.getByText('Alpha');
@@ -73,9 +75,42 @@ describe('ProjectTabs — 右クリックでコンテキストメニューが表
         currentProject={projects[0]}
         onSelect={NOOP}
         onDelete={NOOP}
+        onRename={NOOP}
       />
     );
     expect(screen.queryByText('削除')).toBeNull();
+  });
+
+  it('コンテキストメニューに「名前を変更」が表示される', () => {
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+      />
+    );
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    expect(screen.getByText('名前を変更')).toBeTruthy();
+  });
+
+  it('「名前を変更」をクリックすると onRename が呼ばれる', () => {
+    const onRename = vi.fn();
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={onRename}
+      />
+    );
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    fireEvent.click(screen.getByText('名前を変更'));
+    expect(onRename).toHaveBeenCalledWith(projects[0]);
   });
 
   it('mousedown でコンテキストメニューが閉じる', () => {
@@ -86,6 +121,7 @@ describe('ProjectTabs — 右クリックでコンテキストメニューが表
         currentProject={projects[0]}
         onSelect={NOOP}
         onDelete={NOOP}
+        onRename={NOOP}
       />
     );
     fireEvent.contextMenu(screen.getByText('Alpha'));

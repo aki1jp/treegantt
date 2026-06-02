@@ -101,6 +101,46 @@ describe('useProjects', () => {
   });
 });
 
+describe('useProjects — renameProject', () => {
+  it('renameProject でプロジェクト名が更新される', async () => {
+    const p1 = makeProject('p1', 'Old Name');
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ projects: [p1] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ project: { ...p1, name: 'New Name' } }),
+      } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.projects[0].name).toBe('Old Name');
+
+    await act(async () => { await result.current.renameProject(p1, 'New Name'); });
+    expect(result.current.projects[0].name).toBe('New Name');
+  });
+
+  it('renameProject で currentProject の名前も更新される', async () => {
+    const p1 = makeProject('p1', 'Old');
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ projects: [p1] }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({ project: { ...p1, name: 'New' } }),
+      } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    await act(async () => { await result.current.renameProject(p1, 'New'); });
+    expect(result.current.currentProject?.name).toBe('New');
+  });
+});
+
 describe('useProjects — localStorage 永続化', () => {
   const LS_KEY = 'treegantt-current-project';
 

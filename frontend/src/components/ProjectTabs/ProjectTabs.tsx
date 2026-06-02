@@ -7,9 +7,10 @@ interface Props {
   currentProject: Project | null;
   onSelect: (project: Project) => void;
   onDelete: (project: Project) => void;
+  onRename: (project: Project) => void;
 }
 
-export function ProjectTabs({ projects, currentProject, onSelect, onDelete }: Props) {
+export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRename }: Props) {
   const [tabMenu, setTabMenu] = useState<{ project: Project; x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -51,6 +52,18 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete }: Pr
           onMouseDown={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
         >
+          <button
+            onClick={() => { onRename(tabMenu.project); setTabMenu(null); }}
+            style={{
+              display: 'block', width: '100%', padding: '8px 16px', border: 'none',
+              background: 'transparent', color: 'var(--th-text)', cursor: 'pointer',
+              textAlign: 'left', fontSize: 13,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            名前を変更
+          </button>
           <button
             onClick={() => { onDelete(tabMenu.project); setTabMenu(null); }}
             style={{
