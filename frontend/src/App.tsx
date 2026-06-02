@@ -9,6 +9,7 @@ import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
+import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import type { Task, Project } from './types/task';
 import { apiFetch } from './utils/api';
 
@@ -112,26 +113,13 @@ export default function App() {
         background: '#1e1b4b', color: '#fff', flexShrink: 0,
       }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>TreeGantt</span>
-        <div style={{ marginLeft: 16, display: 'flex', gap: 8 }}>
-          {projects.map(p => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', borderRadius: 4,
-              background: currentProject?.id === p.id ? '#4f46e5' : 'transparent' }}>
-              <button onClick={() => setCurrentProject(p)} style={{
-                padding: '4px 10px', border: 'none', cursor: 'pointer', fontSize: 13,
-                background: 'transparent', color: '#fff', borderRadius: 4,
-              }}>
-                {p.name}
-              </button>
-              <button onClick={() => handleDeleteProject(p)} title="プロジェクトを削除" style={{
-                padding: '2px 5px', border: 'none', background: 'transparent', color: 'rgba(255,255,255,.5)',
-                cursor: 'pointer', fontSize: 11, borderRadius: 4, lineHeight: 1,
-              }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#fca5a5')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,.5)')}>
-                ✕
-              </button>
-            </div>
-          ))}
+        <div style={{ marginLeft: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <ProjectTabs
+            projects={projects}
+            currentProject={currentProject}
+            onSelect={setCurrentProject}
+            onDelete={handleDeleteProject}
+          />
           <button onClick={handleCreateProject} style={{
             padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(255,255,255,.3)',
             cursor: 'pointer', fontSize: 13, background: 'transparent', color: '#fff',
