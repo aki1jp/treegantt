@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ZoomLevel } from '../../types/task';
 import type { LightningPoint } from '../../utils/ganttCalc';
 import { calcNowX } from '../../utils/ganttCalc';
@@ -32,20 +32,36 @@ interface TodayLineProps {
 }
 
 export function TodayLine({ min, zoomLevel, height }: TodayLineProps) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(id);
-  }, []);
+  const lineRef = useRef<SVGLineElement>(null);
+  const labelRef = useRef<SVGTextElement>(null);
+  const timeRef = useRef<SVGTextElement>(null);
 
-  const x = calcNowX(min, zoomLevel, now);
-  const timeLabel = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  // インターバル更新: React の再レンダリングを起こさず DOM を直接書き換える
+  useEffect(() => {
+    function update() {
+      const now = new Date();
+      const x = calcNowX(min, zoomLevel, now);
+      const timeLabel = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      lineRef.current?.setAttribute('x1', String(x));
+      lineRef.current?.setAttribute('x2', String(x));
+      labelRef.current?.setAttribute('x', String(x + 4));
+      timeRef.current?.setAttribute('x', String(x + 4));
+      if (timeRef.current) timeRef.current.textContent = timeLabel;
+    }
+    update();
+    const id = setInterval(update, 60000);
+    return () => clearInterval(id);
+  }, [min, zoomLevel]);
+
+  const initialNow = new Date();
+  const initialX = calcNowX(min, zoomLevel, initialNow);
+  const initialTime = initialNow.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <g>
-      <line x1={x} y1={0} x2={x} y2={height} stroke="#E24B4A" strokeWidth={2} strokeDasharray="4 3" />
-      <text x={x + 4} y={12} fontSize={10} fill="#E24B4A" fontWeight={600}>今日</text>
-      <text x={x + 4} y={24} fontSize={9} fill="#E24B4A">{timeLabel}</text>
+      <line ref={lineRef} x1={initialX} y1={0} x2={initialX} y2={height} stroke="#E24B4A" strokeWidth={2} strokeDasharray="4 3" />
+      <text ref={labelRef} x={initialX + 4} y={12} fontSize={10} fill="#E24B4A" fontWeight={600}>今日</text>
+      <text ref={timeRef} x={initialX + 4} y={24} fontSize={9} fill="#E24B4A">{initialTime}</text>
     </g>
   );
 }
