@@ -49,7 +49,7 @@ const uiInitialState = {
   showLightningLine: true,
   showWeekend:       true,
   showCriticalPath:  false,
-  showResourceView:  true,
+  showResourceView:  false,
   uiFontSize:        13,
   uiRowHeight:       36,
   ganttHeaderLevels: { year: true, month: true, week: true, day: true } as GanttHeaderLevels,
