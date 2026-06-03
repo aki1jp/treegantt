@@ -1,4 +1,4 @@
-export type TaskStatus   = 'todo' | 'wip' | 'done' | 'wait';
+export type TaskStatus   = 'todo' | 'wip' | 'done' | 'wait' | 'pending';
 export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
 export type ZoomLevel    = 'day' | 'week' | 'month';
 

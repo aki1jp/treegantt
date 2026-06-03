@@ -111,6 +111,7 @@ export function calcLightningPoints(
     const centerY = i * rowHeight + rowHeight / 2;
 
     if (task.startDate && task.endDate && !task.isMilestone) {
+      if (task.status === 'pending') return; // pending はイナズマラインをスキップ
       let pointX: number;
       if (task.status === 'wip') {
         const startX = dateToX(task.startDate, minDate, zoom);

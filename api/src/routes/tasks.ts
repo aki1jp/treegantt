@@ -17,7 +17,7 @@ const TASK_BODY_PROPERTIES = {
   title:        { type: 'string', minLength: 1, maxLength: 200 },
   summary:      { type: 'string' },
   description:  { type: 'string' },
-  status:       { type: 'string', enum: ['todo', 'wip', 'done', 'wait'] },
+  status:       { type: 'string', enum: ['todo', 'wip', 'done', 'wait', 'pending'] },
   priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
   progress:     { type: 'number', minimum: 0, maximum: 100 },
   assignee:     { type: 'string' },
@@ -107,8 +107,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
         },
       },
       async handler(req) {
-        reorderTasks(req.body.orders);
+        const affectedParentIds = reorderTasks(req.body.orders);
         notifyRoom(req.params.id, { type: 'tasks_reordered', projectId: req.params.id, orders: req.body.orders });
+        for (const parentId of affectedParentIds) {
+          const parent = getTask(parentId);
+          if (parent) notifyRoom(req.params.id, { type: 'task_updated', projectId: req.params.id, task: parent });
+        }
         return { ok: true };
       },
     }

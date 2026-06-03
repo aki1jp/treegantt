@@ -9,7 +9,7 @@ export function filterTasks(
 ): Task[] {
   let result = tasks;
 
-  if (filterStatus === '!done') result = result.filter(t => t.status !== 'done');
+  if (filterStatus === '!done') result = result.filter(t => t.status !== 'done' && t.status !== 'pending');
   else if (filterStatus)        result = result.filter(t => t.status === filterStatus);
   if (filterAssignee) result = result.filter(t => t.assignee.includes(filterAssignee));
   if (filterPriority) result = result.filter(t => t.priority === filterPriority);

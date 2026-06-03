@@ -35,3 +35,4 @@ runMigration('001_init',    readFileSync(join(migrationsDir, '001_init.sql'),   
 runMigration('002_parent',  readFileSync(join(migrationsDir, '002_parent.sql'),  'utf-8'));
 runMigration('003_milestone', readFileSync(join(migrationsDir, '003_milestone.sql'), 'utf-8'));
 runMigration('004_seq',       readFileSync(join(migrationsDir, '004_seq.sql'),       'utf-8'));
+runMigration('005_pending_status', readFileSync(join(migrationsDir, '005_pending_status.sql'), 'utf-8'));

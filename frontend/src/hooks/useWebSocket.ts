@@ -32,9 +32,15 @@ export function applyMessage(msg: Record<string, unknown>) {
       break;
     }
     case 'tasks_reordered': {
-      const orders = msg.orders as { id: string; order: number }[];
-      const map = new Map(orders.map(o => [o.id, o.order]));
-      store.setTasks(tasks.map(t => map.has(t.id) ? { ...t, order: map.get(t.id)! } : t));
+      const orders = msg.orders as { id: string; order: number; parentId?: string | null }[];
+      const orderMap    = new Map(orders.map(o => [o.id, o.order]));
+      const parentMap   = new Map(orders.filter(o => o.parentId !== undefined).map(o => [o.id, o.parentId ?? null]));
+      store.setTasks(tasks.map(t => {
+        if (!orderMap.has(t.id)) return t;
+        const updated: typeof t = { ...t, order: orderMap.get(t.id)! };
+        if (parentMap.has(t.id)) updated.parentId = parentMap.get(t.id) ?? null;
+        return updated;
+      }));
       break;
     }
     case 'reload': {

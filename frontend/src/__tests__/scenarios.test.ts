@@ -958,6 +958,30 @@ describe('§7 フィルタ', () => {
     it('!done: タスクが 0 件のとき 0 件', () => {
       expect(filterTasks([], '!done', '', '')).toHaveLength(0);
     });
+
+    it('pending → pending のみ 1 件', () => {
+      const withPending = [...tasks(), makeTask({ id: 't5', status: 'pending', order: 5 })];
+      const r = filterTasks(withPending, 'pending', '', '');
+      expect(r).toHaveLength(1);
+      expect(r[0].status).toBe('pending');
+    });
+
+    it('!done は pending も除外する', () => {
+      const withPending = [...tasks(), makeTask({ id: 't5', status: 'pending', order: 5 })];
+      const r = filterTasks(withPending, '!done', '', '');
+      expect(r.every(t => t.status !== 'done' && t.status !== 'pending')).toBe(true);
+    });
+
+    it('!done: done と pending が混在する場合は両方除外', () => {
+      const mixed = [
+        makeTask({ id: 'a', status: 'todo',    order: 1 }),
+        makeTask({ id: 'b', status: 'done',    order: 2 }),
+        makeTask({ id: 'c', status: 'pending', order: 3 }),
+      ];
+      const r = filterTasks(mixed, '!done', '', '');
+      expect(r).toHaveLength(1);
+      expect(r[0].status).toBe('todo');
+    });
   });
 
   describe('担当者フィルタ（部分一致）', () => {

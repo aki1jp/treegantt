@@ -66,6 +66,11 @@ describe('taskService', () => {
       expect(t2.order).toBe(t1.order + 1);
     });
 
+    it('creates a task with pending status', () => {
+      const task = createTask({ id: 'task-pending', projectId: PROJECT_ID, title: 'Pending Task', status: 'pending' });
+      expect(task.status).toBe('pending');
+    });
+
     it('assigns auto-incrementing seq (immutable creation ID)', () => {
       const t1 = createTask({ id: 't1', projectId: PROJECT_ID, title: 'T1' });
       const t2 = createTask({ id: 't2', projectId: PROJECT_ID, title: 'T2' });
@@ -254,6 +259,40 @@ describe('taskService', () => {
       reorderTasks([{ id: 'rchild3', order: 5 }]);
 
       expect(getTask('rchild3')?.parentId).toBe('rparent3');
+    });
+
+    it('日付を持つタスクを子にすると新しい親の日付が更新される', () => {
+      createTask({ id: 'reorder_parent', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'reorder_child', projectId: PROJECT_ID, title: '子',
+        startDate: '2026-06-01', endDate: '2026-06-30' });
+
+      reorderTasks([{ id: 'reorder_child', order: 1, parentId: 'reorder_parent' }]);
+
+      const parent = getTask('reorder_parent');
+      expect(parent?.startDate).toBe('2026-06-01');
+      expect(parent?.endDate).toBe('2026-06-30');
+    });
+
+    it('子タスクを別の親に移すと旧親の日付が再計算される', () => {
+      createTask({ id: 'reorder_old_parent', projectId: PROJECT_ID, title: '旧親' });
+      createTask({ id: 'reorder_new_parent', projectId: PROJECT_ID, title: '新親' });
+      createTask({ id: 'reorder_moving_child', projectId: PROJECT_ID, title: '移動する子',
+        parentId: 'reorder_old_parent', startDate: '2026-07-01', endDate: '2026-07-31' });
+      createTask({ id: 'reorder_staying_child', projectId: PROJECT_ID, title: '残る子',
+        parentId: 'reorder_old_parent', startDate: '2026-08-01', endDate: '2026-08-15' });
+      // trigger initial propagation
+      updateTask('reorder_moving_child', { startDate: '2026-07-01', endDate: '2026-07-31' });
+      updateTask('reorder_staying_child', { startDate: '2026-08-01', endDate: '2026-08-15' });
+
+      reorderTasks([{ id: 'reorder_moving_child', order: 1, parentId: 'reorder_new_parent' }]);
+
+      const oldParent = getTask('reorder_old_parent');
+      expect(oldParent?.startDate).toBe('2026-08-01');
+      expect(oldParent?.endDate).toBe('2026-08-15');
+
+      const newParent = getTask('reorder_new_parent');
+      expect(newParent?.startDate).toBe('2026-07-01');
+      expect(newParent?.endDate).toBe('2026-07-31');
     });
   });
 

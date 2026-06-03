@@ -17,7 +17,7 @@ interface Props {
 }
 
 const STATUS_COLOR: Record<TaskStatus, string> = {
-  todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b',
+  todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b', pending: '#94a3b8',
 };
 
 const TODAY = todayStr();
@@ -34,7 +34,7 @@ export function GanttBar({
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const color = STATUS_COLOR[task.status];
-  const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done';
+  const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done' && task.status !== 'pending';
   const centerY = rowIndex * rowHeight + rowHeight / 2;
   const barHeight = rowHeight - 12;
   // バー高さに比例したフォントサイズ（行高さを大きくすると文字も大きくなる）
@@ -94,12 +94,12 @@ export function GanttBar({
         {/* 左下向き三角（左辺垂直・右辺斜め） */}
         <polygon
           points={`${x},${y + topH} ${x + legW},${y + topH} ${x},${y + barHeight}`}
-          fill={barColor} style={{ pointerEvents: 'none' }}
+          fill={barColor + 'cc'} style={{ pointerEvents: 'none' }}
         />
         {/* 右下向き三角（右辺垂直・左辺斜め） */}
         <polygon
           points={`${x + width - legW},${y + topH} ${x + width},${y + topH} ${x + width},${y + barHeight}`}
-          fill={barColor} style={{ pointerEvents: 'none' }}
+          fill={barColor + 'cc'} style={{ pointerEvents: 'none' }}
         />
         {/* タイトル */}
         <text x={x + legW + 2} y={textY}

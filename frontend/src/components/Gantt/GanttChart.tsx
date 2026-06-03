@@ -3,7 +3,7 @@ import type { Task } from '../../types/task';
 import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
 import {
-  calcGanttRange, calcNowX, calcLightningPoints,
+  calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
   addDays, buildMultiLevelHeaders,
 } from '../../utils/ganttCalc';
@@ -173,14 +173,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const { min, max } = range;
   const totalWidth  = ganttTotalWidth(sorted, zoomLevel, start, period);
   const headerRows  = buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels);
-
-  // 現在時刻を1分ごとに更新して今日ラインを動かす
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(id);
-  }, []);
-  const todayX = calcNowX(min, zoomLevel, now);
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
@@ -704,9 +696,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
             {/* 今日ライン */}
             <TodayLine
-              x={todayX}
+              min={min}
+              zoomLevel={zoomLevel}
               height={Math.max(totalHeight, 1)}
-              timeLabel={now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
             />
 
             {/* イナズマライン */}

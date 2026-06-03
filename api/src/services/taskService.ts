@@ -246,11 +246,7 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
   return getTask(id);
 }
 
-export function propagateDatesToParent(taskId: string): void {
-  const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(taskId) as { parent_id: string | null } | undefined;
-  if (!row?.parent_id) return;
-  const parentId = row.parent_id;
-
+function recalcParentDates(parentId: string): void {
   const children = db.prepare(
     'SELECT start_date, end_date FROM tasks WHERE parent_id = ? AND is_milestone = 0'
   ).all(parentId) as { start_date: string | null; end_date: string | null }[];
@@ -271,6 +267,12 @@ export function propagateDatesToParent(taskId: string): void {
     db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`).run(...params, parentId);
     propagateDatesToParent(parentId);
   }
+}
+
+export function propagateDatesToParent(taskId: string): void {
+  const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(taskId) as { parent_id: string | null } | undefined;
+  if (!row?.parent_id) return;
+  recalcParentDates(row.parent_id);
 }
 
 export function getAncestorTasks(taskId: string): TaskWithSuccessors[] {
@@ -309,13 +311,37 @@ export function wouldCreateCycle(taskId: string, newParentId: string): boolean {
   return false;
 }
 
-export function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): void {
+export function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): Set<string> {
   const updateOrd    = db.prepare('UPDATE tasks SET ord = ? WHERE id = ?');
   const updateParent = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');
+  const getParentId  = db.prepare<[string], { parent_id: string | null }>('SELECT parent_id FROM tasks WHERE id = ?');
+
+  // parentId が変わるタスクの旧親を記録
+  const oldParentIds = new Set<string>();
+  const newParentIds = new Set<string>();
+  for (const { id, parentId } of orders) {
+    if (parentId !== undefined) {
+      const row = getParentId.get(id);
+      const oldParentId = row?.parent_id ?? null;
+      if (oldParentId !== (parentId ?? null)) {
+        if (oldParentId) oldParentIds.add(oldParentId);
+        if (parentId)    newParentIds.add(parentId);
+      }
+    }
+  }
+
   db.transaction(() => {
     for (const { id, order, parentId } of orders) {
       updateOrd.run(order, id);
       if (parentId !== undefined) updateParent.run(parentId ?? null, id);
     }
   })();
+
+  // 新旧両親の日付を再計算して伝播
+  const affectedParentIds = new Set([...oldParentIds, ...newParentIds]);
+  for (const parentId of affectedParentIds) {
+    recalcParentDates(parentId);
+  }
+
+  return affectedParentIds;
 }
