@@ -26,7 +26,9 @@ CREATE TABLE tasks_new (
   updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-INSERT INTO tasks_new SELECT * FROM tasks;
+INSERT INTO tasks_new (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, created_at, updated_at)
+SELECT                  id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, created_at, updated_at
+FROM tasks;
 
 DROP TABLE tasks;
 ALTER TABLE tasks_new RENAME TO tasks;
