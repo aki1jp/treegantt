@@ -39,6 +39,8 @@
 | 2.13 | 2026年6月 | TaskModal のバグ修正。先行タスク・親タスク選択の `#` 番号表示・入力が `order`（並び替えで変わる表示順）を参照していた問題を修正。`seq`（不変の作成順）を参照するよう統一。 |
 | 2.14 | 2026年6月 | プロジェクトタブの削除 UI 変更。タブ内のバツ（✕）ボタンを廃止し、タブ右クリックで表示されるコンテキストメニューから削除できるよう変更。タブ表示がシンプルになり誤操作を防止。既存の `ContextMenu` コンポーネント・`clampMenuPos` ユーティリティを再利用。 |
 | 2.15 | 2026年6月 | プロジェクト名変更機能を追加。右クリックメニューに「名前を変更」項目を追加。`PATCH /projects/:id` エンドポイント・`renameProject` サービス関数・`useProjects.renameProject` フックを新設。 |
+| 2.16 | 2026年6月 | D&Dで行を別の親に移動した際に旧親・新親の日付が再計算されないバグを修正。`reorderTasks` が変更前後の親 ID を追跡し `recalcParentDates` で再伝播。API ルートで親への `task_updated` をブロードキャスト。WebSocket `tasks_reordered` ハンドラが `parentId` を反映するよう修正。`TodayLine` コンポーネントに `now` タイマーを内包し親から分離。サマリーバー三角を半透明（`cc`）に統一。 |
+| 2.17 | 2026年6月 | ステータスに `pending`（保留）を追加。①イナズマラインではペンディングタスクをスキップ（点を追加しない）②フィルタの「DONE以外」を「DONE/保留以外」に変更（`status !== 'done' && status !== 'pending'`）③期限超過判定からペンディングを除外④DB migration 005 で CHECK 制約を更新。 |
 
 ---
 
@@ -231,8 +233,9 @@ treegantt/
 `frontend/src/types/task.ts` に定義する。すべてのコンポーネントがこの型を参照する。
 
 ```typescript
-export type TaskStatus   = 'todo' | 'wip' | 'done' | 'wait';
+export type TaskStatus   = 'todo' | 'wip' | 'done' | 'wait' | 'pending';
 // ★v1.8: 表示ラベル — todo:'TODO' / wip:'Doing' / done:'DONE' / wait:'待機'
+// ★v2.17: pending:'保留'
 export type TaskPriority = 'critical' | 'high' | 'medium' | 'low';
 export type ZoomLevel    = 'day' | 'week' | 'month';
 
@@ -302,7 +305,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   summary     TEXT NOT NULL DEFAULT '',
   description TEXT NOT NULL DEFAULT '',
   status      TEXT NOT NULL DEFAULT 'todo'
-              CHECK(status IN ('todo','wip','done','wait')),
+              CHECK(status IN ('todo','wip','done','wait','pending')),
   priority    TEXT NOT NULL DEFAULT 'medium'
               CHECK(priority IN ('critical','high','medium','low')),
   progress    INTEGER NOT NULL DEFAULT 0
@@ -785,7 +788,8 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 | `'wip'` | Doing | status === 'wip' |
 | `'done'` | DONE | status === 'done' |
 | `'wait'` | 待機 | status === 'wait' |
-| `'!done'` | **DONE以外** | status !== 'done' |
+| `'pending'` | 保留 | status === 'pending' |
+| `'!done'` | **DONE/保留以外** | status !== 'done' && status !== 'pending' |
 
 > フィルタはフロントエンドのメモリ上で行う。
 
