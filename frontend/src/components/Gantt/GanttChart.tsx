@@ -837,6 +837,27 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           onMouseDown={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
         >
+          {([
+            { label: '⊟ 全て折りたたむ', action: collapseAll },
+            { label: '1  1段目まで展開', action: () => expandToDepth(1) },
+            { label: '2  2段目まで展開', action: () => expandToDepth(2) },
+            { label: '3  3段目まで展開', action: () => expandToDepth(3) },
+            { label: '⊞ 全て展開',       action: expandAll },
+          ] as const).map(({ label, action }) => (
+            <button key={label}
+              onClick={() => { action(); setTitleHeaderCtxMenu(null); }}
+              style={{
+                display: 'block', width: '100%', padding: '7px 14px', border: 'none',
+                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+                color: 'var(--th-text2)', fontFamily: 'monospace',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            >
+              {label}
+            </button>
+          ))}
+          <div style={{ height: 1, background: 'var(--th-border)', margin: '4px 0' }} />
           <button
             onClick={async () => {
               const colored = tasks.filter(t => t.titleColor !== null || t.titleBgColor !== null);
@@ -844,7 +865,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               setTitleHeaderCtxMenu(null);
             }}
             style={{
-              display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+              display: 'block', width: '100%', padding: '7px 14px', border: 'none',
               background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
               color: 'var(--th-text2)',
             }}
