@@ -8,6 +8,7 @@ import {
   addDays, buildMultiLevelHeaders,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
+import type { TreeNode } from '../../utils/taskTree';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
@@ -104,6 +105,14 @@ function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd
   );
 }
 
+// ── 階層展開ヘルパー ──────────────────────────────────
+function collectCollapsedByDepth(nodes: TreeNode[], targetDepth: number, acc: Set<string>): void {
+  for (const node of nodes) {
+    if (node.depth >= targetDepth && node.children.length > 0) acc.add(node.task.id);
+    collectCollapsedByDepth(node.children, targetDepth, acc);
+  }
+}
+
 // ── 色パレット ───────────────────────────────────────
 const COLOR_PALETTE: (string | null)[] = [
   null,
@@ -172,8 +181,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const { roots, childCount } = buildTree(withAncestors);
   const flatRows = flattenTree(roots, collapsed);
 
-  const collapseAll = () => setCollapsed(new Set(childCount.keys()));
-  const expandAll   = () => setCollapsed(new Set());
+  const collapseAll    = () => setCollapsed(new Set(childCount.keys()));
+  const expandAll      = () => setCollapsed(new Set());
+  const expandToDepth  = (depth: number) => {
+    const acc = new Set<string>();
+    collectCollapsedByDepth(roots, depth, acc);
+    setCollapsed(acc);
+  };
 
   const start  = ganttStartDate || undefined;
   const period = ganttPeriod    || undefined;
@@ -511,19 +525,22 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               >
                 {isTitleCol && childCount.size > 0 && (
                   <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
-                    {[
-                      { icon: '⊞', title: 'すべて展開', action: expandAll },
-                      { icon: '⊟', title: 'すべて折りたたむ', action: collapseAll },
-                    ].map(({ icon, title, action }) => (
-                      <button key={icon} title={title}
+                    {([
+                      { label: '⊟', title: '全て折りたたむ', action: collapseAll },
+                      { label: '1',  title: '1段目まで展開',  action: () => expandToDepth(1) },
+                      { label: '2',  title: '2段目まで展開',  action: () => expandToDepth(2) },
+                      { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
+                      { label: '⊞', title: '全て展開',        action: expandAll },
+                    ] as const).map(({ label, title, action }) => (
+                      <button key={label} title={title}
                         onClick={e => { e.stopPropagation(); action(); }}
                         style={{ border: 'none', background: 'none', cursor: 'pointer',
-                          fontSize: 12, color: 'var(--th-text-dim)', padding: '1px 2px', borderRadius: 2,
-                          lineHeight: 1, fontWeight: 400 }}
+                          fontSize: 11, color: 'var(--th-text-dim)', padding: '1px 3px', borderRadius: 2,
+                          lineHeight: 1, fontWeight: 600, fontFamily: 'monospace' }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
                       >
-                        {icon}
+                        {label}
                       </button>
                     ))}
                   </div>

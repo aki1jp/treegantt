@@ -5,7 +5,6 @@ import {
   dateToX,
   calcGanttRange,
   calcLightningPoints,
-  calcTodayX,
   calcNowX,
   ganttTotalWidth,
 } from '../utils/ganttCalc';

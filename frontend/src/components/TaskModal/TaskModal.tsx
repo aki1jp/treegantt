@@ -11,7 +11,7 @@ interface Props {
 }
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機',
+  todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機', pending: '保留',
 };
 const PRIORITY_LABELS: Record<TaskPriority, string> = {
   critical: '最高', high: '高', medium: '中', low: '低',

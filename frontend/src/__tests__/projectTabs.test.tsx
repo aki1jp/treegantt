@@ -60,6 +60,7 @@ describe('ProjectTabs — 右クリックでコンテキストメニューが表
         currentProject={projects[0]}
         onSelect={NOOP}
         onDelete={onDelete}
+        onRename={NOOP}
       />
     );
     fireEvent.contextMenu(screen.getByText('Beta'));
