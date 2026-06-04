@@ -250,6 +250,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
+  const dragStateRef  = useRef<DragState | null>(null);
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [titleHeaderCtxMenu, setTitleHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null);
@@ -421,9 +422,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     return () => window.removeEventListener('mousedown', close);
   }, [titleHeaderCtxMenu]);
 
-  useEffect(() => {
-    dragPreviewRef.current = dragPreview;
-  }, [dragPreview]);
+  useEffect(() => { dragPreviewRef.current = dragPreview; }, [dragPreview]);
+  useEffect(() => { dragStateRef.current  = dragState;   }, [dragState]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragState) return;
@@ -484,13 +484,16 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }, [dragState, handleMouseMove, handleMouseUp]);
 
   useEffect(() => {
-    if (!dragState) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') { setDragState(null); setDragPreview(null); }
+      if (e.key === 'Escape' && dragStateRef.current) {
+        dragStateRef.current = null;
+        setDragState(null);
+        setDragPreview(null);
+      }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dragState]);
+  }, []);
 
 
   function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
