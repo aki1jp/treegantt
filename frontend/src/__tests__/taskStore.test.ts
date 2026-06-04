@@ -269,6 +269,6 @@ describe('resetUi', () => {
     expect(s.showLightningLine).toBe(true);
     expect(s.showWeekend).toBe(true);
     expect(s.showCriticalPath).toBe(false);
-    expect(s.showResourceView).toBe(true);
+    expect(s.showResourceView).toBe(false);
   });
 });
