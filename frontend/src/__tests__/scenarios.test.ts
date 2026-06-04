@@ -30,6 +30,7 @@ import {
   flattenTree,
   calcEffectiveProgress,
   includeAncestors,
+  resolveVisibleId,
 } from '../utils/taskTree';
 import { clampMenuPos } from '../utils/menuPos';
 import { resolveTheme } from '../utils/theme';
@@ -1698,5 +1699,52 @@ describe('マイルストーン禁止ルール', () => {
     const payload = buildMilestonePayload('TBD', '');
     expect(payload.startDate).toBeNull();
     expect(payload.endDate).toBeNull();
+  });
+});
+
+// ── resolveVisibleId（折りたたみ時の依存矢印リダイレクト）──
+describe('resolveVisibleId', () => {
+  function makeIndex(ids: string[]): Map<string, number> {
+    return new Map(ids.map((id, i) => [id, i]));
+  }
+  function makeByIdMap(tasks: Task[]): Map<string, Task> {
+    return new Map(tasks.map(t => [t.id, t]));
+  }
+
+  it('taskIndex に存在するIDはそのまま返す', () => {
+    const tasks = [makeTask({ id: 'a', parentId: null })];
+    const index = makeIndex(['a']);
+    const byId  = makeByIdMap(tasks);
+    expect(resolveVisibleId('a', index, byId)).toBe('a');
+  });
+
+  it('taskIndex にないIDは親を辿って可視祖先を返す', () => {
+    const parent = makeTask({ id: 'p', parentId: null });
+    const child  = makeTask({ id: 'c', parentId: 'p' });
+    const index  = makeIndex(['p']); // 親のみ可視（子は折りたたまれている）
+    const byId   = makeByIdMap([parent, child]);
+    expect(resolveVisibleId('c', index, byId)).toBe('p');
+  });
+
+  it('複数段の折りたたみでも最近の可視祖先を返す', () => {
+    const gp    = makeTask({ id: 'gp', parentId: null });
+    const p     = makeTask({ id: 'p',  parentId: 'gp' });
+    const child = makeTask({ id: 'c',  parentId: 'p' });
+    const index = makeIndex(['gp']); // 祖父のみ可視
+    const byId  = makeByIdMap([gp, p, child]);
+    expect(resolveVisibleId('c', index, byId)).toBe('gp');
+  });
+
+  it('親チェーンに可視タスクがなければ null を返す', () => {
+    const child = makeTask({ id: 'c', parentId: null });
+    const index = makeIndex([]); // 誰も可視でない
+    const byId  = makeByIdMap([child]);
+    expect(resolveVisibleId('c', index, byId)).toBeNull();
+  });
+
+  it('存在しないIDは null を返す', () => {
+    const index = makeIndex(['a']);
+    const byId  = makeByIdMap([]);
+    expect(resolveVisibleId('unknown', index, byId)).toBeNull();
   });
 });

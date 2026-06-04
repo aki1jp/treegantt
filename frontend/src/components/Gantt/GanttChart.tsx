@@ -7,7 +7,7 @@ import {
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
   addDays, buildMultiLevelHeaders,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors } from '../../utils/taskTree';
+import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { GanttBar } from './GanttBar';
@@ -204,15 +204,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
   const taskById  = new Map(sorted.map(t => [t.id, t]));
-
-  function resolveVisibleId(id: string): string | null {
-    let cur: string | undefined = id;
-    while (cur) {
-      if (taskIndex.has(cur)) return cur;
-      cur = taskById.get(cur)?.parentId ?? undefined;
-    }
-    return null;
-  }
   const totalHeight = (flatRows.length + 1) * uiRowHeight;
 
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
@@ -775,8 +766,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               const seen = new Set<string>();
               return sorted.flatMap(task =>
                 task.predecessors.flatMap(predId => {
-                  const fromId = resolveVisibleId(predId);
-                  const toId   = resolveVisibleId(task.id);
+                  const fromId = resolveVisibleId(predId, taskIndex, taskById);
+                  const toId   = resolveVisibleId(task.id, taskIndex, taskById);
                   if (!fromId || !toId || fromId === toId) return [];
                   const key = `${fromId}->${toId}`;
                   if (seen.has(key)) return [];

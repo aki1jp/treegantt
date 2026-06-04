@@ -66,6 +66,19 @@ export function includeAncestors(filtered: Task[], all: Task[]): Task[] {
   return result.sort((a, b) => a.order - b.order);
 }
 
+export function resolveVisibleId(
+  id: string,
+  taskIndex: Map<string, number>,
+  taskById: Map<string, Task>,
+): string | null {
+  let cur: string | undefined = id;
+  while (cur) {
+    if (taskIndex.has(cur)) return cur;
+    cur = taskById.get(cur)?.parentId ?? undefined;
+  }
+  return null;
+}
+
 export function calcEffectiveProgress(
   taskId: string,
   childCountMap: Map<string, number>,

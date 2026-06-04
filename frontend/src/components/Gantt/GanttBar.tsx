@@ -1,5 +1,6 @@
-import type { Task, ZoomLevel, TaskStatus } from '../../types/task';
+import type { Task, ZoomLevel } from '../../types/task';
 import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr } from '../../utils/ganttCalc';
+import { STATUS_COLOR } from '../../utils/taskColors';
 
 interface Props {
   task: Task;
@@ -16,9 +17,6 @@ interface Props {
   onClick: () => void;
 }
 
-const STATUS_COLOR: Record<TaskStatus, string> = {
-  todo: '#6b7280', wip: '#3b82f6', done: '#22c55e', wait: '#f59e0b', pending: '#94a3b8',
-};
 
 const TODAY = todayStr();
 const HANDLE_W = 6;
