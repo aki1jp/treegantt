@@ -14,8 +14,9 @@ export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, ro
   if (!fromTask.endDate || !toTask.startDate) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
-  const fromRow = taskIndex.get(fromTask.id) ?? 0;
-  const toRow   = taskIndex.get(toTask.id) ?? 0;
+  const fromRow = taskIndex.get(fromTask.id);
+  const toRow   = taskIndex.get(toTask.id);
+  if (fromRow === undefined || toRow === undefined) return null;
 
   const x1 = dateToX(fromTask.endDate, minDate, zoom) + dayWidth;
   const y1 = fromRow * rowHeight + rowHeight / 2;

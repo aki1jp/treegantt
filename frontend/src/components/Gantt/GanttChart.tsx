@@ -197,6 +197,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const headerRows  = buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels);
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
+
+  function resolveVisibleId(id: string): string | null {
+    let cur: string | undefined = id;
+    while (cur) {
+      if (taskIndex.has(cur)) return cur;
+      cur = taskById.get(cur)?.parentId ?? undefined;
+    }
+    return null;
+  }
   const taskById  = new Map(sorted.map(t => [t.id, t]));
   const totalHeight = (flatRows.length + 1) * uiRowHeight;
 
@@ -717,16 +726,27 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               );
             })}
 
-            {/* 依存関係矢印 */}
-            {sorted.flatMap(task =>
-              task.predecessors.map(predId => {
-                const pred = taskById.get(predId);
-                return pred ? (
-                  <DependencyArrow key={`${predId}->${task.id}`}
-                    fromTask={pred} toTask={task} minDate={min} zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight} />
-                ) : null;
-              })
-            )}
+            {/* 依存関係矢印（折りたたみ時は可視祖先へリダイレクト） */}
+            {(() => {
+              const seen = new Set<string>();
+              return sorted.flatMap(task =>
+                task.predecessors.flatMap(predId => {
+                  const fromId = resolveVisibleId(predId);
+                  const toId   = resolveVisibleId(task.id);
+                  if (!fromId || !toId || fromId === toId) return [];
+                  const key = `${fromId}->${toId}`;
+                  if (seen.has(key)) return [];
+                  seen.add(key);
+                  const fromTask = taskById.get(fromId)!;
+                  const toTask   = taskById.get(toId)!;
+                  return [
+                    <DependencyArrow key={key}
+                      fromTask={fromTask} toTask={toTask} minDate={min}
+                      zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight} />,
+                  ];
+                })
+              );
+            })()}
 
             {/* 今日ライン */}
             <TodayLine
