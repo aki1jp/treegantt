@@ -36,7 +36,7 @@ const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
 // ── ドラッグ状態 ────────────────────────────────────
-type DragType = 'move' | 'resize-left' | 'resize-right';
+type DragType = 'move' | 'resize-left' | 'resize-right' | 'create';
 interface DragState {
   taskId: string;
   type: DragType;
@@ -437,9 +437,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     } else if (dragState.type === 'resize-right') {
       newEnd = addDays(dragState.origEnd, delta);
       if (newEnd < newStart) newEnd = newStart;
-    } else {
+    } else if (dragState.type === 'resize-left') {
       newStart = addDays(dragState.origStart, delta);
       if (newStart > newEnd) newStart = newEnd;
+    } else if (dragState.type === 'create') {
+      if (delta === 0) return;
+      if (delta > 0) {
+        newStart = dragState.origStart;
+        newEnd   = addDays(dragState.origStart, delta);
+      } else {
+        newStart = addDays(dragState.origStart, delta);
+        newEnd   = dragState.origStart;
+      }
     }
 
     setDragPreview({ taskId: dragState.taskId, startDate: newStart, endDate: newEnd });
@@ -447,8 +456,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   const handleMouseUp = useCallback(() => {
     const preview = dragPreviewRef.current;
-    if (preview && dragState) {
-      if (preview.startDate !== dragState.origStart || preview.endDate !== dragState.origEnd) {
+    if (dragState) {
+      if (dragState.type === 'create') {
+        if (preview && preview.startDate !== preview.endDate) {
+          onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
+        }
+      } else if (preview && (preview.startDate !== dragState.origStart || preview.endDate !== dragState.origEnd)) {
         const patch: Partial<Task> = { startDate: preview.startDate, endDate: preview.endDate };
         // マイルストーンは startDate のみ（endDate は同日）
         const task = taskById.get(preview.taskId);
@@ -470,6 +483,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     };
   }, [dragState, handleMouseMove, handleMouseUp]);
 
+  useEffect(() => {
+    if (!dragState) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') { setDragState(null); setDragPreview(null); }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [dragState]);
+
 
   function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
     if (e.button !== 0) return;
@@ -482,6 +504,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       origStart: task.startDate,
       origEnd: task.endDate ?? task.startDate,
     });
+  }
+
+  function startCreateDrag(e: React.MouseEvent<SVGElement>, taskId: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const scrollLeft = ganttPanelRef.current?.scrollLeft ?? 0;
+    const panelRect  = ganttPanelRef.current?.getBoundingClientRect();
+    if (!panelRect) return;
+    const relX = e.clientX - panelRect.left + scrollLeft;
+    const days = Math.floor(relX / dayWidth);
+    const anchorDate = new Date(min.getTime() + days * 86400000).toISOString().slice(0, 10);
+    setDragState({ taskId, type: 'create', startClientX: e.clientX, origStart: anchorDate, origEnd: anchorDate });
   }
 
   function toggleCollapse(id: string) {
@@ -691,9 +725,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* 縞背景 */}
             {flatRows.map(({ task, depth }, i) => {
               const isRootParent = depth === 0 && (childCount.get(task.id) ?? 0) > 0;
+              const isParent = (childCount.get(task.id) ?? 0) > 0;
+              const canCreate = !task.startDate && !isParent && !task.isMilestone;
               return (
                 <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
-                  style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')) }} />
+                  style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')), cursor: canCreate ? 'crosshair' : undefined }}
+                  onMouseDown={canCreate ? (e) => startCreateDrag(e as unknown as React.MouseEvent<SVGElement>, task.id) : undefined}
+                />
               );
             })}
 
