@@ -19,6 +19,8 @@ export interface Task {
   predecessors: string[];
   seq:          number;
   order:        number;
+  titleColor:   string | null;
+  titleBgColor: string | null;
   createdAt:    string;
   updatedAt:    string;
 }

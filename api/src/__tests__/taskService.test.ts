@@ -195,6 +195,23 @@ describe('taskService', () => {
       expect(updated?.predecessors).toEqual(['p2']);
       expect(updated?.predecessors).not.toContain('p1');
     });
+
+    it('updates titleColor and titleBgColor', () => {
+      createTask({ id: 'color-task', projectId: PROJECT_ID, title: 'Color Task' });
+      const t1 = updateTask('color-task', { titleColor: '#ef4444', titleBgColor: '#fef2f2' });
+      expect(t1?.titleColor).toBe('#ef4444');
+      expect(t1?.titleBgColor).toBe('#fef2f2');
+      // null でリセット
+      const t2 = updateTask('color-task', { titleColor: null, titleBgColor: null });
+      expect(t2?.titleColor).toBeNull();
+      expect(t2?.titleBgColor).toBeNull();
+    });
+
+    it('createTask sets titleColor/titleBgColor to null by default', () => {
+      const task = createTask({ id: 'default-color', projectId: PROJECT_ID, title: 'Default' });
+      expect(task.titleColor).toBeNull();
+      expect(task.titleBgColor).toBeNull();
+    });
   });
 
   describe('deleteTask', () => {

@@ -25,6 +25,8 @@ const TASK_BODY_PROPERTIES = {
   endDate:      { type: ['string', 'null'] },
   isMilestone:  { type: 'boolean' },
   predecessors: { type: 'array', items: { type: 'string' } },
+  titleColor:   { type: ['string', 'null'] },
+  titleBgColor: { type: ['string', 'null'] },
 } as const;
 
 export async function taskRoutes(fastify: FastifyInstance) {
@@ -160,6 +162,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
           isMilestone:  req.body.isMilestone  as boolean | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
           order:        req.body.order        as number | undefined,
+          titleColor:   req.body.titleColor   as string | null | undefined,
+          titleBgColor: req.body.titleBgColor as string | null | undefined,
         });
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
         notifyRoom(task.projectId, { type: 'task_updated', projectId: task.projectId, task });

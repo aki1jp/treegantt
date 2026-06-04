@@ -258,6 +258,26 @@ describe('Tasks API', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('PATCH /api/v1/tasks/:id で titleColor と titleBgColor を更新・リセットできる', async () => {
+    const task = await createTask({ title: 'Color Task' });
+    // 色を設定
+    const r1 = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { titleColor: '#3b82f6', titleBgColor: '#eff6ff' },
+    });
+    expect(r1.statusCode).toBe(200);
+    expect(r1.json().task.titleColor).toBe('#3b82f6');
+    expect(r1.json().task.titleBgColor).toBe('#eff6ff');
+    // null でリセット
+    const r2 = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { titleColor: null, titleBgColor: null },
+    });
+    expect(r2.statusCode).toBe(200);
+    expect(r2.json().task.titleColor).toBeNull();
+    expect(r2.json().task.titleBgColor).toBeNull();
+  });
+
   it('PATCH /api/v1/tasks/:id with valid parentId on non-existent task returns 404 (parentId validation passes, updateTask returns null)', async () => {
     const parent = await createTask({ title: 'Parent' });
     const res = await app.inject({

@@ -17,6 +17,8 @@ interface RawTask {
   is_milestone: number;
   seq: number;
   ord: number;
+  title_color:    string | null;
+  title_bg_color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -35,12 +37,14 @@ function rawToTask(row: RawTask): Task {
     assignee: row.assignee,
     startDate: row.start_date,
     endDate: row.end_date,
-    isMilestone: row.is_milestone === 1,
-    seq: row.seq,
-    order: row.ord,
+    isMilestone:  row.is_milestone === 1,
+    seq:          row.seq,
+    order:        row.ord,
+    titleColor:   row.title_color   ?? null,
+    titleBgColor: row.title_bg_color ?? null,
     predecessors: [],
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt:    row.created_at,
+    updatedAt:    row.updated_at,
   };
 }
 
@@ -148,6 +152,8 @@ export interface CreateTaskInput {
   isMilestone?: boolean;
   predecessors?: string[];
   order?: number;
+  titleColor?:   string | null;
+  titleBgColor?: string | null;
 }
 
 export function createTask(input: CreateTaskInput): TaskWithSuccessors {
@@ -210,6 +216,8 @@ const COLUMN_MAP: ColEntry[] = [
   ['endDate',     'end_date'],
   ['isMilestone', 'is_milestone', (v) => v ? 1 : 0],
   ['order',       'ord'],
+  ['titleColor',   'title_color'],
+  ['titleBgColor', 'title_bg_color'],
 ];
 
 export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccessors | null {

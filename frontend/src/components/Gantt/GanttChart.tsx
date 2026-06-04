@@ -104,6 +104,14 @@ function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd
   );
 }
 
+// ── 色パレット ───────────────────────────────────────
+const COLOR_PALETTE: (string | null)[] = [
+  null,
+  '#000000', '#6b7280', '#ffffff',
+  '#ef4444', '#f97316', '#eab308',
+  '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899',
+];
+
 // ── メインコンポーネント ──────────────────────────────
 interface Props {
   onEditTask: (task: Task) => void;
@@ -221,6 +229,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
+  const [titleHeaderCtxMenu, setTitleHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   // ── 行 D&D（ソートなし時の並び替え） ─────────────────
   const wbsPanelRef  = useRef<HTMLDivElement>(null);
@@ -383,6 +392,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }, [barCtxMenu, rowCtxMenu]);
 
   useEffect(() => {
+    if (!titleHeaderCtxMenu) return;
+    const close = () => setTitleHeaderCtxMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [titleHeaderCtxMenu]);
+
+  useEffect(() => {
     dragPreviewRef.current = dragPreview;
   }, [dragPreview]);
 
@@ -491,6 +507,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 style={{ ...TH, width: w,
                   position: resizable ? 'relative' : undefined,
                   justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
+                onContextMenu={isTitleCol ? e => { e.preventDefault(); setTitleHeaderCtxMenu({ x: e.clientX, y: e.clientY }); } : undefined}
               >
                 {isTitleCol && childCount.size > 0 && (
                   <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
@@ -650,7 +667,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               const isRootParent = depth === 0 && (childCount.get(task.id) ?? 0) > 0;
               return (
                 <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
-                  style={{ fill: isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)') }} />
+                  style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')) }} />
               );
             })}
 
@@ -753,6 +770,35 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               編集（詳細）
             </button>
             <div style={{ height: 1, background: 'var(--th-border)' }} />
+            {/* 色パレット */}
+            <div style={{ padding: '6px 10px' }}>
+              {([
+                { label: '文字色', field: 'titleColor' as const },
+                { label: '背景色', field: 'titleBgColor' as const },
+              ] as { label: string; field: 'titleColor' | 'titleBgColor' }[]).map(({ label, field }) => (
+                <div key={field} style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 3 }}>{label}</div>
+                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                    {COLOR_PALETTE.map((c, ci) => (
+                      <button
+                        key={ci}
+                        title={c ?? 'リセット'}
+                        onClick={() => { onInlineUpdate(task.id, { [field]: c }); close(); }}
+                        style={{
+                          width: 18, height: 18, borderRadius: '50%', border: '1px solid #9ca3af',
+                          background: c ?? '#ffffff', cursor: 'pointer', padding: 0, flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, color: '#9ca3af', lineHeight: 1,
+                        }}
+                      >
+                        {c === null ? '✕' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ height: 1, background: 'var(--th-border)' }} />
             <button
               onClick={() => { onDeleteTask(task.id); close(); }}
               style={{
@@ -767,6 +813,31 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </ContextMenu>
         );
       })}
+
+      {/* タイトル列ヘッダー右クリック: 全タスク色一括リセット */}
+      {titleHeaderCtxMenu && (
+        <ContextMenu x={titleHeaderCtxMenu.x} y={titleHeaderCtxMenu.y}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={async () => {
+              const colored = tasks.filter(t => t.titleColor !== null || t.titleBgColor !== null);
+              await Promise.all(colored.map(t => onInlineUpdate(t.id, { titleColor: null, titleBgColor: null })));
+              setTitleHeaderCtxMenu(null);
+            }}
+            style={{
+              display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+              background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
+              color: 'var(--th-text2)',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+          >
+            全タスクの色をリセット
+          </button>
+        </ContextMenu>
+      )}
     </div>{/* メインエリア終了 */}
 
     {/* ── 担当者別スイムレーン（リソースビュー）── */}

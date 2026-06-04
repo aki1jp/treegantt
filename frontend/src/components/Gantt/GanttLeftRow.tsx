@@ -142,7 +142,7 @@ export function GanttLeftRow({
 
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
-  const rowBg = isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)';
+  const rowBg = task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)');
   const duration = calcDuration(task);
 
   return (
@@ -189,7 +189,7 @@ export function GanttLeftRow({
               style={{
                 cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 fontWeight: isRootParent ? 700 : 400,
-                color: isRootParent ? 'var(--th-text-parent)' : 'var(--th-text2)',
+                color: task.titleColor ?? (isRootParent ? 'var(--th-text-parent)' : 'var(--th-text2)'),
               }}>
               {task.title}
             </span>
