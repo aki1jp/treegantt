@@ -857,27 +857,32 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           onMouseDown={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
         >
-          {([
-            { label: '⊟ 全て折りたたむ', action: collapseAll },
-            { label: '1  1段目まで展開', action: () => expandToDepth(1) },
-            { label: '2  2段目まで展開', action: () => expandToDepth(2) },
-            { label: '3  3段目まで展開', action: () => expandToDepth(3) },
-            { label: '⊞ 全て展開',       action: expandAll },
-          ] as const).map(({ label, action }) => (
-            <button key={label}
-              onClick={() => { action(); setTitleHeaderCtxMenu(null); }}
-              style={{
-                display: 'block', width: '100%', padding: '7px 14px', border: 'none',
-                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-                color: 'var(--th-text2)', fontFamily: 'monospace',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
-              {label}
-            </button>
-          ))}
-          <div style={{ height: 1, background: 'var(--th-border)', margin: '4px 0' }} />
+          <div style={{ padding: '6px 10px' }}>
+            <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>展開 / 折りたたみ</div>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {([
+                { label: '⊟', title: '全て折りたたむ', action: collapseAll },
+                { label: '1',  title: '1段目まで展開',  action: () => expandToDepth(1) },
+                { label: '2',  title: '2段目まで展開',  action: () => expandToDepth(2) },
+                { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
+                { label: '⊞', title: '全て展開',        action: expandAll },
+              ] as const).map(({ label, title, action }) => (
+                <button key={label} title={title}
+                  onClick={() => { action(); setTitleHeaderCtxMenu(null); }}
+                  style={{
+                    flex: 1, padding: '4px 0', border: '1px solid var(--th-border)',
+                    background: 'var(--th-bg2)', cursor: 'pointer', fontSize: 12,
+                    color: 'var(--th-text2)', borderRadius: 3, fontFamily: 'monospace', fontWeight: 600,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; e.currentTarget.style.borderColor = '#a5b4fc'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--th-bg2)'; e.currentTarget.style.color = 'var(--th-text2)'; e.currentTarget.style.borderColor = 'var(--th-border)'; }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
           <button
             onClick={async () => {
               const colored = tasks.filter(t => t.titleColor !== null || t.titleBgColor !== null);
