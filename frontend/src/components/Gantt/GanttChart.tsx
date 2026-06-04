@@ -50,8 +50,6 @@ interface DragPreview {
   endDate: string;
 }
 
-
-
 // ── クイック追加行 ──────────────────────────────────
 function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number; dateColWidth: number }) {
   const { uiRowHeight, uiFontSize } = useTaskStore();
@@ -120,6 +118,14 @@ const COLOR_PALETTE: (string | null)[] = [
   '#ef4444', '#f97316', '#eab308',
   '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899',
 ];
+
+// ── コンテキストメニュー共通スタイル ─────────────────
+const MENU_BTN: React.CSSProperties = {
+  display: 'block', width: '100%', padding: '8px 14px', border: 'none',
+  background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--th-text2)',
+};
+const onMenuEnter = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'var(--th-bg2)'; };
+const onMenuLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'none'; };
 
 // ── メインコンポーネント ──────────────────────────────
 interface Props {
@@ -197,6 +203,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const headerRows  = buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels);
 
   const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
+  const taskById  = new Map(sorted.map(t => [t.id, t]));
 
   function resolveVisibleId(id: string): string | null {
     let cur: string | undefined = id;
@@ -206,7 +213,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     }
     return null;
   }
-  const taskById  = new Map(sorted.map(t => [t.id, t]));
   const totalHeight = (flatRows.length + 1) * uiRowHeight;
 
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
@@ -371,9 +377,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     clearDrop();
   }
 
-  function handleRowDragEnd() {
-    clearDrop();
-  }
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
@@ -509,7 +512,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     });
   }
 
-  function startCreateDrag(e: React.MouseEvent<SVGElement>, taskId: string) {
+  function startCreateDrag(e: React.MouseEvent, taskId: string) {
     if (e.button !== 0) return;
     e.preventDefault();
     const scrollLeft = ganttPanelRef.current?.scrollLeft ?? 0;
@@ -622,7 +625,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   onDragStart={(e) => handleRowDragStart(e, task.id)}
                   onDragOver={(e) => handleRowDragOver(e, idx)}
                   onDrop={(e) => handleRowDrop(e, idx)}
-                  onDragEnd={handleRowDragEnd}
+                  onDragEnd={clearDrop}
                   style={{
                     opacity: rowDragId === task.id ? 0.4 : 1,
                     cursor: 'grab',
@@ -701,7 +704,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                         display: 'flex', alignItems: 'center',
                         justifyContent: (row.level === 'day' || row.level === 'dow') ? 'center' : undefined,
                         paddingLeft: (row.level === 'day' || row.level === 'dow') ? 0 : 4,
-                        fontSize: row.level === 'dow' ? 10 : row.level === 'day' ? 10 : 10,
+                        fontSize: 10,
                         fontWeight: row.level === 'year' ? 800 : 600,
                         color: row.level === 'dow'
                           ? (isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)')
@@ -727,13 +730,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
             {/* 縞背景 */}
             {flatRows.map(({ task, depth }, i) => {
-              const isRootParent = depth === 0 && (childCount.get(task.id) ?? 0) > 0;
-              const isParent = (childCount.get(task.id) ?? 0) > 0;
-              const canCreate = !task.startDate && !isParent && !task.isMilestone;
+              const isParent    = (childCount.get(task.id) ?? 0) > 0;
+              const isRootParent = depth === 0 && isParent;
+              const canCreate   = !task.startDate && !isParent && !task.isMilestone;
               return (
                 <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
                   style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')), cursor: canCreate ? 'crosshair' : undefined }}
-                  onMouseDown={canCreate ? (e) => startCreateDrag(e as unknown as React.MouseEvent<SVGElement>, task.id) : undefined}
+                  onMouseDown={canCreate ? (e) => startCreateDrag(e, task.id) : undefined}
                 />
               );
             })}
@@ -820,31 +823,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           >
             {!task.isMilestone && (
               <>
-                <button
-                  onClick={() => { onAddSubTask(task.id); close(); }}
-                  style={{
-                    display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-                    background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-                    color: 'var(--th-text2)',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                >
+                <button onClick={() => { onAddSubTask(task.id); close(); }}
+                  style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
                   ＋ 子タスクを追加
                 </button>
                 <div style={{ height: 1, background: 'var(--th-border)' }} />
               </>
             )}
-            <button
-              onClick={() => { onEditTask(task); close(); }}
-              style={{
-                display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-                color: 'var(--th-text2)',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
+            <button onClick={() => { onEditTask(task); close(); }}
+              style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
               編集（詳細）
             </button>
             <div style={{ height: 1, background: 'var(--th-border)' }} />
@@ -877,15 +864,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               ))}
             </div>
             <div style={{ height: 1, background: 'var(--th-border)' }} />
-            <button
-              onClick={() => { onDeleteTask(task.id); close(); }}
-              style={{
-                display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-                background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: '#ef4444',
-              }}
+            <button onClick={() => { onDeleteTask(task.id); close(); }}
+              style={{ ...MENU_BTN, color: '#ef4444' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-            >
+              onMouseLeave={onMenuLeave}>
               削除
             </button>
           </ContextMenu>
@@ -930,14 +912,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               await Promise.all(colored.map(t => onInlineUpdate(t.id, { titleColor: null, titleBgColor: null })));
               setTitleHeaderCtxMenu(null);
             }}
-            style={{
-              display: 'block', width: '100%', padding: '7px 14px', border: 'none',
-              background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13,
-              color: 'var(--th-text2)',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-          >
+            style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
             全タスクの色をリセット
           </button>
         </ContextMenu>
