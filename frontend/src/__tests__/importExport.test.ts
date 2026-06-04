@@ -10,6 +10,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: 'todo', priority: 'medium', progress: 0,
     assignee: '田中', startDate: '2026-05-01', endDate: '2026-05-10', isMilestone: false,
     predecessors: [], seq: 1, order: 1, createdAt: '2026-05-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z',
+    titleColor: null, titleBgColor: null,
     ...overrides,
   };
 }

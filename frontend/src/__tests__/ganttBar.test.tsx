@@ -17,6 +17,7 @@ const BASE_TASK: Task = {
   startDate: '2026-05-01', endDate: '2026-05-31',
   isMilestone: false, predecessors: [], seq: 1, order: 1,
   createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  titleColor: null, titleBgColor: null,
 };
 const MIN = new Date('2026-05-01');
 const NOOP = vi.fn();

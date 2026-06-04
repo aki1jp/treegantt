@@ -22,6 +22,7 @@ function makeTask(partial: Partial<Task>): Task {
     order: 1,
     createdAt: '2026-01-01',
     updatedAt: '2026-01-01',
+    titleColor: null, titleBgColor: null,
     ...partial,
   };
 }

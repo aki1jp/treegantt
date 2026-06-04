@@ -17,6 +17,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     assignee: '', startDate: null, endDate: null,
     isMilestone: false, predecessors: [], seq: 1, order: 1,
     createdAt: '', updatedAt: '',
+    titleColor: null, titleBgColor: null,
     ...overrides,
   };
 }
