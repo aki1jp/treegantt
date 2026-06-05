@@ -39,8 +39,9 @@ const STATUS_OPTIONS: { value: TaskStatus | '' | '!done'; label: string }[] = [
   { value: 'todo',  label: 'TODO'   },
   { value: 'wip',   label: 'Doing'  },
   { value: 'done',  label: 'DONE'   },
-  { value: 'wait',  label: '待機'   },
-  { value: '!done', label: 'DONE以外' },
+  { value: 'wait',    label: '待機'       },
+  { value: 'pending', label: '保留'       },
+  { value: '!done',   label: 'DONE/保留以外' },
 ];
 const PRIORITY_OPTIONS: { value: TaskPriority | ''; label: string }[] = [
   { value: '', label: 'すべて' },

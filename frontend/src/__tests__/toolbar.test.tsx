@@ -123,4 +123,26 @@ describe('Toolbar フィルタインライン表示', () => {
     fireEvent.change(statusSelect, { target: { value: 'wip' } });
     expect(useTaskStore.getState().filterStatus).toBe('wip');
   });
+
+  it('ステータスフィルタに「保留」選択肢が存在する', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const selects = row2.querySelectorAll('select');
+    const statusSelect = Array.from(selects).find(s =>
+      Array.from(s.options).some(o => o.text === 'TODO')
+    )!;
+    const optionValues = Array.from(statusSelect.options).map(o => o.value);
+    expect(optionValues).toContain('pending');
+  });
+
+  it('「DONE/保留以外」フィルタ選択肢が存在する', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const selects = row2.querySelectorAll('select');
+    const statusSelect = Array.from(selects).find(s =>
+      Array.from(s.options).some(o => o.text === 'TODO')
+    )!;
+    const labels = Array.from(statusSelect.options).map(o => o.text);
+    expect(labels).toContain('DONE/保留以外');
+  });
 });
