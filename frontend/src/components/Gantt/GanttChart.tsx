@@ -438,9 +438,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       if (delta === 0) return;
       if (delta > 0) {
         newStart = dragState.origStart;
-        newEnd   = addDays(dragState.origStart, delta);
+        newEnd   = addDays(dragState.origStart, delta - 1);
       } else {
-        newStart = addDays(dragState.origStart, delta);
+        newStart = addDays(dragState.origStart, delta + 1);
         newEnd   = dragState.origStart;
       }
     }
@@ -452,7 +452,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const preview = dragPreviewRef.current;
     if (dragState) {
       if (dragState.type === 'create') {
-        if (preview && preview.startDate !== preview.endDate) {
+        if (preview) {
           onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
         }
       } else if (preview && (preview.startDate !== dragState.origStart || preview.endDate !== dragState.origEnd)) {
