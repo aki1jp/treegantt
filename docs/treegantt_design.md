@@ -42,6 +42,7 @@
 | 2.16 | 2026年6月 | D&Dで行を別の親に移動した際に旧親・新親の日付が再計算されないバグを修正。`reorderTasks` が変更前後の親 ID を追跡し `recalcParentDates` で再伝播。API ルートで親への `task_updated` をブロードキャスト。WebSocket `tasks_reordered` ハンドラが `parentId` を反映するよう修正。`TodayLine` コンポーネントに `now` タイマーを内包し親から分離。サマリーバー三角を半透明（`cc`）に統一。 |
 | 2.17 | 2026年6月 | ステータスに `pending`（保留）を追加。①イナズマラインではペンディングタスクをスキップ（点を追加しない）②フィルタの「DONE以外」を「DONE/保留以外」に変更（`status !== 'done' && status !== 'pending'`）③期限超過判定からペンディングを除外④DB migration 005 で CHECK 制約を更新。 |
 | 2.18 | 2026年6月 | タスク行の文字色・背景色カスタマイズ機能を追加。①Task に `titleColor`・`titleBgColor` フィールドを追加（DB migration 006）②タスク右クリックメニューに色パレット（文字色・背景色）を追加。✕スウォッチで個別リセット③「タイトル」列ヘッダー右クリックで全タスクの色を一括リセット④左パネル文字色・左右パネル行背景色に反映。 |
+| 2.19 | 2026年6月 | 日付未設定タスクのガント行ドラッグ時に開始日が1日前になるバグを修正。`GanttChart.tsx:startCreateDrag` 内で `new Date(...).toISOString()` を使用していたため UTC 基準の日付が返され、JST 等のタイムゾーン環境で1日ずれが発生していた。`ganttCalc.ts` に `xToDateStr(relX, minDate, dayWidth)` を追加し、コードベース全体の方針（dayjs でブラウザローカル時間を使用）に統一。 |
 
 ---
 
