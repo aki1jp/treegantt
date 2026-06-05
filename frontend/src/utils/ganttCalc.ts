@@ -216,6 +216,12 @@ export function addDays(date: string, n: number): string {
   return dayjs(date).add(n, 'day').format('YYYY-MM-DD');
 }
 
+/** ピクセルオフセット → ローカル日付文字列。toISOString は UTC 基準になるため dayjs を使う */
+export function xToDateStr(relX: number, minDate: Date, dayWidth: number): string {
+  const days = Math.floor(relX / dayWidth);
+  return dayjs(minDate).add(days, 'day').format('YYYY-MM-DD');
+}
+
 // ── マルチレベルヘッダー ─────────────────────────────
 
 export type HeaderCell = { label: string; x: number; width: number; dow?: number };

@@ -5,7 +5,7 @@ import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
-  addDays, buildMultiLevelHeaders,
+  addDays, buildMultiLevelHeaders, xToDateStr,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
@@ -510,8 +510,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const panelRect  = ganttPanelRef.current?.getBoundingClientRect();
     if (!panelRect) return;
     const relX = e.clientX - panelRect.left + scrollLeft;
-    const days = Math.floor(relX / dayWidth);
-    const anchorDate = new Date(min.getTime() + days * 86400000).toISOString().slice(0, 10);
+    const anchorDate = xToDateStr(relX, min, dayWidth);
     setDragState({ taskId, type: 'create', startClientX: e.clientX, origStart: anchorDate, origEnd: anchorDate });
   }
 

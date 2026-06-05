@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -397,5 +397,45 @@ describe('日付座標系の一貫性', () => {
     const task = { startDate: '2026-05-20', endDate: '2026-05-22' } as Task;
     // 3日間（20,21,22）
     expect(calcDuration(task)).toBe(3);
+  });
+});
+
+describe('xToDateStr', () => {
+  // calcGanttRange が返す min は dayjs('YYYY-MM-DD').toDate() で生成されたローカル午前0時の Date
+  // toISOString() は UTC 基準のため JST 等では1日ずれる。dayjs を使ってローカル日付に変換する
+  const dayWidth = ZOOM_CONFIG['day'].dayWidth; // 28px
+
+  it('relX=0 は min の日付を返す', () => {
+    const min = dayjs('2026-05-20').toDate();
+    expect(xToDateStr(0, min, dayWidth)).toBe('2026-05-20');
+  });
+
+  it('relX=dayWidth で翌日を返す', () => {
+    const min = dayjs('2026-05-20').toDate();
+    expect(xToDateStr(dayWidth, min, dayWidth)).toBe('2026-05-21');
+  });
+
+  it('relX=dayWidth-1 はまだ同じ日（Math.floor）', () => {
+    const min = dayjs('2026-05-20').toDate();
+    expect(xToDateStr(dayWidth - 1, min, dayWidth)).toBe('2026-05-20');
+  });
+
+  it('7日分のピクセルで7日後を返す', () => {
+    const min = dayjs('2026-05-20').toDate();
+    expect(xToDateStr(7 * dayWidth, min, dayWidth)).toBe('2026-05-27');
+  });
+
+  it('week ズームの dayWidth でも正しく計算できる', () => {
+    const weekWidth = ZOOM_CONFIG['week'].dayWidth; // 8px
+    const min = dayjs('2026-05-20').toDate();
+    // 56px / 8px = 7日 → 2026-05-27
+    expect(xToDateStr(56, min, weekWidth)).toBe('2026-05-27');
+  });
+
+  it('addDays との一貫性: xToDateStr(n*dw, min, dw) = addDays(minStr, n)', () => {
+    const min = dayjs('2026-06-01').toDate();
+    for (let n = 0; n < 10; n++) {
+      expect(xToDateStr(n * dayWidth, min, dayWidth)).toBe(addDays('2026-06-01', n));
+    }
   });
 });
