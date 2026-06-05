@@ -283,4 +283,60 @@ describe('GanttLeftRow タイトルホバーツールチップ', () => {
     fireEvent.contextMenu(document.querySelector('div[style]')!);
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
+}); // end describe GanttLeftRow タイトルホバーツールチップ
+
+// ─── 担当者インライン編集 ──────────────────────────────────────────────────────
+
+describe('GanttLeftRow 担当者インライン編集', () => {
+  it('担当者スパンをクリックするとテキスト入力が表示される', () => {
+    renderRow(makeTask({ assignee: '山田' }));
+    fireEvent.click(screen.getByText('山田'));
+    expect(screen.getByRole('textbox')).toBeTruthy();
+  });
+
+  it('担当者が空のとき「—」スパンをクリックすると入力が表示される', () => {
+    renderRow(makeTask({ assignee: '' }));
+    fireEvent.click(screen.getByText('—'));
+    expect(screen.getByRole('textbox')).toBeTruthy();
+  });
+
+  it('担当者 blur で onInlineUpdate が呼ばれる', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ assignee: '山田' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('山田'));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '佐藤' } });
+    fireEvent.blur(input);
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { assignee: '佐藤' });
+  });
+
+  it('担当者 Enter キーで onInlineUpdate が呼ばれる', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ assignee: '山田' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('山田'));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '鈴木' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { assignee: '鈴木' });
+  });
+
+  it('担当者 ESC キーでは onInlineUpdate が呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ assignee: '山田' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('山田'));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '鈴木' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('担当者を空文字にして blur すると空で onInlineUpdate が呼ばれる', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ assignee: '山田' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('山田'));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { assignee: '' });
+  });
 });
