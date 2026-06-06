@@ -876,6 +876,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   rowHeight={uiRowHeight}
                   isParent={isParent}
                   isLinkHovered={hoveredBarId === task.id && !isParent}
+                  isLinkTarget={linkDragState?.targetTaskId === task.id && !isParent}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}

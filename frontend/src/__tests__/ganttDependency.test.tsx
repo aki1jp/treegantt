@@ -63,9 +63,9 @@ function renderChart(tasks: Task[]) {
   );
 }
 
-// コネクタドットを探す (GanttBarの通常バー右端の circle)
+// コネクタドットを探す (GanttBarの右端ドット: data-connector-dot 属性付き circle)
 function getConnectorDots(container: HTMLElement): SVGCircleElement[] {
-  return Array.from(container.querySelectorAll<SVGCircleElement>('circle'));
+  return Array.from(container.querySelectorAll<SVGCircleElement>('circle[data-connector-dot]'));
 }
 
 // 依存矢印のヒットパスを探す (data-dep-from 属性を持つ path)
