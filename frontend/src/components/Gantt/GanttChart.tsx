@@ -733,16 +733,16 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             );
           })}
 
-          {/* WBS 開いているとき: 右端に ◁ 閉じるボタン（絶対配置） */}
+          {/* WBS 開いているとき: 右端に ◁ 閉じるボタン（絶対配置・上下全体） */}
           {wbsPanelOpen && (
             <button
               title="WBSを隠す"
               onClick={() => setWbsPanelOpen(false)}
               style={{
-                position: 'absolute', right: 4, bottom: 4,
+                position: 'absolute', right: 0, top: 0, bottom: 0,
                 border: 'none', background: 'none', cursor: 'pointer',
-                fontSize: 12, color: 'var(--th-text-dim)', padding: '2px 4px',
-                borderRadius: 3, lineHeight: 1,
+                fontSize: 12, color: 'var(--th-text-dim)', padding: '0 6px',
+                borderRadius: 0, lineHeight: 1, display: 'flex', alignItems: 'center',
               }}
               onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
