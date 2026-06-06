@@ -311,3 +311,8 @@ export function buildMultiLevelHeaders(
 
   return rows;
 }
+
+export function getUniqueAssignees(tasks: Task[]): string[] {
+  return [...new Set(tasks.map(t => t.assignee).filter(Boolean))].sort();
+}
+

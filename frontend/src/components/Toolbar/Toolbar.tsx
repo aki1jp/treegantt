@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
-import { todayStr } from '../../utils/ganttCalc';
+import { todayStr, getUniqueAssignees } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 
 interface Props {
@@ -97,6 +97,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
 
 export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv }: Props) {
   const {
+    tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
@@ -256,8 +257,11 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={FILTER_GROUP}>
             <span style={LABEL}>担当者</span>
-            <input style={{ ...SELECT, width: 100 }} placeholder="部分一致" value={filterAssignee}
-              onChange={e => setFilter({ filterAssignee: e.target.value })} />
+            <select style={{ ...SELECT, width: 100 }} value={filterAssignee}
+              onChange={e => setFilter({ filterAssignee: e.target.value })}>
+              <option value="">すべて</option>
+              {getUniqueAssignees(tasks).map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
           </div>
 
           {activeFilterCount > 0 && (

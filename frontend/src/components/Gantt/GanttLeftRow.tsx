@@ -20,6 +20,7 @@ export interface GanttLeftRowProps {
   isDragging?: boolean;
   hiddenCols?: string[];
   wbsPanelOpen?: boolean;
+  assigneeOptions?: string[];
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onRowContextMenu: (x: number, y: number) => void;
@@ -30,6 +31,7 @@ export function GanttLeftRow({
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
+  assigneeOptions,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -263,10 +265,18 @@ export function GanttLeftRow({
       {/* 担当者 */}
       {show('assignee') && <div style={{ ...CELL, width: assigneeWidth }}>
         {editField === 'assignee' ? (
-          <input ref={inputRef} style={INPUT_S} value={editVal}
-            onChange={e => setEditVal(e.target.value)}
-            onBlur={() => commit('assignee', editVal)}
-            onKeyDown={e => onKey(e, 'assignee', editVal)} />
+          <>
+            <input ref={inputRef} style={INPUT_S} value={editVal}
+              list={assigneeOptions ? `assignee-opts-row-${task.id}` : undefined}
+              onChange={e => setEditVal(e.target.value)}
+              onBlur={() => commit('assignee', editVal)}
+              onKeyDown={e => onKey(e, 'assignee', editVal)} />
+            {assigneeOptions && (
+              <datalist id={`assignee-opts-row-${task.id}`}>
+                {assigneeOptions.map(a => <option key={a} value={a} />)}
+              </datalist>
+            )}
+          </>
         ) : (
           <span onClick={() => startEdit('assignee', task.assignee)}
             style={{ cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

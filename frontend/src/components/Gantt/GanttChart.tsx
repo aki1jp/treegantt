@@ -5,7 +5,7 @@ import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
-  addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX,
+  addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
@@ -166,6 +166,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   } = useTaskStore();
 
   const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch);
+  const assigneeOptions = getUniqueAssignees(tasks);
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
   const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });
@@ -837,6 +838,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     isDragging={rowDragId !== null}
                     hiddenCols={wbsHiddenCols}
                     wbsPanelOpen={wbsPanelOpen}
+                    assigneeOptions={assigneeOptions}
                     onToggleCollapse={() => toggleCollapse(task.id)}
                     onInlineUpdate={onInlineUpdate}
                     onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}

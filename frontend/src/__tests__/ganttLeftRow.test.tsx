@@ -339,4 +339,24 @@ describe('GanttLeftRow 担当者インライン編集', () => {
     fireEvent.blur(input);
     expect(onInlineUpdate).toHaveBeenCalledWith('t1', { assignee: '' });
   });
+
+  it('assigneeOptions を渡すと datalist が描画される', () => {
+    const { container } = render(
+      <GanttLeftRow
+        {...rowProps(makeTask({ assignee: '山田' }), vi.fn())}
+        assigneeOptions={['山田', '佐藤', '鈴木']}
+      />
+    );
+    fireEvent.click(screen.getByText('山田'));
+    const datalist = container.querySelector('datalist');
+    expect(datalist).toBeTruthy();
+    const options = Array.from(datalist!.querySelectorAll('option')).map(o => o.getAttribute('value'));
+    expect(options).toEqual(['山田', '佐藤', '鈴木']);
+  });
+
+  it('assigneeOptions を渡さないとき datalist は描画されない', () => {
+    const { container } = renderRow(makeTask({ assignee: '山田' }));
+    fireEvent.click(screen.getByText('山田'));
+    expect(container.querySelector('datalist')).toBeFalsy();
+  });
 });

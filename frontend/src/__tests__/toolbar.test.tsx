@@ -99,11 +99,11 @@ describe('Toolbar フィルタインライン表示', () => {
     expect(prioritySelect).toBeTruthy();
   });
 
-  it('行2（展開時）に担当者入力が直接表示される', () => {
+  it('行2（展開時）に担当者セレクトが直接表示される', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const input = row2.querySelector('input[placeholder="部分一致"]');
-    expect(input).toBeTruthy();
+    const select = row2.querySelector('select');
+    expect(select).toBeTruthy();
   });
 
   it('行2を折りたたむとフィルタコントロールが非表示になる', () => {

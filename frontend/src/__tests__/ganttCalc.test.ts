@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -437,5 +437,37 @@ describe('xToDateStr', () => {
     for (let n = 0; n < 10; n++) {
       expect(xToDateStr(n * dayWidth, min, dayWidth)).toBe(addDays('2026-06-01', n));
     }
+  });
+});
+
+describe('getUniqueAssignees', () => {
+  function makeTask(id: string, assignee: string): Task {
+    return {
+      id, projectId: 'p1', parentId: null,
+      title: 'T', summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0,
+      assignee, startDate: null, endDate: null,
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+    };
+  }
+
+  it('重複を除いてソートされた担当者リストを返す', () => {
+    const tasks = [makeTask('t1', '山田'), makeTask('t2', '佐藤'), makeTask('t3', '山田')];
+    expect(getUniqueAssignees(tasks)).toEqual(['佐藤', '山田']);
+  });
+
+  it('空文字の担当者を除外する', () => {
+    const tasks = [makeTask('t1', ''), makeTask('t2', '田中')];
+    expect(getUniqueAssignees(tasks)).toEqual(['田中']);
+  });
+
+  it('タスクが空のとき空配列を返す', () => {
+    expect(getUniqueAssignees([])).toEqual([]);
+  });
+
+  it('全員担当者なしのとき空配列を返す', () => {
+    const tasks = [makeTask('t1', ''), makeTask('t2', '')];
+    expect(getUniqueAssignees(tasks)).toEqual([]);
   });
 });

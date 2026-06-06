@@ -68,7 +68,7 @@ describe('MilestoneModal — backdrop クリックの閉じる/閉じない挙�
     const { container } = render(
       <MilestoneModal task={makeMilestone({ assignee: '' })} allTasks={[]} onSave={NOOP} onClose={onClose} />
     );
-    fireEvent.change(screen.getAllByRole('textbox')[1], { target: { value: '担当者A' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '担当者A' } });
     fireEvent.click(container.firstChild as HTMLElement);
     expect(onClose).not.toHaveBeenCalled();
   });

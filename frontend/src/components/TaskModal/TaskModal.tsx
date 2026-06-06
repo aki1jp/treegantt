@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
+import { getUniqueAssignees } from '../../utils/ganttCalc';
 
 interface Props {
   task: Task | null;
@@ -234,7 +235,11 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
-            <input style={INPUT} value={assignee} onChange={e => setAssignee(e.target.value)} />
+            <input style={INPUT} value={assignee} list="assignee-opts-modal"
+              onChange={e => setAssignee(e.target.value)} />
+            <datalist id="assignee-opts-modal">
+              {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
+            </datalist>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>

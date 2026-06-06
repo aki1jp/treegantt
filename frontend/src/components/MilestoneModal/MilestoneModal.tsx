@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
+import { getUniqueAssignees } from '../../utils/ganttCalc';
 
 interface Props {
   task: Task | null;
@@ -131,7 +132,11 @@ export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
-            <input style={INPUT} value={assignee} onChange={e => setAssignee(e.target.value)} />
+            <input style={INPUT} value={assignee} list="assignee-opts-milestone"
+              onChange={e => setAssignee(e.target.value)} />
+            <datalist id="assignee-opts-milestone">
+              {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
+            </datalist>
           </div>
 
           {candidates.length > 0 && (
