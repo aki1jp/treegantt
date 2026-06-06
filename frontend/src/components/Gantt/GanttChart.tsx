@@ -876,7 +876,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   rowHeight={uiRowHeight}
                   isParent={isParent}
                   isLinkHovered={hoveredBarId === task.id && !isParent}
-                  isLinkTarget={linkDragState?.targetTaskId === task.id && !isParent}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}
@@ -908,6 +907,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   ];
                 })
               );
+            })()}
+
+            {/* リンクドラッグ中：ターゲットバー左端ドット */}
+            {linkDragState?.targetTaskId && (() => {
+              const tgt = taskById.get(linkDragState.targetTaskId!);
+              if (!tgt?.startDate) return null;
+              const cx = dateToX(tgt.startDate, min, zoomLevel) - 6;
+              const cy = (taskIndex.get(tgt.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
+              return <circle cx={cx} cy={cy} r={6} fill="#378ADD" stroke="white" strokeWidth={1.5} pointerEvents="none" />;
             })()}
 
             {/* リンクドラッグ中のプレビュー破線（fromTask の右端 → マウス位置） */}

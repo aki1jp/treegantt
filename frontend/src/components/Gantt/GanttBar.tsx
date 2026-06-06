@@ -12,7 +12,6 @@ interface Props {
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
   isLinkHovered?: boolean;
-  isLinkTarget?: boolean;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
@@ -29,7 +28,6 @@ const HANDLE_W = 6;
 export function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, isParent = false, dragPreview, rowHeight = ROW_HEIGHT_PX,
   isLinkHovered = false,
-  isLinkTarget = false,
   onMoveStart, onResizeLeftStart, onResizeRightStart, onLinkStart,
   onBarHoverStart, onBarHoverEnd,
   onClick,
@@ -169,13 +167,6 @@ export function GanttBar({
         fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
-      />
-      {/* ターゲットドット（バー外側左端・リンクドラッグのドロップ先候補時のみ表示） */}
-      <circle
-        cx={x - 6} cy={centerY} r={6}
-        fill="#378ADD" stroke="white" strokeWidth={1.5}
-        opacity={isLinkTarget ? 1 : 0}
-        pointerEvents="none"
       />
       {/* コネクタドット→バー右端間のブリッジ（ホバー途切れ防止） */}
       <rect x={x + width} y={y} width={12} height={barHeight} fill="transparent" />
