@@ -148,6 +148,54 @@ describe('Projects API', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  // ── プロジェクトカラー (Plan C) ──────────────────────────
+  it('POST /api/v1/projects で color を指定して作成できる', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'カラープロジェクト', color: '#ef4444' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().project.color).toBe('#ef4444');
+  });
+
+  it('GET /api/v1/projects は color フィールドを返す（null or string）', async () => {
+    await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'NoColor' } });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/projects' });
+    expect(res.statusCode).toBe(200);
+    const p = res.json().projects[0];
+    expect('color' in p).toBe(true);
+  });
+
+  it('PATCH /api/v1/projects/:id で color を更新できる', async () => {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'PatchColor' },
+    });
+    const { project } = createRes.json();
+
+    const patchRes = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${project.id}`,
+      payload: { color: '#3b82f6' },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.json().project.color).toBe('#3b82f6');
+  });
+
+  it('PATCH /api/v1/projects/:id で color を null にリセットできる', async () => {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'ColorReset', color: '#22c55e' },
+    });
+    const { project } = createRes.json();
+
+    const patchRes = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${project.id}`,
+      payload: { color: null },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.json().project.color).toBeNull();
+  });
 });
 
 describe('Tasks API', () => {

@@ -18,8 +18,10 @@ export default function App() {
   const [modalIsMilestone, setModalIsMilestone] = useState(false);
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
 
+  const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
+
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
-  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, deleteProject } = useProjects();
+  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, deleteProject } = useProjects();
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);
@@ -32,9 +34,26 @@ export default function App() {
   useEffect(() => {
     if (!currentProject) return;
     apiFetch(`/projects/${currentProject.id}/tasks`)
-      .then(d => setTasks(d.tasks))
+      .then(d => {
+        setTasks(d.tasks);
+        setTaskCounts(prev => ({ ...prev, [currentProject.id]: d.total ?? d.tasks.length }));
+      })
       .catch(() => {});
   }, [currentProject?.id]);
+
+  // 全プロジェクトのタスク件数を初回ロード時に並列取得
+  useEffect(() => {
+    if (projects.length === 0) return;
+    Promise.all(
+      projects.map(p =>
+        apiFetch(`/projects/${p.id}/tasks?limit=1`)
+          .then(d => ({ id: p.id, total: d.total as number }))
+          .catch(() => ({ id: p.id, total: 0 }))
+      )
+    ).then(results => {
+      setTaskCounts(Object.fromEntries(results.map(r => [r.id, r.total])));
+    });
+  }, [projects.map(p => p.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // reload イベント受信時（import 後など）: タスクを再フェッチ
   useEffect(() => {
@@ -130,6 +149,8 @@ export default function App() {
             onSelect={setCurrentProject}
             onDelete={handleDeleteProject}
             onRename={handleRenameProject}
+            onUpdateColor={(project, color) => updateProjectColor(project, color)}
+            taskCounts={taskCounts}
           />
           <button onClick={handleCreateProject} style={{
             padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(255,255,255,.3)',

@@ -1,34 +1,39 @@
 import type { FastifyInstance } from 'fastify';
-import { listProjects, createProject, renameProject, deleteProject } from '../services/projectService.js';
+import { listProjects, createProject, updateProject, deleteProject } from '../services/projectService.js';
 
 export async function projectRoutes(fastify: FastifyInstance) {
   fastify.get('/projects', async () => {
     return { projects: listProjects() };
   });
 
-  fastify.post<{ Body: { name: string } }>('/projects', {
+  fastify.post<{ Body: { name: string; color?: string | null } }>('/projects', {
     schema: {
       body: {
         type: 'object',
         required: ['name'],
-        properties: { name: { type: 'string', minLength: 1, maxLength: 200 } },
+        properties: {
+          name:  { type: 'string', minLength: 1, maxLength: 200 },
+          color: { type: ['string', 'null'] },
+        },
       },
     },
     async handler(req, reply) {
-      reply.code(201).send({ project: createProject(req.body.name) });
+      reply.code(201).send({ project: createProject(req.body.name, req.body.color) });
     },
   });
 
-  fastify.patch<{ Params: { id: string }; Body: { name: string } }>('/projects/:id', {
+  fastify.patch<{ Params: { id: string }; Body: { name?: string; color?: string | null } }>('/projects/:id', {
     schema: {
       body: {
         type: 'object',
-        required: ['name'],
-        properties: { name: { type: 'string', minLength: 1, maxLength: 200 } },
+        properties: {
+          name:  { type: 'string', minLength: 1, maxLength: 200 },
+          color: { type: ['string', 'null'] },
+        },
       },
     },
     async handler(req, reply) {
-      const project = renameProject(req.params.id, req.body.name);
+      const project = updateProject(req.params.id, req.body);
       if (!project) return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
       return { project };
     },

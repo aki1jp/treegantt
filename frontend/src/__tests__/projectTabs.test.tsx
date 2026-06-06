@@ -9,8 +9,8 @@ import type { Project } from '../types/task';
 
 afterEach(() => { cleanup(); });
 
-function makeProject(id: string, name: string): Project {
-  return { id, name, createdAt: '2026-01-01' };
+function makeProject(id: string, name: string, color?: string | null): Project {
+  return { id, name, createdAt: '2026-01-01', color: color ?? null };
 }
 
 const NOOP = vi.fn();
@@ -129,5 +129,126 @@ describe('ProjectTabs — 右クリックでコンテキストメニューが表
     expect(screen.getByText('削除')).toBeTruthy();
     fireEvent.mouseDown(container);
     expect(screen.queryByText('削除')).toBeNull();
+  });
+});
+
+// ── Plan A: スタイル強化 ──────────────────────────────────────
+describe('ProjectTabs — 長いプロジェクト名の truncate', () => {
+  it('title 属性にプロジェクト名が設定される', () => {
+    const name = 'とても長いプロジェクト名前です';
+    const projects = [makeProject('p1', name)];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+      />
+    );
+    const btn = screen.getByTitle(name);
+    expect(btn).toBeTruthy();
+  });
+});
+
+// ── Plan B: タスク件数バッジ ──────────────────────────────────
+describe('ProjectTabs — タスク件数バッジ', () => {
+  it('taskCounts が渡されると件数が表示される', () => {
+    const projects = [makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+        taskCounts={{ p1: 5, p2: 0 }}
+      />
+    );
+    expect(screen.getByText('5')).toBeTruthy();
+    expect(screen.getByText('0')).toBeTruthy();
+  });
+
+  it('taskCounts が未指定のときはバッジが表示されない', () => {
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+      />
+    );
+    // 数字だけのテキストノードがないことを確認
+    expect(screen.queryByText('0')).toBeNull();
+  });
+});
+
+// ── Plan C: プロジェクトカラー ────────────────────────────────
+describe('ProjectTabs — プロジェクトカラー', () => {
+  it('color があるとき色バーが data-color-bar 属性付きで描画される', () => {
+    const projects = [makeProject('p1', 'Red', '#ef4444')];
+    const { container } = render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+      />
+    );
+    const bar = container.querySelector('[data-color-bar]');
+    expect(bar).not.toBeNull();
+  });
+
+  it('color がないとき色バーが表示されない', () => {
+    const projects = [makeProject('p1', 'NoColor', null)];
+    const { container } = render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+      />
+    );
+    expect(container.querySelector('[data-color-bar]')).toBeNull();
+  });
+
+  it('右クリックメニューに「色を変更」が表示される', () => {
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+        onUpdateColor={NOOP}
+      />
+    );
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    expect(screen.getByText('色を変更')).toBeTruthy();
+  });
+
+  it('色スウォッチをクリックすると onUpdateColor が呼ばれる', () => {
+    const onUpdateColor = vi.fn();
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+        onUpdateColor={onUpdateColor}
+      />
+    );
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    // 「色を変更」セクションのスウォッチ（title="#ef4444"）をクリック
+    const swatch = screen.getByTitle('#ef4444');
+    fireEvent.click(swatch);
+    expect(onUpdateColor).toHaveBeenCalledWith(projects[0], '#ef4444');
   });
 });

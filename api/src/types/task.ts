@@ -30,5 +30,6 @@ export type TaskWithSuccessors = Task & { successors: string[] };
 export interface Project {
   id:        string;
   name:      string;
+  color:     string | null;
   createdAt: string;
 }
