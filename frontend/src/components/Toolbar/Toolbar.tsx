@@ -109,10 +109,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
-    ganttBarOpen, wbsPanelOpen, wbsHiddenCols,
+    ganttBarOpen, wbsHiddenCols,
     setZoomLevel, setFilter, setGanttRange, resetUi,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
-    setGanttBarOpen, setWbsPanelOpen, setWbsHiddenCols,
+    setGanttBarOpen, setWbsHiddenCols,
   } = useTaskStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -224,16 +224,6 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
               </div>
             )}
           </div>
-
-          {/* WBS 折りたたみトグル */}
-          <button
-            aria-label={wbsPanelOpen ? 'WBSを隠す' : 'WBSを表示'}
-            title={wbsPanelOpen ? 'WBSを隠す' : 'WBSを表示'}
-            onClick={() => setWbsPanelOpen(!wbsPanelOpen)}
-            style={{ ...BTN, padding: '4px 8px', fontSize: 10 }}
-          >
-            {wbsPanelOpen ? '◁' : '▷'}
-          </button>
 
           {/* ∧/∨ 折りたたみトグル */}
           <button

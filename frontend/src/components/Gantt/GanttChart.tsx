@@ -152,6 +152,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
     wbsPanelOpen, wbsHiddenCols,
+    setWbsPanelOpen,
   } = useTaskStore();
 
   const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch);
@@ -662,10 +663,25 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{
-          flexShrink: 0, height: headerRows.length * HEADER_ROW_H + 2,
+          flexShrink: 0, height: headerRows.length * HEADER_ROW_H + 2, minHeight: 26,
           display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
+          position: 'relative',
         }}>
-          {(wbsPanelOpen ? visibleLeftCols : LEFT_COLS.slice(0, 1)).map(col => {
+          {/* WBS 閉じているとき: # セル全体が ▷ ボタン */}
+          {!wbsPanelOpen && (
+            <div
+              title="WBSを表示"
+              onClick={() => setWbsPanelOpen(true)}
+              style={{ ...TH, width: 36, cursor: 'pointer', alignSelf: 'stretch', height: 'auto', justifyContent: 'center' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e0e7ff'; (e.currentTarget as HTMLElement).style.color = '#4f46e5'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--th-text-muted)'; }}
+            >
+              ▷
+            </div>
+          )}
+
+          {/* WBS 開いているとき: 各列ヘッダーを描画 */}
+          {wbsPanelOpen && visibleLeftCols.map(col => {
             const w = (col.key === 'startDate' || col.key === 'endDate')
               ? dateColWidth
               : (colWidths[col.key as keyof typeof colWidths] ?? col.width);
@@ -716,6 +732,24 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               </div>
             );
           })}
+
+          {/* WBS 開いているとき: 右端に ◁ 閉じるボタン（絶対配置） */}
+          {wbsPanelOpen && (
+            <button
+              title="WBSを隠す"
+              onClick={() => setWbsPanelOpen(false)}
+              style={{
+                position: 'absolute', right: 4, bottom: 4,
+                border: 'none', background: 'none', cursor: 'pointer',
+                fontSize: 12, color: 'var(--th-text-dim)', padding: '2px 4px',
+                borderRadius: 3, lineHeight: 1,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
+            >
+              ◁
+            </button>
+          )}
         </div>
 
         {/* WBS ボディ（垂直スクロールはガントパネルと同期） */}
