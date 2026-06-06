@@ -664,7 +664,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{
           flexShrink: 0, height: headerRows.length * HEADER_ROW_H + 2,
-          minHeight: wbsPanelOpen ? undefined : 26,
+          minHeight: 26,
           display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
           position: 'relative',
         }}>
@@ -823,6 +823,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           <div data-testid="gantt-header" style={{
             position: 'sticky', top: 0, zIndex: 20,
             borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
+            minHeight: HEADER_ROW_H,
           }}>
             {headerRows.map((row, ri) => (
               <div key={row.level} style={{
