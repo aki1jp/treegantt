@@ -21,7 +21,7 @@ export const PERIOD_DAYS: Record<GanttPeriod, number> = {
 
 export const ZOOM_CONFIG: Record<ZoomLevel, { dayWidth: number; headerFormat: string }> = {
   day:   { dayWidth: 28, headerFormat: 'M/D' },
-  week:  { dayWidth: 8,  headerFormat: 'M月WW' },
+  week:  { dayWidth: 8,  headerFormat: '[W]w' },
   month: { dayWidth: 3,  headerFormat: 'YYYY-MM' },
 };
 
@@ -286,8 +286,7 @@ export function buildMultiLevelHeaders(
     while (cur.isBefore(end)) {
       const next = cur.add(1, 'week');
       const x = Math.max(0, toX(cur));
-      const thu = cur.add(3, 'day'); // 木曜日でどの月の週かを決定（ISO基準）
-      const label = `${thu.month() + 1}月${Math.ceil(thu.date() / 7)}W(${cur.week()}W)`;
+      const label = `W${cur.week()}`;
       cells.push({ label, x, width: toX(next.isBefore(end) ? next : end) - x });
       cur = next;
     }
