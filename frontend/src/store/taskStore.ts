@@ -47,7 +47,7 @@ interface TaskStore {
 }
 
 const uiInitialState = {
-  zoomLevel:         'week' as ZoomLevel,
+  zoomLevel:         'day' as ZoomLevel,
   ganttStartDate:    '',
   ganttPeriod:       '3m' as GanttPeriod,
   showLightningLine: true,
@@ -56,7 +56,7 @@ const uiInitialState = {
   showResourceView:  false,
   uiFontSize:        13,
   uiRowHeight:       36,
-  ganttHeaderLevels: { year: true, month: true, week: true, day: true } as GanttHeaderLevels,
+  ganttHeaderLevels: { year: false, month: true, week: false, day: true } as GanttHeaderLevels,
 };
 
 export const useTaskStore = create<TaskStore>()(

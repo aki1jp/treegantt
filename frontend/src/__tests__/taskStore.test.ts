@@ -260,12 +260,12 @@ describe('resetUi', () => {
     useTaskStore.getState().resetUi();
 
     const s = useTaskStore.getState();
-    expect(s.zoomLevel).toBe('week');
+    expect(s.zoomLevel).toBe('day');
     expect(s.ganttStartDate).toBe('');
     expect(s.ganttPeriod).toBe('3m');
     expect(s.uiFontSize).toBe(13);
     expect(s.uiRowHeight).toBe(36);
-    expect(s.ganttHeaderLevels).toEqual({ year: true, month: true, week: true, day: true });
+    expect(s.ganttHeaderLevels).toEqual({ year: false, month: true, week: false, day: true });
     expect(s.showLightningLine).toBe(true);
     expect(s.showWeekend).toBe(true);
     expect(s.showCriticalPath).toBe(false);
