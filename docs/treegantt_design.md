@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.24 |
+| バージョン | 2.25 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -48,6 +48,7 @@
 | 2.22 | 2026年6月 | WBSパネル幅制御機能追加。①折りたたみ（◁/▷ボタン）：WBSパネルを 36px 幅に折りたたみ/展開（`wbsPanelOpen` を localStorage 永続化、`transition: width 0.15s ease` でアニメーション）。②列表示/非表示：ツールバー行2にWBS列チェックボックス（ステータス/優先度/進捗/担当者/開始日/終了日/期間）を追加（`wbsHiddenCols` を localStorage 永続化）。GanttLeftRow に `hiddenCols`・`wbsPanelOpen` props を追加し各列を条件付き表示。 |
 | 2.23 | 2026年6月 | WBSトグルボタンをツールバーからWBSヘッダー内に移動。WBS開時: ヘッダー右端に `◁` ボタンを `position:absolute` で上下全体に配置。WBS閉時: `#` セル全体（`alignSelf:stretch`）が `▷` ボタンとして機能。ツールバーから `◁/▷` ボタンを削除。WBSヘッダーに `position:relative`・`minHeight:26` を追加（ヘッダー全OFF時も操作可能）。 |
 | 2.24 | 2026年6月 | ガントヘッダー全OFF時のWBS/ガント上下ズレ修正。WBSヘッダーは `minHeight:26` で常に最小高さを維持。ガントヘッダー div に `minHeight: HEADER_ROW_H(26px)` を追加し、ヘッダーが0行でも WBS と同じ高さを確保。WBS開/閉問わず行の上端が揃い、最下行（QuickAddRow）のクリップも解消。 |
+| 2.25 | 2026年6月 | 週ヘッダー形式の検討・採用見送り。「6月1W」形式（月内週番号）を試みたが月内週番号は計算定義が複数あり（ISO木曜基準・月曜起算等）ユーザーにとって直感的でないため採用を取りやめ、元の `W23`（ISO年内通し番号）形式を継続採用。 |
 
 ---
 
@@ -740,7 +741,7 @@ export function calcGanttRange(
 |----------|---------|---------|
 | 年 (year) | `2026` | 1月1日ごと |
 | 月 (month) | `2026-05` | 月初ごと |
-| 週 (week) | `W21` | 月曜日ごと |
+| 週 (week) | `W21`（ISO年内通し番号） | 月曜日ごと |
 | 日 (day) | `22` | 1日ごと |
 
 - デフォルトは全4行表示（day 行が有効のとき dow 行も自動生成されるため最大5行）
@@ -749,6 +750,7 @@ export function calcGanttRange(
 - ガントstickyヘッダー合計高さ = `n × HEADER_ROW_H + 2px`（n行の内側divの合計 + 外側の `borderBottom: 2px`。外側 div は auto-height のため border は外に加算される）
 - **WBSヘッダー高さの注意**: `index.html` でグローバル `box-sizing: border-box` を設定しているため、明示的な `height` に `borderBottom` が含まれる。ガントと一致させるには `height: n × HEADER_ROW_H + 2` と指定する必要がある
 - `data-testid="gantt-header"` が付与されており、内行の `boxSizing` スタイルはテストで保護される
+- **週ヘッダーは ISO 年内通し番号（W1〜W53）を採用**。「6月1W」のような月内週番号は計算定義が複数存在する（ISO木曜基準・月曜起算・日曜起算等）ため採用しない
 - 非表示にしたい行は Toolbar のトグルボタンで切り替え
 
 #### イナズマライン (Lightning Line) の定義
