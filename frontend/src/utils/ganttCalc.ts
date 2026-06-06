@@ -196,6 +196,20 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
   return critical;
 }
 
+// fromId の先行チェーンを DFS し toId に到達できれば循環依存
+export function wouldCreateDepCycle(fromId: string, toId: string, taskById: Map<string, Task>): boolean {
+  const visited = new Set<string>();
+  const queue = [fromId];
+  while (queue.length > 0) {
+    const cur = queue.pop()!;
+    if (cur === toId) return true;
+    if (visited.has(cur)) continue;
+    visited.add(cur);
+    taskById.get(cur)?.predecessors.forEach(p => queue.push(p));
+  }
+  return false;
+}
+
 // 期間（日数）= endDate - startDate + 1。日付なし・逆順は null
 export function calcDuration(task: Task): number | null {
   if (!task.startDate || !task.endDate) return null;

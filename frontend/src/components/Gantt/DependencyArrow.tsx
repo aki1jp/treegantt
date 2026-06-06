@@ -26,13 +26,21 @@ export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, ro
   const cx1 = x1 + 30;
   const cx2 = x2 - 30;
 
+  const d = `M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`;
   return (
-    <path
-      d={`M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`}
-      stroke="#378ADD"
-      strokeWidth={1.5}
-      fill="none"
-      markerEnd="url(#arrowhead)"
-    />
+    <g>
+      {/* 可視の矢印線（ポインタイベント無効） */}
+      <path d={d} stroke="#378ADD" strokeWidth={1.5} fill="none" markerEnd="url(#arrowhead)" pointerEvents="none" />
+      {/* 右クリック検知用の透明太パス */}
+      <path
+        d={d}
+        stroke="transparent"
+        strokeWidth={12}
+        fill="none"
+        style={{ cursor: 'context-menu' }}
+        data-dep-from={fromTask.id}
+        data-dep-to={toTask.id}
+      />
+    </g>
   );
 }

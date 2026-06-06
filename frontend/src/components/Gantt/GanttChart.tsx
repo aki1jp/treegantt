@@ -5,7 +5,7 @@ import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
-  addDays, buildMultiLevelHeaders, xToDateStr,
+  addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
@@ -49,6 +49,15 @@ interface DragPreview {
   startDate: string;
   endDate: string;
 }
+
+// ── リンクドラッグ状態（先行・後続タスク設定） ──────
+interface LinkDragState {
+  fromTaskId: string;
+  startSvgX: number; startSvgY: number;
+  currentX: number;  currentY: number;
+  targetTaskId: string | null;
+}
+interface DepCtxMenu { x: number; y: number; fromTaskId: string; toTaskId: string; }
 
 // ── クイック追加行 ──────────────────────────────────
 function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number; dateColWidth: number }) {
@@ -252,6 +261,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [titleHeaderCtxMenu, setTitleHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
+  // ── リンクドラッグ状態 ─────────────────────────────
+  const [linkDragState, setLinkDragState] = useState<LinkDragState | null>(null);
+  const linkDragStateRef = useRef<LinkDragState | null>(null);
+  useEffect(() => { linkDragStateRef.current = linkDragState; }, [linkDragState]);
+  const [hoveredBarId, setHoveredBarId] = useState<string | null>(null);
+  const [depCtxMenu, setDepCtxMenu] = useState<DepCtxMenu | null>(null);
+
   // ── 行 D&D（ソートなし時の並び替え） ─────────────────
   const wbsPanelRef  = useRef<HTMLDivElement>(null);
   const [rowDragId,    setRowDragId]    = useState<string | null>(null);
@@ -373,6 +389,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
   const workloadScrollRef = useRef<HTMLDivElement>(null);
 
+  // flatRows / taskById の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
+  const flatRowsRef  = useRef(flatRows);
+  const taskByIdRef  = useRef(taskById);
+  useEffect(() => { flatRowsRef.current  = flatRows;  }, [flatRows]);
+  useEffect(() => { taskByIdRef.current  = taskById;  }, [taskById]);
+
   // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
   const [hScrollbarH, setHScrollbarH] = useState(0);
   useEffect(() => {
@@ -404,6 +426,16 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     if (!svg) return;
     function handleContextMenu(e: MouseEvent) {
       e.preventDefault();
+      // 依存矢印の右クリック判定を先に行う
+      const depEl = (e.target as Element).closest('[data-dep-from]');
+      if (depEl) {
+        const fromId = depEl.getAttribute('data-dep-from')!;
+        const toId   = depEl.getAttribute('data-dep-to')!;
+        setDepCtxMenu({ x: e.clientX, y: e.clientY, fromTaskId: fromId, toTaskId: toId });
+        setBarCtxMenu(null);
+        setRowCtxMenu(null);
+        return;
+      }
       const el = (e.target as Element).closest('[data-task-id]');
       if (!el) return;
       const taskId = el.getAttribute('data-task-id');
@@ -420,6 +452,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
   }, [barCtxMenu, rowCtxMenu]);
+
+  useEffect(() => {
+    if (!depCtxMenu) return;
+    const close = () => setDepCtxMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [depCtxMenu]);
 
   useEffect(() => {
     if (!titleHeaderCtxMenu) return;
@@ -491,10 +530,16 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && dragStateRef.current) {
-        dragStateRef.current = null;
-        setDragState(null);
-        setDragPreview(null);
+      if (e.key === 'Escape') {
+        if (dragStateRef.current) {
+          dragStateRef.current = null;
+          setDragState(null);
+          setDragPreview(null);
+        }
+        if (linkDragStateRef.current) {
+          linkDragStateRef.current = null;
+          setLinkDragState(null);
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -504,6 +549,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
     if (e.button !== 0) return;
+    if (linkDragStateRef.current) return; // リンクドラッグ中は move/resize を無効化
     e.preventDefault();
     const task = taskById.get(taskId);
     if (!task?.startDate) return;
@@ -514,6 +560,58 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       origEnd: task.endDate ?? task.startDate,
     });
   }
+
+  function startLinkDrag(e: React.MouseEvent, taskId: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+    const svgRect = svgEl.getBoundingClientRect();
+    const svgX = e.clientX - svgRect.left;
+    const svgY = e.clientY - svgRect.top;
+    setLinkDragState({ fromTaskId: taskId, startSvgX: svgX, startSvgY: svgY, currentX: svgX, currentY: svgY, targetTaskId: null });
+  }
+
+  const handleLinkMouseMove = useCallback((e: MouseEvent) => {
+    if (!linkDragStateRef.current) return;
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+    const svgRect = svgEl.getBoundingClientRect();
+    const svgX = e.clientX - svgRect.left;
+    const svgY = e.clientY - svgRect.top;
+    const rowIdx = Math.floor(svgY / uiRowHeight);
+    const candidate = flatRowsRef.current[rowIdx];
+    const targetTaskId = (candidate && candidate.task.id !== linkDragStateRef.current.fromTaskId)
+      ? candidate.task.id
+      : null;
+    setLinkDragState(prev => prev ? { ...prev, currentX: svgX, currentY: svgY, targetTaskId } : null);
+  }, [uiRowHeight]);
+
+  const handleLinkMouseUp = useCallback(() => {
+    const ld = linkDragStateRef.current;
+    if (ld?.targetTaskId && ld.targetTaskId !== ld.fromTaskId) {
+      if (!wouldCreateDepCycle(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current)) {
+        const target = taskByIdRef.current.get(ld.targetTaskId);
+        if (target && !target.predecessors.includes(ld.fromTaskId)) {
+          onInlineUpdate(ld.targetTaskId, { predecessors: [...target.predecessors, ld.fromTaskId] });
+        }
+      }
+    }
+    setLinkDragState(null);
+    setHoveredBarId(null);
+  }, [onInlineUpdate]);
+
+  const isLinkDragging = linkDragState !== null;
+  useEffect(() => {
+    if (!isLinkDragging) return;
+    window.addEventListener('mousemove', handleLinkMouseMove);
+    window.addEventListener('mouseup', handleLinkMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleLinkMouseMove);
+      window.removeEventListener('mouseup', handleLinkMouseUp);
+    };
+  }, [isLinkDragging, handleLinkMouseMove, handleLinkMouseUp]);
 
   function startCreateDrag(e: React.MouseEvent, taskId: string) {
     if (e.button !== 0) return;
@@ -775,10 +873,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   dragPreview={preview}
                   rowHeight={uiRowHeight}
                   isParent={isParent}
+                  isLinkHovered={hoveredBarId === task.id && !isParent}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}
-                  onClick={() => !dragState && onEditTask(task)}
+                  onLinkStart={(e, id) => !isParent && startLinkDrag(e, id)}
+                  onBarHoverStart={(id) => !dragState && setHoveredBarId(id)}
+                  onBarHoverEnd={() => setHoveredBarId(null)}
+                  onClick={() => !dragState && !linkDragState && onEditTask(task)}
                 />
               );
             })}
@@ -802,6 +904,23 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                       zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight} />,
                   ];
                 })
+              );
+            })()}
+
+            {/* リンクドラッグ中のプレビュー破線 */}
+            {linkDragState && (() => {
+              const fromTask = taskById.get(linkDragState.fromTaskId);
+              if (!fromTask?.endDate) return null;
+              const { dayWidth: dw } = ZOOM_CONFIG[zoomLevel];
+              const x1 = dateToX(fromTask.endDate, min, zoomLevel) + dw + 6;
+              const y1 = (taskIndex.get(fromTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
+              return (
+                <line
+                  x1={x1} y1={y1}
+                  x2={linkDragState.currentX} y2={linkDragState.currentY}
+                  stroke="#378ADD" strokeWidth={2} strokeDasharray="5,3"
+                  pointerEvents="none"
+                />
               );
             })()}
 
@@ -886,6 +1005,30 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </ContextMenu>
         );
       })}
+
+      {/* 依存矢印右クリック: 依存を解除 */}
+      {depCtxMenu && (
+        <ContextMenu x={depCtxMenu.x} y={depCtxMenu.y}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => e.stopPropagation()}
+        >
+          <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--th-text-muted)' }}>依存関係</div>
+          <button
+            onClick={() => {
+              const target = taskById.get(depCtxMenu.toTaskId);
+              if (target) {
+                onInlineUpdate(depCtxMenu.toTaskId, { predecessors: target.predecessors.filter(p => p !== depCtxMenu.fromTaskId) });
+              }
+              setDepCtxMenu(null);
+            }}
+            style={{ ...MENU_BTN, color: '#ef4444' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+            onMouseLeave={onMenuLeave}
+          >
+            依存を解除
+          </button>
+        </ContextMenu>
+      )}
 
       {/* タイトル列ヘッダー右クリック: 全タスク色一括リセット */}
       {titleHeaderCtxMenu && (
