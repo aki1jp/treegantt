@@ -151,6 +151,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
+    wbsPanelOpen, wbsHiddenCols,
   } = useTaskStore();
 
   const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch);
@@ -164,10 +165,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   // フォントサイズに連動した日付列幅 (YYYY-MM-DD の10文字が収まる幅)
   const dateColWidth = 80 + (uiFontSize - 11) * 5; // 11px→80, 13px→90, 15px→100
 
-  const LEFT_TOTAL = LEFT_COLS.reduce((s, c) => {
-    if (c.key === 'startDate' || c.key === 'endDate') return s + dateColWidth;
-    return s + (colWidths[c.key as keyof typeof colWidths] ?? c.width);
-  }, 0);
+  const visibleLeftCols = LEFT_COLS.filter(c => !wbsHiddenCols.includes(c.key));
+  const LEFT_TOTAL = wbsPanelOpen
+    ? visibleLeftCols.reduce((s, c) => {
+        if (c.key === 'startDate' || c.key === 'endDate') return s + dateColWidth;
+        return s + (colWidths[c.key as keyof typeof colWidths] ?? c.width);
+      }, 0)
+    : 36;
 
   const handleColMouseMove = useCallback((e: MouseEvent) => {
     const cr = colResizeRef.current;
@@ -654,13 +658,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
         flexShrink: 0, width: LEFT_TOTAL, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
+        transition: 'width 0.15s ease',
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{
           flexShrink: 0, height: headerRows.length * HEADER_ROW_H + 2,
           display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
         }}>
-          {LEFT_COLS.map(col => {
+          {(wbsPanelOpen ? visibleLeftCols : LEFT_COLS.slice(0, 1)).map(col => {
             const w = (col.key === 'startDate' || col.key === 'endDate')
               ? dateColWidth
               : (colWidths[col.key as keyof typeof colWidths] ?? col.width);
@@ -759,6 +764,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     assigneeWidth={colWidths.assignee}
                     dateColWidth={dateColWidth}
                     isDragging={rowDragId !== null}
+                    hiddenCols={wbsHiddenCols}
+                    wbsPanelOpen={wbsPanelOpen}
                     onToggleCollapse={() => toggleCollapse(task.id)}
                     onInlineUpdate={onInlineUpdate}
                     onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}

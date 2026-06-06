@@ -18,6 +18,8 @@ export interface GanttLeftRowProps {
   assigneeWidth: number;
   dateColWidth: number;
   isDragging?: boolean;
+  hiddenCols?: string[];
+  wbsPanelOpen?: boolean;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onRowContextMenu: (x: number, y: number) => void;
@@ -27,6 +29,7 @@ export function GanttLeftRow({
   task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
+  hiddenCols = [], wbsPanelOpen = true,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -128,6 +131,8 @@ export function GanttLeftRow({
     background: 'var(--th-input-bg)', color: 'var(--th-text)',
   };
 
+  const show = (key: string) => wbsPanelOpen && !hiddenCols.includes(key);
+
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
   const rowBg = task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)');
@@ -149,7 +154,7 @@ export function GanttLeftRow({
       </div>
 
       {/* タイトル */}
-      <div style={{ ...CELL, width: titleWidth, paddingLeft: indent }}>
+      {wbsPanelOpen && <div style={{ ...CELL, width: titleWidth, paddingLeft: indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
             <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
@@ -184,10 +189,10 @@ export function GanttLeftRow({
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>
-      </div>
+      </div>}
 
       {/* ステータス */}
-      <div style={{ ...CELL, width: 66 }}>
+      {show('status') && <div style={{ ...CELL, width: 66 }}>
         {editField === 'status' ? (
           <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
             onChange={e => commit('status', e.target.value)}
@@ -204,10 +209,10 @@ export function GanttLeftRow({
             </span>
           </span>
         )}
-      </div>
+      </div>}
 
       {/* 優先度 */}
-      <div style={{ ...CELL, width: 56 }}>
+      {show('priority') && <div style={{ ...CELL, width: 56 }}>
         {editField === 'priority' ? (
           <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
             onChange={e => commit('priority', e.target.value)}
@@ -224,10 +229,10 @@ export function GanttLeftRow({
             </span>
           </span>
         )}
-      </div>
+      </div>}
 
       {/* 進捗 — 親タスクは自動計算・編集不可 */}
-      <div style={{ ...CELL, width: 76 }}>
+      {show('progress') && <div style={{ ...CELL, width: 76 }}>
         {!hasChildren && editField === 'progress' ? (
           <input ref={inputRef} style={{ ...INPUT_S, width: 52 }} type="number" min={0} max={100} value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -253,10 +258,10 @@ export function GanttLeftRow({
             </span>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 担当者 */}
-      <div style={{ ...CELL, width: assigneeWidth }}>
+      {show('assignee') && <div style={{ ...CELL, width: assigneeWidth }}>
         {editField === 'assignee' ? (
           <input ref={inputRef} style={INPUT_S} value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -269,10 +274,10 @@ export function GanttLeftRow({
             {task.assignee || '—'}
           </span>
         )}
-      </div>
+      </div>}
 
       {/* 開始日 */}
-      <div style={{ ...CELL, width: dateColWidth }}>
+      {show('startDate') && <div style={{ ...CELL, width: dateColWidth }}>
         {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             max={task.endDate || undefined}
@@ -291,10 +296,10 @@ export function GanttLeftRow({
             {task.startDate ?? '—'}
           </span>
         )}
-      </div>
+      </div>}
 
       {/* 終了日 */}
-      <div style={{ ...CELL, width: dateColWidth }}>
+      {show('endDate') && <div style={{ ...CELL, width: dateColWidth }}>
         {!hasChildren && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             min={task.startDate || undefined}
@@ -313,10 +318,10 @@ export function GanttLeftRow({
             {task.endDate ?? '—'}
           </span>
         )}
-      </div>
+      </div>}
 
       {/* 期間（日数） */}
-      <div style={{ ...CELL, width: 50 }}>
+      {show('duration') && <div style={{ ...CELL, width: 50 }}>
         {!hasChildren && editField === 'duration' ? (
           <input ref={inputRef}
             style={{ ...INPUT_S, width: 38 }} type="number" min={1} value={editVal}
@@ -339,7 +344,7 @@ export function GanttLeftRow({
             {duration !== null ? duration : '—'}
           </span>
         )}
-      </div>
+      </div>}
 
       {conflict && (
         <ConflictDialog

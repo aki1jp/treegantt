@@ -25,6 +25,8 @@ interface TaskStore {
   ganttHeaderLevels:  GanttHeaderLevels;
   theme:              ThemeMode;
   ganttBarOpen:       boolean;
+  wbsPanelOpen:       boolean;
+  wbsHiddenCols:      string[];
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
@@ -39,6 +41,8 @@ interface TaskStore {
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
   setTheme:               (theme: ThemeMode) => void;
   setGanttBarOpen:        (open: boolean) => void;
+  setWbsPanelOpen:        (open: boolean) => void;
+  setWbsHiddenCols:       (cols: string[]) => void;
   resetUi:                () => void;
 }
 
@@ -66,6 +70,8 @@ export const useTaskStore = create<TaskStore>()(
       filterSearch:      '',
       theme:             'auto' as ThemeMode,
       ganttBarOpen:      true,
+      wbsPanelOpen:      true,
+      wbsHiddenCols:     [] as string[],
       ...uiInitialState,
       setTasks:               (tasks) => set({ tasks }),
       setNeedsReload:         (needsReload) => set({ needsReload }),
@@ -83,6 +89,8 @@ export const useTaskStore = create<TaskStore>()(
       })),
       setTheme:               (theme) => set({ theme }),
       setGanttBarOpen:        (ganttBarOpen) => set({ ganttBarOpen }),
+      setWbsPanelOpen:        (wbsPanelOpen) => set({ wbsPanelOpen }),
+      setWbsHiddenCols:       (wbsHiddenCols) => set({ wbsHiddenCols }),
       resetUi:                () => set(uiInitialState),
     }),
     {
@@ -100,6 +108,8 @@ export const useTaskStore = create<TaskStore>()(
         uiRowHeight:       s.uiRowHeight,
         ganttHeaderLevels: s.ganttHeaderLevels,
         ganttBarOpen:      s.ganttBarOpen,
+        wbsPanelOpen:      s.wbsPanelOpen,
+        wbsHiddenCols:     s.wbsHiddenCols,
       }),
     },
   ),

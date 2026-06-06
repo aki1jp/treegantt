@@ -34,6 +34,16 @@ const DIVIDER: React.CSSProperties = {
   width: 1, height: 22, background: 'var(--th-border)', flexShrink: 0,
 };
 
+const HIDEABLE_COLS = [
+  { key: 'status',    label: 'ST'   },
+  { key: 'priority',  label: '優先' },
+  { key: 'progress',  label: '進捗' },
+  { key: 'assignee',  label: '担当' },
+  { key: 'startDate', label: '開始' },
+  { key: 'endDate',   label: '終了' },
+  { key: 'duration',  label: '日数' },
+] as const;
+
 const STATUS_OPTIONS: { value: TaskStatus | '' | '!done'; label: string }[] = [
   { value: '',      label: 'すべて'  },
   { value: 'todo',  label: 'TODO'   },
@@ -99,10 +109,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
-    ganttBarOpen,
+    ganttBarOpen, wbsPanelOpen, wbsHiddenCols,
     setZoomLevel, setFilter, setGanttRange, resetUi,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
-    setGanttBarOpen,
+    setGanttBarOpen, setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -215,6 +225,16 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             )}
           </div>
 
+          {/* WBS 折りたたみトグル */}
+          <button
+            aria-label={wbsPanelOpen ? 'WBSを隠す' : 'WBSを表示'}
+            title={wbsPanelOpen ? 'WBSを隠す' : 'WBSを表示'}
+            onClick={() => setWbsPanelOpen(!wbsPanelOpen)}
+            style={{ ...BTN, padding: '4px 8px', fontSize: 10 }}
+          >
+            {wbsPanelOpen ? '◁' : '▷'}
+          </button>
+
           {/* ∧/∨ 折りたたみトグル */}
           <button
             aria-label={ganttBarOpen ? 'ガント設定を閉じる' : 'ガント設定を開く'}
@@ -236,6 +256,28 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             padding: '6px 14px', borderTop: '1px solid var(--th-border)',
           }}
         >
+          {/* WBS列表示/非表示 */}
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>WBS列</span>
+            {HIDEABLE_COLS.map(col => (
+              <label key={col.key} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, cursor: 'pointer', userSelect: 'none', color: 'var(--th-text2)' }}>
+                <input
+                  type="checkbox"
+                  checked={!wbsHiddenCols.includes(col.key)}
+                  onChange={e => setWbsHiddenCols(
+                    e.target.checked
+                      ? wbsHiddenCols.filter(k => k !== col.key)
+                      : [...wbsHiddenCols, col.key]
+                  )}
+                  style={{ accentColor: '#4f46e5', cursor: 'pointer' }}
+                />
+                {col.label}
+              </label>
+            ))}
+          </div>
+
+          <div style={DIVIDER} />
+
           {/* フィルタ（インライン直列） */}
           <div style={FILTER_GROUP}>
             <span style={LABEL}>ステータス</span>
