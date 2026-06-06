@@ -168,7 +168,7 @@ export function GanttBar({
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
       />
-      {/* バー右端→コネクタドット間のブリッジ（ホバー途切れ防止） */}
+      {/* コネクタドット→バー右端間のブリッジ（ホバー途切れ防止） */}
       <rect x={x + width} y={y} width={12} height={barHeight} fill="transparent" />
       {/* コネクタドット（バー外側右端・ホバー時のみ表示） */}
       <circle

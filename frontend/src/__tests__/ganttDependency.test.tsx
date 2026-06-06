@@ -106,13 +106,13 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const taskB = makeTask({ id: 'tB', startDate: '2026-06-10', endDate: '2026-06-15' });
       const { container } = renderChart([taskA, taskB]);
 
-      const dot = getConnectorDots(container)[0];
-      expect(dot).toBeTruthy();
+      // tAのコネクタドット（row 0・右端）をドラッグ → tBの行（row 1）にドロップ → tAがtBの先行に
+      const dots = getConnectorDots(container);
+      const dotA = dots[0]; // tA (row 0)
+      expect(dotA).toBeTruthy();
 
-      // タスクAのコネクタドットをMouseDown
-      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
-      // タスクBの行（row 1: y=36~72）にMouseMove
-      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 });
+      fireEvent.mouseDown(dotA, { button: 0, clientX: 200, clientY: 18 }); // row 0
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (tB)
       fireEvent.mouseUp(window);
 
       expect(onInlineUpdate).toHaveBeenCalledWith('tB', { predecessors: ['tA'] });
@@ -122,8 +122,8 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const taskA = makeTask({ id: 'tA' });
       const { container } = renderChart([taskA]);
 
-      const dot = getConnectorDots(container)[0];
-      // row 0 の中心(y=18)に MouseMove → 同じタスクA
+      const dot = getConnectorDots(container)[0]; // tA の右端ドット (row 0)
+      // row 0 の中心(y=18)に MouseMove → 同じタスクA（自己参照）
       fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
       fireEvent.mouseMove(window, { clientX: 200, clientY: 18 });
       fireEvent.mouseUp(window);
@@ -137,7 +137,7 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const taskB = makeTask({ id: 'tB', predecessors: ['tA'] });
       const { container } = renderChart([taskA, taskB]);
 
-      // tBのコネクタドット（row 1）をtAの行（row 0）にドロップ → tB→tA は循環
+      // tBの右端ドット（row 1）をtAの行（row 0）にドロップ → tBがtAの先行になると循環
       const dots = getConnectorDots(container);
       // 2つのドット (taskA row 0, taskB row 1)
       const dotB = dots[1];

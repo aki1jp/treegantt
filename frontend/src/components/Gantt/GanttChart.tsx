@@ -591,6 +591,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const handleLinkMouseUp = useCallback(() => {
     const ld = linkDragStateRef.current;
     if (ld?.targetTaskId && ld.targetTaskId !== ld.fromTaskId) {
+      // fromTaskId = 先行タスク（右端ドットからドラッグ開始）、targetTaskId = 後続タスク（ドロップ先）
+      // 循環チェック: fromTask→targetTask が既存チェーンにあれば循環
       if (!wouldCreateDepCycle(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current)) {
         const target = taskByIdRef.current.get(ld.targetTaskId);
         if (target && !target.predecessors.includes(ld.fromTaskId)) {
@@ -907,12 +909,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               );
             })()}
 
-            {/* リンクドラッグ中のプレビュー破線 */}
+            {/* リンクドラッグ中のプレビュー破線（fromTask の右端 → マウス位置） */}
             {linkDragState && (() => {
               const fromTask = taskById.get(linkDragState.fromTaskId);
               if (!fromTask?.endDate) return null;
-              const { dayWidth: dw } = ZOOM_CONFIG[zoomLevel];
-              const x1 = dateToX(fromTask.endDate, min, zoomLevel) + dw + 6;
+              const x1 = dateToX(fromTask.endDate, min, zoomLevel) + dayWidth + 6;
               const y1 = (taskIndex.get(fromTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
               return (
                 <line
