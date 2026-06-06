@@ -187,8 +187,8 @@ describe('ProjectTabs — タスク件数バッジ', () => {
 
 // ── Plan C: プロジェクトカラー ────────────────────────────────
 describe('ProjectTabs — プロジェクトカラー', () => {
-  it('color があるとき色バーが data-color-bar 属性付きで描画される', () => {
-    const projects = [makeProject('p1', 'Red', '#ef4444')];
+  it('color があるとき非アクティブタブ背景にカラーが設定される', () => {
+    const projects = [makeProject('p1', 'Active'), makeProject('p2', 'Red', '#ef4444')];
     const { container } = render(
       <ProjectTabs
         projects={projects}
@@ -198,12 +198,14 @@ describe('ProjectTabs — プロジェクトカラー', () => {
         onRename={NOOP}
       />
     );
-    const bar = container.querySelector('[data-color-bar]');
-    expect(bar).not.toBeNull();
+    // 2番目のタブ（非アクティブ、color=#ef4444）
+    const tabWrapper = container.firstElementChild?.children[1] as HTMLElement | null;
+    // JSDOM は #ef4444 → rgb(239, 68, 68) に正規化する
+    expect(tabWrapper?.style.background).toMatch(/ef4444|rgb\(239,\s*68,\s*68\)/);
   });
 
-  it('color がないとき色バーが表示されない', () => {
-    const projects = [makeProject('p1', 'NoColor', null)];
+  it('color がないとき非アクティブタブ背景にカラーが含まれない', () => {
+    const projects = [makeProject('p1', 'Active'), makeProject('p2', 'NoColor', null)];
     const { container } = render(
       <ProjectTabs
         projects={projects}
@@ -213,7 +215,8 @@ describe('ProjectTabs — プロジェクトカラー', () => {
         onRename={NOOP}
       />
     );
-    expect(container.querySelector('[data-color-bar]')).toBeNull();
+    const tabWrapper = container.firstElementChild?.children[1] as HTMLElement | null;
+    expect(tabWrapper?.style.background ?? '').not.toContain('#');
   });
 
   it('右クリックメニューに「色を変更」が表示される', () => {

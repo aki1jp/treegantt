@@ -41,22 +41,21 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
               key={p.id}
               style={{
                 borderRadius: 4,
-                background: isActive
-                  ? 'rgba(255,255,255,0.15)'
-                  : isHover ? 'rgba(255,255,255,0.08)' : 'transparent',
+                background: p.color
+                  ? isActive
+                    ? `linear-gradient(rgba(255,255,255,0.2),rgba(255,255,255,0.2)),${p.color}`
+                    : isHover
+                      ? `linear-gradient(rgba(255,255,255,0.12),rgba(255,255,255,0.12)),${p.color}`
+                      : p.color
+                  : isActive
+                    ? 'rgba(255,255,255,0.15)'
+                    : isHover ? 'rgba(255,255,255,0.08)' : 'transparent',
                 borderBottom: isActive ? '2px solid #fff' : '2px solid transparent',
                 display: 'flex',
                 alignItems: 'center',
                 overflow: 'hidden',
               }}
             >
-              {/* カラーバー（Plan C） */}
-              {p.color && (
-                <div
-                  data-color-bar
-                  style={{ width: 4, alignSelf: 'stretch', background: p.color, flexShrink: 0 }}
-                />
-              )}
               <button
                 title={p.name}
                 onClick={() => onSelect(p)}
