@@ -63,9 +63,17 @@ function renderChart(tasks: Task[]) {
   );
 }
 
-// コネクタドットを探す (GanttBarの右端ドット: data-connector-dot 属性付き circle)
-function getConnectorDots(container: HTMLElement): SVGCircleElement[] {
-  return Array.from(container.querySelectorAll<SVGCircleElement>('circle[data-connector-dot]'));
+const ROW_H = 36;
+
+// SVG の onMouseMove でホバー行を設定（JSDOM では getBoundingClientRect が {top:0} を返すので clientY がそのまま svgY になる）
+function hoverRow(container: HTMLElement, rowIndex: number) {
+  const svg = container.querySelector('svg');
+  if (svg) fireEvent.mouseMove(svg, { clientY: rowIndex * ROW_H + Math.floor(ROW_H / 2) });
+}
+
+// ホバー後に出現するコネクタドット (data-connector-dot 属性付き circle)
+function getConnectorDot(container: HTMLElement): SVGCircleElement | null {
+  return container.querySelector<SVGCircleElement>('circle[data-connector-dot]');
 }
 
 // 依存矢印のヒットパスを探す (data-dep-from 属性を持つ path)
@@ -73,30 +81,22 @@ function getDepHitPaths(container: HTMLElement): SVGPathElement[] {
   return Array.from(container.querySelectorAll<SVGPathElement>('path[data-dep-from]'));
 }
 
-const ROW_H = 36;
-
 describe('ガントチャート — 先行・後続タスク設定', () => {
 
   describe('コネクタドット', () => {
-    it('通常バーにコネクタドットが描画される', () => {
+    it('通常バーをホバーするとコネクタドットが描画される', () => {
       const task = makeTask();
       const { container } = renderChart([task]);
-      const dots = getConnectorDots(container);
-      expect(dots.length).toBeGreaterThan(0);
+      expect(getConnectorDot(container)).toBeNull(); // ホバー前は存在しない
+      hoverRow(container, 0);
+      expect(getConnectorDot(container)).toBeTruthy(); // ホバー後に出現
     });
 
-    it('コネクタドットはデフォルトで opacity=0（非表示）', () => {
-      const task = makeTask();
-      const { container } = renderChart([task]);
-      const dot = getConnectorDots(container)[0];
-      expect(Number(dot.getAttribute('opacity'))).toBe(0);
-    });
-
-    it('マイルストーンにはコネクタドットが描画されない', () => {
+    it('マイルストーンをホバーしてもコネクタドットが描画されない', () => {
       const ms = makeTask({ isMilestone: true });
       const { container } = renderChart([ms]);
-      const dots = getConnectorDots(container);
-      expect(dots.length).toBe(0);
+      hoverRow(container, 0);
+      expect(getConnectorDot(container)).toBeNull();
     });
   });
 
@@ -106,12 +106,12 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const taskB = makeTask({ id: 'tB', startDate: '2026-06-10', endDate: '2026-06-15' });
       const { container } = renderChart([taskA, taskB]);
 
-      // tAのコネクタドット（row 0・右端）をドラッグ → tBの行（row 1）にドロップ → tAがtBの先行に
-      const dots = getConnectorDots(container);
-      const dotA = dots[0]; // tA (row 0)
-      expect(dotA).toBeTruthy();
+      // tAの行（row 0）をホバー → 右端コネクタドット出現 → ドラッグ → tBの行（row 1）にドロップ
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
+      expect(dot).toBeTruthy();
 
-      fireEvent.mouseDown(dotA, { button: 0, clientX: 200, clientY: 18 }); // row 0
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 }); // row 0
       fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (tB)
       fireEvent.mouseUp(window);
 
@@ -122,10 +122,10 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const taskA = makeTask({ id: 'tA' });
       const { container } = renderChart([taskA]);
 
-      const dot = getConnectorDots(container)[0]; // tA の右端ドット (row 0)
-      // row 0 の中心(y=18)に MouseMove → 同じタスクA（自己参照）
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
       fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
-      fireEvent.mouseMove(window, { clientX: 200, clientY: 18 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 18 }); // 同じ row 0（自己参照）
       fireEvent.mouseUp(window);
 
       expect(onInlineUpdate).not.toHaveBeenCalled();
@@ -138,9 +138,8 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const { container } = renderChart([taskA, taskB]);
 
       // tBの右端ドット（row 1）をtAの行（row 0）にドロップ → tBがtAの先行になると循環
-      const dots = getConnectorDots(container);
-      // 2つのドット (taskA row 0, taskB row 1)
-      const dotB = dots[1];
+      hoverRow(container, 1);
+      const dotB = getConnectorDot(container)!;
       expect(dotB).toBeTruthy();
 
       fireEvent.mouseDown(dotB, { button: 0, clientX: 200, clientY: 50 });
@@ -155,10 +154,10 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const taskB = makeTask({ id: 'tB' });
       const { container } = renderChart([taskA, taskB]);
 
-      const dot = getConnectorDots(container)[0];
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
       fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
       fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (taskB)
-      // ESCでキャンセル
       fireEvent.keyDown(window, { key: 'Escape' });
       fireEvent.mouseUp(window);
 
@@ -184,7 +183,6 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       const { container, getByText } = renderChart([taskA, taskB]);
 
       const hitPath = getDepHitPaths(container)[0];
-      // dep path に直接 contextmenu を発火 → バブリングで SVG のネイティブリスナーが受け取る
       fireEvent.contextMenu(hitPath, { clientX: 100, clientY: 50 });
 
       expect(getByText('依存を解除')).toBeTruthy();

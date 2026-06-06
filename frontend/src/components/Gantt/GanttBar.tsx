@@ -11,13 +11,9 @@ interface Props {
   isParent?: boolean;
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
-  isLinkHovered?: boolean;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
-  onLinkStart: (e: React.MouseEvent, taskId: string) => void;
-  onBarHoverStart?: (taskId: string) => void;
-  onBarHoverEnd?: () => void;
   onClick: () => void;
 }
 
@@ -27,9 +23,7 @@ const HANDLE_W = 6;
 
 export function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, isParent = false, dragPreview, rowHeight = ROW_HEIGHT_PX,
-  isLinkHovered = false,
-  onMoveStart, onResizeLeftStart, onResizeRightStart, onLinkStart,
-  onBarHoverStart, onBarHoverEnd,
+  onMoveStart, onResizeLeftStart, onResizeRightStart,
   onClick,
 }: Props) {
   const effectiveStart = dragPreview?.startDate ?? task.startDate;
@@ -42,7 +36,6 @@ export function GanttBar({
   const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done' && task.status !== 'pending';
   const centerY = rowIndex * rowHeight + rowHeight / 2;
   const barHeight = rowHeight - 12;
-  // バー高さに比例したフォントサイズ（行高さを大きくすると文字も大きくなる）
   const barFontSize = Math.max(11, Math.min(15, Math.round(barHeight * 0.58)));
 
   // ── マイルストーン描画 ──────────────────────────────
@@ -120,9 +113,7 @@ export function GanttBar({
   }
 
   return (
-    <g data-task-id={task.id}
-      onMouseEnter={() => onBarHoverStart?.(task.id)}
-      onMouseLeave={() => onBarHoverEnd?.()}>
+    <g data-task-id={task.id}>
       {/* バー背景 */}
       <rect
         x={x} y={y} width={width} height={barHeight} rx={3}
@@ -167,22 +158,6 @@ export function GanttBar({
         fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
         style={{ cursor: 'ew-resize' }}
         onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
-      />
-      {/* コネクタドット→バー右端間のブリッジ（ホバー途切れ防止） */}
-      <rect x={x + width} y={y} width={12} height={barHeight} fill="transparent" />
-      {/* コネクタドット（バー外側右端・ホバー時のみ表示） */}
-      <circle
-        data-connector-dot
-        cx={x + width + 6} cy={centerY} r={6}
-        fill="#378ADD" stroke="white" strokeWidth={1.5}
-        opacity={isLinkHovered ? 1 : 0}
-        pointerEvents={isLinkHovered ? 'all' : 'none'}
-        style={{ cursor: 'crosshair' }}
-        onMouseDown={e => {
-          if (e.button !== 0) return;
-          e.stopPropagation();
-          onLinkStart(e, task.id);
-        }}
       />
     </g>
   );

@@ -825,7 +825,16 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           </div>
 
           {/* ガント SVG */}
-          <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block' }}>
+          <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block' }}
+            onMouseMove={e => {
+              if (dragState || linkDragState) return;
+              const svgRect = svgRef.current?.getBoundingClientRect();
+              if (!svgRect) return;
+              const rowIdx = Math.floor((e.clientY - svgRect.top) / uiRowHeight);
+              setHoveredBarId(flatRows[rowIdx]?.task.id ?? null);
+            }}
+            onMouseLeave={() => setHoveredBarId(null)}
+          >
             <defs>
               <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
                 <path d="M0,0 L6,3 L0,6 Z" fill="#378ADD" />
@@ -875,13 +884,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   dragPreview={preview}
                   rowHeight={uiRowHeight}
                   isParent={isParent}
-                  isLinkHovered={hoveredBarId === task.id && !isParent && !linkDragState}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}
-                  onLinkStart={(e, id) => !isParent && startLinkDrag(e, id)}
-                  onBarHoverStart={(id) => !dragState && setHoveredBarId(id)}
-                  onBarHoverEnd={() => setHoveredBarId(null)}
                   onClick={() => !dragState && !linkDragState && onEditTask(task)}
                 />
               );
@@ -906,6 +911,23 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                       zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight} />,
                   ];
                 })
+              );
+            })()}
+
+            {/* ホバー中バーの右端コネクタドット（リンクドラッグ開始点） */}
+            {hoveredBarId && !linkDragState && (() => {
+              const hTask = taskById.get(hoveredBarId);
+              if (!hTask || hTask.isMilestone || (childCount.get(hoveredBarId) ?? 0) > 0 || !hTask.endDate) return null;
+              const cx = dateToX(hTask.endDate, min, zoomLevel) + dayWidth + 6;
+              const cy = (taskIndex.get(hTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
+              return (
+                <circle
+                  data-connector-dot
+                  cx={cx} cy={cy} r={6}
+                  fill="#378ADD" stroke="white" strokeWidth={1.5}
+                  style={{ cursor: 'crosshair' }}
+                  onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); startLinkDrag(e, hoveredBarId); }}
+                />
               );
             })()}
 
