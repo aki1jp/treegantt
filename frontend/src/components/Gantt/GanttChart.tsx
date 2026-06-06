@@ -53,6 +53,7 @@ interface DragState {
   startClientX: number;
   origStart: string;
   origEnd: string;
+  anchorRelX?: number;  // create ドラッグ用：クリック時の絶対 relX
 }
 interface DragPreview {
   taskId: string;
@@ -510,14 +511,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       newStart = addDays(dragState.origStart, delta);
       if (newStart > newEnd) newStart = newEnd;
     } else if (dragState.type === 'create') {
-      if (delta === 0) return;
-      if (delta > 0) {
-        newStart = dragState.origStart;
-        newEnd   = addDays(dragState.origStart, delta - 1);
-      } else {
-        newStart = addDays(dragState.origStart, delta + 1);
-        newEnd   = dragState.origStart;
-      }
+      const cursorRelX = Math.max(0, (dragState.anchorRelX ?? 0) + (e.clientX - dragState.startClientX));
+      const currentDate = xToDateStr(cursorRelX, min, dayWidth);
+      newStart = currentDate <= dragState.origStart ? currentDate : dragState.origStart;
+      newEnd   = currentDate >= dragState.origStart ? currentDate : dragState.origStart;
     }
 
     setDragPreview({ taskId: dragState.taskId, startDate: newStart, endDate: newEnd });
@@ -647,7 +644,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     if (!panelRect) return;
     const relX = e.clientX - panelRect.left + scrollLeft;
     const anchorDate = xToDateStr(relX, min, dayWidth);
-    setDragState({ taskId, type: 'create', startClientX: e.clientX, origStart: anchorDate, origEnd: anchorDate });
+    setDragState({ taskId, type: 'create', startClientX: e.clientX, anchorRelX: relX, origStart: anchorDate, origEnd: anchorDate });
   }
 
   function toggleCollapse(id: string) {
