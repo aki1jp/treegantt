@@ -872,6 +872,28 @@ describe('Import/Export API', () => {
     expect(t.endDate).toBe('2026-06-30');
   });
 
+  it('pending ステータスがインポート後も保持される', async () => {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { tasks: [{ title: '保留タスク', status: 'pending' }] },
+    });
+    expect(res.json().imported).toBe(1);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    expect(list.json().tasks[0].status).toBe('pending');
+  });
+
+  it('pending ステータスがリストア後も保持される', async () => {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { mode: 'restore', tasks: [{ title: '保留リストア', status: 'pending' }] },
+    });
+    expect(res.json().imported).toBe(1);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    expect(list.json().tasks[0].status).toBe('pending');
+  });
+
   it('不正なstatus値はtodoにフォールバックされる', async () => {
     const res = await app.inject({
       method: 'POST', url: `/api/v1/projects/${projectId}/import`,

@@ -14,7 +14,7 @@ function escapeCsv(val: string): string {
   return val;
 }
 
-const VALID_STATUSES   = new Set(['todo', 'wip', 'done', 'wait']);
+const VALID_STATUSES   = new Set(['todo', 'wip', 'done', 'wait', 'pending']);
 const VALID_PRIORITIES = new Set(['critical', 'high', 'medium', 'low']);
 
 function toStatus(v: unknown): string {
