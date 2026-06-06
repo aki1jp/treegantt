@@ -123,9 +123,10 @@ export function GanttBar({
               {task.title}
             </text>
           );
+          const textFill = (task.progress > 0 && progressWidth > legW + 2) ? '#fff' : barColor;
           return (<>
             <text x={x + legW + 2} y={textY}
-              fontSize={barFontSize - 1} fill={barColor} fontWeight={700}
+              fontSize={barFontSize - 1} fill={textFill} fontWeight={700}
               clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
               {task.title}
             </text>
@@ -166,8 +167,9 @@ export function GanttBar({
             {task.title}
           </text>
         );
+        const textFill = (task.progress > 0 && progressWidth > HANDLE_W + 2) ? '#fff' : color;
         return (<>
-          <text x={x + HANDLE_W + 2} y={textY} fontSize={barFontSize} fill={color} fontWeight={600}
+          <text x={x + HANDLE_W + 2} y={textY} fontSize={barFontSize} fill={textFill} fontWeight={600}
             clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
             {task.title}
           </text>

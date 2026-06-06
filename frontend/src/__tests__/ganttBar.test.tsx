@@ -138,3 +138,75 @@ describe('GanttBar タイトル表示位置切り替え（親タスク）', () =
     expect(titleText).toBeFalsy();
   });
 });
+
+// ── v2.29: テキスト自動コントラスト反転 ──────────────────────────────────
+// zoom="month" で dayWidth=3。width≈90px（30日タスク）
+// todo カラー = '#6b7280'
+// progressWidth = width * progress / 100
+
+function renderBarProgress(isParent: boolean, endDate: string, progress: number) {
+  const task = { ...BASE_TASK, endDate, progress };
+  return render(
+    <svg>
+      <GanttBar
+        task={task} minDate={MIN} zoom="month" rowIndex={0}
+        isParent={isParent}
+        onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+      />
+    </svg>
+  );
+}
+
+describe('GanttBar テキスト自動コントラスト反転（非親タスク）', () => {
+  it('progress=0 のとき inside テキストの fill はステータスカラー（白でない）', () => {
+    const { container } = renderBarProgress(false, '2026-05-31', 0);
+    const texts = container.querySelectorAll('text');
+    const insideText = Array.from(texts).find(t =>
+      t.textContent === 'テストタスク' && t.getAttribute('clip-path')
+    );
+    expect(insideText).toBeTruthy();
+    expect(insideText!.getAttribute('fill')).not.toBe('#fff');
+  });
+
+  it('progress=50 かつ progressWidth > HANDLE_W+2 のとき inside テキストの fill は #fff', () => {
+    const { container } = renderBarProgress(false, '2026-05-31', 50);
+    const texts = container.querySelectorAll('text');
+    const insideText = Array.from(texts).find(t =>
+      t.textContent === 'テストタスク' && t.getAttribute('clip-path')
+    );
+    expect(insideText).toBeTruthy();
+    expect(insideText!.getAttribute('fill')).toBe('#fff');
+  });
+
+  it('outside テキストは progress=100 でも fill はステータスカラー', () => {
+    const { container } = renderBarProgress(false, '2026-05-05', 100);
+    const texts = container.querySelectorAll('text');
+    const outsideText = Array.from(texts).find(t =>
+      t.textContent === 'テストタスク' && !t.getAttribute('clip-path')
+    );
+    expect(outsideText).toBeTruthy();
+    expect(outsideText!.getAttribute('fill')).not.toBe('#fff');
+  });
+});
+
+describe('GanttBar テキスト自動コントラスト反転（親タスク）', () => {
+  it('progress=0 のとき inside テキストの fill はステータスカラー（白でない）', () => {
+    const { container } = renderBarProgress(true, '2026-05-31', 0);
+    const texts = container.querySelectorAll('text');
+    const insideText = Array.from(texts).find(t =>
+      t.textContent === 'テストタスク' && t.getAttribute('clip-path')
+    );
+    expect(insideText).toBeTruthy();
+    expect(insideText!.getAttribute('fill')).not.toBe('#fff');
+  });
+
+  it('progress=50 かつ progressWidth > legW+2 のとき inside テキストの fill は #fff', () => {
+    const { container } = renderBarProgress(true, '2026-05-31', 50);
+    const texts = container.querySelectorAll('text');
+    const insideText = Array.from(texts).find(t =>
+      t.textContent === 'テストタスク' && t.getAttribute('clip-path')
+    );
+    expect(insideText).toBeTruthy();
+    expect(insideText!.getAttribute('fill')).toBe('#fff');
+  });
+});
