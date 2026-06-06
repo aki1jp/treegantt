@@ -32,6 +32,16 @@ const LEFT_COLS = [
   { key: 'duration',  label: '日数',     width: 50  },
 ] as const;
 
+const HIDEABLE_COLS = [
+  { key: 'status',    label: 'ステータス' },
+  { key: 'priority',  label: '優先度'    },
+  { key: 'progress',  label: '進捗率'    },
+  { key: 'assignee',  label: '担当者'    },
+  { key: 'startDate', label: '開始日'    },
+  { key: 'endDate',   label: '終了日'    },
+  { key: 'duration',  label: '日数'      },
+] as const;
+
 const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
@@ -152,7 +162,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
     wbsPanelOpen, wbsHiddenCols,
-    setWbsPanelOpen,
+    setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
   const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch);
@@ -272,6 +282,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   useEffect(() => { linkDragStateRef.current = linkDragState; }, [linkDragState]);
   const [hoveredBarId, setHoveredBarId] = useState<string | null>(null);
   const [depCtxMenu, setDepCtxMenu] = useState<DepCtxMenu | null>(null);
+  const [wbsColMenuPos, setWbsColMenuPos] = useState<{ x: number; y: number } | null>(null);
 
   // ── 行 D&D（ソートなし時の並び替え） ─────────────────
   const wbsPanelRef  = useRef<HTMLDivElement>(null);
@@ -471,6 +482,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
   }, [titleHeaderCtxMenu]);
+
+  useEffect(() => {
+    if (!wbsColMenuPos) return;
+    const close = () => setWbsColMenuPos(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [wbsColMenuPos]);
 
   useEffect(() => { dragPreviewRef.current = dragPreview; }, [dragPreview]);
   useEffect(() => { dragStateRef.current  = dragState;   }, [dragState]);
@@ -734,22 +752,40 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             );
           })}
 
-          {/* WBS 開いているとき: 右端に ◁ 閉じるボタン（絶対配置・上下全体） */}
+          {/* WBS 開いているとき: 右端に列設定・閉じるボタン群（絶対配置・上下全体） */}
           {wbsPanelOpen && (
-            <button
-              title="WBSを隠す"
-              onClick={() => setWbsPanelOpen(false)}
-              style={{
-                position: 'absolute', right: 0, top: 0, bottom: 0,
-                border: 'none', background: 'none', cursor: 'pointer',
-                fontSize: 12, color: 'var(--th-text-dim)', padding: '0 6px',
-                borderRadius: 0, lineHeight: 1, display: 'flex', alignItems: 'center',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
-            >
-              ◁
-            </button>
+            <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex' }}>
+              <button
+                title="WBS列の表示設定"
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setWbsColMenuPos(wbsColMenuPos ? null : { x: r.left, y: r.bottom + 2 });
+                }}
+                style={{
+                  border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 11, color: 'var(--th-text-dim)', padding: '0 6px',
+                  borderRadius: 0, lineHeight: 1, display: 'flex', alignItems: 'center',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
+              >
+                列
+              </button>
+              <button
+                title="WBSを隠す"
+                onClick={() => setWbsPanelOpen(false)}
+                style={{
+                  border: 'none', background: 'none', cursor: 'pointer',
+                  fontSize: 12, color: 'var(--th-text-dim)', padding: '0 6px',
+                  borderRadius: 0, lineHeight: 1, display: 'flex', alignItems: 'center',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
+              >
+                ◁
+              </button>
+            </div>
           )}
         </div>
 
@@ -1147,6 +1183,36 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             全タスクの色をリセット
           </button>
         </ContextMenu>
+      )}
+
+      {/* WBS列表示設定ポップアップ */}
+      {wbsColMenuPos && (
+        <div
+          onMouseDown={e => e.stopPropagation()}
+          style={{
+            position: 'fixed', left: wbsColMenuPos.x, top: wbsColMenuPos.y,
+            background: 'var(--th-bg)', border: '1px solid var(--th-border)',
+            borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            padding: '8px 12px', zIndex: 9999,
+            display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12,
+          }}
+        >
+          {HIDEABLE_COLS.map(col => (
+            <label key={col.key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', color: 'var(--th-text2)' }}>
+              <input
+                type="checkbox"
+                checked={!wbsHiddenCols.includes(col.key)}
+                onChange={e => setWbsHiddenCols(
+                  e.target.checked
+                    ? wbsHiddenCols.filter(k => k !== col.key)
+                    : [...wbsHiddenCols, col.key]
+                )}
+                style={{ accentColor: '#4f46e5', cursor: 'pointer' }}
+              />
+              {col.label}
+            </label>
+          ))}
+        </div>
       )}
     </div>{/* メインエリア終了 */}
 
