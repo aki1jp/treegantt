@@ -20,6 +20,18 @@ interface Props {
 
 const TODAY = todayStr();
 const HANDLE_W = 6;
+const MIN_BAR_FOR_TEXT = 12; // px未満はテキスト非表示
+
+function titleTextMode(
+  barWidth: number,
+  availableInner: number,
+  titleLen: number,
+  fontSize: number,
+): 'inside' | 'outside' | 'none' {
+  if (barWidth < MIN_BAR_FOR_TEXT) return 'none';
+  const estimated = titleLen * fontSize * 0.6;
+  return availableInner >= estimated + 4 ? 'inside' : 'outside';
+}
 
 export function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, isParent = false, dragPreview, rowHeight = ROW_HEIGHT_PX,
@@ -100,14 +112,28 @@ export function GanttBar({
           fill={barColor + 'cc'} style={{ pointerEvents: 'none' }}
         />
         {/* タイトル */}
-        <text x={x + legW + 2} y={textY}
-          fontSize={barFontSize - 1} fill={barColor} fontWeight={700}
-          clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
-          {task.title}
-        </text>
-        <clipPath id={`clip-${task.id}`}>
-          <rect x={x + legW} y={y} width={Math.max(width - legW * 2, 0)} height={topH} />
-        </clipPath>
+        {(() => {
+          const availInner = Math.max(width - legW * 2, 0);
+          const mode = titleTextMode(width, availInner, task.title.length, barFontSize - 1);
+          if (mode === 'none') return null;
+          if (mode === 'outside') return (
+            <text x={x + width + 4} y={textY}
+              fontSize={barFontSize - 1} fill={barColor} fontWeight={700}
+              style={{ pointerEvents: 'none' }}>
+              {task.title}
+            </text>
+          );
+          return (<>
+            <text x={x + legW + 2} y={textY}
+              fontSize={barFontSize - 1} fill={barColor} fontWeight={700}
+              clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
+              {task.title}
+            </text>
+            <clipPath id={`clip-${task.id}`}>
+              <rect x={x + legW} y={y} width={availInner} height={topH} />
+            </clipPath>
+          </>);
+        })()}
       </g>
     );
   }
@@ -129,13 +155,27 @@ export function GanttBar({
           fill={color + 'aa'} style={{ pointerEvents: 'none' }} />
       )}
       {/* タイトル */}
-      <text x={x + HANDLE_W + 2} y={y + barHeight / 2 + 4} fontSize={barFontSize} fill={color} fontWeight={600}
-        clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
-        {task.title}
-      </text>
-      <clipPath id={`clip-${task.id}`}>
-        <rect x={x + HANDLE_W} y={y} width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight} />
-      </clipPath>
+      {(() => {
+        const textY = y + barHeight / 2 + 4;
+        const availInner = Math.max(width - HANDLE_W * 2, 0);
+        const mode = titleTextMode(width, availInner, task.title.length, barFontSize);
+        if (mode === 'none') return null;
+        if (mode === 'outside') return (
+          <text x={x + width + 4} y={textY} fontSize={barFontSize} fill={color} fontWeight={600}
+            style={{ pointerEvents: 'none' }}>
+            {task.title}
+          </text>
+        );
+        return (<>
+          <text x={x + HANDLE_W + 2} y={textY} fontSize={barFontSize} fill={color} fontWeight={600}
+            clipPath={`url(#clip-${task.id})`} style={{ pointerEvents: 'none' }}>
+            {task.title}
+          </text>
+          <clipPath id={`clip-${task.id}`}>
+            <rect x={x + HANDLE_W} y={y} width={availInner} height={barHeight} />
+          </clipPath>
+        </>);
+      })()}
 
       {/* 移動ゾーン（中央） */}
       <rect
