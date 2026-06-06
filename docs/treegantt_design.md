@@ -43,6 +43,7 @@
 | 2.17 | 2026年6月 | ステータスに `pending`（保留）を追加。①イナズマラインではペンディングタスクをスキップ（点を追加しない）②フィルタの「DONE以外」を「DONE/保留以外」に変更（`status !== 'done' && status !== 'pending'`）③期限超過判定からペンディングを除外④DB migration 005 で CHECK 制約を更新。 |
 | 2.18 | 2026年6月 | タスク行の文字色・背景色カスタマイズ機能を追加。①Task に `titleColor`・`titleBgColor` フィールドを追加（DB migration 006）②タスク右クリックメニューに色パレット（文字色・背景色）を追加。✕スウォッチで個別リセット③「タイトル」列ヘッダー右クリックで全タスクの色を一括リセット④左パネル文字色・左右パネル行背景色に反映。 |
 | 2.19 | 2026年6月 | 日付未設定タスクのガント行ドラッグ時に開始日が1日前になるバグを修正。`GanttChart.tsx:startCreateDrag` 内で `new Date(...).toISOString()` を使用していたため UTC 基準の日付が返され、JST 等のタイムゾーン環境で1日ずれが発生していた。`ganttCalc.ts` に `xToDateStr(relX, minDate, dayWidth)` を追加し、コードベース全体の方針（dayjs でブラウザローカル時間を使用）に統一。 |
+| 2.20 | 2026年6月 | プロジェクトタブの視認性改善。①スタイル強化：アクティブタブを下線インジケーター＋薄背景＋bold に変更、非アクティブタブにホバー効果追加、長い名前を ellipsis truncate ②タスク件数バッジ：各タブに件数を表示（`GET /projects/:id/tasks` の `total` を全プロジェクト分並列取得）③プロジェクトカラー：`projects` テーブルに `color` カラムを追加（migration 007）、右クリックメニューからプリセット6色を選択可能、タブ左端に色バーを表示。 |
 
 ---
 
@@ -368,7 +369,8 @@ ALTER TABLE tasks ADD COLUMN is_milestone INTEGER NOT NULL DEFAULT 0;
 |---------|------|------|
 | GET | `/health` | ヘルスチェック（Docker healthcheck用） |
 | GET | `/projects` | プロジェクト一覧取得 |
-| POST | `/projects` | プロジェクト作成 |
+| POST | `/projects` | プロジェクト作成（`name`, `color?`） |
+| PATCH | `/projects/:id` | プロジェクト更新（`name?`, `color?`） |
 | DELETE | `/projects/:id` | プロジェクト削除（タスク含むCASCADE） |
 | GET | `/projects/:id/tasks` | タスク一覧取得（deps含む）※フィルタ対応 |
 | POST | `/projects/:id/tasks` | タスク作成 |
