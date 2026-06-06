@@ -1,5 +1,8 @@
 import dayjs from 'dayjs';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
 import type { ZoomLevel, Task } from '../types/task';
+
+dayjs.extend(weekOfYear);
 
 /**
  * 'YYYY-MM-DD' 文字列をブラウザのローカル午前0時の Date に変換する。
@@ -284,7 +287,7 @@ export function buildMultiLevelHeaders(
       const next = cur.add(1, 'week');
       const x = Math.max(0, toX(cur));
       const thu = cur.add(3, 'day'); // 木曜日でどの月の週かを決定（ISO基準）
-      const label = `${thu.month() + 1}月${Math.ceil(thu.date() / 7)}W`;
+      const label = `${thu.month() + 1}月${Math.ceil(thu.date() / 7)}W(${cur.week()}W)`;
       cells.push({ label, x, width: toX(next.isBefore(end) ? next : end) - x });
       cur = next;
     }
