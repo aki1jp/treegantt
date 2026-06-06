@@ -373,6 +373,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
   const workloadScrollRef = useRef<HTMLDivElement>(null);
 
+  // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
+  const [hScrollbarH, setHScrollbarH] = useState(0);
+  useEffect(() => {
+    const el = ganttPanelRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => setHScrollbarH(el.offsetHeight - el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     if (wbsBodyRef.current) wbsBodyRef.current.scrollTop = e.currentTarget.scrollTop;
     if (workloadScrollRef.current) workloadScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
@@ -656,6 +668,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             });
           })()}
           <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
+          {/* 横スクロールバー分の高さを補完してガントとのスクロール同期ズレを防止 */}
+          <div style={{ height: hScrollbarH, flexShrink: 0 }} />
         </div>
       </div>
 
@@ -730,6 +744,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 />
               );
             })}
+
+            {/* QuickAddRow に対応する背景（WBSとの視覚的整合） */}
+            <rect
+              x={0}
+              y={flatRows.length * uiRowHeight}
+              width={totalWidth}
+              height={uiRowHeight}
+              style={{ fill: 'var(--th-bg2)' }}
+            />
 
             {/* 土日背景 */}
             {weekendXs.map((x, i) => (
