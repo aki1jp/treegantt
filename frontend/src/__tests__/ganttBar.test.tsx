@@ -144,13 +144,14 @@ describe('GanttBar タイトル表示位置切り替え（親タスク）', () =
 // todo カラー = '#6b7280'
 // progressWidth = width * progress / 100
 
-function renderBarProgress(isParent: boolean, endDate: string, progress: number) {
+function renderBarProgress(isParent: boolean, endDate: string, progress: number, effectiveProgress?: number) {
   const task = { ...BASE_TASK, endDate, progress };
   return render(
     <svg>
       <GanttBar
         task={task} minDate={MIN} zoom="month" rowIndex={0}
         isParent={isParent}
+        effectiveProgress={effectiveProgress}
         onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
       />
     </svg>
@@ -208,5 +209,36 @@ describe('GanttBar テキスト自動コントラスト反転（親タスク）'
     );
     expect(insideText).toBeTruthy();
     expect(insideText!.getAttribute('fill')).toBe('#fff');
+  });
+});
+
+// ── v2.30: 親タスクの進捗バーを effectiveProgress で描画 ────────────────────
+// task.progress=0 でも effectiveProgress が大きければ進捗バーが描画され、
+// テキスト反転も effectiveProgress に基づいて動く
+
+describe('GanttBar 親タスク effectiveProgress（v2.30）', () => {
+  it('task.progress=0 でも effectiveProgress=80 なら進捗バー rect が描画される', () => {
+    const { container } = renderBarProgress(true, '2026-05-31', 0, 80);
+    const rects = Array.from(container.querySelectorAll('rect'));
+    // 進捗オーバーレイ（barColor 100% 不透明、pointerEvents:none）が存在する
+    const progressRect = rects.find(r => (r as HTMLElement).style.pointerEvents === 'none');
+    expect(progressRect).toBeTruthy();
+  });
+
+  it('task.progress=0 でも effectiveProgress=80 のとき inside テキストの fill は #fff', () => {
+    const { container } = renderBarProgress(true, '2026-05-31', 0, 80);
+    const texts = container.querySelectorAll('text');
+    const insideText = Array.from(texts).find(t =>
+      t.textContent === 'テストタスク' && t.getAttribute('clip-path')
+    );
+    expect(insideText).toBeTruthy();
+    expect(insideText!.getAttribute('fill')).toBe('#fff');
+  });
+
+  it('effectiveProgress が未指定のとき task.progress にフォールバックする（progress=0→バーなし）', () => {
+    const { container } = renderBarProgress(true, '2026-05-31', 0);
+    const rects = Array.from(container.querySelectorAll('rect'));
+    const progressRect = rects.find(r => (r as HTMLElement).style.pointerEvents === 'none');
+    expect(progressRect).toBeFalsy();
   });
 });

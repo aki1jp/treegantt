@@ -9,6 +9,7 @@ interface Props {
   rowIndex: number;
   isCritical?: boolean;
   isParent?: boolean;
+  effectiveProgress?: number;
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
@@ -34,7 +35,7 @@ function titleTextMode(
 }
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, isParent = false, dragPreview, rowHeight = ROW_HEIGHT_PX,
+  task, minDate, zoom, rowIndex, isCritical, isParent = false, effectiveProgress, dragPreview, rowHeight = ROW_HEIGHT_PX,
   onMoveStart, onResizeLeftStart, onResizeRightStart,
   onClick,
 }: Props) {
@@ -90,6 +91,8 @@ export function GanttBar({
     const legW = topH + 2;
     const barColor = isCritical ? '#6366f1' : color;
     const textY = y + Math.round(topH * 0.55 + (barFontSize - 1) * 0.35);
+    const displayProgress = effectiveProgress ?? task.progress;
+    const parentProgressWidth = Math.round(width * displayProgress / 100);
 
     return (
       <g data-task-id={task.id} onClick={onClick} style={{ cursor: 'pointer' }}>
@@ -97,8 +100,8 @@ export function GanttBar({
         <rect x={x} y={y} width={width} height={topH} rx={2}
           fill={barColor + 'cc'} stroke={barColor} strokeWidth={1} />
         {/* 進捗オーバーレイ */}
-        {task.progress > 0 && (
-          <rect x={x} y={y} width={progressWidth} height={topH} rx={2}
+        {displayProgress > 0 && (
+          <rect x={x} y={y} width={parentProgressWidth} height={topH} rx={2}
             fill={barColor} style={{ pointerEvents: 'none' }} />
         )}
         {/* 左下向き三角（左辺垂直・右辺斜め） */}
@@ -123,7 +126,7 @@ export function GanttBar({
               {task.title}
             </text>
           );
-          const textFill = (task.progress > 0 && progressWidth > legW + 2) ? '#fff' : barColor;
+          const textFill = (displayProgress > 0 && parentProgressWidth > legW + 2) ? '#fff' : barColor;
           return (<>
             <text x={x + legW + 2} y={textY}
               fontSize={barFontSize - 1} fill={textFill} fontWeight={700}
