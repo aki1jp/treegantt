@@ -132,14 +132,11 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
                     onClick={() => { onUpdateColor(tabMenu.project, null); setTabMenu(null); }}
                     style={{
                       width: 18, height: 18, borderRadius: '50%',
-                      border: '1px solid rgba(255,255,255,0.3)',
-                      background: 'transparent', cursor: 'pointer', padding: 0,
-                      color: 'rgba(255,255,255,0.6)', fontSize: 10, lineHeight: 1,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: '1px solid #9ca3af',
+                      background: 'linear-gradient(to top right, #fff 43%, #9ca3af 43%, #9ca3af 57%, #fff 57%)',
+                      cursor: 'pointer', padding: 0, flexShrink: 0,
                     }}
-                  >
-                    ✕
-                  </button>
+                  />
                 </div>
               </div>
             </>
