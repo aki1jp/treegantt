@@ -410,11 +410,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
   const workloadScrollRef = useRef<HTMLDivElement>(null);
 
-  // flatRows / taskById の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
-  const flatRowsRef  = useRef(flatRows);
-  const taskByIdRef  = useRef(taskById);
-  useEffect(() => { flatRowsRef.current  = flatRows;  }, [flatRows]);
-  useEffect(() => { taskByIdRef.current  = taskById;  }, [taskById]);
+  // flatRows / taskById / childCount の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
+  const flatRowsRef   = useRef(flatRows);
+  const taskByIdRef   = useRef(taskById);
+  const childCountRef = useRef(childCount);
+  useEffect(() => { flatRowsRef.current   = flatRows;   }, [flatRows]);
+  useEffect(() => { taskByIdRef.current   = taskById;   }, [taskById]);
+  useEffect(() => { childCountRef.current = childCount; }, [childCount]);
 
   // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
   const [hScrollbarH, setHScrollbarH] = useState(0);
@@ -606,9 +608,23 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const svgY = e.clientY - svgRect.top;
     const rowIdx = Math.floor(svgY / uiRowHeight);
     const candidate = flatRowsRef.current[rowIdx];
-    const targetTaskId = (candidate && candidate.task.id !== linkDragStateRef.current.fromTaskId)
-      ? candidate.task.id
-      : null;
+    const fromId = linkDragStateRef.current.fromTaskId;
+    let targetTaskId: string | null = null;
+    if (candidate && candidate.task.id !== fromId) {
+      const tgt = candidate.task;
+      const tbr = taskByIdRef.current;
+      const isParent = (childCountRef.current.get(tgt.id) ?? 0) > 0;
+      if (
+        !tgt.isMilestone &&
+        !isParent &&
+        tgt.startDate &&
+        !tgt.predecessors.includes(fromId) &&
+        !isAncestorOrDescendant(fromId, tgt.id, tbr) &&
+        !wouldCreateDepCycle(fromId, tgt.id, tbr)
+      ) {
+        targetTaskId = tgt.id;
+      }
+    }
     setLinkDragState(prev => prev ? { ...prev, currentX: svgX, currentY: svgY, targetTaskId } : null);
   }, [uiRowHeight]);
 
@@ -1029,7 +1045,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               if (!tgt?.startDate) return null;
               const cx = dateToX(tgt.startDate, min, zoomLevel) - 6;
               const cy = (taskIndex.get(tgt.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
-              return <circle cx={cx} cy={cy} r={6} fill="#378ADD" stroke="white" strokeWidth={1.5} pointerEvents="none" />;
+              return <circle data-link-target-dot cx={cx} cy={cy} r={6} fill="#378ADD" stroke="white" strokeWidth={1.5} pointerEvents="none" />;
             })()}
 
             {/* リンクドラッグ中のプレビュー破線（fromTask の右端 → マウス位置） */}

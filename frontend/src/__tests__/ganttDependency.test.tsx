@@ -81,6 +81,11 @@ function getDepHitPaths(container: HTMLElement): SVGPathElement[] {
   return Array.from(container.querySelectorAll<SVGPathElement>('path[data-dep-from]'));
 }
 
+// リンクドラッグ中のターゲットドット (data-link-target-dot 属性付き circle)
+function getLinkTargetDot(container: HTMLElement): SVGCircleElement | null {
+  return container.querySelector<SVGCircleElement>('circle[data-link-target-dot]');
+}
+
 describe('ガントチャート — 先行・後続タスク設定', () => {
 
   describe('コネクタドット', () => {
@@ -192,6 +197,59 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       // → 親タスクにはコネクタドットが表示されない（isParent=true のため）
       hoverRow(container, 0);
       expect(getConnectorDot(container)).toBeNull();
+    });
+  });
+
+  describe('ドラッグ中の無効ターゲットドット非表示（v2.34）', () => {
+    it('有効なターゲット行にドラッグするとターゲットドットが表示される', () => {
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20' });
+      const { container } = renderChart([taskA, taskB]);
+
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (tB) — 有効
+      expect(getLinkTargetDot(container)).toBeTruthy();
+    });
+
+    it('親子関係のタスクへドラッグしてもターゲットドットが表示されない', () => {
+      const taskP = makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-06-20' });
+      const taskC = makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const { container } = renderChart([taskP, taskC]);
+
+      // tC（row 1）からドラッグ → tP（row 0）は親 → ターゲットドット出ない
+      hoverRow(container, 1);
+      const dot = getConnectorDot(container)!;
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 50 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 18 }); // row 0 (tP)
+      expect(getLinkTargetDot(container)).toBeNull();
+    });
+
+    it('循環依存になるタスクへドラッグしてもターゲットドットが表示されない', () => {
+      // tA → tB の依存がある。tB の右端から tA へドラッグすると循環
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20', predecessors: ['tA'] });
+      const { container } = renderChart([taskA, taskB]);
+
+      hoverRow(container, 1);
+      const dot = getConnectorDot(container)!;
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 50 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 18 }); // row 0 (tA) — 循環
+      expect(getLinkTargetDot(container)).toBeNull();
+    });
+
+    it('既に先行タスクとして登録済みのタスクへドラッグしてもターゲットドットが表示されない', () => {
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20', predecessors: ['tA'] });
+      const { container } = renderChart([taskA, taskB]);
+
+      // tA（row 0）から tB（row 1）へ — 既に tA が tB の先行なので重複
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (tB) — 既接続
+      expect(getLinkTargetDot(container)).toBeNull();
     });
   });
 
