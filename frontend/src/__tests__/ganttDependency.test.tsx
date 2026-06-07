@@ -41,6 +41,7 @@ beforeEach(() => {
     uiFontSize: 13, uiRowHeight: 36,
     ganttHeaderLevels: { year: false, month: false, week: false, day: false },
     theme: 'auto', ganttBarOpen: true,
+    depArrowStyle: 'bezier',
   });
 });
 
@@ -360,6 +361,41 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
 
       fireEvent.click(getByText('依存を解除'));
       expect(onInlineUpdate).toHaveBeenCalledWith('tB', { predecessors: [] });
+    });
+  });
+
+  describe('依存矢印スタイル（v2.36）', () => {
+    const makeDepTasks = () => ({
+      taskA: makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' }),
+      taskB: makeTask({ id: 'tB', startDate: '2026-06-17', endDate: '2026-06-20', predecessors: ['tA'] }),
+    });
+
+    it('bezier スタイルのとき矢印パスの d 属性に C コマンドが含まれる', () => {
+      useTaskStore.setState({ depArrowStyle: 'bezier' });
+      const { taskA, taskB } = makeDepTasks();
+      const { container } = renderChart([taskA, taskB]);
+      const paths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(paths.length).toBeGreaterThan(0);
+      expect(paths[0].getAttribute('d')).toContain('C');
+    });
+
+    it('elbow スタイルのとき矢印パスの d 属性に C コマンドが含まれない', () => {
+      useTaskStore.setState({ depArrowStyle: 'elbow' });
+      const { taskA, taskB } = makeDepTasks();
+      const { container } = renderChart([taskA, taskB]);
+      const paths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(paths.length).toBeGreaterThan(0);
+      expect(paths[0].getAttribute('d')).not.toContain('C');
+    });
+
+    it('straight スタイルのとき矢印パスの d 属性が M...L...形式', () => {
+      useTaskStore.setState({ depArrowStyle: 'straight' });
+      const { taskA, taskB } = makeDepTasks();
+      const { container } = renderChart([taskA, taskB]);
+      const paths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(paths.length).toBeGreaterThan(0);
+      const d = paths[0].getAttribute('d')!;
+      expect(d).toMatch(/^M[\d.,]+ L[\d.,]+$/);
     });
   });
 });

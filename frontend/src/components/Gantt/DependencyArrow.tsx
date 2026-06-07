@@ -1,5 +1,6 @@
 import type { Task, ZoomLevel } from '../../types/task';
 import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG } from '../../utils/ganttCalc';
+import type { DepArrowStyle } from '../../utils/ganttCalc';
 
 interface Props {
   fromTask: Task;
@@ -9,9 +10,27 @@ interface Props {
   taskIndex: Map<string, number>;
   rowHeight?: number;
   isCritical?: boolean;
+  style?: DepArrowStyle;
 }
 
-export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX, isCritical = false }: Props) {
+function buildPath(x1: number, y1: number, x2: number, y2: number, style: DepArrowStyle): string {
+  if (style === 'straight') {
+    return `M${x1},${y1} L${x2},${y2}`;
+  }
+  if (style === 'elbow') {
+    const OFFSET = 16;
+    if (x2 >= x1) {
+      const midX = (x1 + x2) / 2;
+      return `M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}`;
+    } else {
+      const midY = (y1 + y2) / 2;
+      return `M${x1},${y1} L${x1 + OFFSET},${y1} L${x1 + OFFSET},${midY} L${x2 - OFFSET},${midY} L${x2 - OFFSET},${y2} L${x2},${y2}`;
+    }
+  }
+  return `M${x1},${y1} C${x1 + 30},${y1} ${x2 - 30},${y2} ${x2},${y2}`;
+}
+
+export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX, isCritical = false, style = 'bezier' }: Props) {
   if (!fromTask.endDate || !toTask.startDate) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
@@ -24,10 +43,7 @@ export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, ro
   const x2 = dateToX(toTask.startDate, minDate, zoom);
   const y2 = toRow * rowHeight + rowHeight / 2;
 
-  const cx1 = x1 + 30;
-  const cx2 = x2 - 30;
-
-  const d = `M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`;
+  const d = buildPath(x1, y1, x2, y2, style);
 
   const stroke      = isCritical ? '#6366f1' : '#378ADD';
   const strokeWidth = isCritical ? 2.5 : 1.5;

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Task, TaskStatus, ZoomLevel } from '../types/task';
-import type { GanttPeriod } from '../utils/ganttCalc';
+import type { GanttPeriod, DepArrowStyle } from '../utils/ganttCalc';
 import type { ThemeMode } from '../utils/theme';
 
 export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; day: boolean };
@@ -27,6 +27,7 @@ interface TaskStore {
   ganttBarOpen:       boolean;
   wbsPanelOpen:       boolean;
   wbsHiddenCols:      string[];
+  depArrowStyle:      DepArrowStyle;
   setTasks:               (tasks: Task[]) => void;
   setNeedsReload:         (v: boolean) => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
@@ -43,6 +44,7 @@ interface TaskStore {
   setGanttBarOpen:        (open: boolean) => void;
   setWbsPanelOpen:        (open: boolean) => void;
   setWbsHiddenCols:       (cols: string[]) => void;
+  setDepArrowStyle:       (s: DepArrowStyle) => void;
   resetUi:                () => void;
 }
 
@@ -57,6 +59,7 @@ const uiInitialState = {
   uiFontSize:        13,
   uiRowHeight:       36,
   ganttHeaderLevels: { year: false, month: true, week: false, day: true } as GanttHeaderLevels,
+  depArrowStyle:     'bezier' as DepArrowStyle,
 };
 
 export const useTaskStore = create<TaskStore>()(
@@ -91,6 +94,7 @@ export const useTaskStore = create<TaskStore>()(
       setGanttBarOpen:        (ganttBarOpen) => set({ ganttBarOpen }),
       setWbsPanelOpen:        (wbsPanelOpen) => set({ wbsPanelOpen }),
       setWbsHiddenCols:       (wbsHiddenCols) => set({ wbsHiddenCols }),
+      setDepArrowStyle:       (depArrowStyle) => set({ depArrowStyle }),
       resetUi:                () => set(uiInitialState),
     }),
     {
@@ -110,6 +114,7 @@ export const useTaskStore = create<TaskStore>()(
         ganttBarOpen:      s.ganttBarOpen,
         wbsPanelOpen:      s.wbsPanelOpen,
         wbsHiddenCols:     s.wbsHiddenCols,
+        depArrowStyle:     s.depArrowStyle,
       }),
     },
   ),

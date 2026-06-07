@@ -14,6 +14,7 @@ function parseDateStr(str: string): Date {
 }
 
 export type GanttPeriod = '2w' | '1m' | '3m' | '6m';
+export type DepArrowStyle = 'bezier' | 'elbow' | 'straight';
 
 export const PERIOD_DAYS: Record<GanttPeriod, number> = {
   '2w': 14, '1m': 30, '3m': 91, '6m': 183,

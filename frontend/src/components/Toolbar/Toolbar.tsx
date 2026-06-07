@@ -100,11 +100,11 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange, resetUi,
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
-    setGanttBarOpen,
+    setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -404,6 +404,30 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 矢印スタイル */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+            padding: '3px 8px', border: '1px solid var(--th-border)', borderRadius: 6, background: 'var(--th-bg2)' }}>
+            <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>矢印</span>
+            {(['bezier', 'elbow', 'straight'] as const).map((s, i) => (
+              <button
+                key={s}
+                title={['ベジエ曲線', '直角折れ線', '直線'][i]}
+                onClick={() => setDepArrowStyle(s)}
+                style={{
+                  ...BTN,
+                  padding: '2px 7px',
+                  fontSize: 11,
+                  background: depArrowStyle === s ? '#4f46e5' : 'var(--th-bg)',
+                  color: depArrowStyle === s ? '#fff' : 'var(--th-text-muted)',
+                  border: `1px solid ${depArrowStyle === s ? '#4f46e5' : 'var(--th-input-border)'}`,
+                  fontWeight: depArrowStyle === s ? 700 : 400,
+                }}
+              >
+                {['曲線', '直角', '直線'][i]}
+              </button>
+            ))}
           </div>
 
           <div style={{ marginLeft: 'auto', flexShrink: 0 }}>

@@ -161,7 +161,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
@@ -1012,7 +1012,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     <DependencyArrow key={key}
                       fromTask={fromTask} toTask={toTask} minDate={min}
                       zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
-                      isCritical={criticalSet.has(fromId) && criticalSet.has(toId)} />,
+                      isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
+                      style={depArrowStyle} />,
                   ];
                 })
               );
