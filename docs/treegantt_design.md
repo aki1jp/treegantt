@@ -59,7 +59,7 @@
 | 2.33 | 2026年6月 | 依存関係の接続可否バリデーション強化。**禁止ルール整理**：①自己参照（既実装）②依存グラフのループ（ドラッグ・ツー・リンクは既実装、TaskModal は未対応→今回対応）③祖先↔子孫間の依存（既未実装→今回対応）。`ganttCalc.ts` に `isAncestorOf` / `isAncestorOrDescendant` を追加。ドラッグ・ツー・リンクで祖先-子孫チェックを追加。TaskModal で先行タスク候補から祖先・子孫・循環するタスクを除外、親タスク候補から自分の子孫を除外。 |
 | 2.34 | 2026年6月 | ドラッグ・ツー・リンク中、接続不可なタスクにターゲットドットを表示しない。`handleLinkMouseMove` で候補タスクのバリデーション（マイルストーン・親タスク・日付なし・祖先子孫・循環・既接続）を行い、無効な場合は `targetTaskId=null` に設定。`childCountRef` を追加してコールバック内から安定アクセス。テスト用に target dot に `data-link-target-dot` 属性を付与。 |
 | 2.35 | 2026年6月 | v2.33/v2.34 で「親タスクかどうか（isParent）」を禁止条件にしていたため親タスク↔無関係タスク間の依存が張れなかったバグを修正。正しい禁止ルールは「祖先-子孫関係にあるかどうか（isAncestorOrDescendant）」のみ。コネクタドット表示条件と `handleLinkMouseMove` ターゲット検証から `isParent` チェックを削除。`childCountRef` も不要になり削除。 |
-| 2.36 | 2026年6月 | 依存矢印スタイルを 3 種類から選択可能に。`DepArrowStyle = 'bezier' \| 'elbow' \| 'straight'` 型を `ganttCalc.ts` に追加。`taskStore` に `depArrowStyle` 設定を追加しlocalStorage 永続化。`DependencyArrow` に `style` prop を追加し `buildPath` 関数でパスを切り替え（elbow は x2 の位置に応じて折れ方を切り替え）。ツールバーに曲線/直角/直線の 3 ボタンを追加。 |
+| 2.36 | 2026年6月 | 依存矢印スタイルを 3 種類から選択可能に。`DepArrowStyle = 'bezier' \| 'elbow' \| 'straight'` 型を `ganttCalc.ts` に追加。`taskStore` に `depArrowStyle` 設定を追加しlocalStorage 永続化。`DependencyArrow` に `style` prop を追加し `buildPath` 関数でパスを切り替え（elbow: 横距離が `OFFSET*2` 以上なら L 字形、未満なら S 字形迂回。`x2 ≈ x1` の真下矢印もS字になる）。ツールバーに曲線/直角/直線の 3 ボタンを追加。 |
 
 ---
 
