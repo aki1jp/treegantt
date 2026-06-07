@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.30 |
+| バージョン | 2.31 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -54,6 +54,7 @@
 | 2.28 | 2026年6月 | ガントバー create ドラッグのズレ修正。delta（相対移動量）ベースの式を廃止し、カーソルの絶対 relX から `xToDateStr` で直接日付を取得する方式に変更。左ドラッグ時に常に1日遅れていたバグを解消し、カーソルが現在いるセルを常に正確にスパンに含む。1日タスクはアンカーセル内にとどまるドラッグで作成可能。`DragState` に `anchorRelX` フィールドを追加。 |
 | 2.29 | 2026年6月 | ガントバーのテキスト自動コントラスト反転。進捗バーがテキスト開始位置を超えた場合にテキスト色を白（`#fff`）へ自動切り替え。通常バー・親タスク（サマリーバー）の inside テキストに適用。outside テキスト（バー右外）は変更なし。 |
 | 2.30 | 2026年6月 | 親タスク（サマリーバー）の進捗バーを `effectiveProgress`（子孫タスクの進捗平均）で描画するよう変更。従来は DB 生値 `task.progress` を使用していたため、子タスクが進んでも親バーに反映されなかった。`GanttBar` に `effectiveProgress?: number` prop を追加し、`isParent=true` 時は `effectiveProgress ?? task.progress` を使用。`GanttChart` から `progressMap.get(task.id)` を渡す。テキスト自動コントラスト反転（v2.29）もこの値を使用するため一貫性が保たれる。 |
+| 2.31 | 2026年6月 | クリティカルパスの視覚強調。①ガントバー：クリティカルバーの背景 rect に SVG `feDropShadow` フィルター（インジゴ色グロー、stdDeviation=3）を適用。②依存関係矢印：クリティカルな接続（両端タスクが criticalSet に含まれる）を太線インジゴ（`#6366f1`、2.5px）＋グローフィルターで描画。専用矢印ヘッドマーカー `arrowhead-critical` を追加。`DependencyArrow` に `isCritical?: boolean` prop を追加し、`GanttChart` から `criticalSet.has(fromId) && criticalSet.has(toId)` で判定して渡す。 |
 
 ---
 
