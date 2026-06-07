@@ -388,6 +388,30 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       expect(paths[0].getAttribute('d')).not.toContain('C');
     });
 
+    it('elbow スタイルで横距離が小さい（真下）とき S 字形（5折れ線）になる', () => {
+      // tA ends 06-15, tB starts 06-16 → week zoom で x2-x1=0（真下に近い）
+      useTaskStore.setState({ depArrowStyle: 'elbow' });
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20', predecessors: ['tA'] });
+      const { container } = renderChart([taskA, taskB]);
+      const paths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(paths.length).toBeGreaterThan(0);
+      const lCount = (paths[0].getAttribute('d')!.match(/L/g) ?? []).length;
+      expect(lCount).toBe(5); // S字形は5本の L セグメント
+    });
+
+    it('elbow スタイルで横距離が十分あるとき L 字形（3折れ線）になる', () => {
+      // tA ends 06-15 (x1=120), tB starts 08-01 (x2=488 @ week zoom) → 十分な横距離
+      useTaskStore.setState({ depArrowStyle: 'elbow' });
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-08-01', endDate: '2026-08-10', predecessors: ['tA'] });
+      const { container } = renderChart([taskA, taskB]);
+      const paths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(paths.length).toBeGreaterThan(0);
+      const lCount = (paths[0].getAttribute('d')!.match(/L/g) ?? []).length;
+      expect(lCount).toBe(3); // L字形は3本の L セグメント
+    });
+
     it('straight スタイルのとき矢印パスの d 属性が M...L...形式', () => {
       useTaskStore.setState({ depArrowStyle: 'straight' });
       const { taskA, taskB } = makeDepTasks();

@@ -19,10 +19,12 @@ function buildPath(x1: number, y1: number, x2: number, y2: number, style: DepArr
   }
   if (style === 'elbow') {
     const OFFSET = 16;
-    if (x2 >= x1) {
+    if (x2 - x1 >= OFFSET * 2) {
+      // 横距離が十分ある場合: 中点で折り返す L 字形
       const midX = (x1 + x2) / 2;
       return `M${x1},${y1} L${midX},${y1} L${midX},${y2} L${x2},${y2}`;
     } else {
+      // 横距離が小さい・同位置・逆方向の場合: OFFSET で迂回する S 字形
       const midY = (y1 + y2) / 2;
       return `M${x1},${y1} L${x1 + OFFSET},${y1} L${x1 + OFFSET},${midY} L${x2 - OFFSET},${midY} L${x2 - OFFSET},${y2} L${x2},${y2}`;
     }
