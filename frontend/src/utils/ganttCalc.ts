@@ -316,3 +316,21 @@ export function getUniqueAssignees(tasks: Task[]): string[] {
   return [...new Set(tasks.map(t => t.assignee).filter(Boolean))].sort();
 }
 
+export function buildCollapsedCriticalParents(
+  sorted: Task[],
+  criticalSet: Set<string>,
+  collapsed: Set<string>,
+): Set<string> {
+  if (criticalSet.size === 0 || collapsed.size === 0) return new Set();
+  const memo = new Map<string, boolean>();
+  const hasCritical = (id: string): boolean => {
+    if (memo.has(id)) return memo.get(id)!;
+    const res = criticalSet.has(id) ||
+      sorted.filter(t => t.parentId === id).some(c => hasCritical(c.id));
+    memo.set(id, res);
+    return res;
+  };
+  sorted.forEach(t => hasCritical(t.id));
+  return new Set(Array.from(collapsed).filter(id => memo.get(id)));
+}
+

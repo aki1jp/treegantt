@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -469,5 +469,54 @@ describe('getUniqueAssignees', () => {
   it('全員担当者なしのとき空配列を返す', () => {
     const tasks = [makeTask('t1', ''), makeTask('t2', '')];
     expect(getUniqueAssignees(tasks)).toEqual([]);
+  });
+});
+
+// ── v2.32: buildCollapsedCriticalParents ────────────────────────────────────
+describe('buildCollapsedCriticalParents', () => {
+  function makeTask(id: string, parentId: string | null = null): Task {
+    return {
+      id, projectId: 'p1', parentId,
+      title: id, summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: '2026-06-10', endDate: '2026-06-20',
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+    };
+  }
+
+  it('criticalSet が空のとき空を返す', () => {
+    const sorted = [makeTask('P'), makeTask('C', 'P')];
+    expect(buildCollapsedCriticalParents(sorted, new Set(), new Set(['P']))).toEqual(new Set());
+  });
+
+  it('collapsed が空のとき空を返す', () => {
+    const sorted = [makeTask('P'), makeTask('C', 'P')];
+    expect(buildCollapsedCriticalParents(sorted, new Set(['C']), new Set())).toEqual(new Set());
+  });
+
+  it('折りたたまれた親の直接子がクリティカル → 親が含まれる', () => {
+    const sorted = [makeTask('P'), makeTask('C', 'P')];
+    const result = buildCollapsedCriticalParents(sorted, new Set(['C']), new Set(['P']));
+    expect(result.has('P')).toBe(true);
+  });
+
+  it('折りたたまれた親の孫（2階層）がクリティカル → 親が含まれる', () => {
+    const sorted = [makeTask('GP'), makeTask('P', 'GP'), makeTask('C', 'P')];
+    const result = buildCollapsedCriticalParents(sorted, new Set(['C']), new Set(['GP']));
+    expect(result.has('GP')).toBe(true);
+  });
+
+  it('クリティカルな子孫がいない折りたたまれた親 → 含まれない', () => {
+    const sorted = [makeTask('P'), makeTask('C', 'P')];
+    const result = buildCollapsedCriticalParents(sorted, new Set(['OTHER']), new Set(['P']));
+    expect(result.has('P')).toBe(false);
+  });
+
+  it('折りたたまれていない親はクリティカルな子があっても含まれない', () => {
+    const sorted = [makeTask('P'), makeTask('C', 'P')];
+    // collapsed に P を含めない
+    const result = buildCollapsedCriticalParents(sorted, new Set(['C']), new Set());
+    expect(result.has('P')).toBe(false);
   });
 });

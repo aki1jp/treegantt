@@ -4,7 +4,7 @@ import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcLightningPoints,
-  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath,
+  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents,
   addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
@@ -268,6 +268,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   // クリティカルパス
   const criticalSet = showCriticalPath ? calcCriticalPath(sorted) : new Set<string>();
+  const collapsedCriticalParents = showCriticalPath
+    ? buildCollapsedCriticalParents(sorted, criticalSet, collapsed)
+    : new Set<string>();
 
   // ── ドラッグ状態（バー移動・リサイズ） ──────────────
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -964,7 +967,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   minDate={min}
                   zoom={zoomLevel}
                   rowIndex={i}
-                  isCritical={criticalSet.has(task.id)}
+                  isCritical={criticalSet.has(task.id) || collapsedCriticalParents.has(task.id)}
                   dragPreview={preview}
                   rowHeight={uiRowHeight}
                   isParent={isParent}
