@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.31 |
+| バージョン | 2.32 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -55,6 +55,7 @@
 | 2.29 | 2026年6月 | ガントバーのテキスト自動コントラスト反転。進捗バーがテキスト開始位置を超えた場合にテキスト色を白（`#fff`）へ自動切り替え。通常バー・親タスク（サマリーバー）の inside テキストに適用。outside テキスト（バー右外）は変更なし。 |
 | 2.30 | 2026年6月 | 親タスク（サマリーバー）の進捗バーを `effectiveProgress`（子孫タスクの進捗平均）で描画するよう変更。従来は DB 生値 `task.progress` を使用していたため、子タスクが進んでも親バーに反映されなかった。`GanttBar` に `effectiveProgress?: number` prop を追加し、`isParent=true` 時は `effectiveProgress ?? task.progress` を使用。`GanttChart` から `progressMap.get(task.id)` を渡す。テキスト自動コントラスト反転（v2.29）もこの値を使用するため一貫性が保たれる。 |
 | 2.31 | 2026年6月 | クリティカルパスの視覚強調。①ガントバー：クリティカルバーの背景 rect に SVG `feDropShadow` フィルター（インジゴ色グロー、stdDeviation=3）を適用。②依存関係矢印：クリティカルな接続（両端タスクが criticalSet に含まれる）を太線インジゴ（`#6366f1`、2.5px）＋グローフィルターで描画。専用矢印ヘッドマーカー `arrowhead-critical` を追加。`DependencyArrow` に `isCritical?: boolean` prop を追加し、`GanttChart` から `criticalSet.has(fromId) && criticalSet.has(toId)` で判定して渡す。 |
+| 2.32 | 2026年6月 | 折りたたまれた親タスクへのクリティカルパス強調伝播。ツリーが閉じられている場合も、配下にクリティカルなタスクが隠れていれば親バーをクリティカルスタイルで表示する。`ganttCalc.ts` に `buildCollapsedCriticalParents(sorted, criticalSet, collapsed)` を追加（メモ化 DFS、O(n)）。`GanttChart` で計算した結果を `isCritical={criticalSet.has(id) \|\| collapsedCriticalParents.has(id)}` として `GanttBar` に渡す。 |
 
 ---
 
