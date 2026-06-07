@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -518,5 +518,77 @@ describe('buildCollapsedCriticalParents', () => {
     // collapsed に P を含めない
     const result = buildCollapsedCriticalParents(sorted, new Set(['C']), new Set());
     expect(result.has('P')).toBe(false);
+  });
+});
+
+// ── v2.33: isAncestorOf / isAncestorOrDescendant ────────────────────────────
+describe('isAncestorOf', () => {
+  function makeTask(id: string, parentId: string | null = null): Task {
+    return {
+      id, projectId: 'p1', parentId,
+      title: id, summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: null, endDate: null,
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+    };
+  }
+
+  // GP → P → C のツリーを用意
+  const tasks = [makeTask('GP'), makeTask('P', 'GP'), makeTask('C', 'P'), makeTask('S', 'GP')];
+  const taskById = new Map(tasks.map(t => [t.id, t]));
+
+  it('直接の親 GP は C の祖先ではなく P の祖先', () => {
+    expect(isAncestorOf('GP', 'P', taskById)).toBe(true);
+  });
+
+  it('祖父 GP は C の祖先', () => {
+    expect(isAncestorOf('GP', 'C', taskById)).toBe(true);
+  });
+
+  it('子 P は GP の祖先でない（逆方向）', () => {
+    expect(isAncestorOf('P', 'GP', taskById)).toBe(false);
+  });
+
+  it('兄弟 S は C の祖先でない', () => {
+    expect(isAncestorOf('S', 'C', taskById)).toBe(false);
+  });
+
+  it('自己参照は false', () => {
+    expect(isAncestorOf('P', 'P', taskById)).toBe(false);
+  });
+});
+
+describe('isAncestorOrDescendant', () => {
+  function makeTask(id: string, parentId: string | null = null): Task {
+    return {
+      id, projectId: 'p1', parentId,
+      title: id, summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: null, endDate: null,
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+    };
+  }
+
+  const tasks = [makeTask('GP'), makeTask('P', 'GP'), makeTask('C', 'P'), makeTask('S', 'GP')];
+  const taskById = new Map(tasks.map(t => [t.id, t]));
+
+  it('親子（GP↔P）は true', () => {
+    expect(isAncestorOrDescendant('GP', 'P', taskById)).toBe(true);
+    expect(isAncestorOrDescendant('P', 'GP', taskById)).toBe(true);
+  });
+
+  it('祖父孫（GP↔C）は true', () => {
+    expect(isAncestorOrDescendant('GP', 'C', taskById)).toBe(true);
+    expect(isAncestorOrDescendant('C', 'GP', taskById)).toBe(true);
+  });
+
+  it('兄弟（P↔S）は false', () => {
+    expect(isAncestorOrDescendant('P', 'S', taskById)).toBe(false);
+  });
+
+  it('甥と叔父（C↔S）は false', () => {
+    expect(isAncestorOrDescendant('C', 'S', taskById)).toBe(false);
   });
 });

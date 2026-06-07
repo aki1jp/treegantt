@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
-import { getUniqueAssignees } from '../../utils/ganttCalc';
+import { getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
 
 interface Props {
   task: Task | null;
@@ -69,7 +69,18 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
   }, [task]);
 
   const selectableTasks = allTasks.filter(t => t.id !== task?.id);
-  const parentCandidates = selectableTasks.filter(t => !t.isMilestone);
+  const taskById = new Map(allTasks.map(t => [t.id, t]));
+  const predecessorCandidates = task
+    ? allTasks.filter(t =>
+        t.id !== task.id &&
+        !isAncestorOrDescendant(t.id, task.id, taskById) &&
+        !wouldCreateDepCycle(t.id, task.id, taskById)
+      )
+    : allTasks;
+  const parentCandidates = selectableTasks.filter(t =>
+    !t.isMilestone &&
+    !(task && isAncestorOf(task.id, t.id, taskById))
+  );
   const hasChildren = task ? allTasks.some(t => t.parentId === task.id) : false;
 
   function handleSubmit(e: React.FormEvent) {
@@ -99,7 +110,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
       const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
       setPredecessorText(
         next
-          .map(pid => selectableTasks.find(t => t.id === pid)?.seq)
+          .map(pid => allTasks.find(t => t.id === pid)?.seq)
           .filter((o): o is number => o !== undefined)
           .join(', ')
       );
@@ -291,7 +302,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
           </div>
 
           {/* 先行タスク */}
-          {selectableTasks.length > 0 && (
+          {predecessorCandidates.length > 0 && (
             <div data-field="predecessors" {...shakeProps(dirtyFields.predecessors)}>
               <label style={LABEL}>先行タスク（複数選択可）</label>
               <input
@@ -303,13 +314,13 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                   setPredecessorText(text);
                   const nums = text.split(/[\s,]+/).map(s => parseInt(s, 10)).filter(n => !isNaN(n));
                   const ids = nums
-                    .map(n => selectableTasks.find(t => t.seq === n)?.id)
+                    .map(n => predecessorCandidates.find(t => t.seq === n)?.id)
                     .filter((id): id is string => !!id);
                   setPredecessors([...new Set(ids)]);
                 }}
               />
               <div style={{ border: '1px solid var(--th-input-border)', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto', background: 'var(--th-input-bg)' }}>
-                {selectableTasks.map(t => (
+                {predecessorCandidates.map(t => (
                   <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
                     <input type="checkbox" checked={predecessors.includes(t.id)}
                       onChange={() => togglePredecessor(t.id)} />

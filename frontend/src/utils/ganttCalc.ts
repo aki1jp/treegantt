@@ -197,6 +197,19 @@ export function calcCriticalPath(tasks: Task[]): Set<string> {
 }
 
 // fromId の先行チェーンを DFS し toId に到達できれば循環依存
+export function isAncestorOf(idA: string, idB: string, taskById: Map<string, Task>): boolean {
+  let cur = taskById.get(idB)?.parentId;
+  while (cur) {
+    if (cur === idA) return true;
+    cur = taskById.get(cur)?.parentId;
+  }
+  return false;
+}
+
+export function isAncestorOrDescendant(idA: string, idB: string, taskById: Map<string, Task>): boolean {
+  return isAncestorOf(idA, idB, taskById) || isAncestorOf(idB, idA, taskById);
+}
+
 export function wouldCreateDepCycle(fromId: string, toId: string, taskById: Map<string, Task>): boolean {
   const visited = new Set<string>();
   const queue = [fromId];

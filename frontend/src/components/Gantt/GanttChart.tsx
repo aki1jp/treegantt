@@ -4,7 +4,7 @@ import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcLightningPoints,
-  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents,
+  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents, isAncestorOrDescendant,
   addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
@@ -616,8 +616,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const ld = linkDragStateRef.current;
     if (ld?.targetTaskId && ld.targetTaskId !== ld.fromTaskId) {
       // fromTaskId = 先行タスク（右端ドットからドラッグ開始）、targetTaskId = 後続タスク（ドロップ先）
-      // 循環チェック: fromTask→targetTask が既存チェーンにあれば循環
-      if (!wouldCreateDepCycle(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current)) {
+      // 親子階層チェック + 循環チェック
+      if (
+        !isAncestorOrDescendant(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current) &&
+        !wouldCreateDepCycle(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current)
+      ) {
         const target = taskByIdRef.current.get(ld.targetTaskId);
         if (target && !target.predecessors.includes(ld.fromTaskId)) {
           onInlineUpdate(ld.targetTaskId, { predecessors: [...target.predecessors, ld.fromTaskId] });

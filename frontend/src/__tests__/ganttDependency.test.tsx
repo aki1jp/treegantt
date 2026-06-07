@@ -165,6 +165,36 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
     });
   });
 
+  describe('親子間の依存追加禁止（v2.33）', () => {
+    it('子タスクを親タスクの後続にドロップしても onInlineUpdate が呼ばれない', () => {
+      // tP（親）→ tC（子）の構造、tC から tP へのリンクを試みる
+      const taskP = makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-06-20' });
+      const taskC = makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const { container } = renderChart([taskP, taskC]);
+
+      // tC（row 1）をホバーしてコネクタドットを出現させ、tP（row 0）へドロップ
+      hoverRow(container, 1);
+      const dot = getConnectorDot(container)!;
+      expect(dot).toBeTruthy();
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 50 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 18 }); // row 0 (tP)
+      fireEvent.mouseUp(window);
+
+      expect(onInlineUpdate).not.toHaveBeenCalled();
+    });
+
+    it('親タスクを子タスクの後続にドロップしても onInlineUpdate が呼ばれない', () => {
+      const taskP = makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-06-20' });
+      const taskC = makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const { container } = renderChart([taskP, taskC]);
+
+      // tP（row 0）をホバーしてコネクタドットを試みる
+      // → 親タスクにはコネクタドットが表示されない（isParent=true のため）
+      hoverRow(container, 0);
+      expect(getConnectorDot(container)).toBeNull();
+    });
+  });
+
   describe('クリティカルパス矢印（v2.31）', () => {
     it('showCriticalPath=false のとき矢印は通常色（#378ADD）', () => {
       const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
