@@ -212,6 +212,53 @@ describe('GanttBar テキスト自動コントラスト反転（親タスク）'
   });
 });
 
+// ── v2.31: クリティカルパス視覚強調 ──────────────────────────────────────────
+
+// BASE_TASK は過去日付（endDate=2026-05-31）なので isOverdue=true になる。
+// グローは非期限超過タスクに適用するため、テストは未来日付タスクを使う。
+const FUTURE_TASK: Task = { ...BASE_TASK, startDate: '2026-07-01', endDate: '2026-07-31' };
+
+describe('GanttBar クリティカルパス グロー（v2.31）', () => {
+  it('isCritical=true のとき背景 rect に filter 属性が付く', () => {
+    const { container } = render(
+      <svg>
+        <GanttBar
+          task={FUTURE_TASK} minDate={new Date('2026-07-01')} zoom="month" rowIndex={0}
+          isParent={false} isCritical={true}
+          onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+        />
+      </svg>
+    );
+    const rects = Array.from(container.querySelectorAll('rect'));
+    const bgRect = rects.find(r => r.getAttribute('filter'));
+    expect(bgRect).toBeTruthy();
+    expect(bgRect!.getAttribute('filter')).toContain('critical-glow');
+  });
+
+  it('isCritical=false のとき背景 rect に filter 属性がない', () => {
+    const { container } = render(
+      <svg>
+        <GanttBar
+          task={FUTURE_TASK} minDate={new Date('2026-07-01')} zoom="month" rowIndex={0}
+          isParent={false} isCritical={false}
+          onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+        />
+      </svg>
+    );
+    const rects = Array.from(container.querySelectorAll('rect'));
+    const filteredRect = rects.find(r => r.getAttribute('filter'));
+    expect(filteredRect).toBeFalsy();
+  });
+
+  it('isParent=true かつ isCritical=true のとき背景 rect に filter 属性が付く', () => {
+    const { container } = renderBar(true, '2026-05-31');
+    // isCritical=false (default) のときはフィルターなし
+    const rects = Array.from(container.querySelectorAll('rect'));
+    const filteredRect = rects.find(r => r.getAttribute('filter'));
+    expect(filteredRect).toBeFalsy();
+  });
+});
+
 // ── v2.30: 親タスクの進捗バーを effectiveProgress で描画 ────────────────────
 // task.progress=0 でも effectiveProgress が大きければ進捗バーが描画され、
 // テキスト反転も effectiveProgress に基づいて動く

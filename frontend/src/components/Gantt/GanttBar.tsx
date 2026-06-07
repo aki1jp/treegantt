@@ -63,6 +63,7 @@ export function GanttBar({
           fill={isOverdue ? '#fca5a5' : isCritical ? '#fef08a' : color + 'cc'}
           stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : color}
           strokeWidth={isOverdue ? 2.5 : isCritical ? 2 : 1.5}
+          filter={isCritical && !isOverdue ? 'url(#critical-glow)' : undefined}
           onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
         />
         <text x={cx + r + 5} y={centerY + 4} fontSize={barFontSize} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
@@ -98,7 +99,8 @@ export function GanttBar({
       <g data-task-id={task.id} onClick={onClick} style={{ cursor: 'pointer' }}>
         {/* 上部横バー */}
         <rect x={x} y={y} width={width} height={topH} rx={2}
-          fill={barColor + 'cc'} stroke={barColor} strokeWidth={1} />
+          fill={barColor + 'cc'} stroke={barColor} strokeWidth={1}
+          filter={isCritical ? 'url(#critical-glow)' : undefined} />
         {/* 進捗オーバーレイ */}
         {displayProgress > 0 && (
           <rect x={x} y={y} width={parentProgressWidth} height={topH} rx={2}
@@ -150,6 +152,7 @@ export function GanttBar({
         fill={isOverdue ? '#fca5a5' : isCritical ? '#fef08a' : color + '44'}
         stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : color}
         strokeWidth={isCritical && !isOverdue ? 2.5 : 1}
+        filter={isCritical && !isOverdue ? 'url(#critical-glow)' : undefined}
         onClick={onClick}
         style={{ cursor: 'pointer' }}
       />

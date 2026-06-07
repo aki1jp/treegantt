@@ -165,6 +165,38 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
     });
   });
 
+  describe('クリティカルパス矢印（v2.31）', () => {
+    it('showCriticalPath=false のとき矢印は通常色（#378ADD）', () => {
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20', predecessors: ['tA'] });
+      useTaskStore.setState({ showCriticalPath: false });
+      const { container } = renderChart([taskA, taskB]);
+      const arrowPaths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(arrowPaths.length).toBeGreaterThan(0);
+      expect(arrowPaths[0].getAttribute('stroke')).toBe('#378ADD');
+    });
+
+    it('showCriticalPath=true かつ両端タスクがクリティカルのとき矢印はインジゴ（#6366f1）', () => {
+      // A→B の1本のみ: 両方クリティカルになる
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20', predecessors: ['tA'] });
+      useTaskStore.setState({ showCriticalPath: true });
+      const { container } = renderChart([taskA, taskB]);
+      const arrowPaths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(arrowPaths.length).toBeGreaterThan(0);
+      expect(arrowPaths[0].getAttribute('stroke')).toBe('#6366f1');
+    });
+
+    it('クリティカル矢印は strokeWidth が 2.5', () => {
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskB = makeTask({ id: 'tB', startDate: '2026-06-16', endDate: '2026-06-20', predecessors: ['tA'] });
+      useTaskStore.setState({ showCriticalPath: true });
+      const { container } = renderChart([taskA, taskB]);
+      const arrowPaths = Array.from(container.querySelectorAll<SVGPathElement>('path[marker-end]'));
+      expect(arrowPaths[0].getAttribute('stroke-width')).toBe('2.5');
+    });
+  });
+
   describe('依存矢印の右クリック削除', () => {
     it('依存関係があるとき data-dep-from / data-dep-to 属性を持つパスが描画される', () => {
       const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });

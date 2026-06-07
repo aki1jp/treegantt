@@ -8,9 +8,10 @@ interface Props {
   zoom: ZoomLevel;
   taskIndex: Map<string, number>;
   rowHeight?: number;
+  isCritical?: boolean;
 }
 
-export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX }: Props) {
+export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX, isCritical = false }: Props) {
   if (!fromTask.endDate || !toTask.startDate) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
@@ -27,10 +28,17 @@ export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, ro
   const cx2 = x2 - 30;
 
   const d = `M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`;
+
+  const stroke      = isCritical ? '#6366f1' : '#378ADD';
+  const strokeWidth = isCritical ? 2.5 : 1.5;
+  const markerEnd   = isCritical ? 'url(#arrowhead-critical)' : 'url(#arrowhead)';
+  const filter      = isCritical ? 'url(#critical-glow)' : undefined;
+
   return (
     <g>
       {/* 可視の矢印線（ポインタイベント無効） */}
-      <path d={d} stroke="#378ADD" strokeWidth={1.5} fill="none" markerEnd="url(#arrowhead)" pointerEvents="none" />
+      <path d={d} stroke={stroke} strokeWidth={strokeWidth} fill="none"
+        markerEnd={markerEnd} filter={filter} pointerEvents="none" />
       {/* 右クリック検知用の透明太パス */}
       <path
         d={d}

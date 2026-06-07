@@ -917,6 +917,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
                 <path d="M0,0 L6,3 L0,6 Z" fill="#378ADD" />
               </marker>
+              <marker id="arrowhead-critical" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto">
+                <path d="M0,0 L7,3.5 L0,7 Z" fill="#6366f1" />
+              </marker>
+              <filter id="critical-glow" x="-20%" y="-50%" width="140%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#6366f1" floodOpacity="0.65" />
+              </filter>
             </defs>
 
             {/* 縞背景 */}
@@ -987,7 +993,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   return [
                     <DependencyArrow key={key}
                       fromTask={fromTask} toTask={toTask} minDate={min}
-                      zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight} />,
+                      zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
+                      isCritical={criticalSet.has(fromId) && criticalSet.has(toId)} />,
                   ];
                 })
               );
