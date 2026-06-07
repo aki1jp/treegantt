@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.34 |
+| バージョン | 2.35 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -58,6 +58,7 @@
 | 2.32 | 2026年6月 | 折りたたまれた親タスクへのクリティカルパス強調伝播。ツリーが閉じられている場合も、配下にクリティカルなタスクが隠れていれば親バーをクリティカルスタイルで表示する。`ganttCalc.ts` に `buildCollapsedCriticalParents(sorted, criticalSet, collapsed)` を追加（メモ化 DFS、O(n)）。`GanttChart` で計算した結果を `isCritical={criticalSet.has(id) \|\| collapsedCriticalParents.has(id)}` として `GanttBar` に渡す。 |
 | 2.33 | 2026年6月 | 依存関係の接続可否バリデーション強化。**禁止ルール整理**：①自己参照（既実装）②依存グラフのループ（ドラッグ・ツー・リンクは既実装、TaskModal は未対応→今回対応）③祖先↔子孫間の依存（既未実装→今回対応）。`ganttCalc.ts` に `isAncestorOf` / `isAncestorOrDescendant` を追加。ドラッグ・ツー・リンクで祖先-子孫チェックを追加。TaskModal で先行タスク候補から祖先・子孫・循環するタスクを除外、親タスク候補から自分の子孫を除外。 |
 | 2.34 | 2026年6月 | ドラッグ・ツー・リンク中、接続不可なタスクにターゲットドットを表示しない。`handleLinkMouseMove` で候補タスクのバリデーション（マイルストーン・親タスク・日付なし・祖先子孫・循環・既接続）を行い、無効な場合は `targetTaskId=null` に設定。`childCountRef` を追加してコールバック内から安定アクセス。テスト用に target dot に `data-link-target-dot` 属性を付与。 |
+| 2.35 | 2026年6月 | v2.33/v2.34 で「親タスクかどうか（isParent）」を禁止条件にしていたため親タスク↔無関係タスク間の依存が張れなかったバグを修正。正しい禁止ルールは「祖先-子孫関係にあるかどうか（isAncestorOrDescendant）」のみ。コネクタドット表示条件と `handleLinkMouseMove` ターゲット検証から `isParent` チェックを削除。`childCountRef` も不要になり削除。 |
 
 ---
 
