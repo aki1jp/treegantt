@@ -188,15 +188,57 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       expect(onInlineUpdate).not.toHaveBeenCalled();
     });
 
-    it('親タスクを子タスクの後続にドロップしても onInlineUpdate が呼ばれない', () => {
+    it('親タスクを子タスクの後続にドロップしても onInlineUpdate が呼ばれない（v2.35: ドットは出るが drop が禁止）', () => {
       const taskP = makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-06-20' });
       const taskC = makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' });
       const { container } = renderChart([taskP, taskC]);
 
-      // tP（row 0）をホバーしてコネクタドットを試みる
-      // → 親タスクにはコネクタドットが表示されない（isParent=true のため）
+      // tP（row 0）をホバー → 親タスクにもコネクタドットが表示される（v2.35）
       hoverRow(container, 0);
-      expect(getConnectorDot(container)).toBeNull();
+      const dot = getConnectorDot(container)!;
+      expect(dot).toBeTruthy();
+
+      // tP から tC（子）へドロップ → 祖先-子孫関係なので禁止
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (tC)
+      fireEvent.mouseUp(window);
+      expect(onInlineUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('親タスクと無関係タスク間の依存接続（v2.35）', () => {
+    it('親タスクから無関係なタスクへは接続できる', () => {
+      const taskP = makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-06-20' });
+      const taskC = makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskX = makeTask({ id: 'tX', startDate: '2026-06-21', endDate: '2026-06-25' });
+      const { container } = renderChart([taskP, taskC, taskX]);
+
+      // tP（row 0）から tX（row 2）へドラッグ → 無関係なので接続可
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
+      expect(dot).toBeTruthy();
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 90 }); // row 2 (tX)
+      fireEvent.mouseUp(window);
+
+      expect(onInlineUpdate).toHaveBeenCalledWith('tX', { predecessors: ['tP'] });
+    });
+
+    it('無関係なタスクから親タスクへも接続できる', () => {
+      const taskP = makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-06-20' });
+      const taskC = makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const taskX = makeTask({ id: 'tX', startDate: '2026-06-01', endDate: '2026-06-08' });
+      const { container } = renderChart([taskP, taskC, taskX]);
+
+      // tX（row 2）から tP（row 0）へドラッグ → 無関係なので接続可
+      hoverRow(container, 2);
+      const dot = getConnectorDot(container)!;
+      expect(dot).toBeTruthy();
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 90 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 18 }); // row 0 (tP)
+      fireEvent.mouseUp(window);
+
+      expect(onInlineUpdate).toHaveBeenCalledWith('tP', { predecessors: ['tX'] });
     });
   });
 

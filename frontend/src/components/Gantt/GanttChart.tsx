@@ -410,13 +410,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
   const workloadScrollRef = useRef<HTMLDivElement>(null);
 
-  // flatRows / taskById / childCount の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
-  const flatRowsRef   = useRef(flatRows);
-  const taskByIdRef   = useRef(taskById);
-  const childCountRef = useRef(childCount);
-  useEffect(() => { flatRowsRef.current   = flatRows;   }, [flatRows]);
-  useEffect(() => { taskByIdRef.current   = taskById;   }, [taskById]);
-  useEffect(() => { childCountRef.current = childCount; }, [childCount]);
+  // flatRows / taskById の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
+  const flatRowsRef  = useRef(flatRows);
+  const taskByIdRef  = useRef(taskById);
+  useEffect(() => { flatRowsRef.current  = flatRows;  }, [flatRows]);
+  useEffect(() => { taskByIdRef.current  = taskById;  }, [taskById]);
 
   // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
   const [hScrollbarH, setHScrollbarH] = useState(0);
@@ -613,10 +611,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     if (candidate && candidate.task.id !== fromId) {
       const tgt = candidate.task;
       const tbr = taskByIdRef.current;
-      const isParent = (childCountRef.current.get(tgt.id) ?? 0) > 0;
       if (
         !tgt.isMilestone &&
-        !isParent &&
         tgt.startDate &&
         !tgt.predecessors.includes(fromId) &&
         !isAncestorOrDescendant(fromId, tgt.id, tbr) &&
@@ -1025,7 +1021,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* ホバー中バーの右端コネクタドット（リンクドラッグ開始点） */}
             {hoveredBarId && !linkDragState && (() => {
               const hTask = taskById.get(hoveredBarId);
-              if (!hTask || hTask.isMilestone || (childCount.get(hoveredBarId) ?? 0) > 0 || !hTask.endDate) return null;
+              if (!hTask || hTask.isMilestone || !hTask.endDate) return null;
               const cx = dateToX(hTask.endDate, min, zoomLevel) + dayWidth + 6;
               const cy = (taskIndex.get(hTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
               return (
