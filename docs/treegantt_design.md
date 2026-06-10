@@ -60,6 +60,7 @@
 | 2.34 | 2026年6月 | ドラッグ・ツー・リンク中、接続不可なタスクにターゲットドットを表示しない。`handleLinkMouseMove` で候補タスクのバリデーション（マイルストーン・親タスク・日付なし・祖先子孫・循環・既接続）を行い、無効な場合は `targetTaskId=null` に設定。`childCountRef` を追加してコールバック内から安定アクセス。テスト用に target dot に `data-link-target-dot` 属性を付与。 |
 | 2.35 | 2026年6月 | v2.33/v2.34 で「親タスクかどうか（isParent）」を禁止条件にしていたため親タスク↔無関係タスク間の依存が張れなかったバグを修正。正しい禁止ルールは「祖先-子孫関係にあるかどうか（isAncestorOrDescendant）」のみ。コネクタドット表示条件と `handleLinkMouseMove` ターゲット検証から `isParent` チェックを削除。`childCountRef` も不要になり削除。 |
 | 2.36 | 2026年6月 | 依存矢印スタイルを 3 種類から選択可能に。`DepArrowStyle = 'bezier' \| 'elbow' \| 'straight'` 型を `ganttCalc.ts` に追加。`taskStore` に `depArrowStyle` 設定を追加しlocalStorage 永続化。`DependencyArrow` に `style` prop を追加し `buildPath` 関数でパスを切り替え（elbow: 横距離が `OFFSET*2` 以上なら L 字形、未満なら S 字形迂回。`x2 ≈ x1` の真下矢印もS字になる）。ツールバーに曲線/直角/直線の 3 ボタンを追加。 |
+| 2.37 | 2026年6月 | 親タスク日付の非破壊化 ＋ フロントエンド表示包含。**変更前**：子タスクの日付変更・WBSドラッグ・作成・削除のたびに `recalcParentDates`/`propagateDatesToParent` が親の `start_date`/`end_date` を DB で上書きしていた。**変更後**：APIは親の日付を一切変更しない（`recalcParentDates`・`propagateDatesToParent` 削除）。代わりに `ganttCalc.ts` の `calcParentSpanMap(allTasks)` がフロントエンドで子孫の min/max を再帰計算し、`GanttChart` が `parentSpanMap` として事前計算。`GanttBar` に `displayStart`/`displayEnd` props を追加し、`isParent=true` のバーはこれを優先して描画する。ガントバードラッグ・WBSドラッグ（移動元/移動先）・子作成・子削除・インポートいずれも `taskStore` が更新されるたびに自動再計算されるため、常に正しい包含範囲が表示される。ドラッグ中（`dragPreview`）は対象タスク自身のバーのみ動き、親バーはドロップ完了後に更新される（`effectiveProgress` と同仕様）。 |
 
 ---
 
