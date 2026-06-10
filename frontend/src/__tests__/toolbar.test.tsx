@@ -265,4 +265,12 @@ describe('Toolbar 表示トグル', () => {
     fireEvent.click(screen.getByTitle('マイルストーンの列ハイライト・ヘッダー行を表示'));
     expect(useTaskStore.getState().showMilestoneLines).toBe(!before);
   });
+
+  it('カラーピッカーを変更すると milestoneHighlightColor が更新される', () => {
+    renderToolbar();
+    const picker = document.querySelector('input[type="color"]') as HTMLInputElement;
+    expect(picker).toBeTruthy();
+    fireEvent.change(picker, { target: { value: '#ff0000' } });
+    expect(useTaskStore.getState().milestoneHighlightColor).toBe('#ff0000');
+  });
 });

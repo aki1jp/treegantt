@@ -21,7 +21,8 @@ interface TaskStore {
   showCriticalPath:   boolean;
   showResourceView:   boolean;
   showTodayLine:      boolean;
-  showMilestoneLines: boolean;
+  showMilestoneLines:      boolean;
+  milestoneHighlightColor: string;
   uiFontSize:         number;
   uiRowHeight:        number;
   ganttHeaderLevels:  GanttHeaderLevels;
@@ -40,7 +41,8 @@ interface TaskStore {
   setShowCriticalPath:    (show: boolean) => void;
   setShowResourceView:    (show: boolean) => void;
   setShowTodayLine:       (show: boolean) => void;
-  setShowMilestoneLines:  (show: boolean) => void;
+  setShowMilestoneLines:       (show: boolean) => void;
+  setMilestoneHighlightColor:  (color: string) => void;
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
@@ -61,7 +63,8 @@ const uiInitialState = {
   showCriticalPath:  false,
   showResourceView:  false,
   showTodayLine:     true,
-  showMilestoneLines: true,
+  showMilestoneLines:      true,
+  milestoneHighlightColor: '#8b5cf6',
   uiFontSize:        13,
   uiRowHeight:       36,
   ganttHeaderLevels: { year: false, month: true, week: false, day: true } as GanttHeaderLevels,
@@ -92,7 +95,8 @@ export const useTaskStore = create<TaskStore>()(
       setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
       setShowResourceView:    (showResourceView) => set({ showResourceView }),
       setShowTodayLine:       (showTodayLine) => set({ showTodayLine }),
-      setShowMilestoneLines:  (showMilestoneLines) => set({ showMilestoneLines }),
+      setShowMilestoneLines:       (showMilestoneLines) => set({ showMilestoneLines }),
+      setMilestoneHighlightColor:  (milestoneHighlightColor) => set({ milestoneHighlightColor }),
       setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
       setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
       setGanttHeaderLevels:   (levels) => set((s) => ({
@@ -117,7 +121,8 @@ export const useTaskStore = create<TaskStore>()(
         showCriticalPath:  s.showCriticalPath,
         showResourceView:  s.showResourceView,
         showTodayLine:      s.showTodayLine,
-        showMilestoneLines: s.showMilestoneLines,
+        showMilestoneLines:      s.showMilestoneLines,
+        milestoneHighlightColor: s.milestoneHighlightColor,
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,
         ganttHeaderLevels: s.ganttHeaderLevels,

@@ -100,10 +100,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange, resetUi,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setShowMilestoneLines, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setShowMilestoneLines, setMilestoneHighlightColor, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
 
@@ -336,12 +336,21 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             title="今日の日付ラインを表示"
             onClick={() => setShowTodayLine(!showTodayLine)}
           />
-          <ToggleBtn
-            active={showMilestoneLines}
-            label="マイル強調"
-            title="マイルストーンの列ハイライト・ヘッダー行を表示"
-            onClick={() => setShowMilestoneLines(!showMilestoneLines)}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <ToggleBtn
+              active={showMilestoneLines}
+              label="マイル強調"
+              title="マイルストーンの列ハイライト・ヘッダー行を表示"
+              onClick={() => setShowMilestoneLines(!showMilestoneLines)}
+            />
+            <input
+              type="color"
+              value={milestoneHighlightColor}
+              title="マイルストーン強調色"
+              onChange={e => setMilestoneHighlightColor(e.target.value)}
+              style={{ width: 22, height: 22, padding: 1, border: '1px solid var(--th-border)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
+            />
+          </div>
           <ToggleBtn
             active={showLightningLine}
             label="⚡ イナズマ"

@@ -20,6 +20,7 @@ import { ContextMenu } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
 
 const HEADER_ROW_H = 26;
+const MILESTONE_HEADER_H = 18;
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
@@ -163,7 +164,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
@@ -261,6 +262,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         }))
     : [];
   const milestoneXSet = new Set(milestoneItems.map(m => m.x));
+  const milestoneHeaderH = milestoneItems.length > 0 ? MILESTONE_HEADER_H : 0;
+  const totalHeaderH = headerRows.length * HEADER_ROW_H + milestoneHeaderH + 2;
 
   // 親タスクの進捗・表示スパン事前計算
   const progressMap   = new Map(sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)]));
@@ -710,7 +713,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{
-          flexShrink: 0, height: headerRows.length * HEADER_ROW_H + 2,
+          flexShrink: 0, height: totalHeaderH,
           minHeight: 26,
           display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
           position: 'relative',
@@ -909,7 +912,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     : isSun
                       ? 'rgba(239,68,68,0.18)'
                       : isMilestoneDate
-                        ? 'rgba(139,92,246,0.22)'
+                        ? milestoneHighlightColor + '55'
                         : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
                   return (
                     <div
@@ -939,7 +942,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* マイルストーンヘッダー行 */}
             {milestoneItems.length > 0 && (
               <div style={{
-                position: 'relative', width: totalWidth, height: 18,
+                position: 'relative', width: totalWidth, height: MILESTONE_HEADER_H,
+                boxSizing: 'border-box',
                 borderTop: '1px solid var(--th-border)',
                 background: 'var(--th-bg2)', overflow: 'hidden',
               }}>
@@ -1013,7 +1017,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* マイルストーン列背景 */}
             {milestoneItems.map((m, i) => (
               <rect key={i} x={m.x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
-                fill="rgba(139,92,246,0.10)" />
+                fill={milestoneHighlightColor + '33'} />
             ))}
 
             {/* タスクバー */}
