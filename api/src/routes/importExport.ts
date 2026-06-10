@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/client.js';
-import { listTasks, propagateDatesToParent } from '../services/taskService.js';
+import { listTasks } from '../services/taskService.js';
 import { getProject } from '../services/projectService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
@@ -119,14 +119,6 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             if (typeof oldPredId !== 'string') continue;
             const newPredId = idMap.get(oldPredId);
             if (newPredId) insertDep.run(newPredId, newIds[i]);
-          }
-        });
-
-        // Pass 4: 親を持つタスクの日付を上位に伝播
-        inputTasks.forEach((task, i) => {
-          const oldParentId = typeof task.parentId === 'string' ? task.parentId : null;
-          if (oldParentId && idMap.has(oldParentId)) {
-            propagateDatesToParent(newIds[i]);
           }
         });
 

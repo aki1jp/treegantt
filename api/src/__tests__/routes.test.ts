@@ -401,29 +401,13 @@ describe('Tasks API', () => {
     expect(tasks[0].status).toBe('wip');
   });
 
-  it('子タスクの日付を PATCH すると親タスクの日付が自動更新される（startDate のみ）', async () => {
-    const parent = await createTask({ title: '親', startDate: '2026-06-05', endDate: '2026-06-20' });
+  it('子の日付 PATCH 後、親の日付は変化しない', async () => {
+    const parent = await createTask({ title: '親', startDate: '2026-06-01', endDate: '2026-06-30' });
     const child  = await createTask({ title: '子', parentId: parent.id, startDate: '2026-06-05', endDate: '2026-06-20' });
 
-    // 子の開始日を親より早い日付に変更
     await app.inject({
       method: 'PATCH', url: `/api/v1/tasks/${child.id}`,
-      payload: { startDate: '2026-06-01' },
-    });
-
-    const parentRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${parent.id}` });
-    expect(parentRes.json().task.startDate).toBe('2026-06-01');
-    expect(parentRes.json().task.endDate).toBe('2026-06-20');
-  });
-
-  it('子タスクの日付を PATCH すると親タスクの日付が自動更新される（endDate のみ）', async () => {
-    const parent = await createTask({ title: '親', startDate: '2026-06-01', endDate: '2026-06-20' });
-    const child  = await createTask({ title: '子', parentId: parent.id, startDate: '2026-06-01', endDate: '2026-06-20' });
-
-    // 子の終了日を親より遅い日付に変更
-    await app.inject({
-      method: 'PATCH', url: `/api/v1/tasks/${child.id}`,
-      payload: { endDate: '2026-06-30' },
+      payload: { startDate: '2026-05-01' },
     });
 
     const parentRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${parent.id}` });
@@ -431,101 +415,55 @@ describe('Tasks API', () => {
     expect(parentRes.json().task.endDate).toBe('2026-06-30');
   });
 
-  it('子タスクの日付変更時に親タスクも task_updated でブロードキャストされる', async () => {
-    const parent = await createTask({ title: '親', startDate: '2026-06-05', endDate: '2026-06-20' });
+  it('子の日付 PATCH 後、親の task_updated は broadcast されない', async () => {
+    const parent = await createTask({ title: '親', startDate: '2026-06-01', endDate: '2026-06-30' });
     const child  = await createTask({ title: '子', parentId: parent.id, startDate: '2026-06-05', endDate: '2026-06-20' });
 
     vi.mocked(notifyRoom).mockClear();
 
     await app.inject({
       method: 'PATCH', url: `/api/v1/tasks/${child.id}`,
-      payload: { startDate: '2026-06-01' },
+      payload: { startDate: '2026-05-01' },
     });
 
     const broadcastedIds = vi.mocked(notifyRoom).mock.calls
       .filter(([, msg]) => (msg as { type: string }).type === 'task_updated')
       .map(([, msg]) => (msg as { task: { id: string } }).task.id);
 
-    expect(broadcastedIds).toContain(parent.id);
+    expect(broadcastedIds).not.toContain(parent.id);
   });
 
-  it('孫タスクの日付変更が祖父タスクまで伝播する', async () => {
-    const gp    = await createTask({ title: '祖父', startDate: '2026-06-05', endDate: '2026-06-20' });
-    const par   = await createTask({ title: '親',   parentId: gp.id,  startDate: '2026-06-05', endDate: '2026-06-20' });
-    const child = await createTask({ title: '孫',   parentId: par.id, startDate: '2026-06-05', endDate: '2026-06-20' });
+  it('祖父タスクの日付も変化しない', async () => {
+    const gp    = await createTask({ title: '祖父', startDate: '2026-05-01', endDate: '2026-05-31' });
+    const par   = await createTask({ title: '親',   parentId: gp.id });
+    const child = await createTask({ title: '孫',   parentId: par.id });
 
     await app.inject({
       method: 'PATCH', url: `/api/v1/tasks/${child.id}`,
-      payload: { startDate: '2026-06-01', endDate: '2026-06-25' },
+      payload: { startDate: '2026-08-01', endDate: '2026-08-31' },
     });
 
-    const gpRes  = await app.inject({ method: 'GET', url: `/api/v1/tasks/${gp.id}` });
-    const parRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${par.id}` });
-    expect(parRes.json().task.startDate).toBe('2026-06-01');
-    expect(parRes.json().task.endDate).toBe('2026-06-25');
-    expect(gpRes.json().task.startDate).toBe('2026-06-01');
-    expect(gpRes.json().task.endDate).toBe('2026-06-25');
+    const gpRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${gp.id}` });
+    expect(gpRes.json().task.startDate).toBe('2026-05-01');
+    expect(gpRes.json().task.endDate).toBe('2026-05-31');
   });
 
-  it('10段階の深い親子チェーンで末端の日付変更がルートまで伝播する', async () => {
-    const DEPTH = 10;
-    const ids: string[] = [];
-
-    // レベル0（ルート）→ レベル9（末端）の順に作成
-    for (let i = 0; i < DEPTH; i++) {
-      const task = await createTask({
-        title: `level-${i}`,
-        parentId: i === 0 ? undefined : ids[i - 1],
-        startDate: '2026-06-05',
-        endDate: '2026-06-20',
-      });
-      ids.push(task.id);
-    }
-
-    // 末端（level-9）の日付を変更
-    await app.inject({
-      method: 'PATCH', url: `/api/v1/tasks/${ids[DEPTH - 1]}`,
-      payload: { startDate: '2026-06-01', endDate: '2026-06-30' },
-    });
-
-    // 全祖先（level-0 〜 level-8）の日付が更新されていることを確認
-    for (let i = 0; i < DEPTH - 1; i++) {
-      const res = await app.inject({ method: 'GET', url: `/api/v1/tasks/${ids[i]}` });
-      const task = res.json().task;
-      expect(task.startDate, `level-${i} startDate`).toBe('2026-06-01');
-      expect(task.endDate,   `level-${i} endDate`).toBe('2026-06-30');
-    }
-  });
-
-  it('10段階チェーンで末端の日付変更時に全祖先が task_updated でブロードキャストされる', async () => {
-    const DEPTH = 10;
-    const ids: string[] = [];
-
-    for (let i = 0; i < DEPTH; i++) {
-      const task = await createTask({
-        title: `bc-level-${i}`,
-        parentId: i === 0 ? undefined : ids[i - 1],
-        startDate: '2026-06-05',
-        endDate: '2026-06-20',
-      });
-      ids.push(task.id);
-    }
-
-    vi.mocked(notifyRoom).mockClear();
+  it('reorder: 移動元・移動先どちらの日付も変化しない', async () => {
+    const oldParent = await createTask({ title: '旧親', startDate: '2026-05-01', endDate: '2026-05-31' });
+    const newParent = await createTask({ title: '新親', startDate: '2026-09-01', endDate: '2026-09-30' });
+    const child     = await createTask({ title: '子',   parentId: oldParent.id, startDate: '2026-07-01', endDate: '2026-07-31' });
 
     await app.inject({
-      method: 'PATCH', url: `/api/v1/tasks/${ids[DEPTH - 1]}`,
-      payload: { startDate: '2026-06-01' },
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: child.id, order: 1, parentId: newParent.id }] },
     });
 
-    const broadcastedIds = vi.mocked(notifyRoom).mock.calls
-      .filter(([, msg]) => (msg as { type: string }).type === 'task_updated')
-      .map(([, msg]) => (msg as { task: { id: string } }).task.id);
-
-    // 末端自身 + 全祖先（level-0 〜 level-8）がブロードキャストされること
-    for (let i = 0; i < DEPTH; i++) {
-      expect(broadcastedIds, `level-${i} がブロードキャストされていない`).toContain(ids[i]);
-    }
+    const oldRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${oldParent.id}` });
+    const newRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${newParent.id}` });
+    expect(oldRes.json().task.startDate).toBe('2026-05-01');
+    expect(oldRes.json().task.endDate).toBe('2026-05-31');
+    expect(newRes.json().task.startDate).toBe('2026-09-01');
+    expect(newRes.json().task.endDate).toBe('2026-09-30');
   });
 });
 

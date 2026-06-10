@@ -193,10 +193,6 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
     }
   }
 
-  if (input.startDate !== undefined || input.endDate !== undefined) {
-    propagateDatesToParent(input.id);
-  }
-
   return getTask(input.id)!;
 }
 
@@ -247,41 +243,9 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
     }
   }
 
-  if (input.startDate !== undefined || input.endDate !== undefined) {
-    propagateDatesToParent(id);
-  }
-
   return getTask(id);
 }
 
-function recalcParentDates(parentId: string): void {
-  const children = db.prepare(
-    'SELECT start_date, end_date FROM tasks WHERE parent_id = ? AND is_milestone = 0'
-  ).all(parentId) as { start_date: string | null; end_date: string | null }[];
-
-  const starts = children.map(c => c.start_date).filter((d): d is string => d != null);
-  const ends   = children.map(c => c.end_date).filter((d): d is string => d != null);
-  if (starts.length === 0 && ends.length === 0) return;
-
-  const minStart = starts.length > 0 ? [...starts].sort()[0] : null;
-  const maxEnd   = ends.length > 0   ? [...ends].sort().at(-1)! : null;
-
-  const fields: string[] = [];
-  const params: unknown[] = [];
-  if (minStart !== null) { fields.push('start_date = ?'); params.push(minStart); }
-  if (maxEnd   !== null) { fields.push('end_date = ?');   params.push(maxEnd); }
-
-  if (fields.length > 0) {
-    db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ?`).run(...params, parentId);
-    propagateDatesToParent(parentId);
-  }
-}
-
-export function propagateDatesToParent(taskId: string): void {
-  const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(taskId) as { parent_id: string | null } | undefined;
-  if (!row?.parent_id) return;
-  recalcParentDates(row.parent_id);
-}
 
 export function getAncestorTasks(taskId: string): TaskWithSuccessors[] {
   const ancestors: TaskWithSuccessors[] = [];
@@ -345,11 +309,5 @@ export function reorderTasks(orders: { id: string; order: number; parentId?: str
     }
   })();
 
-  // 新旧両親の日付を再計算して伝播
-  const affectedParentIds = new Set([...oldParentIds, ...newParentIds]);
-  for (const parentId of affectedParentIds) {
-    recalcParentDates(parentId);
-  }
-
-  return affectedParentIds;
+  return new Set<string>();
 }
