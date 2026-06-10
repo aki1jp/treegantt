@@ -21,6 +21,7 @@ interface TaskStore {
   showCriticalPath:   boolean;
   showResourceView:   boolean;
   showTodayLine:      boolean;
+  showMilestoneLines: boolean;
   uiFontSize:         number;
   uiRowHeight:        number;
   ganttHeaderLevels:  GanttHeaderLevels;
@@ -39,6 +40,7 @@ interface TaskStore {
   setShowCriticalPath:    (show: boolean) => void;
   setShowResourceView:    (show: boolean) => void;
   setShowTodayLine:       (show: boolean) => void;
+  setShowMilestoneLines:  (show: boolean) => void;
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
@@ -59,6 +61,7 @@ const uiInitialState = {
   showCriticalPath:  false,
   showResourceView:  false,
   showTodayLine:     true,
+  showMilestoneLines: true,
   uiFontSize:        13,
   uiRowHeight:       36,
   ganttHeaderLevels: { year: false, month: true, week: false, day: true } as GanttHeaderLevels,
@@ -89,6 +92,7 @@ export const useTaskStore = create<TaskStore>()(
       setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
       setShowResourceView:    (showResourceView) => set({ showResourceView }),
       setShowTodayLine:       (showTodayLine) => set({ showTodayLine }),
+      setShowMilestoneLines:  (showMilestoneLines) => set({ showMilestoneLines }),
       setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
       setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
       setGanttHeaderLevels:   (levels) => set((s) => ({
@@ -112,7 +116,8 @@ export const useTaskStore = create<TaskStore>()(
         showWeekend:       s.showWeekend,
         showCriticalPath:  s.showCriticalPath,
         showResourceView:  s.showResourceView,
-        showTodayLine:     s.showTodayLine,
+        showTodayLine:      s.showTodayLine,
+        showMilestoneLines: s.showMilestoneLines,
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,
         ganttHeaderLevels: s.ganttHeaderLevels,

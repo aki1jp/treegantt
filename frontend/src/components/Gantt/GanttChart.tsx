@@ -13,6 +13,7 @@ import type { TreeNode } from '../../utils/taskTree';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
+import { STATUS_COLOR } from '../../utils/taskColors';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
 import { ContextMenu } from './GanttContextMenu';
@@ -162,7 +163,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
@@ -248,6 +249,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       curTime += 86400000;
     }
   }
+
+  // マイルストーン列強調
+  const milestoneItems = showMilestoneLines
+    ? sorted
+        .filter(t => t.isMilestone && !!t.startDate)
+        .map(t => ({
+          x:     dateToX(t.startDate!, min, zoomLevel),
+          title: t.title,
+          color: STATUS_COLOR[t.status],
+        }))
+    : [];
+  const milestoneXSet = new Set(milestoneItems.map(m => m.x));
 
   // 親タスクの進捗・表示スパン事前計算
   const progressMap   = new Map(sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)]));
@@ -890,11 +903,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 {row.cells.map((cell, ci) => {
                   const isSat = (row.level === 'day' || row.level === 'dow') && cell.dow === 6;
                   const isSun = (row.level === 'day' || row.level === 'dow') && cell.dow === 0;
+                  const isMilestoneDate = row.level === 'day' && milestoneXSet.has(cell.x);
                   const bg = isSat
                     ? 'rgba(59,130,246,0.18)'
                     : isSun
                       ? 'rgba(239,68,68,0.18)'
-                      : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
+                      : isMilestoneDate
+                        ? 'rgba(139,92,246,0.22)'
+                        : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
                   return (
                     <div
                       key={ci}
@@ -920,6 +936,27 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 })}
               </div>
             ))}
+            {/* マイルストーンヘッダー行 */}
+            {milestoneItems.length > 0 && (
+              <div style={{
+                position: 'relative', width: totalWidth, height: 18,
+                borderTop: '1px solid var(--th-border)',
+                background: 'var(--th-bg2)', overflow: 'hidden',
+              }}>
+                {milestoneItems.map((m, i) => (
+                  <div key={i} style={{
+                    position: 'absolute', left: m.x,
+                    display: 'flex', alignItems: 'center', gap: 2,
+                    fontSize: 9, fontWeight: 600, color: m.color,
+                    whiteSpace: 'nowrap', paddingLeft: 2,
+                    top: 2,
+                  }}>
+                    <span style={{ fontSize: 8 }}>◆</span>
+                    {m.title}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ガント SVG */}
@@ -971,6 +1008,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {weekendXs.map((x, i) => (
               <rect key={i} x={x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
                 fill="rgba(148,163,184,0.18)" />
+            ))}
+
+            {/* マイルストーン列背景 */}
+            {milestoneItems.map((m, i) => (
+              <rect key={i} x={m.x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
+                fill="rgba(139,92,246,0.10)" />
             ))}
 
             {/* タスクバー */}
