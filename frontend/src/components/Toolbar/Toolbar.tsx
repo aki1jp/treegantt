@@ -52,10 +52,10 @@ const PRIORITY_OPTIONS: { value: TaskPriority | ''; label: string }[] = [
   { value: 'low', label: '低' },
 ];
 const PERIOD_OPTIONS: { value: GanttPeriod; label: string }[] = [
-  { value: '2w', label: '2週間' },
-  { value: '1m', label: '1ヶ月' },
   { value: '3m', label: '3ヶ月' },
   { value: '6m', label: '6ヶ月' },
+  { value: '12m', label: '12ヶ月' },
+  { value: '24m', label: '24ヶ月' },
 ];
 
 function MenuItem({ label, indent, onClick }: { label: string; indent?: boolean; onClick: () => void }) {

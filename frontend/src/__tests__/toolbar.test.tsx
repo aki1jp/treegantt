@@ -162,15 +162,15 @@ describe('Toolbar ズーム・期間・開始日', () => {
     expect(useTaskStore.getState().zoomLevel).toBe('month');
   });
 
-  it('期間選択を「1ヶ月」に変更するとストアの ganttPeriod が "1m" になる', () => {
+  it('期間選択を「12ヶ月」に変更するとストアの ganttPeriod が "12m" になる', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
     const periodSelect = Array.from(row2.querySelectorAll('select')).find(s =>
-      Array.from(s.options).some(o => o.value === '1m')
+      Array.from(s.options).some(o => o.value === '12m')
     ) as HTMLSelectElement;
     expect(periodSelect).toBeTruthy();
-    fireEvent.change(periodSelect, { target: { value: '1m' } });
-    expect(useTaskStore.getState().ganttPeriod).toBe('1m');
+    fireEvent.change(periodSelect, { target: { value: '12m' } });
+    expect(useTaskStore.getState().ganttPeriod).toBe('12m');
   });
 
   it('「今日」ボタンを押すと ganttStartDate が今日の日付になる', () => {

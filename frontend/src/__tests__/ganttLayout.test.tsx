@@ -192,7 +192,7 @@ describe('ガントヘッダー 曜日表示', () => {
     useTaskStore.setState({
       zoomLevel: 'day',
       ganttStartDate: '2026-05-18',
-      ganttPeriod: '1m',
+      ganttPeriod: '3m',
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
     });
     return render(
@@ -826,7 +826,7 @@ describe('マイルストーン強調 UI', () => {
     useTaskStore.setState({
       tasks: [MILESTONE_TASK],
       ganttStartDate: '2026-06-01',
-      ganttPeriod: '1m',
+      ganttPeriod: '3m',
       showMilestoneLines: true,
       showResourceView: false,
       zoomLevel: 'day',
@@ -864,7 +864,7 @@ describe('マイルストーン強調 UI', () => {
     useTaskStore.setState({
       tasks: [{ ...MILESTONE_TASK, id: 'ms-sat', startDate: '2026-06-20', endDate: '2026-06-20' }],
       ganttStartDate: '2026-06-20',
-      ganttPeriod: '1m',
+      ganttPeriod: '3m',
       showMilestoneLines: true,
       showResourceView: false,
       zoomLevel: 'day',
@@ -886,7 +886,7 @@ describe('マイルストーン強調 UI', () => {
   it('showMilestoneLines=false のとき data-milestone-marker が存在しない', () => {
     useTaskStore.setState({
       tasks: [MILESTONE_TASK],
-      ganttStartDate: '2026-06-01', ganttPeriod: '1m',
+      ganttStartDate: '2026-06-01', ganttPeriod: '3m',
       showMilestoneLines: false, showResourceView: false,
       zoomLevel: 'day',
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },

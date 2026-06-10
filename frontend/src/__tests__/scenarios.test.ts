@@ -164,16 +164,6 @@ describe('§4.4 表示期間コントロール', () => {
       expect(days).toBeGreaterThanOrEqual(PERIOD_DAYS['3m']);
     });
 
-    it('期間 2w → 14 日以上', () => {
-      const { min, max } = calcGanttRange([], undefined, '2w');
-      expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['2w']);
-    });
-
-    it('期間 1m → 30 日以上', () => {
-      const { min, max } = calcGanttRange([], undefined, '1m');
-      expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['1m']);
-    });
-
     it('期間 3m → 91 日以上', () => {
       const { min, max } = calcGanttRange([], undefined, '3m');
       expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['3m']);
@@ -216,24 +206,24 @@ describe('§4.4 表示期間コントロール', () => {
 
   describe('手動モード — startDate 指定', () => {
     it('指定した日付が min になる', () => {
-      const { min } = calcGanttRange([], '2026-06-01', '1m');
+      const { min } = calcGanttRange([], '2026-06-01', '3m');
       expect(min.toISOString().slice(0, 10)).toBe('2026-06-01');
     });
 
     it('min から period 分だけの固定範囲を返す', () => {
-      const { min, max } = calcGanttRange([], '2026-06-01', '1m');
-      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['1m']);
+      const { min, max } = calcGanttRange([], '2026-06-01', '3m');
+      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['3m']);
     });
 
     it('タスクの日付は無視する（手動モード優先）', () => {
       const tasks = [makeTask({ startDate: '2025-01-01', endDate: '2027-12-31' })];
-      const { min, max } = calcGanttRange(tasks, '2026-06-01', '1m');
-      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['1m']);
+      const { min, max } = calcGanttRange(tasks, '2026-06-01', '3m');
+      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['3m']);
     });
 
-    it('期間 2w で正確に 14 日', () => {
-      const { min, max } = calcGanttRange([], '2026-06-01', '2w');
-      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['2w']);
+    it('期間 12m で正確に 365 日', () => {
+      const { min, max } = calcGanttRange([], '2026-06-01', '12m');
+      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['12m']);
     });
 
     it('期間 6m で正確に 183 日', () => {

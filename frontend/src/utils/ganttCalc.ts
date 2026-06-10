@@ -13,11 +13,11 @@ function parseDateStr(str: string): Date {
   return dayjs(str).toDate();
 }
 
-export type GanttPeriod = '2w' | '1m' | '3m' | '6m';
+export type GanttPeriod = '3m' | '6m' | '12m' | '24m';
 export type DepArrowStyle = 'bezier' | 'elbow' | 'straight';
 
 export const PERIOD_DAYS: Record<GanttPeriod, number> = {
-  '2w': 14, '1m': 30, '3m': 91, '6m': 183,
+  '3m': 91, '6m': 183, '12m': 365, '24m': 730,
 };
 
 export const ZOOM_CONFIG: Record<ZoomLevel, { dayWidth: number; headerFormat: string }> = {

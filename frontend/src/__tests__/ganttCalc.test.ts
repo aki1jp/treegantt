@@ -382,7 +382,7 @@ describe('日付座標系の一貫性', () => {
   });
 
   it('dateToX の座標が buildMultiLevelHeaders の day セル x と一致する', () => {
-    const { min, max } = calcGanttRange([], '2026-05-20', '2w', 'day');
+    const { min, max } = calcGanttRange([], '2026-05-20', '3m', 'day');
     const dayWidth = ZOOM_CONFIG['day'].dayWidth;
     const headers = buildMultiLevelHeaders(min, max, 'day', { year: false, month: false, week: false, day: true });
     const dayRow = headers.find(r => r.level === 'day')!;
