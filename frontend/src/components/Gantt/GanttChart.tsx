@@ -914,13 +914,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 {row.cells.map((cell, ci) => {
                   const isSat = (row.level === 'day' || row.level === 'dow') && cell.dow === 6;
                   const isSun = (row.level === 'day' || row.level === 'dow') && cell.dow === 0;
-                  const isMilestoneDate = row.level === 'day' && milestoneXSet.has(cell.x);
-                  const bg = isSat
-                    ? 'rgba(59,130,246,0.18)'
-                    : isSun
-                      ? 'rgba(239,68,68,0.18)'
-                      : isMilestoneDate
-                        ? milestoneHighlightColor + '55'
+                  const isMilestoneDate = milestoneXSet.has(cell.x);
+                  const bg = isMilestoneDate
+                    ? milestoneHighlightColor + '55'
+                    : isSat
+                      ? 'rgba(59,130,246,0.18)'
+                      : isSun
+                        ? 'rgba(239,68,68,0.18)'
                         : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
                   return (
                     <div

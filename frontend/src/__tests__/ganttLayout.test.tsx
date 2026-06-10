@@ -846,6 +846,43 @@ describe('マイルストーン強調 UI', () => {
     expect(marker?.parentElement).toBe(ganttHeader);
   });
 
+  it('dow行のマイルストーン日セルに milestoneHighlightColor が適用される', () => {
+    // ganttHeaderLevels.day=true で dow行が生成される（row.level==='dow'）
+    const { getByTestId } = renderWithMilestone();
+    const ganttHeader = getByTestId('gantt-header');
+    const dowCells = Array.from(ganttHeader.querySelectorAll<HTMLElement>('[data-dow]'));
+    // dow行でもマイルストーン日（2026-06-15）のセルが強調色になっているはず
+    // jsdom は #8b5cf655 を rgba(139, 92, 246, 0.333) に変換する
+    const hasHighlight = dowCells.some(c =>
+      c.style.background.includes('#8b5cf6') || c.style.background.includes('139, 92, 246')
+    );
+    expect(hasHighlight).toBe(true);
+  });
+
+  it('マイルストーンが土曜日と重なる場合はマイルストーン色が土曜色より優先される', () => {
+    // 2026-06-20 は土曜日
+    useTaskStore.setState({
+      tasks: [{ ...MILESTONE_TASK, id: 'ms-sat', startDate: '2026-06-20', endDate: '2026-06-20' }],
+      ganttStartDate: '2026-06-20',
+      ganttPeriod: '1m',
+      showMilestoneLines: true,
+      showResourceView: false,
+      zoomLevel: 'day',
+      ganttHeaderLevels: { year: false, month: false, week: false, day: true },
+    });
+    const { getByTestId } = render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+    const ganttHeader = getByTestId('gantt-header');
+    // ganttStartDate=2026-06-20（土曜）なので最初の [data-dow="6"] セルがマイルストーン日
+    const satCells = Array.from(ganttHeader.querySelectorAll<HTMLElement>('[data-dow="6"]'));
+    expect(satCells.length).toBeGreaterThan(0);
+    // 土曜色（rgba(59,130,246...)）ではなくマイルストーン色（#8b5cf6 → rgba(139,92,246,...)）になるはず
+    const satBg = satCells[0].style.background;
+    expect(satBg.includes('#8b5cf6') || satBg.includes('139, 92, 246')).toBe(true);
+  });
+
   it('showMilestoneLines=false のとき data-milestone-marker が存在しない', () => {
     useTaskStore.setState({
       tasks: [MILESTONE_TASK],
