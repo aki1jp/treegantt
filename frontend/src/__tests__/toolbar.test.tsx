@@ -251,4 +251,18 @@ describe('Toolbar 表示トグル', () => {
     fireEvent.click(screen.getByTitle('日ヘッダーを表示'));
     expect(useTaskStore.getState().ganttHeaderLevels.day).toBe(!before);
   });
+
+  it('「今日バー」ボタンをクリックすると showTodayLine が切り替わる', () => {
+    renderToolbar();
+    const before = useTaskStore.getState().showTodayLine;
+    fireEvent.click(screen.getByTitle('今日の日付ラインを表示'));
+    expect(useTaskStore.getState().showTodayLine).toBe(!before);
+  });
+
+  it('「マイル強調」ボタンをクリックすると showMilestoneLines が切り替わる', () => {
+    renderToolbar();
+    const before = useTaskStore.getState().showMilestoneLines;
+    fireEvent.click(screen.getByTitle('マイルストーンの列ハイライト・ヘッダー行を表示'));
+    expect(useTaskStore.getState().showMilestoneLines).toBe(!before);
+  });
 });
