@@ -854,6 +854,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     hiddenCols={wbsHiddenCols}
                     wbsPanelOpen={wbsPanelOpen}
                     assigneeOptions={assigneeOptions}
+                    displayStart={(childCount.get(task.id) ?? 0) > 0 ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
+                    displayEnd={(childCount.get(task.id) ?? 0) > 0   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
                     onToggleCollapse={() => toggleCollapse(task.id)}
                     onInlineUpdate={onInlineUpdate}
                     onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}

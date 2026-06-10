@@ -360,3 +360,52 @@ describe('GanttLeftRow 担当者インライン編集', () => {
     expect(container.querySelector('datalist')).toBeFalsy();
   });
 });
+
+// ─── 親タスク displayStart / displayEnd（v2.37）──────────────────────────────
+
+describe('GanttLeftRow 親タスク displayStart/displayEnd（v2.37）', () => {
+  function renderParentRow(
+    taskOverrides: Partial<Task> = {},
+    extra: { displayStart?: string | null; displayEnd?: string | null } = {},
+  ) {
+    const task = makeTask({ startDate: '2026-05-01', endDate: '2026-05-31', ...taskOverrides });
+    return render(
+      <GanttLeftRow
+        {...rowProps(task, vi.fn())}
+        hasChildren
+        displayStart={extra.displayStart}
+        displayEnd={extra.displayEnd}
+      />,
+    );
+  }
+
+  it('hasChildren=true のとき displayStart が開始日列に表示される', () => {
+    renderParentRow({}, { displayStart: '2026-07-01', displayEnd: '2026-07-31' });
+    expect(screen.getByText('2026-07-01')).toBeTruthy();
+  });
+
+  it('hasChildren=true のとき displayEnd が終了日列に表示される', () => {
+    renderParentRow({}, { displayStart: '2026-07-01', displayEnd: '2026-07-31' });
+    expect(screen.getByText('2026-07-31')).toBeTruthy();
+  });
+
+  it('displayStart が null のとき開始日列は — になる（task.startDate にフォールバックしない）', () => {
+    renderParentRow({}, { displayStart: null, displayEnd: null });
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('hasChildren=false のとき task.startDate をそのまま表示する', () => {
+    const task = makeTask({ startDate: '2026-05-01', endDate: '2026-05-31' });
+    render(
+      <GanttLeftRow
+        {...rowProps(task, vi.fn())}
+        hasChildren={false}
+        displayStart="2026-07-01"
+        displayEnd="2026-07-31"
+      />,
+    );
+    expect(screen.getByText('2026-05-01')).toBeTruthy();
+    expect(screen.getByText('2026-05-31')).toBeTruthy();
+  });
+});

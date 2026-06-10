@@ -703,4 +703,17 @@ describe('calcParentSpanMap', () => {
     const map = calcParentSpanMap([parent, child1]);
     expect(map.get('p')?.endDate).toBe('2026-06-30');
   });
+
+  // ── 中間親の stale 日付は含めない ──────────────────────
+  it('中間親の stale な日付は祖父スパン計算に含まれない', () => {
+    // gp → parent(stale: 05-01〜05-31) → leaf(07-01〜07-31)
+    const gp     = makeTask({ id: 'gp' });
+    const parent = makeTask({ id: 'p', parentId: 'gp', startDate: '2026-05-01', endDate: '2026-05-31' }); // stale
+    const leaf   = makeTask({ id: 'leaf', parentId: 'p', startDate: '2026-07-01', endDate: '2026-07-31' });
+    const map = calcParentSpanMap([gp, parent, leaf]);
+    expect(map.get('gp')?.startDate).toBe('2026-07-01');
+    expect(map.get('gp')?.endDate).toBe('2026-07-31');
+    expect(map.get('p')?.startDate).toBe('2026-07-01');
+    expect(map.get('p')?.endDate).toBe('2026-07-31');
+  });
 });

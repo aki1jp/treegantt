@@ -368,7 +368,8 @@ export function calcParentSpanMap(
     const children = childrenMap.get(taskId) ?? [];
     const starts: string[] = [], ends: string[] = [];
     for (const child of children) {
-      if (!child.isMilestone) {
+      const isLeaf = !childrenMap.has(child.id);
+      if (isLeaf && !child.isMilestone) {
         if (child.startDate) starts.push(child.startDate);
         if (child.endDate)   ends.push(child.endDate);
       }

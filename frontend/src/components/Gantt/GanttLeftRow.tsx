@@ -21,6 +21,8 @@ export interface GanttLeftRowProps {
   hiddenCols?: string[];
   wbsPanelOpen?: boolean;
   assigneeOptions?: string[];
+  displayStart?: string | null;
+  displayEnd?:   string | null;
   onToggleCollapse: () => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onRowContextMenu: (x: number, y: number) => void;
@@ -32,6 +34,7 @@ export function GanttLeftRow({
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
   assigneeOptions,
+  displayStart, displayEnd,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -138,7 +141,9 @@ export function GanttLeftRow({
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
   const rowBg = task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)');
-  const duration = calcDuration(task);
+  const effectiveStartDate = hasChildren ? (displayStart ?? null) : task.startDate;
+  const effectiveEndDate   = hasChildren ? (displayEnd   ?? null) : task.endDate;
+  const duration = calcDuration({ ...task, startDate: effectiveStartDate, endDate: effectiveEndDate });
 
   return (
     <div
@@ -303,7 +308,7 @@ export function GanttLeftRow({
               cursor: hasChildren ? 'default' : 'text',
               color: hasChildren ? 'var(--th-text-dim)' : (task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
             }}>
-            {task.startDate ?? '—'}
+            {effectiveStartDate ?? '—'}
           </span>
         )}
       </div>}
@@ -325,7 +330,7 @@ export function GanttLeftRow({
               cursor: hasChildren ? 'default' : 'text',
               color: hasChildren ? 'var(--th-text-dim)' : (task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
             }}>
-            {task.endDate ?? '—'}
+            {effectiveEndDate ?? '—'}
           </span>
         )}
       </div>}
