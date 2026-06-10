@@ -289,3 +289,58 @@ describe('GanttBar 親タスク effectiveProgress（v2.30）', () => {
     expect(progressRect).toBeFalsy();
   });
 });
+
+// ── v2.37: 親タスク displayStart/displayEnd ──────────────────────────────────
+import { ZOOM_CONFIG, dateToX } from '../utils/ganttCalc';
+
+describe('GanttBar 親タスク displayStart/displayEnd（v2.37）', () => {
+  const DAY_WIDTH = ZOOM_CONFIG['month'].dayWidth;
+
+  function renderParentBar(displayStart?: string | null, displayEnd?: string | null) {
+    const task: Task = {
+      ...BASE_TASK,
+      id: 'parent-bar', startDate: '2026-05-01', endDate: '2026-05-31',
+    };
+    return render(
+      <svg>
+        <GanttBar
+          task={task} minDate={MIN} zoom="month" rowIndex={0}
+          isParent={true}
+          displayStart={displayStart}
+          displayEnd={displayEnd}
+          onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+        />
+      </svg>
+    );
+  }
+
+  it('displayStart が指定されればそれでバーの x が決まる', () => {
+    const { container } = renderParentBar('2026-06-01', '2026-06-30');
+    const expectedX = dateToX('2026-06-01', MIN, 'month');
+    const topBar = Array.from(container.querySelectorAll('rect')).find(r => {
+      const x = parseFloat(r.getAttribute('x') ?? '0');
+      return Math.abs(x - expectedX) < 1;
+    });
+    expect(topBar).toBeTruthy();
+  });
+
+  it('displayStart=null のとき task.startDate にフォールバックする', () => {
+    const { container } = renderParentBar(null, null);
+    const expectedX = dateToX('2026-05-01', MIN, 'month');
+    const topBar = Array.from(container.querySelectorAll('rect')).find(r => {
+      const x = parseFloat(r.getAttribute('x') ?? '0');
+      return Math.abs(x - expectedX) < 1;
+    });
+    expect(topBar).toBeTruthy();
+  });
+
+  it('displayStart/End が未指定のとき task の日付にフォールバックする', () => {
+    const { container } = renderParentBar();
+    const expectedX = dateToX('2026-05-01', MIN, 'month');
+    const topBar = Array.from(container.querySelectorAll('rect')).find(r => {
+      const x = parseFloat(r.getAttribute('x') ?? '0');
+      return Math.abs(x - expectedX) < 1;
+    });
+    expect(topBar).toBeTruthy();
+  });
+});

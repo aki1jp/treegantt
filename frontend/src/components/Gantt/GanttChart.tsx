@@ -6,6 +6,7 @@ import {
   calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents, isAncestorOrDescendant,
   addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
+  calcParentSpanMap,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
@@ -248,10 +249,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     }
   }
 
-  // 親タスクの進捗事前計算
-  const progressMap = new Map(
-    sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)])
-  );
+  // 親タスクの進捗・表示スパン事前計算
+  const progressMap   = new Map(sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)]));
+  const parentSpanMap = calcParentSpanMap(sorted);
 
   // イナズマライン
   const lightningPoints = calcLightningPoints(
@@ -987,6 +987,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   rowHeight={uiRowHeight}
                   isParent={isParent}
                   effectiveProgress={isParent ? progressMap.get(task.id) : undefined}
+                  displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
+                  displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}

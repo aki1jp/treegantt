@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -590,5 +590,117 @@ describe('isAncestorOrDescendant', () => {
 
   it('甥と叔父（C↔S）は false', () => {
     expect(isAncestorOrDescendant('C', 'S', taskById)).toBe(false);
+  });
+});
+
+describe('calcParentSpanMap', () => {
+  // ── 基本 ──────────────────────────────────────────────
+  it('子タスクの min/max から親スパンを算出する', () => {
+    const parent = makeTask({ id: 'p' });
+    const c1     = makeTask({ id: 'c1', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-15' });
+    const c2     = makeTask({ id: 'c2', parentId: 'p', startDate: '2026-06-10', endDate: '2026-06-30' });
+    const map = calcParentSpanMap([parent, c1, c2]);
+    expect(map.get('p')).toEqual({ startDate: '2026-06-01', endDate: '2026-06-30' });
+  });
+
+  it('子が1つだけの場合もその日付を使う', () => {
+    const parent = makeTask({ id: 'p' });
+    const child  = makeTask({ id: 'c', parentId: 'p', startDate: '2026-07-01', endDate: '2026-07-31' });
+    const map = calcParentSpanMap([parent, child]);
+    expect(map.get('p')).toEqual({ startDate: '2026-07-01', endDate: '2026-07-31' });
+  });
+
+  it('子に日付がない場合は startDate/endDate が null', () => {
+    const parent = makeTask({ id: 'p' });
+    const child  = makeTask({ id: 'c', parentId: 'p' });
+    const map = calcParentSpanMap([parent, child]);
+    expect(map.get('p')).toEqual({ startDate: null, endDate: null });
+  });
+
+  it('マイルストーン子タスクは除外する', () => {
+    const parent = makeTask({ id: 'p' });
+    const ms     = makeTask({ id: 'ms', parentId: 'p', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+    const map = calcParentSpanMap([parent, ms]);
+    expect(map.get('p')).toEqual({ startDate: null, endDate: null });
+  });
+
+  it('葉タスクはマップに含まれない', () => {
+    const parent = makeTask({ id: 'p' });
+    const leaf   = makeTask({ id: 'leaf', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-30' });
+    const map = calcParentSpanMap([parent, leaf]);
+    expect(map.has('leaf')).toBe(false);
+  });
+
+  // ── 多段階 ────────────────────────────────────────────
+  it('孫タスクまで包含する（2 階層）', () => {
+    const gp     = makeTask({ id: 'gp' });
+    const parent = makeTask({ id: 'p', parentId: 'gp' });
+    const child  = makeTask({ id: 'c', parentId: 'p', startDate: '2026-07-01', endDate: '2026-07-31' });
+    const map = calcParentSpanMap([gp, parent, child]);
+    expect(map.get('gp')).toEqual({ startDate: '2026-07-01', endDate: '2026-07-31' });
+    expect(map.get('p')).toEqual({ startDate: '2026-07-01', endDate: '2026-07-31' });
+  });
+
+  it('兄弟・孫混在でも全子孫の min/max を取る', () => {
+    const parent = makeTask({ id: 'p' });
+    const c1     = makeTask({ id: 'c1', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-10' });
+    const c2     = makeTask({ id: 'c2', parentId: 'p' });
+    const gc1    = makeTask({ id: 'gc1', parentId: 'c2', startDate: '2026-05-01', endDate: '2026-05-05' });
+    const map = calcParentSpanMap([parent, c1, c2, gc1]);
+    expect(map.get('p')).toEqual({ startDate: '2026-05-01', endDate: '2026-06-10' });
+  });
+
+  // ── ガントバードラッグ後（子の日付変更） ─────────────
+  it('子の startDate 変更後にスパンが更新される（ガントドラッグ後の store 状態）', () => {
+    const parent      = makeTask({ id: 'p' });
+    const childBefore = makeTask({ id: 'c', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-30' });
+    const childAfter  = { ...childBefore, startDate: '2026-05-01' };
+    const map = calcParentSpanMap([parent, childAfter]);
+    expect(map.get('p')?.startDate).toBe('2026-05-01');
+  });
+
+  it('子の endDate 変更後にスパンが延びる（ガントリサイズ後）', () => {
+    const parent      = makeTask({ id: 'p' });
+    const childBefore = makeTask({ id: 'c', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-30' });
+    const childAfter  = { ...childBefore, endDate: '2026-07-31' };
+    const map = calcParentSpanMap([parent, childAfter]);
+    expect(map.get('p')?.endDate).toBe('2026-07-31');
+  });
+
+  // ── WBS ドラッグ後（移動元・移動先） ─────────────────
+  it('タスクが別親に移動した後、移動元のスパンが縮小する', () => {
+    const oldParent = makeTask({ id: 'old' });
+    const child1    = makeTask({ id: 'c1', parentId: 'old', startDate: '2026-06-01', endDate: '2026-06-30' });
+    const child2    = makeTask({ id: 'c2', parentId: 'old', startDate: '2026-07-01', endDate: '2026-07-31' });
+    const newParent = makeTask({ id: 'new' });
+    // child2 を new へ移動した後の task リスト
+    const child2Moved = { ...child2, parentId: 'new' };
+    const map = calcParentSpanMap([oldParent, child1, child2Moved, newParent]);
+    expect(map.get('old')).toEqual({ startDate: '2026-06-01', endDate: '2026-06-30' });
+  });
+
+  it('タスクが別親に移動した後、移動先のスパンが拡大する', () => {
+    const newParent = makeTask({ id: 'new' });
+    const child3    = makeTask({ id: 'c3', parentId: 'new', startDate: '2026-09-01', endDate: '2026-09-30' });
+    const child2    = makeTask({ id: 'c2', parentId: 'new', startDate: '2026-07-01', endDate: '2026-07-31' });
+    const map = calcParentSpanMap([newParent, child3, child2]);
+    expect(map.get('new')).toEqual({ startDate: '2026-07-01', endDate: '2026-09-30' });
+  });
+
+  // ── 子の追加・削除 ────────────────────────────────────
+  it('子タスク追加後にスパンが拡大する', () => {
+    const parent = makeTask({ id: 'p' });
+    const child1 = makeTask({ id: 'c1', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-30' });
+    const child2 = makeTask({ id: 'c2', parentId: 'p', startDate: '2026-07-01', endDate: '2026-07-31' });
+    const map = calcParentSpanMap([parent, child1, child2]);
+    expect(map.get('p')?.endDate).toBe('2026-07-31');
+  });
+
+  it('子タスク削除後にスパンが縮小する', () => {
+    const parent = makeTask({ id: 'p' });
+    const child1 = makeTask({ id: 'c1', parentId: 'p', startDate: '2026-06-01', endDate: '2026-06-30' });
+    // child2 を削除した後の task リスト（child2 を含まない）
+    const map = calcParentSpanMap([parent, child1]);
+    expect(map.get('p')?.endDate).toBe('2026-06-30');
   });
 });

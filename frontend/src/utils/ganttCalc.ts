@@ -348,3 +348,45 @@ export function buildCollapsedCriticalParents(
   return new Set(Array.from(collapsed).filter(id => memo.get(id)));
 }
 
+export function calcParentSpanMap(
+  allTasks: Task[]
+): Map<string, { startDate: string | null; endDate: string | null }> {
+  const childrenMap = new Map<string, Task[]>();
+  for (const t of allTasks) {
+    if (t.parentId) {
+      const list = childrenMap.get(t.parentId) ?? [];
+      list.push(t);
+      childrenMap.set(t.parentId, list);
+    }
+  }
+
+  function getDescendantDates(
+    taskId: string, visited = new Set<string>()
+  ): { starts: string[]; ends: string[] } {
+    if (visited.has(taskId)) return { starts: [], ends: [] };
+    visited.add(taskId);
+    const children = childrenMap.get(taskId) ?? [];
+    const starts: string[] = [], ends: string[] = [];
+    for (const child of children) {
+      if (!child.isMilestone) {
+        if (child.startDate) starts.push(child.startDate);
+        if (child.endDate)   ends.push(child.endDate);
+      }
+      const sub = getDescendantDates(child.id, new Set(visited));
+      starts.push(...sub.starts);
+      ends.push(...sub.ends);
+    }
+    return { starts, ends };
+  }
+
+  const result = new Map<string, { startDate: string | null; endDate: string | null }>();
+  for (const [parentId] of childrenMap) {
+    const { starts, ends } = getDescendantDates(parentId);
+    result.set(parentId, {
+      startDate: starts.length > 0 ? [...starts].sort()[0]      : null,
+      endDate:   ends.length   > 0 ? [...ends].sort().at(-1)!   : null,
+    });
+  }
+  return result;
+}
+

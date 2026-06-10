@@ -10,6 +10,8 @@ interface Props {
   isCritical?: boolean;
   isParent?: boolean;
   effectiveProgress?: number;
+  displayStart?: string | null;
+  displayEnd?: string | null;
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
@@ -35,12 +37,20 @@ function titleTextMode(
 }
 
 export function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, isParent = false, effectiveProgress, dragPreview, rowHeight = ROW_HEIGHT_PX,
+  task, minDate, zoom, rowIndex, isCritical, isParent = false, effectiveProgress,
+  displayStart, displayEnd,
+  dragPreview, rowHeight = ROW_HEIGHT_PX,
   onMoveStart, onResizeLeftStart, onResizeRightStart,
   onClick,
 }: Props) {
-  const effectiveStart = dragPreview?.startDate ?? task.startDate;
-  const effectiveEnd   = dragPreview?.endDate   ?? task.endDate;
+  // 親タスクは子孫スパン（displayStart/End）を優先して描画位置を決める
+  // 子タスクはドラッグプレビューを優先する
+  const effectiveStart = isParent
+    ? (displayStart ?? task.startDate)
+    : (dragPreview?.startDate ?? task.startDate);
+  const effectiveEnd = isParent
+    ? (displayEnd ?? task.endDate)
+    : (dragPreview?.endDate ?? task.endDate);
 
   if (!effectiveStart) return null;
 
