@@ -8,7 +8,7 @@
  * - 垂直スクロールはガントパネルの onScroll で WBS パネルの scrollTop を同期
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
@@ -671,6 +671,69 @@ describe('WBS 日付インライン編集 — blur で確定', () => {
 
     expect(onInlineUpdate).toHaveBeenCalledWith('e1', { endDate: TODAY });
     expect(wbsPanel.querySelector('input[type="date"]')).toBeNull();
+  });
+});
+
+describe('WBS/ガントヘッダー高さ同期（ResizeObserver）', () => {
+  let savedRO: typeof globalThis.ResizeObserver;
+  beforeEach(() => { savedRO = globalThis.ResizeObserver; });
+  afterEach(() => { globalThis.ResizeObserver = savedRO; });
+
+  function setupROmock(reportedHeight: number) {
+    const cbs = new Map<Element, () => void>();
+    class MockRO {
+      private cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) { this.cb = cb; }
+      observe(el: Element) {
+        Object.defineProperty(el, 'offsetHeight', { get: () => reportedHeight, configurable: true });
+        cbs.set(el, () => this.cb([], this as unknown as ResizeObserver));
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+    globalThis.ResizeObserver = MockRO as unknown as typeof ResizeObserver;
+    return cbs;
+  }
+
+  function renderChart() {
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+  }
+
+  it('ガントヘッダーと WBS ヘッダーの高さが一致する（マイルストーンなし）', async () => {
+    const cbs = setupROmock(200);
+    const { getByTestId } = renderChart();
+    const ganttHeader = getByTestId('gantt-header');
+    const trigger = cbs.get(ganttHeader);
+    expect(trigger).toBeTruthy();
+    await act(async () => { trigger!(); });
+    expect(getByTestId('wbs-header').style.height).toBe('200px');
+  });
+
+  it('ガントヘッダーと WBS ヘッダーの高さが一致する（マイルストーンあり）', async () => {
+    useTaskStore.setState({
+      tasks: [{
+        id: 'm1', projectId: 'p1', parentId: null,
+        title: 'マイルM', summary: '', description: '',
+        status: 'todo', priority: 'medium', progress: 0, assignee: '',
+        startDate: '2026-06-01', endDate: '2026-06-01',
+        isMilestone: true, predecessors: [], seq: 1, order: 1,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        titleColor: null, titleBgColor: null,
+      }],
+      ganttStartDate: '2026-06-01',
+      showMilestoneLines: true,
+      showResourceView: false,
+    });
+    const cbs = setupROmock(150);
+    const { getByTestId } = renderChart();
+    const ganttHeader = getByTestId('gantt-header');
+    const trigger = cbs.get(ganttHeader);
+    expect(trigger).toBeTruthy();
+    await act(async () => { trigger!(); });
+    expect(getByTestId('wbs-header').style.height).toBe('150px');
   });
 });
 

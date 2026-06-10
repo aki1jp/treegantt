@@ -424,6 +424,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
   const ganttPanelRef   = useRef<HTMLDivElement>(null);
+  const ganttHeaderRef  = useRef<HTMLDivElement>(null);
   const workloadScrollRef = useRef<HTMLDivElement>(null);
 
   // flatRows / taskById の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
@@ -438,6 +439,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const el = ganttPanelRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const update = () => setHScrollbarH(el.offsetHeight - el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // ガントヘッダーの実際の高さを計測して WBS ヘッダーに同期
+  const [ganttHeaderH, setGanttHeaderH] = useState(0);
+  useEffect(() => {
+    const el = ganttHeaderRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => setGanttHeaderH(el.offsetHeight);
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -713,7 +726,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{
-          flexShrink: 0, height: totalHeaderH,
+          flexShrink: 0, height: ganttHeaderH || totalHeaderH,
           minHeight: 26,
           display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
           position: 'relative',
@@ -891,7 +904,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         <div style={{ width: totalWidth }}>
 
           {/* ガントヘッダー（マルチレベル・sticky） */}
-          <div data-testid="gantt-header" style={{
+          <div data-testid="gantt-header" ref={ganttHeaderRef} style={{
             position: 'sticky', top: 0, zIndex: 20,
             borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
             minHeight: HEADER_ROW_H,
