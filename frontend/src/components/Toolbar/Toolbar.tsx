@@ -314,7 +314,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={DIVIDER} />
 
-          {/* ヘッダー表示レベル */}
+          {/* ヘッダー表示レベル + マイル強調（ヘッダー行と同グループ） */}
           <div style={FILTER_GROUP}>
             <span style={LABEL}>ヘッダー</span>
             <ToggleBtn active={ganttHeaderLevels.year}  label="年" title="年ヘッダーを表示"
@@ -325,18 +325,6 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
               onClick={() => setGanttHeaderLevels({ week:  !ganttHeaderLevels.week  })} />
             <ToggleBtn active={ganttHeaderLevels.day}   label="日" title="日ヘッダーを表示"
               onClick={() => setGanttHeaderLevels({ day:   !ganttHeaderLevels.day   })} />
-          </div>
-
-          <div style={DIVIDER} />
-
-          {/* 表示トグル */}
-          <ToggleBtn
-            active={showTodayLine}
-            label="今日バー"
-            title="今日の日付ラインを表示"
-            onClick={() => setShowTodayLine(!showTodayLine)}
-          />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <ToggleBtn
               active={showMilestoneLines}
               label="マイル強調"
@@ -351,6 +339,16 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
               style={{ width: 22, height: 22, padding: 1, border: '1px solid var(--th-border)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
             />
           </div>
+
+          <div style={DIVIDER} />
+
+          {/* 表示トグル */}
+          <ToggleBtn
+            active={showTodayLine}
+            label="今日バー"
+            title="今日の日付ラインを表示"
+            onClick={() => setShowTodayLine(!showTodayLine)}
+          />
           <ToggleBtn
             active={showLightningLine}
             label="⚡ イナズマ"

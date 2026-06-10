@@ -838,17 +838,26 @@ describe('マイルストーン強調 UI', () => {
     );
   }
 
-  it('マイルストーン独立ヘッダー行（height 18px の固定div）が gantt-header 内に存在しない', () => {
+  it('マイルストーンヘッダー独立行（data-milestone-marker）が gantt-header の直接 child として存在する', () => {
     const { getByTestId } = renderWithMilestone();
     const ganttHeader = getByTestId('gantt-header');
-    const children = Array.from(ganttHeader.children) as HTMLElement[];
-    const has18pxRow = children.some(c => c.style.height === '18px');
-    expect(has18pxRow).toBe(false);
+    const marker = ganttHeader.querySelector('[data-milestone-marker]');
+    expect(marker).toBeTruthy();
+    expect(marker?.parentElement).toBe(ganttHeader);
   });
 
-  it('ガントヘッダー内に data-milestone-marker が存在する', () => {
-    const { getByTestId } = renderWithMilestone();
-    const ganttHeader = getByTestId('gantt-header');
-    expect(ganttHeader.querySelector('[data-milestone-marker]')).toBeTruthy();
+  it('showMilestoneLines=false のとき data-milestone-marker が存在しない', () => {
+    useTaskStore.setState({
+      tasks: [MILESTONE_TASK],
+      ganttStartDate: '2026-06-01', ganttPeriod: '1m',
+      showMilestoneLines: false, showResourceView: false,
+      zoomLevel: 'day',
+      ganttHeaderLevels: { year: false, month: false, week: false, day: true },
+    });
+    const { getByTestId } = render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+    expect(getByTestId('gantt-header').querySelector('[data-milestone-marker]')).toBeNull();
   });
 });
