@@ -6,5 +6,6 @@ dist/
 .env
 .env.local
 .git.bak/
-.claude/
+.claude/*
+!.claude/settings.json
 frontend/src/**/*.js
