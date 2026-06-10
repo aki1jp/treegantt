@@ -64,6 +64,7 @@
 | 2.38 | 2026年6月 | WBS/ガントヘッダー高さの自動同期。`ganttHeaderRef`（`useRef<HTMLDivElement>`）を `data-testid="gantt-header"` div に付与し、ResizeObserver でガントヘッダーの実測 `offsetHeight` を `ganttHeaderH` state に格納。WBS ヘッダーの height を `ganttHeaderH \|\| totalHeaderH`（計測値優先、jsdom等 では formula フォールバック）に変更。これにより新しいヘッダー行を追加しても `totalHeaderH` 式を手動修正する必要がなくなる。 |
 | 2.39 | 2026年6月 | マイルストーン強調 UI 改善。①ガントバーのひし形アイコンに `milestoneColor` prop（`milestoneHighlightColor` を渡す）を追加し、列背景と同系色で描画。②ツールバーの「マイル強調」ON/OFFボタンとカラーピッカーを「年/月/週/日」ヘッダートグルグループの「日」の隣に移動。③マイルストーンヘッダー独立行に `data-milestone-marker` を付与しラベル色を `milestoneHighlightColor` に統一。 |
 | 2.40 | 2026年6月 | マイルストーン強調カラー優先順位修正。①`isMilestoneDate` の判定を `row.level === 'day'` 限定から全ヘッダー行（year/month/week/day/dow）に拡張し、曜日（dow）行でもマイルストーン列が強調色になるよう修正。②背景色優先順位を `土/日 > マイル > 交互bg` から **`マイル > 土/日 > 交互bg`** に変更し、マイルストーンが土日と重なった場合もマイルストーン色が確実に表示されるよう修正。 |
+| 2.41 | 2026年6月 | 表示期間の最小を3ヶ月に変更・長期選択肢追加。`GanttPeriod` 型を `'2w' \| '1m' \| '3m' \| '6m'` から **`'3m' \| '6m' \| '12m' \| '24m'`** に変更。`PERIOD_DAYS` に `'12m': 365`・`'24m': 730` を追加し `'2w'`・`'1m'` を削除。ツールバーの選択肢も同様に更新。デフォルト値（`'3m'`）は変更なし。 |
 
 ---
 
