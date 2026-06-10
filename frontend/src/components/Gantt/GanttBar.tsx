@@ -14,6 +14,7 @@ interface Props {
   displayEnd?: string | null;
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
+  milestoneColor?: string;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
@@ -39,7 +40,7 @@ function titleTextMode(
 export function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, isParent = false, effectiveProgress,
   displayStart, displayEnd,
-  dragPreview, rowHeight = ROW_HEIGHT_PX,
+  dragPreview, rowHeight = ROW_HEIGHT_PX, milestoneColor,
   onMoveStart, onResizeLeftStart, onResizeRightStart,
   onClick,
 }: Props) {
@@ -66,17 +67,18 @@ export function GanttBar({
     const cx = dateToX(effectiveStart, minDate, zoom) + dayWidth / 2;
     const r  = (rowHeight - 14) / 2;
     const pts = `${cx},${centerY - r} ${cx + r},${centerY} ${cx},${centerY + r} ${cx - r},${centerY}`;
+    const mColor = milestoneColor ?? color;
     return (
       <g data-task-id={task.id} style={{ cursor: dragPreview ? 'grabbing' : 'move' }}>
         <polygon
           points={pts}
-          fill={isOverdue ? '#fca5a5' : isCritical ? '#fef08a' : color + 'cc'}
-          stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : color}
+          fill={isOverdue ? '#fca5a5' : isCritical ? '#fef08a' : mColor + 'cc'}
+          stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : mColor}
           strokeWidth={isOverdue ? 2.5 : isCritical ? 2 : 1.5}
           filter={isCritical && !isOverdue ? 'url(#critical-glow)' : undefined}
           onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
         />
-        <text x={cx + r + 5} y={centerY + 4} fontSize={barFontSize} fill={isCritical ? '#6366f1' : color} fontWeight={600}>
+        <text x={cx + r + 5} y={centerY + 4} fontSize={barFontSize} fill={isCritical ? '#6366f1' : mColor} fontWeight={600}>
           {task.title}
         </text>
         <rect

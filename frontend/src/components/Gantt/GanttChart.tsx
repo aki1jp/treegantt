@@ -13,14 +13,12 @@ import type { TreeNode } from '../../utils/taskTree';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
-import { STATUS_COLOR } from '../../utils/taskColors';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
 import { ContextMenu } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
 
 const HEADER_ROW_H = 26;
-const MILESTONE_HEADER_H = 18;
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
@@ -255,15 +253,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const milestoneItems = showMilestoneLines
     ? sorted
         .filter(t => t.isMilestone && !!t.startDate)
-        .map(t => ({
-          x:     dateToX(t.startDate!, min, zoomLevel),
-          title: t.title,
-          color: STATUS_COLOR[t.status],
-        }))
+        .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title }))
     : [];
   const milestoneXSet = new Set(milestoneItems.map(m => m.x));
-  const milestoneHeaderH = milestoneItems.length > 0 ? MILESTONE_HEADER_H : 0;
-  const totalHeaderH = headerRows.length * HEADER_ROW_H + milestoneHeaderH + 2;
+  const totalHeaderH = headerRows.length * HEADER_ROW_H + 2;
 
   // 親タスクの進捗・表示スパン事前計算
   const progressMap   = new Map(sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)]));
@@ -909,71 +902,63 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             borderBottom: '2px solid var(--th-border)', background: 'var(--th-bg2)',
             minHeight: HEADER_ROW_H,
           }}>
-            {headerRows.map((row, ri) => (
-              <div key={row.level} style={{
-                width: totalWidth, position: 'relative',
-                height: HEADER_ROW_H, boxSizing: 'border-box',
-                background: 'var(--th-bg2)',
-                borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined,
-              }}>
-                {row.cells.map((cell, ci) => {
-                  const isSat = (row.level === 'day' || row.level === 'dow') && cell.dow === 6;
-                  const isSun = (row.level === 'day' || row.level === 'dow') && cell.dow === 0;
-                  const isMilestoneDate = row.level === 'day' && milestoneXSet.has(cell.x);
-                  const bg = isSat
-                    ? 'rgba(59,130,246,0.18)'
-                    : isSun
-                      ? 'rgba(239,68,68,0.18)'
-                      : isMilestoneDate
-                        ? milestoneHighlightColor + '55'
-                        : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
-                  return (
-                    <div
-                      key={ci}
-                      data-dow={row.level === 'dow' ? cell.dow : undefined}
-                      style={{
-                        position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
-                        background: bg,
-                        borderRight: '1px solid var(--th-border)',
-                        display: 'flex', alignItems: 'center',
-                        justifyContent: (row.level === 'day' || row.level === 'dow') ? 'center' : undefined,
-                        paddingLeft: (row.level === 'day' || row.level === 'dow') ? 0 : 4,
-                        fontSize: 10,
-                        fontWeight: row.level === 'year' ? 800 : 600,
-                        color: row.level === 'dow'
-                          ? (isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)')
-                          : row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
-                        boxSizing: 'border-box', overflow: 'hidden',
-                      }}
-                    >
-                      {cell.label}
+            {headerRows.map((row, ri) => {
+              const isLastRow = ri === headerRows.length - 1;
+              return (
+                <div key={row.level} style={{
+                  width: totalWidth, position: 'relative',
+                  height: HEADER_ROW_H, boxSizing: 'border-box',
+                  background: 'var(--th-bg2)',
+                  borderTop: ri > 0 ? '1px solid var(--th-border)' : undefined,
+                }}>
+                  {row.cells.map((cell, ci) => {
+                    const isSat = (row.level === 'day' || row.level === 'dow') && cell.dow === 6;
+                    const isSun = (row.level === 'day' || row.level === 'dow') && cell.dow === 0;
+                    const isMilestoneDate = row.level === 'day' && milestoneXSet.has(cell.x);
+                    const bg = isSat
+                      ? 'rgba(59,130,246,0.18)'
+                      : isSun
+                        ? 'rgba(239,68,68,0.18)'
+                        : isMilestoneDate
+                          ? milestoneHighlightColor + '55'
+                          : ci % 2 === 0 ? 'var(--th-bg2)' : 'var(--th-bg3)';
+                    return (
+                      <div
+                        key={ci}
+                        data-dow={row.level === 'dow' ? cell.dow : undefined}
+                        style={{
+                          position: 'absolute', left: cell.x, width: cell.width, height: HEADER_ROW_H,
+                          background: bg,
+                          borderRight: '1px solid var(--th-border)',
+                          display: 'flex', alignItems: 'center',
+                          justifyContent: (row.level === 'day' || row.level === 'dow') ? 'center' : undefined,
+                          paddingLeft: (row.level === 'day' || row.level === 'dow') ? 0 : 4,
+                          fontSize: 10,
+                          fontWeight: row.level === 'year' ? 800 : 600,
+                          color: row.level === 'dow'
+                            ? (isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)')
+                            : row.level === 'year' ? 'var(--th-text2)' : 'var(--th-text-muted)',
+                          boxSizing: 'border-box', overflow: 'hidden',
+                        }}
+                      >
+                        {cell.label}
+                      </div>
+                    );
+                  })}
+                  {/* マイルストーンマーカー（最終ヘッダー行にオーバーレイ） */}
+                  {isLastRow && milestoneItems.map((m, i) => (
+                    <div key={`ms-${i}`} data-milestone-marker style={{
+                      position: 'absolute', left: m.x + 2, top: 0, bottom: 0,
+                      display: 'flex', alignItems: 'center', gap: 2,
+                      fontSize: 9, fontWeight: 700, color: milestoneHighlightColor,
+                      whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 1,
+                    }}>
+                      ◆ {m.title}
                     </div>
-                  );
-                })}
-              </div>
-            ))}
-            {/* マイルストーンヘッダー行 */}
-            {milestoneItems.length > 0 && (
-              <div style={{
-                position: 'relative', width: totalWidth, height: MILESTONE_HEADER_H,
-                boxSizing: 'border-box',
-                borderTop: '1px solid var(--th-border)',
-                background: 'var(--th-bg2)', overflow: 'hidden',
-              }}>
-                {milestoneItems.map((m, i) => (
-                  <div key={i} style={{
-                    position: 'absolute', left: m.x,
-                    display: 'flex', alignItems: 'center', gap: 2,
-                    fontSize: 9, fontWeight: 600, color: m.color,
-                    whiteSpace: 'nowrap', paddingLeft: 2,
-                    top: 2,
-                  }}>
-                    <span style={{ fontSize: 8 }}>◆</span>
-                    {m.title}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })}
           </div>
 
           {/* ガント SVG */}
@@ -1051,6 +1036,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   effectiveProgress={isParent ? progressMap.get(task.id) : undefined}
                   displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
                   displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
+                  milestoneColor={task.isMilestone ? milestoneHighlightColor : undefined}
                   onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
                   onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
                   onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}
