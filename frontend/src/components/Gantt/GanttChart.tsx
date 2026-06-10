@@ -162,7 +162,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
@@ -1066,11 +1066,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             })()}
 
             {/* 今日ライン */}
-            <TodayLine
-              min={min}
-              zoomLevel={zoomLevel}
-              height={Math.max(totalHeight, 1)}
-            />
+            {showTodayLine && (
+              <TodayLine
+                min={min}
+                zoomLevel={zoomLevel}
+                height={Math.max(totalHeight, 1)}
+              />
+            )}
 
             {/* イナズマライン */}
             {showLightningLine && lightningPoints && (

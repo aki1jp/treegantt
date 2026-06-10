@@ -100,10 +100,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange, resetUi,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
 
@@ -330,6 +330,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           <div style={DIVIDER} />
 
           {/* 表示トグル */}
+          <ToggleBtn
+            active={showTodayLine}
+            label="今日バー"
+            title="今日の日付ラインを表示"
+            onClick={() => setShowTodayLine(!showTodayLine)}
+          />
           <ToggleBtn
             active={showLightningLine}
             label="⚡ イナズマ"
