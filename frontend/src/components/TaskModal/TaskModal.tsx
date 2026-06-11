@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownBody } from '../MarkdownBody/MarkdownBody';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 import { getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
 
@@ -211,7 +211,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
                 fontSize: 13, lineHeight: 1.7,
               }}>
                 {description.trim() ? (
-                  <ReactMarkdown>{description}</ReactMarkdown>
+                  <MarkdownBody>{description}</MarkdownBody>
                 ) : (
                   <span style={{ color: 'var(--th-text-ph)', fontStyle: 'italic' }}>説明がありません</span>
                 )}

@@ -15,6 +15,15 @@
         72%     { transform: translateX(5px); }
         88%     { transform: translateX(-2px); }
       }
+      /* Markdown本文スコープ: グローバルreset(margin:0;padding:0)を上書きしリスト等を正しく表示 */
+      .md-body ul, .md-body ol { padding-left: 1.5em; margin: .3em 0; }
+      .md-body li { margin: .1em 0; }
+      .md-body li > input[type="checkbox"] { margin-right: 4px; vertical-align: middle; }
+      .md-body p { margin: .2em 0; }
+      .md-body h1,.md-body h2,.md-body h3 { font-weight: 700; margin: .4em 0 .2em; }
+      .md-body code { background: rgba(128,128,128,.15); border-radius: 3px; padding: 0 3px; font-size: .9em; }
+      .md-body pre { background: rgba(128,128,128,.1); border-radius: 4px; padding: 8px; overflow-x: auto; margin: .3em 0; }
+      .md-body blockquote { border-left: 3px solid #ccc; padding-left: .8em; opacity: .75; margin: .3em 0; }
     </style>
   </head>
   <body>

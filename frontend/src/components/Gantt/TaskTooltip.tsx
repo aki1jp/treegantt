@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownBody } from '../MarkdownBody/MarkdownBody';
 import type { Task } from '../../types/task';
 
 interface Props {
@@ -54,7 +54,7 @@ export function TaskTooltip({ task, pos, visible }: Props) {
         <>
           <div style={{ borderTop: '1px solid var(--th-border, #e5e7eb)', marginBottom: 6 }} />
           <div style={PROSE_STYLE}>
-            <ReactMarkdown>{task.summary}</ReactMarkdown>
+            <MarkdownBody>{task.summary}</MarkdownBody>
           </div>
         </>
       )}
@@ -64,7 +64,7 @@ export function TaskTooltip({ task, pos, visible }: Props) {
         <>
           <div style={{ borderTop: '1px solid var(--th-border, #e5e7eb)', margin: '6px 0' }} />
           <div style={PROSE_STYLE}>
-            <ReactMarkdown>{task.description}</ReactMarkdown>
+            <MarkdownBody>{task.description}</MarkdownBody>
           </div>
         </>
       )}
