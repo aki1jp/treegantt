@@ -215,6 +215,42 @@ describe('deleteTask 削除モード', () => {
     expect(useTaskStore.getState().tasks.find(t => t.id === 'c')?.parentId).toBeNull();
   });
 
+  it('subtree 削除で残存タスクの predecessors から削除済みID（子孫含む）が除去される', async () => {
+    const parent = makeTask({ id: 'p', title: '親' });
+    const child  = makeTask({ id: 'c', title: '子', parentId: 'p' });
+    const dep1   = makeTask({ id: 'd1', title: '親依存', predecessors: ['p'] });
+    const dep2   = makeTask({ id: 'd2', title: '子依存', predecessors: ['c', 'd1'] });
+    useTaskStore.setState({ tasks: [parent, child, dep1, dep2] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 204,
+      json: async () => null,
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await deleteTask('p');
+
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks.find(t => t.id === 'd1')?.predecessors).toEqual([]);
+    expect(tasks.find(t => t.id === 'd2')?.predecessors).toEqual(['d1']); // 生存依存は残る
+  });
+
+  it("mode='single' 削除で削除タスクのIDのみ predecessors から除去され子の依存は残る", async () => {
+    const parent = makeTask({ id: 'p', title: '親' });
+    const child  = makeTask({ id: 'c', title: '子', parentId: 'p' });
+    const dep    = makeTask({ id: 'd', title: '依存', predecessors: ['p', 'c'] });
+    useTaskStore.setState({ tasks: [parent, child, dep] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 204,
+      json: async () => null,
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await deleteTask('p', 'single');
+
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks.find(t => t.id === 'd')?.predecessors).toEqual(['c']); // c は生存
+  });
+
   it('fetch 失敗時はモードに関わらずストアをロールバックする', async () => {
     const parent = makeTask({ id: 'p', title: '親' });
     const child  = makeTask({ id: 'c', title: '子', parentId: 'p' });

@@ -706,6 +706,29 @@ describe('Import/Export API', () => {
     expect(list.json().tasks).toHaveLength(3);
   });
 
+  // ── seq 永久欠番 ─────────────────────────────────────
+  it('インポートは削除済みタスクの seq を再利用しない（永久欠番）', async () => {
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'T1' },
+    }); // seq 1
+    const create2 = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'T2' },
+    }); // seq 2
+    await app.inject({ method: 'DELETE', url: `/api/v1/tasks/${create2.json().task.id}` });
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { tasks: [{ title: 'Imported' }] },
+    });
+    expect(res.json().imported).toBe(1);
+
+    const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
+    const imported = list.json().tasks.find((t: { title: string }) => t.title === 'Imported');
+    expect(imported.seq).toBe(3); // 2 は永久欠番
+  });
+
   // ── ID リマップ・重複回避 ─────────────────────────────
   it('既存IDと同じIDを持つタスクを上書きせず別タスクとして追加する', async () => {
     const create = await app.inject({

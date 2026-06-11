@@ -157,43 +157,58 @@ export interface CreateTaskInput {
 }
 
 export function createTask(input: CreateTaskInput): TaskWithSuccessors {
-  const { m: maxOrd, s: maxSeq } = (
+  const { m: maxOrd } = (
     db
-      .prepare('SELECT COALESCE(MAX(ord), 0) as m, COALESCE(MAX(seq), 0) as s FROM tasks WHERE project_id = ?')
-      .get(input.projectId) as { m: number; s: number }
+      .prepare('SELECT COALESCE(MAX(ord), 0) as m FROM tasks WHERE project_id = ?')
+      .get(input.projectId) as { m: number }
   );
 
-  db.prepare(
-    `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    input.id,
-    input.projectId,
-    input.parentId ?? null,
-    input.title,
-    input.summary ?? '',
-    input.description ?? '',
-    input.status ?? 'todo',
-    input.priority ?? 'medium',
-    input.progress ?? 0,
-    input.assignee ?? '',
-    input.startDate ?? null,
-    input.endDate ?? null,
-    input.isMilestone ? 1 : 0,
-    input.order ?? maxOrd + 1,
-    maxSeq + 1
-  );
+  db.transaction(() => {
+    // seq は projects.next_seq カウンターから採番（削除済み番号は永久欠番）
+    const { next_seq: seq } = db
+      .prepare('SELECT next_seq FROM projects WHERE id = ?')
+      .get(input.projectId) as { next_seq: number };
+    db.prepare('UPDATE projects SET next_seq = next_seq + 1 WHERE id = ?').run(input.projectId);
 
-  if (input.predecessors?.length) {
-    const insertDep = db.prepare(
-      'INSERT OR IGNORE INTO task_deps (predecessor_id, successor_id) VALUES (?, ?)'
+    db.prepare(
+      `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      input.id,
+      input.projectId,
+      input.parentId ?? null,
+      input.title,
+      input.summary ?? '',
+      input.description ?? '',
+      input.status ?? 'todo',
+      input.priority ?? 'medium',
+      input.progress ?? 0,
+      input.assignee ?? '',
+      input.startDate ?? null,
+      input.endDate ?? null,
+      input.isMilestone ? 1 : 0,
+      input.order ?? maxOrd + 1,
+      seq
     );
-    for (const predId of input.predecessors) {
-      insertDep.run(predId, input.id);
+
+    if (input.predecessors?.length) {
+      insertPredecessors(input.id, input.predecessors);
     }
-  }
+  })();
 
   return getTask(input.id)!;
+}
+
+// 存在する先行タスクのみ task_deps に挿入する。
+// 存在しないID（削除済みタスクへの幽霊参照など）はFK違反になるためスキップする
+function insertPredecessors(successorId: string, predecessors: string[]): void {
+  const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?');
+  const insertDep = db.prepare(
+    'INSERT OR IGNORE INTO task_deps (predecessor_id, successor_id) VALUES (?, ?)'
+  );
+  for (const predId of predecessors) {
+    if (taskExists.get(predId)) insertDep.run(predId, successorId);
+  }
 }
 
 export type UpdateTaskInput = Partial<Omit<CreateTaskInput, 'id' | 'projectId'>>;
@@ -235,12 +250,7 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
 
   if (input.predecessors !== undefined) {
     db.prepare('DELETE FROM task_deps WHERE successor_id = ?').run(id);
-    const insertDep = db.prepare(
-      'INSERT OR IGNORE INTO task_deps (predecessor_id, successor_id) VALUES (?, ?)'
-    );
-    for (const predId of input.predecessors) {
-      insertDep.run(predId, id);
-    }
+    insertPredecessors(id, input.predecessors);
   }
 
   return getTask(id);

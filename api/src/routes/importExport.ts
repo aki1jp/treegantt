@@ -59,11 +59,15 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         db.prepare('DELETE FROM tasks WHERE project_id = ?').run(projectId);
       }
 
-      // Step 0: 既存の最大 ord / seq を取得（追記用オフセット）
-      const { maxOrd, maxSeq } = isRestore ? { maxOrd: 0, maxSeq: 0 } : (
-        db.prepare('SELECT COALESCE(MAX(ord), 0) AS maxOrd, COALESCE(MAX(seq), 0) AS maxSeq FROM tasks WHERE project_id = ?')
-          .get(projectId) as { maxOrd: number; maxSeq: number }
+      // Step 0: 既存の最大 ord を取得（追記用オフセット）。
+      // seq は projects.next_seq カウンターから採番（restore でもリセットしない＝永久欠番）
+      const { maxOrd } = isRestore ? { maxOrd: 0 } : (
+        db.prepare('SELECT COALESCE(MAX(ord), 0) AS maxOrd FROM tasks WHERE project_id = ?')
+          .get(projectId) as { maxOrd: number }
       );
+      const { next_seq: nextSeq } = db
+        .prepare('SELECT next_seq FROM projects WHERE id = ?')
+        .get(projectId) as { next_seq: number };
 
       // Step 1: 全タスクに新 UUID を割り当て、oldId → newId マッピングを構築
       const idMap = new Map<string, string>();
@@ -97,9 +101,11 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             toNullableStr(task.endDate),
             task.isMilestone ? 1 : 0,
             maxOrd + i + 1,
-            maxSeq + i + 1,
+            nextSeq + i,
           );
         });
+        db.prepare('UPDATE projects SET next_seq = ? WHERE id = ?')
+          .run(nextSeq + inputTasks.length, projectId);
 
         // Pass 2: parent_id をリマップして UPDATE（バッチ外 ID は null 扱い）
         const setParent = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');

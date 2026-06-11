@@ -413,16 +413,26 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const newParentId: string | null =
       moved.isMilestone || targetParentId === moved.id ? moved.parentId : targetParentId;
 
-    const rowsWithoutDrag = flatRows.filter((_, i) => i !== dragIdx).map(r => r.task);
-    const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
-    const afterTaskId = insertAt > 0 ? rowsWithoutDrag[insertAt - 1].id : null;
-
     if (isDragCopyRef.current) {
-      onCopyInsert(moved, newParentId, afterTaskId);
+      // コピーはソース行が残るため移動用の dragIdx 補正を使わない。
+      // ドロップ位置から上方向に走査し、同一親の直上の兄弟を afterTaskId とする
+      // （直上のフラット行は別タスクの子孫でありうるため不可）
+      let copyAfterId: string | null = null;
+      for (let i = dropIdx - 1; i >= 0; i--) {
+        if (flatRows[i].task.parentId === newParentId) { copyAfterId = flatRows[i].task.id; break; }
+      }
+      if (copyAfterId) {
+        onCopyInsert(moved, newParentId, copyAfterId);
+      } else {
+        // 上に兄弟がいない＝先頭へのドロップ: 先頭兄弟の前に挿入
+        const firstSibling = flatRows.find(r => r.task.parentId === newParentId);
+        onCopyInsert(moved, newParentId, null, firstSibling?.task.id ?? null);
+      }
       clearDrop();
       return;
     }
 
+    const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
     const parentIdChanged = newParentId !== moved.parentId;
     const newRows = [...flatRows.map(r => r.task)];
     const [removed] = newRows.splice(dragIdx, 1);

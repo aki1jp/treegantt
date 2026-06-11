@@ -115,6 +115,50 @@ describe('taskService', () => {
       const pred = getTask('pred');
       expect(pred?.successors).toContain('succ');
     });
+
+    it('存在しない先行IDは無視して作成できる（FKエラーにしない）', () => {
+      createTask({ id: 'v1', projectId: PROJECT_ID, title: 'V1' });
+      const task = createTask({
+        id: 'v2',
+        projectId: PROJECT_ID,
+        title: 'V2',
+        predecessors: ['ghost-id', 'v1'],
+      });
+      expect(task.predecessors).toEqual(['v1']);
+    });
+  });
+
+  describe('seq 永久欠番（削除済み番号を再利用しない）', () => {
+    it('最大seqのタスクを削除しても次のタスクは新しい番号を取る', () => {
+      createTask({ id: 's1', projectId: PROJECT_ID, title: 'S1' }); // seq 1
+      createTask({ id: 's2', projectId: PROJECT_ID, title: 'S2' }); // seq 2
+      const t3 = createTask({ id: 's3', projectId: PROJECT_ID, title: 'S3' }); // seq 3
+      expect(t3.seq).toBe(3);
+
+      deleteTask('s3');
+      const t4 = createTask({ id: 's4', projectId: PROJECT_ID, title: 'S4' });
+      expect(t4.seq).toBe(4); // 3 は永久欠番
+    });
+
+    it('サブツリー削除後も番号を再利用しない', () => {
+      createTask({ id: 'p', projectId: PROJECT_ID, title: 'Parent' });               // seq 1
+      createTask({ id: 'c', projectId: PROJECT_ID, title: 'Child', parentId: 'p' }); // seq 2
+      deleteTaskSubtree('p');
+
+      const fresh = createTask({ id: 'fresh', projectId: PROJECT_ID, title: 'Fresh' });
+      expect(fresh.seq).toBe(3); // 1, 2 は永久欠番
+    });
+
+    it('全削除→再作成を繰り返しても番号は単調増加する', () => {
+      const a = createTask({ id: 'a', projectId: PROJECT_ID, title: 'A' });
+      deleteTask('a');
+      const b = createTask({ id: 'b', projectId: PROJECT_ID, title: 'B' });
+      deleteTask('b');
+      const c = createTask({ id: 'c', projectId: PROJECT_ID, title: 'C' });
+      expect(a.seq).toBe(1);
+      expect(b.seq).toBe(2);
+      expect(c.seq).toBe(3);
+    });
   });
 
   describe('getTask', () => {
@@ -194,6 +238,17 @@ describe('taskService', () => {
       const updated = updateTask('child', { predecessors: ['p2'] });
       expect(updated?.predecessors).toEqual(['p2']);
       expect(updated?.predecessors).not.toContain('p1');
+    });
+
+    it('存在しない先行IDは無視して更新できる（削除済みタスクの幽霊参照でFKエラーにしない）', () => {
+      createTask({ id: 'g1', projectId: PROJECT_ID, title: 'G1' });
+      createTask({ id: 'g2', projectId: PROJECT_ID, title: 'G2' });
+      createTask({ id: 'g3', projectId: PROJECT_ID, title: 'G3', predecessors: ['g1', 'g2'] });
+      deleteTask('g1');
+
+      // フロントの楽観的更新が遅れて g1 を含む predecessors を送ってきた状況
+      const updated = updateTask('g3', { predecessors: ['g1', 'g2'] });
+      expect(updated?.predecessors).toEqual(['g2']);
     });
 
     it('updates titleColor and titleBgColor', () => {

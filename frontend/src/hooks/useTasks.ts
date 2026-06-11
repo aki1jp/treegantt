@@ -36,6 +36,13 @@ export function useTasks(projectId: string) {
     const store = useTaskStore.getState();
     const prev = store.tasks;
 
+    // 削除されるIDへの依存（predecessors）は残存タスクから除去する
+    // （幽霊参照のまま PATCH するとサーバーでFK違反になるため）
+    const stripDeleted = (t: Task, removed: ReadonlySet<string>): Task =>
+      t.predecessors.some(p => removed.has(p))
+        ? { ...t, predecessors: t.predecessors.filter(p => !removed.has(p)) }
+        : t;
+
     if (mode === 'subtree') {
       const removed = new Set([id]);
       let grew = true;
@@ -48,12 +55,14 @@ export function useTasks(projectId: string) {
           }
         }
       }
-      store.setTasks(prev.filter(t => !removed.has(t.id)));
+      store.setTasks(prev.filter(t => !removed.has(t.id)).map(t => stripDeleted(t, removed)));
     } else {
       const newParentId = prev.find(t => t.id === id)?.parentId ?? null;
+      const removed = new Set([id]);
       store.setTasks(
         prev.filter(t => t.id !== id)
           .map(t => t.parentId === id ? { ...t, parentId: newParentId } : t)
+          .map(t => stripDeleted(t, removed))
       );
     }
 

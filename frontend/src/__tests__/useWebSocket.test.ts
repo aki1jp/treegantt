@@ -106,6 +106,18 @@ describe('applyMessage', () => {
     expect(useTaskStore.getState().tasks[0].id).toBe('t2');
   });
 
+  it('task_deleted: 残存タスクの predecessors から削除IDを除去する', () => {
+    useTaskStore.setState({ tasks: [
+      makeTask({ id: 't1' }),
+      makeTask({ id: 't2', predecessors: ['t1', 't3'] }),
+      makeTask({ id: 't3', predecessors: ['t1'] }),
+    ] });
+    applyMessage({ type: 'task_deleted', id: 't1', projectId: 'p1' });
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks.find(t => t.id === 't2')?.predecessors).toEqual(['t3']); // 生存依存は残る
+    expect(tasks.find(t => t.id === 't3')?.predecessors).toEqual([]);
+  });
+
   it('tasks_reordered: order を更新する', () => {
     useTaskStore.setState({ tasks: [makeTask({ id: 't1', order: 1 }), makeTask({ id: 't2', order: 2 }), makeTask({ id: 't3', order: 3 })] });
     applyMessage({

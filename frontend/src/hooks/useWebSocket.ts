@@ -28,7 +28,13 @@ export function applyMessage(msg: Record<string, unknown>) {
       break;
     }
     case 'task_deleted': {
-      store.setTasks(tasks.filter(t => t.id !== (msg.id as string)));
+      const deletedId = msg.id as string;
+      // 削除タスクへの依存（predecessors）も残存タスクから除去（DB側は CASCADE 済み）
+      store.setTasks(tasks.filter(t => t.id !== deletedId).map(t =>
+        t.predecessors.includes(deletedId)
+          ? { ...t, predecessors: t.predecessors.filter(p => p !== deletedId) }
+          : t
+      ));
       break;
     }
     case 'tasks_reordered': {

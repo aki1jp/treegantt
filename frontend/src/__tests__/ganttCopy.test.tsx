@@ -187,6 +187,58 @@ describe('Ctrl+ドラッグ コピー機能', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+describe('Ctrl+ドラッグ コピーの挿入位置', () => {
+  it('子孫が展開されていてもafterTaskIdは直上の兄弟になる（子孫IDにならない）', async () => {
+    // flatRows: [A(0), a1(1), B(2), C(3)] — C を B の上にドロップ → 直上の兄弟は A
+    const a  = makeTask({ title: 'A', order: 1 });
+    const a1 = makeTask({ title: 'a1', order: 2, parentId: a.id });
+    const b  = makeTask({ title: 'B', order: 3 });
+    const c  = makeTask({ title: 'C', order: 4 });
+    const onCopyInsert = vi.fn().mockResolvedValue(undefined);
+    const { container } = renderChart([a, a1, b, c], { onCopyInsert });
+
+    const draggables = container.querySelectorAll('[draggable]');
+    const ctrlDragStart = createEvent.dragStart(draggables[3]);
+    Object.defineProperty(ctrlDragStart, 'ctrlKey', { value: true, configurable: true });
+    await act(async () => { fireEvent(draggables[3], ctrlDragStart); });
+    const ctrlDragOver = createEvent.dragOver(draggables[2]);
+    Object.defineProperty(ctrlDragOver, 'ctrlKey', { value: true, configurable: true });
+    await act(async () => { fireEvent(draggables[2], ctrlDragOver); });
+    await act(async () => { fireEvent.drop(draggables[2]); });
+
+    expect(onCopyInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: c.id }),
+      null,
+      a.id,  // a1（Aの子孫）ではなく兄弟の A
+    );
+  });
+
+  it('リスト先頭へのコピードロップはbeforeTaskId=先頭兄弟で呼ばれる', async () => {
+    const t1 = makeTask({ title: 'TaskA', order: 1 });
+    const t2 = makeTask({ title: 'TaskB', order: 2 });
+    const t3 = makeTask({ title: 'TaskC', order: 3 });
+    const onCopyInsert = vi.fn().mockResolvedValue(undefined);
+    const { container } = renderChart([t1, t2, t3], { onCopyInsert });
+
+    const draggables = container.querySelectorAll('[draggable]');
+    const ctrlDragStart = createEvent.dragStart(draggables[2]);
+    Object.defineProperty(ctrlDragStart, 'ctrlKey', { value: true, configurable: true });
+    await act(async () => { fireEvent(draggables[2], ctrlDragStart); });
+    const ctrlDragOver = createEvent.dragOver(draggables[0]);
+    Object.defineProperty(ctrlDragOver, 'ctrlKey', { value: true, configurable: true });
+    await act(async () => { fireEvent(draggables[0], ctrlDragOver); });
+    await act(async () => { fireEvent.drop(draggables[0]); });
+
+    expect(onCopyInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: t3.id }),
+      null,
+      null,   // afterTaskId なし
+      t1.id,  // beforeTaskId = 先頭兄弟
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 describe('ドラッグフリーズ修正', () => {
   it('dragStartでeffectAllowedが"all"に設定される（Chrome早期dragEnd防止）', async () => {
     const t1 = makeTask({ title: 'TaskA' });
