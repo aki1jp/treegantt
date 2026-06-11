@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.36 |
+| バージョン | 2.41 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -675,6 +675,16 @@ interface TaskStore {
 
 > **`GanttBar` への `isParent` prop**: `GanttChart` 側で `childCount.get(task.id) > 0` を評価して渡す。バー自体のクリック（タスク詳細を開く）は親でも有効のまま維持する。
 
+#### 親タスク日付のフロントエンド計算（★v2.37追加）
+
+**設計方針**: APIは親タスクの `start_date` / `end_date` を一切書き換えない。子孫タスクの日付包含範囲はフロントエンドで動的に計算して表示する。
+
+- `ganttCalc.ts` の `calcParentSpanMap(allTasks)` が子孫の min/max を再帰計算
+- `GanttChart` が `parentSpanMap: Map<taskId, {start, end}>` として事前計算
+- `GanttBar` に `displayStart` / `displayEnd` props を追加し、`isParent=true` のバーはこれを優先して描画
+- `taskStore` 更新のたびに自動再計算（ドラッグ・作成・削除・インポート後も即時反映）
+- ドラッグ中（`dragPreview`）は対象タスク自身のバーのみ動き、親バーはドロップ完了後に更新（`effectiveProgress` と同仕様）
+
 #### 親タスク進捗率の自動計算（★v1.7追加）
 
 - **子タスクを持つタスク（親タスク）**: 進捗率 = 直接の子タスク群の進捗率の算術平均（再帰計算）。小数点以下切り捨て。UI上で編集不可（グレーアウト）。
@@ -694,10 +704,10 @@ interface TaskStore {
 ```typescript
 import type { ZoomLevel, Task } from '../types/task';
 
-// ★v1.6追加: 表示期間の定義
-export type GanttPeriod = '2w' | '1m' | '3m' | '6m';
+// ★v2.41変更: 最小3ヶ月・最大24ヶ月に変更（2w・1m廃止）
+export type GanttPeriod = '3m' | '6m' | '12m' | '24m';
 export const PERIOD_DAYS: Record<GanttPeriod, number> = {
-  '2w': 14, '1m': 30, '3m': 91, '6m': 183,
+  '3m': 91, '6m': 183, '12m': 365, '24m': 730,
 };
 
 export const ZOOM_CONFIG: Record<ZoomLevel, { dayWidth: number; headerFormat: string }> = {
@@ -764,8 +774,7 @@ export function calcGanttRange(
 - 1行あたりの高さ: `HEADER_ROW_H = 26px`
 - **ガントヘッダー内行は必ず `boxSizing: 'border-box'`** を指定する。ri > 0 の行に `borderTop: 1px` が付くが、border-box なら行全体がなお 26px に収まる。border-box なしだと 1行ごとに +1px され、n行で最大 (n-1)px のズレが生じる
 - ガントstickyヘッダー合計高さ = `n × HEADER_ROW_H + 2px`（n行の内側divの合計 + 外側の `borderBottom: 2px`。外側 div は auto-height のため border は外に加算される）
-- **WBSヘッダー高さの注意**: `index.html` でグローバル `box-sizing: border-box` を設定しているため、明示的な `height` に `borderBottom` が含まれる。ガントと一致させるには `height: n × HEADER_ROW_H + 2` と指定する必要がある
-- `data-testid="gantt-header"` が付与されており、内行の `boxSizing` スタイルはテストで保護される
+- **★v2.38以降 WBSヘッダー高さの自動同期**: `ganttHeaderRef`（`useRef<HTMLDivElement>`）を `data-testid="gantt-header"` div に付与し、ResizeObserver でガントヘッダーの実測 `offsetHeight` を `ganttHeaderH` state に格納。WBSヘッダーの height は `ganttHeaderH || totalHeaderH`（計測値優先、jsdom等ではフォールバック）。新しいヘッダー行を追加しても手動で式を修正する必要がない
 - **週ヘッダーは ISO 年内通し番号（W1〜W53）を採用**。「6月1W」のような月内週番号は計算定義が複数存在する（ISO木曜基準・月曜起算・日曜起算等）ため採用しない
 - 非表示にしたい行は Toolbar のトグルボタンで切り替え
 
@@ -791,12 +800,19 @@ Y = rowIndex × ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2  （行の中心）
 
 #### 依存関係矢印の描画
 
-先行タスクの右端から後続タスクの左端へ、SVGのcubic-bezierで結ぶ。ズームレベルに応じてコントロールポイントのオフセットを調整する。
+先行タスクの右端から後続タスクの左端へ SVG で結ぶ。矢印スタイルは `DepArrowStyle` の3種から選択可能（★v2.36追加）。`taskStore` の `depArrowStyle` に localStorage 永続化し、ツールバーで切り替え。
+
+| スタイル | 説明 |
+|---------|------|
+| `bezier` | cubic-bezier 曲線（デフォルト） |
+| `elbow` | 横距離が `OFFSET×2` 以上なら L字形、未満なら S字形迂回 |
+| `straight` | 始点→終点の直線 |
 
 ```typescript
 // DependencyArrow.tsx
-// d={`M${x1},${y1} C${x1+30},${y1} ${x2-30},${y2} ${x2},${y2}`}
+export type DepArrowStyle = 'bezier' | 'elbow' | 'straight';
 // stroke='#378ADD' strokeWidth={1.5} markerEnd='url(#arrowhead)'
+// クリティカルパス上の矢印: stroke='#6366f1' strokeWidth={2.5} markerEnd='url(#arrowhead-critical)'
 ```
 
 ### 7.3 フィルタリング仕様
@@ -1126,6 +1142,17 @@ dragPreview: { taskId, startDate, endDate } | null
 | サイズ | 対角線 = ROW_HEIGHT_PX - 12 px |
 | 期限超過との組み合わせ | 菱形も赤枠になる |
 | ドラッグ | 移動のみ対応（startDate + endDate を同日で同期） |
+
+#### マイルストーン列の強調表示（★v2.39/v2.40追加）
+
+**背景色優先順位: マイルストーン > 土日 > 交互背景**
+
+| 項目 | 仕様 |
+|------|------|
+| `isMilestoneDate` 適用範囲 | 全ヘッダー行（year/month/week/day/dow）に適用 |
+| 菱形アイコン色 | `milestoneColor` prop に `milestoneHighlightColor` を渡す（列背景と同系色） |
+| ヘッダー独立行ラベル色 | `milestoneHighlightColor` に統一（`data-milestone-marker` 付与） |
+| ツールバー配置 | 「マイル強調」ON/OFFボタンとカラーピッカーは「年/月/週/日」トグルの「日」の隣に配置 |
 
 ### 11-A.3 クリティカルパス
 
