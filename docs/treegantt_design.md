@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.49 |
+| バージョン | 2.50 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -72,7 +72,8 @@
 | 2.46 | 2026年6月 | タスク削除モード選択機能を追加。従来は単純DELETE（FK `ON DELETE SET NULL`により子タスクがルートに孤児化）だった。**API**：`DELETE /tasks/:id?mode=subtree\|single`（デフォルト`subtree`）。`taskService`に`deleteTaskSubtree(id)`（タスク＋全子孫をトランザクションで削除、削除ID配列を返す）と`deleteTaskKeepChildren(id)`（直下の子を削除タスクの親=祖父母に付け替えてから本体のみ削除、付け替え情報を返す）を追加。WebSocketは`subtree`時に削除IDごとの`task_deleted`、`single`時に`tasks_reordered`（parentId付け替え）＋`task_deleted`をブロードキャスト。**フロントエンド**：`useTasks.deleteTask(id, mode)`が楽観的更新（subtree=子孫ごとストアから除去／single=子のparentIdを祖父母に付け替え）。子を持つタスクの削除時は新コンポーネント`DeleteTaskDialog`で「子孫ごと削除（デフォルト・赤）」「このタスクのみ削除（子は1つ上の階層へ）」「キャンセル」を選択。子なしタスクは従来通り`confirm`。 |
 | 2.47 | 2026年6月 | コピー時にサブツリー内部の依存関係もコピー。v2.42では`predecessors: []`で依存を一切コピーしなかった。新ユーティリティ`mapInternalPredecessors(subtree, idMap)`（`utils/copyDeps.ts`）が、コピー元タスクのpredecessorsをサブツリー内部のものだけにフィルタして新IDへマップしたPATCH指示リストを返す。`App.tsx`の`handleCopyInsert`が`copySubtree`で旧ID→新IDの`idMap`と訪問タスクを収集し、全タスク作成完了後の第2パスで`updateTask`により依存を付与（兄弟の作成順による前方参照問題を回避）。サブツリー外部への依存（ルートの先行タスク含む）は従来通りコピーしない。元グラフが非循環なら同型コピーも非循環のため追加バリデーション不要。 |
 | 2.48 | 2026年6月 | マイルストーンヘッダーの重なり防止（多段レーン）とフォントサイズ統一。マイルストーンヘッダー行でラベルが近接して重なる問題を解消。`ganttCalc.ts`に`assignMilestoneLanes(items, fontSize)`を追加：x位置順にgreedy割り当てで各マイルストーンを最初の空きレーン（lane番号）に配置し、推定テキスト幅（`iconWidth + title.length × fontSize × 0.65 + 4px`）で重なりを判定する純関数。`GanttChart.tsx`でレーン数に応じてマイルストーンヘッダーの高さを動的計算（`laneCount × milestoneLaneH`、`milestoneLaneH = uiFontSize + 9`）。ラベルのフォントサイズをハードコード`9px`から`uiFontSize`に変更し、各ラベルのtopをレーン番号 × レーン高さで配置。 |
-| 2.49 | 2026年6月 | 3件のバグ修正。①**コピー挿入位置**：ドラッグコピーで子孫展開時に指定位置と異なる場所（末尾）へ挿入されるバグを修正。`handleRowDrop`のコピー経路が移動用の`afterTaskId`計算（直上フラット行＝別タスクの子孫になりうる）を流用していたため、ドロップ位置から上方向に`parentId === newParentId`の最初の行（直上の兄弟）を走査する方式に分離。先頭ドロップは`beforeTaskId=先頭兄弟`で先頭挿入。②**seq永久欠番**：`#`（seq）が`MAX(seq)+1`採番のため最大番号タスクの削除で番号が再利用されていた。`projects.next_seq`カウンター（migration 008、既存プロジェクトは`MAX(seq)+1`で初期化）に変更し、`createTask`・importともトランザクション内でカウンターを消費。restoreモードでもリセットしない。③**削除時の依存クリーンアップ**：DB側は`task_deps`の`ON DELETE CASCADE`で正しく消えるが、フロントの楽観的削除（`useTasks.deleteTask`）とWS`task_deleted`ハンドラが残存タスクの`predecessors`から削除済みIDを除去せず、その状態でTaskModal保存するとFK違反500が発生していた。両所で削除IDを`predecessors`からフィルタ除去し、API側も`createTask`/`updateTask`の依存INSERT前に存在チェックして不在IDをスキップする防御を追加。 |
+| 2.49 | 2026年6月 | 3件のバグ修正。①コピー挿入位置：ドラッグコピーで子孫展開時に指定位置と異なる場所へ挿入されるバグを修正。②seq永久欠番：projects.next_seqカウンター（migration 008）に変更。③削除時の依存クリーンアップ：フロントの楽観的削除とWSハンドラで削除済みIDを predecessors から除去。API側も存在しない先行IDをスキップする防御を追加。 |
+| 2.50 | 2026年6月 | マイルストーン強調を常時ON化。ツールバーの「マイル強調」ON/OFFトグルボタンを廃止し、マイルストーンヘッダー行・列強調を常に表示するよう変更。カラーピッカーは継続表示。`taskStore`から`showMilestoneLines`・`setShowMilestoneLines`を削除し、`GanttChart`のミリストーン表示条件分岐を除去。 |①**コピー挿入位置**：ドラッグコピーで子孫展開時に指定位置と異なる場所（末尾）へ挿入されるバグを修正。`handleRowDrop`のコピー経路が移動用の`afterTaskId`計算（直上フラット行＝別タスクの子孫になりうる）を流用していたため、ドロップ位置から上方向に`parentId === newParentId`の最初の行（直上の兄弟）を走査する方式に分離。先頭ドロップは`beforeTaskId=先頭兄弟`で先頭挿入。②**seq永久欠番**：`#`（seq）が`MAX(seq)+1`採番のため最大番号タスクの削除で番号が再利用されていた。`projects.next_seq`カウンター（migration 008、既存プロジェクトは`MAX(seq)+1`で初期化）に変更し、`createTask`・importともトランザクション内でカウンターを消費。restoreモードでもリセットしない。③**削除時の依存クリーンアップ**：DB側は`task_deps`の`ON DELETE CASCADE`で正しく消えるが、フロントの楽観的削除（`useTasks.deleteTask`）とWS`task_deleted`ハンドラが残存タスクの`predecessors`から削除済みIDを除去せず、その状態でTaskModal保存するとFK違反500が発生していた。両所で削除IDを`predecessors`からフィルタ除去し、API側も`createTask`/`updateTask`の依存INSERT前に存在チェックして不在IDをスキップする防御を追加。 |
 
 ---
 
