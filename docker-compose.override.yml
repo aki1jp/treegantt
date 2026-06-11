@@ -6,7 +6,7 @@ services:
     build:
       context: ./frontend
       target: dev
-    command: sh -c "[ -f node_modules/.bin/vite ] || npm ci; npm run dev"
+    command: sh -c "[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; npm run dev"
     volumes:
       - ./frontend:/app
       - fe_node_modules:/app/node_modules
@@ -19,7 +19,7 @@ services:
     build:
       context: ./api
       target: dev
-    command: sh -c "[ -f node_modules/.bin/tsx ] || npm ci; npm run dev"
+    command: sh -c "[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; npm run dev"
     volumes:
       - ./api:/app
       - api_node_modules:/app/node_modules
