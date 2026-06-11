@@ -12,6 +12,7 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import type { Task, Project } from './types/task';
 import { apiFetch } from './utils/api';
+import { makeCopyTitle } from './utils/copyTitle';
 
 export default function App() {
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
@@ -141,9 +142,15 @@ export default function App() {
     if (!currentProject) return;
     const allTasksSnapshot = [...tasks];
 
+    // コピー先の兄弟タスク名と衝突する場合のみ「(コピー)」「(コピーN)」を採番
+    const siblingTitles = new Set(
+      allTasksSnapshot.filter(t => t.parentId === parentId).map(t => t.title)
+    );
+    const rootTitle = makeCopyTitle(source.title, siblingTitles);
+
     async function copySubtree(task: Task, newParentId: string | null, isRoot: boolean): Promise<Task> {
       const newTask = await createTask({
-        title:       isRoot ? task.title + ' (コピー)' : task.title,
+        title:       isRoot ? rootTitle : task.title,
         summary:     task.summary,
         description: task.description,
         status:      task.status,
