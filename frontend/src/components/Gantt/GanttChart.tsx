@@ -157,9 +157,10 @@ interface Props {
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
   onReorder: (orders: { id: string; order: number; parentId?: string | null }[]) => Promise<void>;
+  onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
 }
 
-export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onReorder }: Props) {
+export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onReorder, onCopyInsert }: Props) {
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
@@ -306,12 +307,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
   const [rowDropDepth, setRowDropDepth] = useState<number | null>(null);
   const [rowDropTarget, setRowDropTarget] = useState<string | null>(null);
+  const [isDragCopy,   setIsDragCopy]   = useState(false);
+  const [copiedTask,   setCopiedTask]   = useState<Task | null>(null);
 
   function clearDrop() {
     setRowDragId(null);
     setRowDropIdx(null);
     setRowDropDepth(null);
     setRowDropTarget(null);
+    setIsDragCopy(false);
   }
 
   function handleRowDragStart(e: React.DragEvent, taskId: string) {
@@ -320,7 +324,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       e.preventDefault();
       return;
     }
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    const isCopy = e.ctrlKey || e.metaKey;
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = isCopy ? 'copy' : 'move';
+    setIsDragCopy(isCopy);
     setRowDragId(taskId);
   }
 
@@ -368,25 +374,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const dragIdx = flatRows.findIndex(r => r.task.id === rowDragId);
     if (dragIdx === -1) { clearDrop(); return; }
 
-    // ── 子採用モード ──
-    if (rowDropTarget) {
-      const moved = flatRows[dragIdx].task;
-      const siblings = flatRows.filter(r => r.task.parentId === rowDropTarget);
-      const maxSibOrder = siblings.length > 0
-        ? Math.max(...siblings.map(r => r.task.order))
-        : 0;
-      onReorder([{ id: moved.id, order: maxSibOrder + 1, parentId: rowDropTarget }]);
-      clearDrop();
-      return;
-    }
-
-    // ── バー挿入モード ──
-    if (dragIdx === dropIdx) { clearDrop(); return; }
-
+    // ── 共通: parentId 計算 ──
     const moved = flatRows[dragIdx].task;
     const d = rowDropDepth ?? 0;
-
-    // 深さ → 新しい parentId を逆引き
     const targetParentId: string | null = (() => {
       if (d === 0) return null;
       for (let i = dropIdx - 1; i >= 0; i--) {
@@ -396,14 +386,41 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       }
       return null;
     })();
-    // 循環参照防止・マイルストーン保護
+
+    // ── 子採用モード ──
+    if (rowDropTarget) {
+      const siblings = flatRows.filter(r => r.task.parentId === rowDropTarget);
+      const maxSibOrder = siblings.length > 0
+        ? Math.max(...siblings.map(r => r.task.order))
+        : 0;
+      if (isDragCopy) {
+        onCopyInsert(moved, rowDropTarget, null);
+      } else {
+        onReorder([{ id: moved.id, order: maxSibOrder + 1, parentId: rowDropTarget }]);
+      }
+      clearDrop();
+      return;
+    }
+
+    // ── バー挿入モード ──
+    if (dragIdx === dropIdx) { clearDrop(); return; }
+
     const newParentId: string | null =
       moved.isMilestone || targetParentId === moved.id ? moved.parentId : targetParentId;
-    const parentIdChanged = newParentId !== moved.parentId;
 
+    const rowsWithoutDrag = flatRows.filter((_, i) => i !== dragIdx).map(r => r.task);
+    const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
+    const afterTaskId = insertAt > 0 ? rowsWithoutDrag[insertAt - 1].id : null;
+
+    if (isDragCopy) {
+      onCopyInsert(moved, newParentId, afterTaskId);
+      clearDrop();
+      return;
+    }
+
+    const parentIdChanged = newParentId !== moved.parentId;
     const newRows = [...flatRows.map(r => r.task)];
     const [removed] = newRows.splice(dragIdx, 1);
-    const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
     newRows.splice(insertAt, 0, removed);
 
     if (insertAt === dragIdx && !parentIdChanged) { clearDrop(); return; }
@@ -1193,6 +1210,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 </div>
               ))}
             </div>
+            <div style={{ height: 1, background: 'var(--th-border)' }} />
+            <div style={{ height: 1, background: 'var(--th-border)' }} />
+            <button onClick={() => { setCopiedTask(task); close(); }}
+              style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
+              コピー
+            </button>
+            {copiedTask && (
+              <button onClick={() => { onCopyInsert(copiedTask, task.parentId, null, task.id); close(); }}
+                style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
+                上に挿入
+              </button>
+            )}
             <div style={{ height: 1, background: 'var(--th-border)' }} />
             <button onClick={() => { onDeleteTask(task.id); close(); }}
               style={{ ...MENU_BTN, color: '#ef4444' }}

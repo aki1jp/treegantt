@@ -132,6 +132,69 @@ export default function App() {
     setModalTask(null);
   }
 
+  async function handleCopyInsert(
+    source: Task,
+    parentId: string | null,
+    afterTaskId: string | null,
+    beforeTaskId?: string | null,
+  ) {
+    if (!currentProject) return;
+    const allTasksSnapshot = [...tasks];
+
+    async function copySubtree(task: Task, newParentId: string | null, isRoot: boolean): Promise<Task> {
+      const newTask = await createTask({
+        title:       isRoot ? task.title + ' (コピー)' : task.title,
+        summary:     task.summary,
+        description: task.description,
+        status:      task.status,
+        priority:    task.priority,
+        progress:    task.progress,
+        assignee:    task.assignee,
+        startDate:   task.startDate,
+        endDate:     task.endDate,
+        isMilestone: task.isMilestone,
+        predecessors: [],
+        titleColor:  task.titleColor,
+        titleBgColor: task.titleBgColor,
+        parentId:    newParentId,
+        projectId:   currentProject.id,
+      });
+      const children = allTasksSnapshot
+        .filter(t => t.parentId === task.id)
+        .sort((a, b) => a.order - b.order);
+      for (const child of children) {
+        await copySubtree(child, newTask.id, false);
+      }
+      return newTask;
+    }
+
+    try {
+      const newRootTask = await copySubtree(source, parentId, true);
+
+      const siblings = allTasksSnapshot
+        .filter(t => t.parentId === parentId && t.id !== newRootTask.id)
+        .sort((a, b) => a.order - b.order);
+
+      let ordered: Task[];
+      if (beforeTaskId) {
+        const idx = siblings.findIndex(t => t.id === beforeTaskId);
+        if (idx === -1) return;
+        ordered = [...siblings.slice(0, idx), newRootTask, ...siblings.slice(idx)];
+      } else if (afterTaskId) {
+        const idx = siblings.findIndex(t => t.id === afterTaskId);
+        ordered = idx === -1
+          ? [...siblings, newRootTask]
+          : [...siblings.slice(0, idx + 1), newRootTask, ...siblings.slice(idx + 1)];
+      } else {
+        return;
+      }
+
+      await reorderTasks(ordered.map((t, i) => ({ id: t.id, order: i + 1, parentId })));
+    } catch (err) {
+      alert('コピーに失敗しました: ' + (err as Error).message);
+    }
+  }
+
   if (loading) return <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>読み込み中...</div>;
 
   return (
@@ -202,6 +265,7 @@ export default function App() {
               onQuickAdd={handleQuickAdd}
               onAddSubTask={handleAddSubTask}
               onReorder={reorderTasks}
+              onCopyInsert={handleCopyInsert}
             />
           </div>
         </>
