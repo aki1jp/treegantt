@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.46 |
+| バージョン | 2.47 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -70,6 +70,7 @@
 | 2.44 | 2026年6月 | ドラッグフリーズ根本修正。v2.43で`effectAllowed`設定を全削除したことで`dataTransfer.effectAllowed`が`'uninitialized'`のままになり、Chromeが`'none'`として扱い通常ドラッグ・Ctrl+ドラッグ両方でドラッグを即キャンセルする新リグレッションが発生。`handleRowDragStart`に`effectAllowed='all'`を明示設定し、`dropEffect='copy'`/`'move'`どちらとも互換性を確保。フリーズシナリオ（早期`dragEnd`→遅延`drop`がno-op）とリカバリ（キャンセル後の再ドラッグ正常完了）のテストを追加。 |
 | 2.45 | 2026年6月 | コピータイトルの命名規則をWindows風に改善。v2.42では常に`(コピー)`を付与していたため、コピーを繰り返すと`X (コピー) (コピー)`のように接尾辞が積み重なっていた。新ユーティリティ`makeCopyTitle(sourceTitle, siblingTitles)`（`utils/copyTitle.ts`）を追加：①コピー先の兄弟に同名がなければ元タイトルをそのまま使用（別階層へのコピーで接尾辞なし）②同名がある場合（同一階層へのコピー等）は末尾の`(コピー)`/`(コピーN)`接尾辞を除去したベース名に対し`(コピー)`→`(コピー2)`→`(コピー3)`…と空き番号を採番。`App.tsx`の`handleCopyInsert`がルートタスクのタイトル生成に使用（子孫タスクは従来通り改名なし）。 |
 | 2.46 | 2026年6月 | タスク削除モード選択機能を追加。従来は単純DELETE（FK `ON DELETE SET NULL`により子タスクがルートに孤児化）だった。**API**：`DELETE /tasks/:id?mode=subtree\|single`（デフォルト`subtree`）。`taskService`に`deleteTaskSubtree(id)`（タスク＋全子孫をトランザクションで削除、削除ID配列を返す）と`deleteTaskKeepChildren(id)`（直下の子を削除タスクの親=祖父母に付け替えてから本体のみ削除、付け替え情報を返す）を追加。WebSocketは`subtree`時に削除IDごとの`task_deleted`、`single`時に`tasks_reordered`（parentId付け替え）＋`task_deleted`をブロードキャスト。**フロントエンド**：`useTasks.deleteTask(id, mode)`が楽観的更新（subtree=子孫ごとストアから除去／single=子のparentIdを祖父母に付け替え）。子を持つタスクの削除時は新コンポーネント`DeleteTaskDialog`で「子孫ごと削除（デフォルト・赤）」「このタスクのみ削除（子は1つ上の階層へ）」「キャンセル」を選択。子なしタスクは従来通り`confirm`。 |
+| 2.47 | 2026年6月 | コピー時にサブツリー内部の依存関係もコピー。v2.42では`predecessors: []`で依存を一切コピーしなかった。新ユーティリティ`mapInternalPredecessors(subtree, idMap)`（`utils/copyDeps.ts`）が、コピー元タスクのpredecessorsをサブツリー内部のものだけにフィルタして新IDへマップしたPATCH指示リストを返す。`App.tsx`の`handleCopyInsert`が`copySubtree`で旧ID→新IDの`idMap`と訪問タスクを収集し、全タスク作成完了後の第2パスで`updateTask`により依存を付与（兄弟の作成順による前方参照問題を回避）。サブツリー外部への依存（ルートの先行タスク含む）は従来通りコピーしない。元グラフが非循環なら同型コピーも非循環のため追加バリデーション不要。 |
 
 ---
 
