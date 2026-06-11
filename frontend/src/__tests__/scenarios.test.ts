@@ -207,7 +207,7 @@ describe('§4.4 表示期間コントロール', () => {
   describe('手動モード — startDate 指定', () => {
     it('指定した日付が min になる', () => {
       const { min } = calcGanttRange([], '2026-06-01', '3m');
-      expect(min.toISOString().slice(0, 10)).toBe('2026-06-01');
+      expect(min.getTime()).toBe(new Date(2026, 5, 1).getTime()); // ローカル0時（TZ非依存）
     });
 
     it('min から period 分だけの固定範囲を返す', () => {
@@ -238,12 +238,12 @@ describe('§4.4 表示期間コントロール', () => {
     });
 
     it('dateToX: minDate と同日は 0', () => {
-      const minDate = new Date('2026-05-01');
+      const minDate = new Date(2026, 4, 1);
       expect(dateToX('2026-05-01', minDate, 'day')).toBe(0);
     });
 
     it('dateToX: 1日後は dayWidth 分進む', () => {
-      const minDate = new Date('2026-05-01');
+      const minDate = new Date(2026, 4, 1);
       expect(dateToX('2026-05-02', minDate, 'day')).toBe(ZOOM_CONFIG['day'].dayWidth);
     });
 
