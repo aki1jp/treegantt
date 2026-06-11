@@ -156,6 +156,80 @@ describe('deleteTask fetch 失敗ロールバック', () => {
   });
 });
 
+describe('deleteTask 削除モード', () => {
+  it('デフォルト（subtree）で子孫もストアから削除し mode=subtree で API を呼ぶ', async () => {
+    const parent = makeTask({ id: 'p', title: '親' });
+    const child  = makeTask({ id: 'c', title: '子', parentId: 'p' });
+    const grand  = makeTask({ id: 'g', title: '孫', parentId: 'c' });
+    const other  = makeTask({ id: 'o', title: '無関係' });
+    useTaskStore.setState({ tasks: [parent, child, grand, other] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 204,
+      json: async () => null,
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await deleteTask('p');
+
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['o']);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/tasks/p?mode=subtree'),
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it("mode='single' で子の parentId を祖父母に付け替え本体のみ削除する", async () => {
+    const gp     = makeTask({ id: 'gp', title: '祖父母' });
+    const parent = makeTask({ id: 'p', title: '親', parentId: 'gp' });
+    const child  = makeTask({ id: 'c', title: '子', parentId: 'p' });
+    useTaskStore.setState({ tasks: [gp, parent, child] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 204,
+      json: async () => null,
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await deleteTask('p', 'single');
+
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks.map(t => t.id).sort()).toEqual(['c', 'gp']);
+    expect(tasks.find(t => t.id === 'c')?.parentId).toBe('gp');
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/tasks/p?mode=single'),
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it("mode='single' でルートタスクを削除すると子はルート（null）になる", async () => {
+    const root  = makeTask({ id: 'r', title: 'ルート' });
+    const child = makeTask({ id: 'c', title: '子', parentId: 'r' });
+    useTaskStore.setState({ tasks: [root, child] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 204,
+      json: async () => null,
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await deleteTask('r', 'single');
+
+    expect(useTaskStore.getState().tasks.find(t => t.id === 'c')?.parentId).toBeNull();
+  });
+
+  it('fetch 失敗時はモードに関わらずストアをロールバックする', async () => {
+    const parent = makeTask({ id: 'p', title: '親' });
+    const child  = makeTask({ id: 'c', title: '子', parentId: 'p' });
+    useTaskStore.setState({ tasks: [parent, child] });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false, status: 500,
+      json: async () => ({ error: 'Server Error' }),
+    } as Response);
+
+    const { deleteTask } = useTasks('p1');
+    await expect(deleteTask('p')).rejects.toThrow();
+    expect(useTaskStore.getState().tasks).toHaveLength(2);
+  });
+});
+
 describe('reorderTasks', () => {
   it('ストアの order を更新し API を呼ぶ', async () => {
     const t1 = makeTask({ id: 't1', order: 1 });

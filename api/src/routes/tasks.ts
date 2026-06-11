@@ -5,7 +5,8 @@ import {
   getTask,
   createTask,
   updateTask,
-  deleteTask,
+  deleteTaskSubtree,
+  deleteTaskKeepChildren,
   reorderTasks,
   wouldCreateCycle,
 } from '../services/taskService.js';
@@ -167,11 +168,35 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.delete<{ Params: { id: string } }>('/tasks/:id', async (req, reply) => {
-    const task = getTask(req.params.id);
-    if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
-    deleteTask(req.params.id);
-    notifyRoom(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: req.params.id });
-    reply.code(204).send();
-  });
+  fastify.delete<{ Params: { id: string }; Querystring: { mode?: 'subtree' | 'single' } }>(
+    '/tasks/:id',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: { mode: { type: 'string', enum: ['subtree', 'single'] } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const task = getTask(req.params.id);
+      if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+
+      if (req.query.mode === 'single') {
+        // 本体のみ削除: 直下の子を祖父母に付け替え
+        const reparented = deleteTaskKeepChildren(req.params.id);
+        if (reparented.length > 0) {
+          notifyRoom(task.projectId, { type: 'tasks_reordered', projectId: task.projectId, orders: reparented });
+        }
+        notifyRoom(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: req.params.id });
+      } else {
+        // デフォルト: 子孫ごと削除
+        const deletedIds = deleteTaskSubtree(req.params.id);
+        for (const deletedId of deletedIds) {
+          notifyRoom(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: deletedId });
+        }
+      }
+      reply.code(204).send();
+    },
+  );
 }

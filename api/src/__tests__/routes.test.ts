@@ -359,6 +359,31 @@ describe('Tasks API', () => {
     expect(getRes.statusCode).toBe(404);
   });
 
+  it('DELETE /api/v1/tasks/:id はデフォルトで子孫ごと削除する', async () => {
+    const parent = await createTask({ title: '親' });
+    const child  = await createTask({ title: '子', parentId: parent.id });
+    const grand  = await createTask({ title: '孫', parentId: child.id });
+
+    const res = await app.inject({ method: 'DELETE', url: `/api/v1/tasks/${parent.id}` });
+    expect(res.statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: `/api/v1/tasks/${child.id}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/api/v1/tasks/${grand.id}` })).statusCode).toBe(404);
+  });
+
+  it('DELETE /api/v1/tasks/:id?mode=single は子を祖父母に付け替えて本体のみ削除する', async () => {
+    const gp     = await createTask({ title: '祖父母' });
+    const parent = await createTask({ title: '親', parentId: gp.id });
+    const child  = await createTask({ title: '子', parentId: parent.id });
+
+    const res = await app.inject({ method: 'DELETE', url: `/api/v1/tasks/${parent.id}?mode=single` });
+    expect(res.statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: `/api/v1/tasks/${parent.id}` })).statusCode).toBe(404);
+
+    const childRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${child.id}` });
+    expect(childRes.statusCode).toBe(200);
+    expect(childRes.json().task.parentId).toBe(gp.id);
+  });
+
   it('PATCH /api/v1/projects/:id/tasks/reorder updates order', async () => {
     const t1 = await createTask({ title: 'T1' });
     const t2 = await createTask({ title: 'T2' });

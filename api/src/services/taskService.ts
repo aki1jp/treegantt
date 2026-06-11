@@ -269,6 +269,50 @@ export function deleteTask(id: string): boolean {
   return result.changes > 0;
 }
 
+/** タスクと全子孫をトランザクションで削除し、削除したID一覧を返す */
+export function deleteTaskSubtree(id: string): string[] {
+  const exists = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  if (!exists) return [];
+
+  const childStmt = db.prepare<[string], { id: string }>('SELECT id FROM tasks WHERE parent_id = ?');
+  const ids: string[] = [];
+  const queue = [id];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    ids.push(cur);
+    for (const row of childStmt.all(cur)) queue.push(row.id);
+  }
+
+  const del = db.prepare('DELETE FROM tasks WHERE id = ?');
+  db.transaction(() => {
+    // FK ON DELETE SET NULL で親削除時に子の parent_id が消えるため、子孫から先に削除する
+    for (let i = ids.length - 1; i >= 0; i--) del.run(ids[i]);
+  })();
+  return ids;
+}
+
+/** 直下の子を削除タスクの親（祖父母）に付け替えてから本体のみ削除し、付け替え情報を返す */
+export function deleteTaskKeepChildren(
+  id: string,
+): { id: string; order: number; parentId: string | null }[] {
+  const task = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(id) as
+    | { parent_id: string | null }
+    | undefined;
+  if (!task) return [];
+
+  const children = db
+    .prepare<[string], { id: string; ord: number }>('SELECT id, ord FROM tasks WHERE parent_id = ?')
+    .all(id);
+
+  db.transaction(() => {
+    const upd = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');
+    for (const c of children) upd.run(task.parent_id, c.id);
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+  })();
+
+  return children.map(c => ({ id: c.id, order: c.ord, parentId: task.parent_id }));
+}
+
 export function wouldCreateCycle(taskId: string, newParentId: string): boolean {
   let current: string | null = newParentId;
   const visited = new Set<string>();

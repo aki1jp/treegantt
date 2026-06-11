@@ -10,6 +10,7 @@ import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
+import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
 import { apiFetch } from './utils/api';
 import { makeCopyTitle } from './utils/copyTitle';
@@ -20,6 +21,7 @@ export default function App() {
   const [modalInitialParentId, setModalInitialParentId] = useState<string | undefined>(undefined);
 
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
+  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
   const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, deleteProject } = useProjects();
@@ -113,9 +115,32 @@ export default function App() {
     }
   }
 
+  function countDescendants(id: string): number {
+    return tasks
+      .filter(t => t.parentId === id)
+      .reduce((sum, child) => sum + 1 + countDescendants(child.id), 0);
+  }
+
   async function handleDeleteTask(id: string) {
-    if (!confirm('このタスクを削除しますか？')) return;
-    await deleteTask(id);
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    // 子を持たないタスクは従来通りの確認ダイアログ
+    if (!tasks.some(t => t.parentId === id)) {
+      if (!confirm('このタスクを削除しますか？')) return;
+      await deleteTask(id);
+      return;
+    }
+    setDeleteTarget(task);
+  }
+
+  async function handleDeleteResolve(mode: DeleteMode) {
+    if (!deleteTarget) return;
+    setDeleteTarget(null);
+    try {
+      await deleteTask(deleteTarget.id, mode);
+    } catch (err) {
+      alert('削除に失敗しました: ' + (err as Error).message);
+    }
   }
 
   async function handleQuickAdd(title: string) {
@@ -305,6 +330,15 @@ export default function App() {
             onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
           />
         )
+      )}
+
+      {deleteTarget && (
+        <DeleteTaskDialog
+          taskTitle={deleteTarget.title}
+          descendantCount={countDescendants(deleteTarget.id)}
+          onDelete={handleDeleteResolve}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
 
       <input ref={fileInputRef} type="file" accept=".json,.csv" style={{ display: 'none' }}

@@ -31,12 +31,34 @@ export function useTasks(projectId: string) {
   }
 
   // 楽観的削除 → REST DELETE → サーバーが全クライアントへ task_deleted をブロードキャスト
-  async function deleteTask(id: string): Promise<void> {
+  // mode='subtree'（デフォルト）: 子孫ごと削除 / mode='single': 子を祖父母に付け替えて本体のみ削除
+  async function deleteTask(id: string, mode: 'subtree' | 'single' = 'subtree'): Promise<void> {
     const store = useTaskStore.getState();
     const prev = store.tasks;
-    store.setTasks(prev.filter(t => t.id !== id));
+
+    if (mode === 'subtree') {
+      const removed = new Set([id]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const t of prev) {
+          if (t.parentId && removed.has(t.parentId) && !removed.has(t.id)) {
+            removed.add(t.id);
+            grew = true;
+          }
+        }
+      }
+      store.setTasks(prev.filter(t => !removed.has(t.id)));
+    } else {
+      const newParentId = prev.find(t => t.id === id)?.parentId ?? null;
+      store.setTasks(
+        prev.filter(t => t.id !== id)
+          .map(t => t.parentId === id ? { ...t, parentId: newParentId } : t)
+      );
+    }
+
     try {
-      await apiFetch(`/tasks/${id}`, { method: 'DELETE' });
+      await apiFetch(`/tasks/${id}?mode=${mode}`, { method: 'DELETE' });
     } catch (e) {
       store.setTasks(prev);
       throw e;

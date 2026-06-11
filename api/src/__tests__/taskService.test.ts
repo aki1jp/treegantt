@@ -9,7 +9,7 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-const { createTask, getTask, listTasks, updateTask, deleteTask, reorderTasks } =
+const { createTask, getTask, listTasks, updateTask, deleteTask, deleteTaskSubtree, deleteTaskKeepChildren, reorderTasks } =
   await import('../services/taskService.js');
 
 const PROJECT_ID = 'proj-test-1';
@@ -232,6 +232,71 @@ describe('taskService', () => {
       deleteTask('pred');
       const succ = getTask('succ');
       expect(succ?.predecessors).toEqual([]);
+    });
+  });
+
+  describe('deleteTaskSubtree', () => {
+    it('タスクと全子孫を再帰的に削除し削除IDを返す', () => {
+      createTask({ id: 'p', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'c', projectId: PROJECT_ID, title: '子', parentId: 'p' });
+      createTask({ id: 'g', projectId: PROJECT_ID, title: '孫', parentId: 'c' });
+      createTask({ id: 'other', projectId: PROJECT_ID, title: '無関係' });
+
+      const deleted = deleteTaskSubtree('p');
+      expect(new Set(deleted)).toEqual(new Set(['p', 'c', 'g']));
+      expect(getTask('p')).toBeNull();
+      expect(getTask('c')).toBeNull();
+      expect(getTask('g')).toBeNull();
+      expect(getTask('other')).not.toBeNull();
+    });
+
+    it('子を持たないタスクは本体のみ削除する', () => {
+      createTask({ id: 'solo', projectId: PROJECT_ID, title: '単独' });
+      expect(deleteTaskSubtree('solo')).toEqual(['solo']);
+      expect(getTask('solo')).toBeNull();
+    });
+
+    it('存在しないタスクは空配列を返す', () => {
+      expect(deleteTaskSubtree('no-id')).toEqual([]);
+    });
+  });
+
+  describe('deleteTaskKeepChildren', () => {
+    it('直下の子を祖父母に付け替えて本体のみ削除する', () => {
+      createTask({ id: 'gp', projectId: PROJECT_ID, title: '祖父母' });
+      createTask({ id: 'p', projectId: PROJECT_ID, title: '親', parentId: 'gp' });
+      createTask({ id: 'c1', projectId: PROJECT_ID, title: '子1', parentId: 'p' });
+      createTask({ id: 'c2', projectId: PROJECT_ID, title: '子2', parentId: 'p' });
+
+      const reparented = deleteTaskKeepChildren('p');
+      expect(getTask('p')).toBeNull();
+      expect(getTask('c1')?.parentId).toBe('gp');
+      expect(getTask('c2')?.parentId).toBe('gp');
+      // 付け替え情報（ブロードキャスト用）に id / order / parentId を含む
+      expect(reparented).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: 'c1', parentId: 'gp', order: expect.any(Number) }),
+        expect.objectContaining({ id: 'c2', parentId: 'gp', order: expect.any(Number) }),
+      ]));
+    });
+
+    it('ルートタスク削除時は子がルート（parentId=null）になる', () => {
+      createTask({ id: 'root', projectId: PROJECT_ID, title: 'ルート' });
+      createTask({ id: 'c', projectId: PROJECT_ID, title: '子', parentId: 'root' });
+
+      const reparented = deleteTaskKeepChildren('root');
+      expect(getTask('root')).toBeNull();
+      expect(getTask('c')?.parentId).toBeNull();
+      expect(reparented).toEqual([expect.objectContaining({ id: 'c', parentId: null })]);
+    });
+
+    it('孫タスクの親は変更されない', () => {
+      createTask({ id: 'p', projectId: PROJECT_ID, title: '親' });
+      createTask({ id: 'c', projectId: PROJECT_ID, title: '子', parentId: 'p' });
+      createTask({ id: 'g', projectId: PROJECT_ID, title: '孫', parentId: 'c' });
+
+      deleteTaskKeepChildren('p');
+      expect(getTask('c')?.parentId).toBeNull();
+      expect(getTask('g')?.parentId).toBe('c');
     });
   });
 
