@@ -259,11 +259,9 @@ describe('Toolbar 表示トグル', () => {
     expect(useTaskStore.getState().showTodayLine).toBe(!before);
   });
 
-  it('「マイル強調」ボタンをクリックすると showMilestoneLines が切り替わる', () => {
+  it('「マイル強調」トグルボタンは存在しない（常時表示のため）', () => {
     renderToolbar();
-    const before = useTaskStore.getState().showMilestoneLines;
-    fireEvent.click(screen.getByTitle('マイルストーンの列ハイライト・ヘッダー行を表示'));
-    expect(useTaskStore.getState().showMilestoneLines).toBe(!before);
+    expect(screen.queryByTitle('マイルストーンの列ハイライト・ヘッダー行を表示')).toBeNull();
   });
 
   it('カラーピッカーを変更すると milestoneHighlightColor が更新される', () => {

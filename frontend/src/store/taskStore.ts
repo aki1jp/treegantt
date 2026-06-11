@@ -21,7 +21,6 @@ interface TaskStore {
   showCriticalPath:   boolean;
   showResourceView:   boolean;
   showTodayLine:      boolean;
-  showMilestoneLines:      boolean;
   milestoneHighlightColor: string;
   uiFontSize:         number;
   uiRowHeight:        number;
@@ -41,7 +40,6 @@ interface TaskStore {
   setShowCriticalPath:    (show: boolean) => void;
   setShowResourceView:    (show: boolean) => void;
   setShowTodayLine:       (show: boolean) => void;
-  setShowMilestoneLines:       (show: boolean) => void;
   setMilestoneHighlightColor:  (color: string) => void;
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
@@ -63,7 +61,6 @@ const uiInitialState = {
   showCriticalPath:  false,
   showResourceView:  false,
   showTodayLine:     true,
-  showMilestoneLines:      true,
   milestoneHighlightColor: '#8b5cf6',
   uiFontSize:        13,
   uiRowHeight:       36,
@@ -95,7 +92,6 @@ export const useTaskStore = create<TaskStore>()(
       setShowCriticalPath:    (showCriticalPath) => set({ showCriticalPath }),
       setShowResourceView:    (showResourceView) => set({ showResourceView }),
       setShowTodayLine:       (showTodayLine) => set({ showTodayLine }),
-      setShowMilestoneLines:       (showMilestoneLines) => set({ showMilestoneLines }),
       setMilestoneHighlightColor:  (milestoneHighlightColor) => set({ milestoneHighlightColor }),
       setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
       setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
@@ -121,7 +117,6 @@ export const useTaskStore = create<TaskStore>()(
         showCriticalPath:  s.showCriticalPath,
         showResourceView:  s.showResourceView,
         showTodayLine:      s.showTodayLine,
-        showMilestoneLines:      s.showMilestoneLines,
         milestoneHighlightColor: s.milestoneHighlightColor,
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,

@@ -100,10 +100,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange, resetUi,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setShowMilestoneLines, setMilestoneHighlightColor, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setMilestoneHighlightColor, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
 
@@ -325,12 +325,6 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
               onClick={() => setGanttHeaderLevels({ week:  !ganttHeaderLevels.week  })} />
             <ToggleBtn active={ganttHeaderLevels.day}   label="日" title="日ヘッダーを表示"
               onClick={() => setGanttHeaderLevels({ day:   !ganttHeaderLevels.day   })} />
-            <ToggleBtn
-              active={showMilestoneLines}
-              label="マイル強調"
-              title="マイルストーンの列ハイライト・ヘッダー行を表示"
-              onClick={() => setShowMilestoneLines(!showMilestoneLines)}
-            />
             <input
               type="color"
               value={milestoneHighlightColor}

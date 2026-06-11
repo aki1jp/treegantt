@@ -163,7 +163,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestoneLines, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
@@ -250,12 +250,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     }
   }
 
-  // マイルストーン列強調
-  const milestoneItemsRaw = showMilestoneLines
-    ? sorted
-        .filter(t => t.isMilestone && !!t.startDate)
-        .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title }))
-    : [];
+  // マイルストーン列強調（常時表示）
+  const milestoneItemsRaw = sorted
+    .filter(t => t.isMilestone && !!t.startDate)
+    .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title }));
   const milestoneItems = assignMilestoneLanes(milestoneItemsRaw, uiFontSize);
   const milestoneXSet = new Set(milestoneItems.map(m => m.x));
   const milestoneLaneH = uiFontSize + 9;

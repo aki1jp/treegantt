@@ -724,7 +724,6 @@ describe('WBS/ガントヘッダー高さ同期（ResizeObserver）', () => {
         titleColor: null, titleBgColor: null,
       }],
       ganttStartDate: '2026-06-01',
-      showMilestoneLines: true,
       showResourceView: false,
     });
     const cbs = setupROmock(150);
@@ -827,7 +826,6 @@ describe('マイルストーン強調 UI', () => {
       tasks: [MILESTONE_TASK],
       ganttStartDate: '2026-06-01',
       ganttPeriod: '3m',
-      showMilestoneLines: true,
       showResourceView: false,
       zoomLevel: 'day',
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
@@ -865,7 +863,6 @@ describe('マイルストーン強調 UI', () => {
       tasks: [{ ...MILESTONE_TASK, id: 'ms-sat', startDate: '2026-06-20', endDate: '2026-06-20' }],
       ganttStartDate: '2026-06-20',
       ganttPeriod: '3m',
-      showMilestoneLines: true,
       showResourceView: false,
       zoomLevel: 'day',
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
@@ -883,18 +880,4 @@ describe('マイルストーン強調 UI', () => {
     expect(satBg.includes('#8b5cf6') || satBg.includes('139, 92, 246')).toBe(true);
   });
 
-  it('showMilestoneLines=false のとき data-milestone-marker が存在しない', () => {
-    useTaskStore.setState({
-      tasks: [MILESTONE_TASK],
-      ganttStartDate: '2026-06-01', ganttPeriod: '3m',
-      showMilestoneLines: false, showResourceView: false,
-      zoomLevel: 'day',
-      ganttHeaderLevels: { year: false, month: false, week: false, day: true },
-    });
-    const { getByTestId } = render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
-        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
-    );
-    expect(getByTestId('gantt-header').querySelector('[data-milestone-marker]')).toBeNull();
-  });
 });
