@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.42 |
+| バージョン | 2.43 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -66,6 +66,7 @@
 | 2.40 | 2026年6月 | マイルストーン強調カラー優先順位修正。①`isMilestoneDate` の判定を `row.level === 'day'` 限定から全ヘッダー行（year/month/week/day/dow）に拡張し、曜日（dow）行でもマイルストーン列が強調色になるよう修正。②背景色優先順位を `土/日 > マイル > 交互bg` から **`マイル > 土/日 > 交互bg`** に変更し、マイルストーンが土日と重なった場合もマイルストーン色が確実に表示されるよう修正。 |
 | 2.41 | 2026年6月 | 表示期間の最小を3ヶ月に変更・長期選択肢追加。`GanttPeriod` 型を `'2w' \| '1m' \| '3m' \| '6m'` から **`'3m' \| '6m' \| '12m' \| '24m'`** に変更。`PERIOD_DAYS` に `'12m': 365`・`'24m': 730` を追加し `'2w'`・`'1m'` を削除。ツールバーの選択肢も同様に更新。デフォルト値（`'3m'`）は変更なし。 |
 | 2.42 | 2026年6月 | タスクのコピー＆挿入機能を追加。①**Ctrl+ドラッグ**：WBS行ドラッグ中にCtrl/Cmdキーで「移動」→「コピー」切り替え。`effectAllowed='copy'` でカーソルに＋表示。②**右クリックメニュー**：「コピー」でclipboardに保存、「上に挿入」で右クリック行の上にExcel式挿入。③**再帰コピー**：親タスクコピー時は子・孫タスクも再帰的にコピー（順序を保持）。ルートタスクのみタイトルに`(コピー)`を付与。predecessors（依存関係）はコピーしない。`GanttChart`に `isDragCopy`・`copiedTask` stateと`onCopyInsert` propを追加。`App.tsx`の`handleCopyInsert`で`createTask`（再帰）→`reorderTasks`の2段階処理。 |
+| 2.43 | 2026年6月 | ドラッグ指示線・カーソル修正。①**指示線消失・フリーズ修正**：v2.42で`handleRowDragStart`に設定した`effectAllowed='copy'`と`handleRowDragOver`の`dropEffect='move'`の不一致により、ブラウザが`dragEnd`を早期発火→`clearDrop()`で`rowDragId=null`→`showDropLine=false`となり指示線が消え画面がフリーズしていた。`effectAllowed`の設定を削除（デフォルト`'all'`のまま）して修正。②**isDragCopyをstateからuseRefに変更**：`useState`→`useRef(false)`に変更しドラッグ中の余分な再レンダリングを防止。③**Ctrlカーソルのリアルタイム切替**：`handleRowDragOver`でCtrl/Cmdキー状態を毎フレーム検出し`dropEffect='copy'`/`'move'`を切り替え。ブラウザネイティブの「＋」コピーカーソルと通常移動カーソルがリアルタイムに表示される。 |
 
 ---
 
