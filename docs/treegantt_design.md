@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.51 |
+| バージョン | 2.52 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -74,6 +74,7 @@
 | 2.48 | 2026年6月 | マイルストーンヘッダーの重なり防止（多段レーン）とフォントサイズ統一。マイルストーンヘッダー行でラベルが近接して重なる問題を解消。`ganttCalc.ts`に`assignMilestoneLanes(items, fontSize)`を追加：x位置順にgreedy割り当てで各マイルストーンを最初の空きレーン（lane番号）に配置し、推定テキスト幅（`iconWidth + title.length × fontSize × 0.65 + 4px`）で重なりを判定する純関数。`GanttChart.tsx`でレーン数に応じてマイルストーンヘッダーの高さを動的計算（`laneCount × milestoneLaneH`、`milestoneLaneH = uiFontSize + 9`）。ラベルのフォントサイズをハードコード`9px`から`uiFontSize`に変更し、各ラベルのtopをレーン番号 × レーン高さで配置。 |
 | 2.49 | 2026年6月 | 3件のバグ修正。①コピー挿入位置：ドラッグコピーで子孫展開時に指定位置と異なる場所へ挿入されるバグを修正。②seq永久欠番：projects.next_seqカウンター（migration 008）に変更。③削除時の依存クリーンアップ：フロントの楽観的削除とWSハンドラで削除済みIDを predecessors から除去。API側も存在しない先行IDをスキップする防御を追加。 |
 | 2.50 | 2026年6月 | マイルストーン強調を常時ON化。ツールバーの「マイル強調」ON/OFFトグルボタンを廃止し常に表示。カラーピッカーは継続表示。`taskStore`から`showMilestoneLines`・`setShowMilestoneLines`を削除。 |
+| 2.52 | 2026年6月 | マイルストーン行表示トグル追加＆担当者フィルターからマイルストーン除外。①ツールバー表示トグルに「マイル」ボタン（`showMilestones`）を追加し、マイルストーン行をON/OFFで一括非表示にできるようにする（localStorage永続化）。②`filterTasks`でassigneeフィルター適用時にマイルストーンタスク（`isMilestone===true`）を除外対象から外す：マイルに担当者が設定されていても担当者フィルターで行が消えないよう修正。 |
 | 2.51 | 2026年6月 | Markdown箇条書き・チェックボックス表示修正。①`index.html`グローバルCSS reset（`margin:0; padding:0`）が`ul/ol/li`にも適用され箇条書きのインデントと黒丸が消えていた問題を`.md-body`スコープのCSSで修正。②`- [ ]`/`- [x]`チェックボックスはGFM拡張のため`remark-gfm`を追加インストールし有効化。共通コンポーネント`MarkdownBody`（`src/components/MarkdownBody/MarkdownBody.tsx`）を新設し`remarkGfm`プラグイン設定と`.md-body`ラッパーを集約。`TaskModal`・`TaskTooltip`の`ReactMarkdown`直接使用を`MarkdownBody`に置換。ツールバーの「マイル強調」ON/OFFトグルボタンを廃止し、マイルストーンヘッダー行・列強調を常に表示するよう変更。カラーピッカーは継続表示。`taskStore`から`showMilestoneLines`・`setShowMilestoneLines`を削除し、`GanttChart`のミリストーン表示条件分岐を除去。 |①**コピー挿入位置**：ドラッグコピーで子孫展開時に指定位置と異なる場所（末尾）へ挿入されるバグを修正。`handleRowDrop`のコピー経路が移動用の`afterTaskId`計算（直上フラット行＝別タスクの子孫になりうる）を流用していたため、ドロップ位置から上方向に`parentId === newParentId`の最初の行（直上の兄弟）を走査する方式に分離。先頭ドロップは`beforeTaskId=先頭兄弟`で先頭挿入。②**seq永久欠番**：`#`（seq）が`MAX(seq)+1`採番のため最大番号タスクの削除で番号が再利用されていた。`projects.next_seq`カウンター（migration 008、既存プロジェクトは`MAX(seq)+1`で初期化）に変更し、`createTask`・importともトランザクション内でカウンターを消費。restoreモードでもリセットしない。③**削除時の依存クリーンアップ**：DB側は`task_deps`の`ON DELETE CASCADE`で正しく消えるが、フロントの楽観的削除（`useTasks.deleteTask`）とWS`task_deleted`ハンドラが残存タスクの`predecessors`から削除済みIDを除去せず、その状態でTaskModal保存するとFK違反500が発生していた。両所で削除IDを`predecessors`からフィルタ除去し、API側も`createTask`/`updateTask`の依存INSERT前に存在チェックして不在IDをスキップする防御を追加。 |
 
 ---
