@@ -307,7 +307,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
   const [rowDropDepth, setRowDropDepth] = useState<number | null>(null);
   const [rowDropTarget, setRowDropTarget] = useState<string | null>(null);
-  const [isDragCopy,   setIsDragCopy]   = useState(false);
+  const isDragCopyRef = useRef(false);
   const [copiedTask,   setCopiedTask]   = useState<Task | null>(null);
 
   function clearDrop() {
@@ -315,7 +315,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     setRowDropIdx(null);
     setRowDropDepth(null);
     setRowDropTarget(null);
-    setIsDragCopy(false);
+    isDragCopyRef.current = false;
   }
 
   function handleRowDragStart(e: React.DragEvent, taskId: string) {
@@ -324,15 +324,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       e.preventDefault();
       return;
     }
-    const isCopy = e.ctrlKey || e.metaKey;
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = isCopy ? 'copy' : 'move';
-    setIsDragCopy(isCopy);
     setRowDragId(taskId);
   }
 
   function handleRowDragOver(e: React.DragEvent, idx: number) {
     e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    const isCopy = e.ctrlKey || e.metaKey;
+    isDragCopyRef.current = isCopy;
+    if (e.dataTransfer) e.dataTransfer.dropEffect = isCopy ? 'copy' : 'move';
 
     // ── Y位置で子採用ゾーンか判定（行の下端70%）──
     const rowRect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -393,7 +392,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       const maxSibOrder = siblings.length > 0
         ? Math.max(...siblings.map(r => r.task.order))
         : 0;
-      if (isDragCopy) {
+      if (isDragCopyRef.current) {
         onCopyInsert(moved, rowDropTarget, null);
       } else {
         onReorder([{ id: moved.id, order: maxSibOrder + 1, parentId: rowDropTarget }]);
@@ -412,7 +411,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     const insertAt = dropIdx > dragIdx ? dropIdx - 1 : dropIdx;
     const afterTaskId = insertAt > 0 ? rowsWithoutDrag[insertAt - 1].id : null;
 
-    if (isDragCopy) {
+    if (isDragCopyRef.current) {
       onCopyInsert(moved, newParentId, afterTaskId);
       clearDrop();
       return;

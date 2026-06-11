@@ -135,7 +135,9 @@ describe('Ctrl+ドラッグ コピー機能', () => {
     const ctrlDragStart = createEvent.dragStart(draggables[0]);
     Object.defineProperty(ctrlDragStart, 'ctrlKey', { value: true, configurable: true });
     await act(async () => { fireEvent(draggables[0], ctrlDragStart); });
-    await act(async () => { fireEvent.dragOver(draggables[2]); });
+    const ctrlDragOver = createEvent.dragOver(draggables[2]);
+    Object.defineProperty(ctrlDragOver, 'ctrlKey', { value: true, configurable: true });
+    await act(async () => { fireEvent(draggables[2], ctrlDragOver); });
     await act(async () => { fireEvent.drop(draggables[2]); });
 
     expect(onCopyInsert).toHaveBeenCalled();
@@ -170,7 +172,9 @@ describe('Ctrl+ドラッグ コピー機能', () => {
     const ctrlDragStart2 = createEvent.dragStart(draggables[0]);
     Object.defineProperty(ctrlDragStart2, 'ctrlKey', { value: true, configurable: true });
     await act(async () => { fireEvent(draggables[0], ctrlDragStart2); });
-    await act(async () => { fireEvent.dragOver(draggables[2]); });
+    const ctrlDragOver2 = createEvent.dragOver(draggables[2]);
+    Object.defineProperty(ctrlDragOver2, 'ctrlKey', { value: true, configurable: true });
+    await act(async () => { fireEvent(draggables[2], ctrlDragOver2); });
     await act(async () => { fireEvent.drop(draggables[2]); });
 
     // コピー元タスク・parentId(null)・afterTaskId を確認
