@@ -11,7 +11,7 @@ export function filterTasks(
 
   if (filterStatus === '!done') result = result.filter(t => t.status !== 'done' && t.status !== 'pending');
   else if (filterStatus)        result = result.filter(t => t.status === filterStatus);
-  if (filterAssignee) result = result.filter(t => t.assignee.includes(filterAssignee));
+  if (filterAssignee) result = result.filter(t => t.isMilestone || t.assignee.includes(filterAssignee));
   if (filterPriority) result = result.filter(t => t.priority === filterPriority);
   if (filterSearch) {
     const q = filterSearch.toLowerCase();

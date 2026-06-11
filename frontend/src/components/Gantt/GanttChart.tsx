@@ -163,12 +163,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
-  const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch);
+  const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch)
+    .filter(t => showMilestones || !t.isMilestone);
   const assigneeOptions = getUniqueAssignees(tasks);
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）

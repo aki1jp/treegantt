@@ -1092,6 +1092,35 @@ describe('§7 フィルタ', () => {
       expect(r[0].id).toBe('t1');
     });
   });
+
+  describe('担当者フィルタでマイルストーンは除外しない', () => {
+    it('担当者フィルタ中もマイルストーンは常に表示される', () => {
+      const list = [
+        makeTask({ id: 't1', assignee: 'Alice', order: 1 }),
+        makeTask({ id: 't2', assignee: 'Bob',   order: 2 }),
+        makeTask({ id: 'm1', isMilestone: true, assignee: '', order: 3 }),
+      ];
+      const r = filterTasks(list, '', 'Alice', '');
+      expect(r.map(t => t.id)).toContain('m1');
+    });
+
+    it('マイルに担当者が設定されていても担当者フィルタで消えない', () => {
+      const list = [
+        makeTask({ id: 't1', assignee: 'Alice', order: 1 }),
+        makeTask({ id: 'm1', isMilestone: true, assignee: 'Bob', order: 2 }),
+      ];
+      const r = filterTasks(list, '', 'Alice', '');
+      expect(r.map(t => t.id)).toContain('m1');
+    });
+
+    it('担当者フィルタなしのとき通常通り全件返る', () => {
+      const list = [
+        makeTask({ id: 't1', assignee: 'Alice', order: 1 }),
+        makeTask({ id: 'm1', isMilestone: true, assignee: '', order: 2 }),
+      ];
+      expect(filterTasks(list, '', '', '')).toHaveLength(2);
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════
