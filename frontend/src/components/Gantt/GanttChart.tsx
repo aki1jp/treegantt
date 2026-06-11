@@ -324,6 +324,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       e.preventDefault();
       return;
     }
+    // 'all' を明示設定しないと Chrome が 'uninitialized' を 'none' 扱いし早期 dragEnd を発火する
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'all';
     setRowDragId(taskId);
   }
 

@@ -185,3 +185,57 @@ describe('Ctrl+ドラッグ コピー機能', () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('ドラッグフリーズ修正', () => {
+  it('dragStartでeffectAllowedが"all"に設定される（Chrome早期dragEnd防止）', async () => {
+    const t1 = makeTask({ title: 'TaskA' });
+    const { container } = renderChart([t1]);
+    const draggables = container.querySelectorAll('[draggable]');
+
+    // dataTransfer をモックして React ハンドラが effectAllowed を設定するか確認
+    const mockDT = { effectAllowed: 'uninitialized', dropEffect: 'none', setData: vi.fn(), getData: vi.fn() };
+    const evt = createEvent.dragStart(draggables[0]);
+    Object.defineProperty(evt, 'dataTransfer', { value: mockDT, configurable: true });
+
+    await act(async () => { fireEvent(draggables[0], evt); });
+
+    expect(mockDT.effectAllowed).toBe('all');
+  });
+
+  it('早期dragEnd後にdropが来てもonReorderは呼ばれない（フリーズ時の安全動作）', async () => {
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const t1 = makeTask({ title: 'TaskA', order: 1 });
+    const t2 = makeTask({ title: 'TaskB', order: 2 });
+    const t3 = makeTask({ title: 'TaskC', order: 3 });
+    const { container } = renderChart([t1, t2, t3], { onReorder });
+    const draggables = container.querySelectorAll('[draggable]');
+
+    // フリーズシナリオ: dragEnd が drop より先に発火（ブラウザが早期キャンセル）
+    await act(async () => { fireEvent.dragStart(draggables[0]); });
+    await act(async () => { fireEvent.dragOver(draggables[2]); });
+    await act(async () => { fireEvent.dragEnd(draggables[0]); }); // 早期終了
+    await act(async () => { fireEvent.drop(draggables[2]); });   // 遅延drop → no-op
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('ドラッグキャンセル後に再ドラッグするとonReorderが正常に呼ばれる（フリーズからのリカバリ）', async () => {
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    const t1 = makeTask({ title: 'TaskA', order: 1 });
+    const t2 = makeTask({ title: 'TaskB', order: 2 });
+    const t3 = makeTask({ title: 'TaskC', order: 3 });
+    const { container } = renderChart([t1, t2, t3], { onReorder });
+    const draggables = container.querySelectorAll('[draggable]');
+
+    // 1回目: キャンセル
+    await act(async () => { fireEvent.dragStart(draggables[0]); });
+    await act(async () => { fireEvent.dragEnd(draggables[0]); });
+    expect(onReorder).not.toHaveBeenCalled();
+
+    // 2回目: 正常完了（キャンセル後でも動作すること）
+    await act(async () => { fireEvent.dragStart(draggables[0]); });
+    await act(async () => { fireEvent.dragOver(draggables[2]); });
+    await act(async () => { fireEvent.drop(draggables[2]); });
+    expect(onReorder).toHaveBeenCalledTimes(1);
+  });
+});
