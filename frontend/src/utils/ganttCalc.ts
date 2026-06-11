@@ -391,3 +391,22 @@ export function calcParentSpanMap(
   return result;
 }
 
+// マイルストーンヘッダー用レーン割り当て。
+// 推定テキスト幅でx方向の重なりを判定し、greedy に最初の空きレーンへ配置する。
+export function assignMilestoneLanes(
+  items: { x: number; title: string }[],
+  fontSize: number,
+): { x: number; title: string; lane: number }[] {
+  const iconW = fontSize + 4;
+  const charW = fontSize * 0.65;
+  const pad   = 4;
+  const laneEnds: number[] = [];
+  return items.map(item => {
+    const width = iconW + item.title.length * charW + pad;
+    let lane = laneEnds.findIndex(end => end <= item.x);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = item.x + width;
+    return { ...item, lane };
+  });
+}
+

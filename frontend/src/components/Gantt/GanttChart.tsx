@@ -6,7 +6,7 @@ import {
   calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents, isAncestorOrDescendant,
   addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
-  calcParentSpanMap,
+  calcParentSpanMap, assignMilestoneLanes,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
@@ -19,7 +19,6 @@ import { ContextMenu } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
 
 const HEADER_ROW_H = 26;
-const MILESTONE_HEADER_H = 18;
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
@@ -252,13 +251,18 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }
 
   // マイルストーン列強調
-  const milestoneItems = showMilestoneLines
+  const milestoneItemsRaw = showMilestoneLines
     ? sorted
         .filter(t => t.isMilestone && !!t.startDate)
         .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title }))
     : [];
+  const milestoneItems = assignMilestoneLanes(milestoneItemsRaw, uiFontSize);
   const milestoneXSet = new Set(milestoneItems.map(m => m.x));
-  const milestoneHeaderH = milestoneItems.length > 0 ? MILESTONE_HEADER_H : 0;
+  const milestoneLaneH = uiFontSize + 9;
+  const milestoneLaneCount = milestoneItems.length > 0
+    ? Math.max(...milestoneItems.map(m => m.lane)) + 1
+    : 0;
+  const milestoneHeaderH = milestoneLaneCount > 0 ? milestoneLaneCount * milestoneLaneH : 0;
   const totalHeaderH = headerRows.length * HEADER_ROW_H + milestoneHeaderH + 2;
 
   // 親タスクの進捗・表示スパン事前計算
@@ -965,10 +969,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 })}
               </div>
             ))}
-            {/* マイルストーンヘッダー行（独立行） */}
+            {/* マイルストーンヘッダー行（多段レーン対応） */}
             {milestoneItems.length > 0 && (
               <div data-milestone-marker style={{
-                position: 'relative', width: totalWidth, height: MILESTONE_HEADER_H,
+                position: 'relative', width: totalWidth, height: milestoneHeaderH,
                 boxSizing: 'border-box',
                 borderTop: '1px solid var(--th-border)',
                 background: 'var(--th-bg2)', overflow: 'hidden',
@@ -977,10 +981,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   <div key={i} style={{
                     position: 'absolute', left: m.x,
                     display: 'flex', alignItems: 'center', gap: 2,
-                    fontSize: 9, fontWeight: 600, color: milestoneHighlightColor,
-                    whiteSpace: 'nowrap', paddingLeft: 2, top: 2,
+                    fontSize: uiFontSize, fontWeight: 600, color: milestoneHighlightColor,
+                    whiteSpace: 'nowrap', paddingLeft: 2,
+                    top: m.lane * milestoneLaneH + 2,
+                    height: milestoneLaneH - 2,
                   }}>
-                    <span style={{ fontSize: 8 }}>◆</span>
+                    <span>◆</span>
                     {m.title}
                   </div>
                 ))}
