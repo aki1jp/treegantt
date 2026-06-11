@@ -14,6 +14,7 @@ import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog
 import type { Task, Project } from './types/task';
 import { apiFetch } from './utils/api';
 import { makeCopyTitle } from './utils/copyTitle';
+import { mapInternalPredecessors } from './utils/copyDeps';
 
 export default function App() {
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
@@ -173,6 +174,10 @@ export default function App() {
     );
     const rootTitle = makeCopyTitle(source.title, siblingTitles);
 
+    // 旧ID→新ID のマップと訪問タスク（サブツリー内部の依存コピー用）
+    const idMap = new Map<string, string>();
+    const subtreeTasks: Task[] = [];
+
     async function copySubtree(task: Task, newParentId: string | null, isRoot: boolean): Promise<Task> {
       const newTask = await createTask({
         title:       isRoot ? rootTitle : task.title,
@@ -191,6 +196,8 @@ export default function App() {
         parentId:    newParentId,
         projectId:   currentProject.id,
       });
+      idMap.set(task.id, newTask.id);
+      subtreeTasks.push(task);
       const children = allTasksSnapshot
         .filter(t => t.parentId === task.id)
         .sort((a, b) => a.order - b.order);
@@ -202,6 +209,11 @@ export default function App() {
 
     try {
       const newRootTask = await copySubtree(source, parentId, true);
+
+      // 第2パス: サブツリー内部の依存を新IDに付け替えてコピー（外部依存はコピーしない）
+      for (const u of mapInternalPredecessors(subtreeTasks, idMap)) {
+        await updateTask(u.id, { predecessors: u.predecessors });
+      }
 
       const siblings = allTasksSnapshot
         .filter(t => t.parentId === parentId && t.id !== newRootTask.id)
