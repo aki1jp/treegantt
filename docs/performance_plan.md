@@ -78,7 +78,7 @@
 - **期待効果**: 進捗計算 約100万回演算 → 約2000回。レンダリングごとの計算コストの最大要因を除去
 - **リスク**: 低（純関数・同値性テストで担保）
 
-### Step 3（v2.61）: GanttChart の useMemo 化 — 状態: 未着手
+### Step 3（v2.61）: GanttChart の useMemo 化 — 状態: ✅完了（v2.61）
 
 - **内容**: `GanttChart.tsx` の派生計算 約15箇所を useMemo 化。主な対象と依存配列:
   - `sorted`（filterTasks）← `[tasks, filterStatus, filterAssignee, filterPriority, filterSearch, showMilestones]`
@@ -188,7 +188,7 @@
 |---|---|---|---|---|---|---|
 | 1 | 2.59 | 全件ページング取得（500件切り捨て修正・件数増に耐性）+ シード + フィクスチャ | FE+API | 正しさ（必須） | 極小 | ✅完了 |
 | 2 | 2.60 | childrenMap で O(N²)→O(N) 化 | FE | 大（計算量） | 低 | ✅完了 |
-| 3 | 2.61 | GanttChart useMemo 化 | FE | 大（操作応答） | 中 | 未着手 |
+| 3 | 2.61 | GanttChart useMemo 化 | FE | 大（操作応答） | 中 | ✅完了 |
 | 4 | 2.62 | React.memo + props 安定化 | FE | 大（更新時） | 中 | 未着手 |
 | 5 | 2.63 | zustand 差分アクション | FE | 中（基盤） | 低 | 未着手 |
 | 6 | 2.64 | 行仮想化（自前スライス） | FE | 最大（DOM 数） | 高 | 未着手 |

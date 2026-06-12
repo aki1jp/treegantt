@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Task } from '../../types/task';
 import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
@@ -8,7 +8,7 @@ import {
   addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
   calcParentSpanMap, assignMilestoneLanes,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, calcEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
+import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { GanttBar } from './GanttBar';
@@ -168,9 +168,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
-  const sorted = filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch)
-    .filter(t => showMilestones || !t.isMilestone);
-  const assigneeOptions = getUniqueAssignees(tasks);
+  const sorted = useMemo(
+    () => filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch)
+      .filter(t => showMilestones || !t.isMilestone),
+    [tasks, filterStatus, filterAssignee, filterPriority, filterSearch, showMilestones],
+  );
+  const assigneeOptions = useMemo(() => getUniqueAssignees(tasks), [tasks]);
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
   const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });
@@ -212,9 +215,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }, [colResize, handleColMouseMove, handleColMouseUp]);
 
   const [collapsed, setCollapsed] = useState(new Set<string>());
-  const withAncestors = includeAncestors(sorted, tasks);
-  const { roots, childCount } = buildTree(withAncestors);
-  const flatRows = flattenTree(roots, collapsed);
+  const { roots, childCount } = useMemo(
+    () => buildTree(includeAncestors(sorted, tasks)),
+    [sorted, tasks],
+  );
+  const flatRows = useMemo(() => flattenTree(roots, collapsed), [roots, collapsed]);
 
   const collapseAll    = () => setCollapsed(new Set(childCount.keys()));
   const expandAll      = () => setCollapsed(new Set());
@@ -226,37 +231,51 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   const start  = ganttStartDate || undefined;
   const period = ganttPeriod    || undefined;
-  const range  = calcGanttRange(sorted, start, period, zoomLevel);
-  const { min, max } = range;
-  const totalWidth  = ganttTotalWidth(sorted, zoomLevel, start, period);
-  const headerRows  = buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels);
+  // range の min は Date オブジェクト。useMemo による参照同一性が GanttBar 等の
+  // React.memo（Step 4）の前提になるため、再生成しないこと
+  const { min, max } = useMemo(
+    () => calcGanttRange(sorted, start, period, zoomLevel),
+    [sorted, start, period, zoomLevel],
+  );
+  const totalWidth = useMemo(
+    () => ganttTotalWidth(sorted, zoomLevel, start, period),
+    [sorted, zoomLevel, start, period],
+  );
+  const headerRows = useMemo(
+    () => buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels),
+    [min, max, zoomLevel, ganttHeaderLevels],
+  );
 
-  const taskIndex = new Map(flatRows.map(({ task }, i) => [task.id, i]));
-  const taskById  = new Map(sorted.map(t => [t.id, t]));
+  const taskIndex = useMemo(() => new Map(flatRows.map(({ task }, i) => [task.id, i])), [flatRows]);
+  const taskById  = useMemo(() => new Map(sorted.map(t => [t.id, t])), [sorted]);
   const totalHeight = (flatRows.length + 1) * uiRowHeight;
 
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
 
   // 土日列
-  const weekendXs: number[] = [];
-  if (showWeekend) {
+  const weekendXs = useMemo(() => {
+    const xs: number[] = [];
+    if (!showWeekend) return xs;
     let curTime = min.getTime();
     const endTime = max.getTime();
     while (curTime < endTime) {
       const dow = new Date(curTime).getDay();
       if (dow === 0 || dow === 6) {
-        weekendXs.push(Math.round((curTime - min.getTime()) / 86400000) * dayWidth);
+        xs.push(Math.round((curTime - min.getTime()) / 86400000) * dayWidth);
       }
       curTime += 86400000;
     }
-  }
+    return xs;
+  }, [showWeekend, min, max, dayWidth]);
 
   // マイルストーン列強調（常時表示）
-  const milestoneItemsRaw = sorted
-    .filter(t => t.isMilestone && !!t.startDate)
-    .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title }));
-  const milestoneItems = assignMilestoneLanes(milestoneItemsRaw, 11);
-  const milestoneXSet = new Set(milestoneItems.map(m => m.x));
+  const milestoneItems = useMemo(() => assignMilestoneLanes(
+    sorted
+      .filter(t => t.isMilestone && !!t.startDate)
+      .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title })),
+    11,
+  ), [sorted, min, zoomLevel]);
+  const milestoneXSet = useMemo(() => new Set(milestoneItems.map(m => m.x)), [milestoneItems]);
   const milestoneLaneH = 20;
   const milestoneLaneCount = milestoneItems.length > 0
     ? Math.max(...milestoneItems.map(m => m.lane)) + 1
@@ -264,12 +283,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const milestoneHeaderH = milestoneLaneCount > 0 ? milestoneLaneCount * milestoneLaneH : 0;
   const totalHeaderH = headerRows.length * HEADER_ROW_H + milestoneHeaderH + 2;
 
-  // 親タスクの進捗・表示スパン事前計算
-  const progressMap   = new Map(sorted.map(t => [t.id, calcEffectiveProgress(t.id, childCount, sorted)]));
-  const parentSpanMap = calcParentSpanMap(sorted);
+  // 親タスクの進捗・表示スパン事前計算（O(N) 1パス版）
+  const progressMap   = useMemo(() => calcAllEffectiveProgress(sorted), [sorted]);
+  const parentSpanMap = useMemo(() => calcParentSpanMap(sorted), [sorted]);
 
   // イナズマライン
-  const lightningPoints = calcLightningPoints(
+  const lightningPoints = useMemo(() => calcLightningPoints(
     flatRows.map(r => ({
       task: r.task,
       effectiveProgress: progressMap.get(r.task.id) ?? 0,
@@ -279,13 +298,43 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     min,
     zoomLevel,
     uiRowHeight,
-  );
+  ), [flatRows, progressMap, childCount, collapsed, min, zoomLevel, uiRowHeight]);
 
   // クリティカルパス
-  const criticalSet = showCriticalPath ? calcCriticalPath(sorted) : new Set<string>();
-  const collapsedCriticalParents = showCriticalPath
-    ? buildCollapsedCriticalParents(sorted, criticalSet, collapsed)
-    : new Set<string>();
+  const criticalSet = useMemo(
+    () => (showCriticalPath ? calcCriticalPath(sorted) : new Set<string>()),
+    [showCriticalPath, sorted],
+  );
+  const collapsedCriticalParents = useMemo(
+    () => (showCriticalPath
+      ? buildCollapsedCriticalParents(sorted, criticalSet, collapsed)
+      : new Set<string>()),
+    [showCriticalPath, sorted, criticalSet, collapsed],
+  );
+
+  // 依存関係矢印（折りたたみ時は可視祖先へリダイレクト）
+  const dependencyArrows = useMemo(() => {
+    const seen = new Set<string>();
+    return sorted.flatMap(task =>
+      task.predecessors.flatMap(predId => {
+        const fromId = resolveVisibleId(predId, taskIndex, taskById);
+        const toId   = resolveVisibleId(task.id, taskIndex, taskById);
+        if (!fromId || !toId || fromId === toId) return [];
+        const key = `${fromId}->${toId}`;
+        if (seen.has(key)) return [];
+        seen.add(key);
+        const fromTask = taskById.get(fromId)!;
+        const toTask   = taskById.get(toId)!;
+        return [
+          <DependencyArrow key={key}
+            fromTask={fromTask} toTask={toTask} minDate={min}
+            zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
+            isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
+            style={depArrowStyle} />,
+        ];
+      })
+    );
+  }, [sorted, taskIndex, taskById, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle]);
 
   // ── ドラッグ状態（バー移動・リサイズ） ──────────────
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -1088,28 +1137,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             })}
 
             {/* 依存関係矢印（折りたたみ時は可視祖先へリダイレクト） */}
-            {(() => {
-              const seen = new Set<string>();
-              return sorted.flatMap(task =>
-                task.predecessors.flatMap(predId => {
-                  const fromId = resolveVisibleId(predId, taskIndex, taskById);
-                  const toId   = resolveVisibleId(task.id, taskIndex, taskById);
-                  if (!fromId || !toId || fromId === toId) return [];
-                  const key = `${fromId}->${toId}`;
-                  if (seen.has(key)) return [];
-                  seen.add(key);
-                  const fromTask = taskById.get(fromId)!;
-                  const toTask   = taskById.get(toId)!;
-                  return [
-                    <DependencyArrow key={key}
-                      fromTask={fromTask} toTask={toTask} minDate={min}
-                      zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
-                      isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
-                      style={depArrowStyle} />,
-                  ];
-                })
-              );
-            })()}
+            {dependencyArrows}
 
             {/* ホバー中バーの右端コネクタドット（リンクドラッグ開始点） */}
             {hoveredBarId && !linkDragState && (() => {
