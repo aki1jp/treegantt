@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.64 |
+| バージョン | 2.65 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -88,6 +88,7 @@
 | 2.62 | 2026年6月 | 1000件パフォーマンス改善 Step 4（親台帳: `docs/performance_plan.md`）。`GanttBar` / `GanttLeftRow` を `React.memo` でラップし、1タスク更新時の再レンダリングを全行→該当行＋祖先のみに削減。props 安定化のため: ① `GanttBar.onClick` を `(task: Task) => void` に、`GanttLeftRow.onToggleCollapse` を `(id: string) => void` に、`onRowContextMenu` を `(x, y, taskId) => void` に変更（行ごとのインラインアロー関数を廃止し全行共有の `useCallback` を渡す）。② バードラッグ開始の親タスクガードを `startDrag` 内部（childCount を ref 参照）へ移動。③ App から渡る `onEditTask`/`onInlineUpdate` 等は GanttChart 内で「最新値 ref + 安定 useCallback」パターンに変換し、App 再レンダリングの影響を遮断。調査の結果 clipPath id（`clip-` + タスクID）は同一タスクが親バーと葉バーを同時描画することがなく実害なしのため変更なし。表示仕様・API・ストア変更なし。 |
 | 2.63 | 2026年6月 | 1000件パフォーマンス改善 Step 5（親台帳: `docs/performance_plan.md`）。`taskStore` に差分適用アクションを追加: `upsertTask(task)`（id一致なら置換・なければ末尾追加）、`removeTasks(ids)`（一括削除＋残存タスクの predecessors から削除IDを除去）、`applyOrders(orders)`（order/parentId の一括反映）。`useWebSocket.applyMessage` の task_created/task_updated/task_deleted/tasks_reordered と `useTasks` の楽観的更新（createTask の重複ガード・deleteTask subtree モード・reorderTasks）を同アクションへ委譲し、配列再構築ロジックを一元化。task_updated は従来「既存タスクのみ置換」だったが upsert 化により未知IDは追加される（作成通知より更新通知が先着するレースの自己回復）。Step 8 の `tasks_deleted` 一括メッセージの受け皿。表示仕様・API 変更なし。 |
 | 2.64 | 2026年6月 | 1000件パフォーマンス改善 Step 6（親台帳: `docs/performance_plan.md`）。ガント行の仮想化（自前スクロール範囲スライス）を導入。react-window は右ペインが1枚SVG・2ペイン手動同期スクロール構造のため不採用。純関数 `calcVisibleRange(scrollTop, viewportH, rowHeight, rowCount, overscan=10)` を `utils/virtualRange.ts` に新設し、可視範囲 `[start, end)` を計算。WBS左パネルは上下スペーサdiv＋`flatRows.slice(start, end)`（D&D・行コンテキストメニューは絶対インデックスのまま）、右SVGは縞背景rect・GanttBar をスライス分のみ描画（SVG全高・行Y座標・スクロールバーは無変更）。依存矢印は可視範囲と交差するもののみ描画。イナズマライン・今日ライン・週末列・マイルストーン列は全高1要素のため据え置き。scrollTop は rAF スロットルで state 化（rAF 非対応環境は即時反映）、ビューポート高さは ResizeObserver＋フォールバック800px（jsdom 対策・小規模データの既存テストは全行可視のまま無影響）。1000件時の DOM+SVG 要素 約10,000〜16,000 → 約500〜800。表示仕様・API・ストア変更なし。 |
+| 2.65 | 2026年6月 | 1000件パフォーマンス改善 Step 7（親台帳: `docs/performance_plan.md`）。`taskService.ts` のループ内クエリをバッチ化。① `deleteTaskSubtree`: 子孫ID収集を `WITH RECURSIVE`（`UNION` 使用で循環データでも停止）1クエリに、削除を `DELETE FROM tasks WHERE id IN (...)` の500件チャンク実行に変更（1000件サブツリー削除 約2000クエリ→約3クエリ）。② `insertPredecessors`: 存在チェック＋挿入のループを `INSERT OR IGNORE ... SELECT id, ? FROM tasks WHERE id IN (...)` の1文に統合（存在しないIDのスキップ仕様は SELECT で自然に維持）。③ `getAncestorTasks`: 親辿りごとの `getTask`（依存取得2クエリ付き）呼び出しを廃し、ID収集後に `IN` 一括取得＋`attachDeps` 1回に変更（クエリ数 深さ×3→深さ+3）。`reorderTasks` は prepared 文＋単一トランザクション済みで十分高速のため現状維持（問題化時の代替案: `json_each` 単一UPDATE）。戻り値・削除順序の意味・循環/幽霊参照の挙動は全て既存仕様を維持。API インターフェース変更なし。 |
 
 ---
 
