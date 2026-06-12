@@ -200,15 +200,14 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
 }
 
 // 存在する先行タスクのみ task_deps に挿入する。
-// 存在しないID（削除済みタスクへの幽霊参照など）はFK違反になるためスキップする
+// 存在しないID（削除済みタスクへの幽霊参照など）は SELECT で自然にスキップされる（1文バッチ）
 function insertPredecessors(successorId: string, predecessors: string[]): void {
-  const taskExists = db.prepare('SELECT 1 FROM tasks WHERE id = ?');
-  const insertDep = db.prepare(
-    'INSERT OR IGNORE INTO task_deps (predecessor_id, successor_id) VALUES (?, ?)'
-  );
-  for (const predId of predecessors) {
-    if (taskExists.get(predId)) insertDep.run(predId, successorId);
-  }
+  if (predecessors.length === 0) return;
+  const placeholders = predecessors.map(() => '?').join(',');
+  db.prepare(
+    `INSERT OR IGNORE INTO task_deps (predecessor_id, successor_id)
+     SELECT id, ? FROM tasks WHERE id IN (${placeholders})`
+  ).run(successorId, ...predecessors);
 }
 
 export type UpdateTaskInput = Partial<Omit<CreateTaskInput, 'id' | 'projectId'>>;
@@ -258,20 +257,33 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
 
 
 export function getAncestorTasks(taskId: string): TaskWithSuccessors[] {
-  const ancestors: TaskWithSuccessors[] = [];
+  // 親IDだけを軽量クエリで辿って収集し、本体＋依存は最後に一括取得する
+  // （従来は1階層ごとに getTask（依存取得2クエリ付き）を呼んでいた）
+  const getParent = db.prepare('SELECT parent_id FROM tasks WHERE id = ?');
+  const ancestorIds: string[] = [];
   let current = taskId;
   const visited = new Set<string>();
   while (true) {
     if (visited.has(current)) break;
     visited.add(current);
-    const row = db.prepare('SELECT parent_id FROM tasks WHERE id = ?').get(current) as { parent_id: string | null } | undefined;
+    const row = getParent.get(current) as { parent_id: string | null } | undefined;
     if (!row?.parent_id) break;
-    const parent = getTask(row.parent_id);
-    if (!parent) break;
-    ancestors.push(parent);
+    ancestorIds.push(row.parent_id);
     current = row.parent_id;
   }
-  return ancestors;
+  if (ancestorIds.length === 0) return [];
+
+  const placeholders = ancestorIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(`SELECT * FROM tasks WHERE id IN (${placeholders})`)
+    .all(...ancestorIds) as RawTask[];
+  const byId = new Map(rows.map(r => [r.id, r]));
+  // 近い親から順（収集順）を維持
+  const ordered = ancestorIds
+    .map(id => byId.get(id))
+    .filter((r): r is RawTask => r !== undefined)
+    .map(rawToTask);
+  return attachDeps(ordered);
 }
 
 export function deleteTask(id: string): boolean {
@@ -284,19 +296,28 @@ export function deleteTaskSubtree(id: string): string[] {
   const exists = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
   if (!exists) return [];
 
-  const childStmt = db.prepare<[string], { id: string }>('SELECT id FROM tasks WHERE parent_id = ?');
-  const ids: string[] = [];
-  const queue = [id];
-  while (queue.length) {
-    const cur = queue.shift()!;
-    ids.push(cur);
-    for (const row of childStmt.all(cur)) queue.push(row.id);
-  }
+  // 子孫IDを再帰CTE 1クエリで収集（UNION のため循環データでも停止する）
+  const rows = db
+    .prepare(
+      `WITH RECURSIVE sub(id) AS (
+         SELECT id FROM tasks WHERE id = ?
+         UNION
+         SELECT t.id FROM tasks t JOIN sub ON t.parent_id = sub.id
+       )
+       SELECT id FROM sub`
+    )
+    .all(id) as { id: string }[];
+  const ids = rows.map(r => r.id);
 
-  const del = db.prepare('DELETE FROM tasks WHERE id = ?');
+  // DELETE ... IN (...) のチャンク実行（SQLite のバインド変数上限対策）。
+  // FK は parent_id が ON DELETE SET NULL のため削除順序に制約はない
+  const CHUNK = 500;
   db.transaction(() => {
-    // FK ON DELETE SET NULL で親削除時に子の parent_id が消えるため、子孫から先に削除する
-    for (let i = ids.length - 1; i >= 0; i--) del.run(ids[i]);
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const chunk = ids.slice(i, i + CHUNK);
+      db.prepare(`DELETE FROM tasks WHERE id IN (${chunk.map(() => '?').join(',')})`)
+        .run(...chunk);
+    }
   })();
   return ids;
 }
