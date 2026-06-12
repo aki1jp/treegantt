@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.67 |
+| バージョン | 2.68 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -91,6 +91,7 @@
 | 2.65 | 2026年6月 | 1000件パフォーマンス改善 Step 7（親台帳: `docs/performance_plan.md`）。`taskService.ts` のループ内クエリをバッチ化。① `deleteTaskSubtree`: 子孫ID収集を `WITH RECURSIVE`（`UNION` 使用で循環データでも停止）1クエリに、削除を `DELETE FROM tasks WHERE id IN (...)` の500件チャンク実行に変更（1000件サブツリー削除 約2000クエリ→約3クエリ）。② `insertPredecessors`: 存在チェック＋挿入のループを `INSERT OR IGNORE ... SELECT id, ? FROM tasks WHERE id IN (...)` の1文に統合（存在しないIDのスキップ仕様は SELECT で自然に維持）。③ `getAncestorTasks`: 親辿りごとの `getTask`（依存取得2クエリ付き）呼び出しを廃し、ID収集後に `IN` 一括取得＋`attachDeps` 1回に変更（クエリ数 深さ×3→深さ+3）。`reorderTasks` は prepared 文＋単一トランザクション済みで十分高速のため現状維持（問題化時の代替案: `json_each` 単一UPDATE）。戻り値・削除順序の意味・循環/幽霊参照の挙動は全て既存仕様を維持。API インターフェース変更なし。 |
 | 2.66 | 2026年6月 | 1000件パフォーマンス改善 Step 8（親台帳: `docs/performance_plan.md`）。タスク削除の WS 通知を一括化。サーバー（`routes/tasks.ts`）は subtree 削除時に削除ID数ぶんの `task_deleted` を送っていたのを `{ type: 'tasks_deleted', projectId, ids: string[] }` 1通に変更（1000件削除で 1000通→1通）。single モードも `tasks_deleted`（`ids: [id]`）に統一。フロント（`useWebSocket.applyMessage`）に `tasks_deleted` ケースを追加し `removeTasks(ids)`（v2.63）で1回の状態更新に反映。旧 `task_deleted` 受信ハンドラは互換のため残置（サーバー先行デプロイ時、旧クライアントは新メッセージを無視するだけで reload 通知により追随可能な規模のため許容）。メッセージ型一覧（6.3節）も更新。 |
 | 2.67 | 2026年6月 | 1000件パフォーマンス改善 Step 9（最終、親台帳: `docs/performance_plan.md`）。REST レスポンスの圧縮を導入。`@fastify/compress@^7`（fastify 4 対応）を追加し、`plugins/compression.ts` の `registerCompression(fastify)`（`{ global: true, threshold: 1024 }`、encodings: br/gzip）を `index.ts` で register。1024バイト未満の小レスポンスは圧縮しない。1000件タスク一覧 JSON 約300〜500KB → 約40〜60KB（転送量約85%減）。クライアント側は fetch が `Accept-Encoding`/展開を自動処理するため変更不要。ETag は更新頻度が高くキャッシュヒットしにくいため見送り。 |
+| 2.68 | 2026年6月 | E2Eテスト基盤（Playwright）導入。`/workspace/e2e/` に `@playwright/test` パッケージを新設。`playwright.config.ts` で API（port 4000）・フロントエンド（port 3001）を `webServer` 自動起動（`reuseExistingServer: !CI` でローカルは起動済みサーバーを再利用）。`fixtures/app.ts` で E2E テスト用プロジェクトを自動生成・後片付けするカスタムフィクスチャを定義。テストスペック4本: `project.spec.ts`（プロジェクト作成・選択）、`task-crud.spec.ts`（タスク作成・インライン編集・子タスク・削除）、`task-modal.spec.ts`（モーダル編集・ガントバー反映）、`gantt-render.spec.ts`（SVGバー・日付ヘッダー・仮想化スクロール確認）。既存 Vitest テストは無変更。 |
 
 ---
 
