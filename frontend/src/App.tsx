@@ -12,7 +12,7 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
-import { apiFetch } from './utils/api';
+import { apiFetch, fetchAllTasks } from './utils/api';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { computeInsertOrder } from './utils/ganttCalc';
@@ -38,10 +38,10 @@ export default function App() {
   // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
     if (!currentProject) return;
-    apiFetch(`/projects/${currentProject.id}/tasks`)
+    fetchAllTasks(currentProject.id)
       .then(d => {
         setTasks(d.tasks);
-        setTaskCounts(prev => ({ ...prev, [currentProject.id]: d.total ?? d.tasks.length }));
+        setTaskCounts(prev => ({ ...prev, [currentProject.id]: d.total }));
       })
       .catch(() => {});
   }, [currentProject?.id]);
@@ -64,7 +64,7 @@ export default function App() {
   useEffect(() => {
     if (!needsReload || !currentProject) return;
     setNeedsReload(false);
-    apiFetch(`/projects/${currentProject.id}/tasks`)
+    fetchAllTasks(currentProject.id)
       .then(d => setTasks(d.tasks))
       .catch(() => {});
   }, [needsReload]);
