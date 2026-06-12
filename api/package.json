@@ -11,6 +11,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@fastify/compress": "^7.0.3",
     "@fastify/cors": "^9.0.0",
     "better-sqlite3": "^9.4.0",
     "fast-jwt": "^3.3.0",

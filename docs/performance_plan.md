@@ -147,7 +147,7 @@
 - **期待効果**: 1000件削除時 WS 1000通＋クライアント側1000回の配列再構築 → 1通＋1回
 - **リスク**: 低〜中（プロトコル変更だがサーバー・フロント同時リリース）
 
-### Step 9（v2.67）: gzip 圧縮（@fastify/compress） — 状態: 未着手
+### Step 9（v2.67）: gzip 圧縮（@fastify/compress） — 状態: ✅完了（v2.67）
 
 - **内容**: `api/src/index.ts` に `@fastify/compress` を register（`{ global: true, threshold: 1024 }`、br/gzip）。ETag は更新頻度が高くヒットしにくいため見送り（任意項目）
 - **変更ファイル**: `api/src/index.ts` / `api/package.json`
@@ -196,4 +196,4 @@
 | 6 | 2.64 | 行仮想化（自前スライス） | FE | 最大（DOM 数） | 高 | ✅完了 |
 | 7 | 2.65 | DB バッチ化（CTE + DELETE IN） | API | 中（削除系） | 低 | ✅完了 |
 | 8 | 2.66 | tasks_deleted 一括通知 | API+FE | 中 | 低〜中 | ✅完了 |
-| 9 | 2.67 | @fastify/compress 圧縮 | API | 中（転送量85%減） | 極小 | 未着手 |
+| 9 | 2.67 | @fastify/compress 圧縮 | API | 中（転送量85%減） | 極小 | ✅完了 |

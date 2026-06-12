@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { authPlugin } from './plugins/auth.js';
+import { registerCompression } from './plugins/compression.js';
 import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { taskRoutes } from './routes/tasks.js';
@@ -15,6 +16,8 @@ const fastify = Fastify({ logger: true });
 await fastify.register(cors, {
   origin: process.env.CORS_ORIGIN ?? '*',
 });
+
+await registerCompression(fastify);
 
 await fastify.register(authPlugin);
 
