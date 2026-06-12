@@ -127,6 +127,24 @@ describe('Toolbar フィルタインライン表示', () => {
     expect(combobox.placeholder).toBe('すべて');
   });
 
+  it('担当者が空のとき✕クリアボタンが表示されない', () => {
+    renderToolbar();
+    expect(screen.queryByTitle('担当者フィルターをクリア')).toBeNull();
+  });
+
+  it('担当者入力があるとき✕クリアボタンが表示される', () => {
+    useTaskStore.setState({ filterAssignee: 'Alice' });
+    renderToolbar();
+    expect(screen.getByTitle('担当者フィルターをクリア')).toBeTruthy();
+  });
+
+  it('担当者✕クリアボタンをクリックするとfilterAssigneeが空になる', () => {
+    useTaskStore.setState({ filterAssignee: 'Alice' });
+    renderToolbar();
+    fireEvent.click(screen.getByTitle('担当者フィルターをクリア'));
+    expect(useTaskStore.getState().filterAssignee).toBe('');
+  });
+
   it('行2を折りたたむとフィルタコントロールが非表示になる', () => {
     renderToolbar();
     fireEvent.click(screen.getByRole('button', { name: 'ガント設定を閉じる' }));

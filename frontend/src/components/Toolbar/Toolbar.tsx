@@ -268,6 +268,13 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             <datalist id="assignee-datalist">
               {getUniqueAssignees(tasks).map(a => <option key={a} value={a} />)}
             </datalist>
+            {filterAssignee && (
+              <button
+                style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
+                onClick={() => setFilter({ filterAssignee: '' })}
+                title="担当者フィルターをクリア"
+              >✕</button>
+            )}
           </div>
 
           {activeFilterCount > 0 && (
