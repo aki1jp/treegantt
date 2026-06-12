@@ -257,24 +257,30 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={FILTER_GROUP}>
             <span style={LABEL}>担当者</span>
-            <input
-              type="text"
-              list="assignee-datalist"
-              placeholder="すべて"
-              value={filterAssignee}
-              onChange={e => setFilter({ filterAssignee: e.target.value })}
-              style={{ ...SELECT, width: 100 }}
-            />
-            <datalist id="assignee-datalist">
-              {getUniqueAssignees(tasks).map(a => <option key={a} value={a} />)}
-            </datalist>
-            {filterAssignee && (
-              <button
-                style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
-                onClick={() => setFilter({ filterAssignee: '' })}
-                title="担当者フィルターをクリア"
-              >✕</button>
-            )}
+            <div data-testid="assignee-combobox" style={{ position: 'relative', display: 'inline-flex' }}>
+              <input
+                type="text"
+                list="assignee-datalist"
+                placeholder="すべて"
+                value={filterAssignee}
+                onChange={e => setFilter({ filterAssignee: e.target.value })}
+                style={{ ...SELECT, width: 100, paddingRight: filterAssignee ? 22 : undefined }}
+              />
+              <datalist id="assignee-datalist">
+                {getUniqueAssignees(tasks).map(a => <option key={a} value={a} />)}
+              </datalist>
+              {filterAssignee && (
+                <button
+                  style={{
+                    position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
+                    border: 'none', background: 'none', padding: '0 2px',
+                    fontSize: 10, lineHeight: 1, cursor: 'pointer', color: 'var(--th-text-muted)',
+                  }}
+                  onClick={() => setFilter({ filterAssignee: '' })}
+                  title="担当者フィルターをクリア"
+                >✕</button>
+              )}
+            </div>
           </div>
 
           {activeFilterCount > 0 && (

@@ -145,6 +145,16 @@ describe('Toolbar フィルタインライン表示', () => {
     expect(useTaskStore.getState().filterAssignee).toBe('');
   });
 
+  it('担当者✕ボタンはdata-testid="assignee-combobox"ラッパー内にある（インライン配置）', () => {
+    useTaskStore.setState({ filterAssignee: 'Alice' });
+    renderToolbar();
+    const wrapper = screen.getByTestId('assignee-combobox');
+    const combobox = wrapper.querySelector('input[list="assignee-datalist"]');
+    const clearBtn = wrapper.querySelector('[title="担当者フィルターをクリア"]');
+    expect(combobox).toBeTruthy();
+    expect(clearBtn).toBeTruthy();
+  });
+
   it('行2を折りたたむとフィルタコントロールが非表示になる', () => {
     renderToolbar();
     fireEvent.click(screen.getByRole('button', { name: 'ガント設定を閉じる' }));
