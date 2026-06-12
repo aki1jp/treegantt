@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.60 |
+| バージョン | 2.61 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -84,6 +84,7 @@
 | 2.58 | 2026年6月 | 担当者✕ボタンをコンボボックス内部に配置。`position: relative`ラッパーdivの中に`<input>`と`✕`ボタンを置き、ボタンを`position: absolute; right: 4px; top: 50%`で右端に重ねる。テキストがボタンに隠れないよう入力値がある場合は`paddingRight: 22px`を追加。API・ストア変更なし（フロントエンドのみ）。 |
 | 2.59 | 2026年6月 | 1000件パフォーマンス改善 Step 1（親台帳: `docs/performance_plan.md`）。フロントのタスク初期ロード/リロードが limit 未指定のため API デフォルト `limit=500`（taskService.ts）で501件目以降がサイレント切り捨てされていた問題を修正。`utils/api.ts` に `fetchAllTasks(projectId)` を新設し、`limit=1000` ずつ `offset` を進めてレスポンスの `total` に達するまで取得・結合するページングループ方式で件数非依存の全件取得を実現（固定 limit 明示は将来の件数増で再発するため不採用）。`App.tsx` の2箇所の取得を置き換え。開発用シードスクリプト `api/scripts/seed.ts`（`--count` 件数指定・冪等）とテスト用決定的ジェネレータ `frontend/src/__tests__/fixtures/genLargeTasks.ts` を追加。API 側のデフォルト limit は変更なし。 |
 | 2.60 | 2026年6月 | 1000件パフォーマンス改善 Step 2（親台帳: `docs/performance_plan.md`）。親タスクの進捗・期間集計を O(N²)→O(N) 化。`taskTree.ts` に `buildChildrenMap(tasks)`（親ID→子配列の索引Map）と `calcAllEffectiveProgress(tasks, childrenMap?)`（post-order DFS 1パスで全タスクの実効進捗をまとめて計算、結果Mapがメモ兼用、循環は訪問中セットで検出し0を返す）を追加。既存 `calcEffectiveProgress` はシグネチャ不変のまま内部を childrenMap 方式に変更（タスクごとの `allTasks.filter` 線形探索を排除）。`ganttCalc.ts` の `calcParentSpanMap` もシグネチャ不変で内部を post-order 1パス（子孫の min start / max end を親へ畳み込み）に変更し、親ごとのサブツリー再走査と再帰ごとの visited セットコピーを排除。葉判定・マイルストーン除外・循環安全の既存仕様は維持。1000件時の進捗計算 約100万回演算→約2000回。UI からの利用箇所変更は Step 3（v2.61）で実施。 |
+| 2.61 | 2026年6月 | 1000件パフォーマンス改善 Step 3（親台帳: `docs/performance_plan.md`）。`GanttChart.tsx` の派生計算を `useMemo` 化（従来は useMemo 0個で、ホバー・ドラッグ等の再レンダリングごとに全件再計算されていた）。対象: `sorted`（フィルタ結果）、`assigneeOptions`、`withAncestors/roots/childCount`（ツリー構築）、`flatRows`（平坦化）、`range(min,max)/totalWidth/headerRows`、`taskIndex/taskById`、`weekendXs`、`milestoneItems` 系、`progressMap`、`parentSpanMap`、`lightningPoints`、`criticalSet/collapsedCriticalParents`、依存矢印JSX配列。`progressMap` は v2.60 の `calcAllEffectiveProgress`（O(N) 1パス）に差し替え。`range.min` の Date 参照同一性が確保されるため後続 Step 4 の React.memo の前提となる。表示仕様・API・ストア変更なし。 |
 
 ---
 
