@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.63 |
+| バージョン | 2.64 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -87,6 +87,7 @@
 | 2.61 | 2026年6月 | 1000件パフォーマンス改善 Step 3（親台帳: `docs/performance_plan.md`）。`GanttChart.tsx` の派生計算を `useMemo` 化（従来は useMemo 0個で、ホバー・ドラッグ等の再レンダリングごとに全件再計算されていた）。対象: `sorted`（フィルタ結果）、`assigneeOptions`、`withAncestors/roots/childCount`（ツリー構築）、`flatRows`（平坦化）、`range(min,max)/totalWidth/headerRows`、`taskIndex/taskById`、`weekendXs`、`milestoneItems` 系、`progressMap`、`parentSpanMap`、`lightningPoints`、`criticalSet/collapsedCriticalParents`、依存矢印JSX配列。`progressMap` は v2.60 の `calcAllEffectiveProgress`（O(N) 1パス）に差し替え。`range.min` の Date 参照同一性が確保されるため後続 Step 4 の React.memo の前提となる。表示仕様・API・ストア変更なし。 |
 | 2.62 | 2026年6月 | 1000件パフォーマンス改善 Step 4（親台帳: `docs/performance_plan.md`）。`GanttBar` / `GanttLeftRow` を `React.memo` でラップし、1タスク更新時の再レンダリングを全行→該当行＋祖先のみに削減。props 安定化のため: ① `GanttBar.onClick` を `(task: Task) => void` に、`GanttLeftRow.onToggleCollapse` を `(id: string) => void` に、`onRowContextMenu` を `(x, y, taskId) => void` に変更（行ごとのインラインアロー関数を廃止し全行共有の `useCallback` を渡す）。② バードラッグ開始の親タスクガードを `startDrag` 内部（childCount を ref 参照）へ移動。③ App から渡る `onEditTask`/`onInlineUpdate` 等は GanttChart 内で「最新値 ref + 安定 useCallback」パターンに変換し、App 再レンダリングの影響を遮断。調査の結果 clipPath id（`clip-` + タスクID）は同一タスクが親バーと葉バーを同時描画することがなく実害なしのため変更なし。表示仕様・API・ストア変更なし。 |
 | 2.63 | 2026年6月 | 1000件パフォーマンス改善 Step 5（親台帳: `docs/performance_plan.md`）。`taskStore` に差分適用アクションを追加: `upsertTask(task)`（id一致なら置換・なければ末尾追加）、`removeTasks(ids)`（一括削除＋残存タスクの predecessors から削除IDを除去）、`applyOrders(orders)`（order/parentId の一括反映）。`useWebSocket.applyMessage` の task_created/task_updated/task_deleted/tasks_reordered と `useTasks` の楽観的更新（createTask の重複ガード・deleteTask subtree モード・reorderTasks）を同アクションへ委譲し、配列再構築ロジックを一元化。task_updated は従来「既存タスクのみ置換」だったが upsert 化により未知IDは追加される（作成通知より更新通知が先着するレースの自己回復）。Step 8 の `tasks_deleted` 一括メッセージの受け皿。表示仕様・API 変更なし。 |
+| 2.64 | 2026年6月 | 1000件パフォーマンス改善 Step 6（親台帳: `docs/performance_plan.md`）。ガント行の仮想化（自前スクロール範囲スライス）を導入。react-window は右ペインが1枚SVG・2ペイン手動同期スクロール構造のため不採用。純関数 `calcVisibleRange(scrollTop, viewportH, rowHeight, rowCount, overscan=10)` を `utils/virtualRange.ts` に新設し、可視範囲 `[start, end)` を計算。WBS左パネルは上下スペーサdiv＋`flatRows.slice(start, end)`（D&D・行コンテキストメニューは絶対インデックスのまま）、右SVGは縞背景rect・GanttBar をスライス分のみ描画（SVG全高・行Y座標・スクロールバーは無変更）。依存矢印は可視範囲と交差するもののみ描画。イナズマライン・今日ライン・週末列・マイルストーン列は全高1要素のため据え置き。scrollTop は rAF スロットルで state 化（rAF 非対応環境は即時反映）、ビューポート高さは ResizeObserver＋フォールバック800px（jsdom 対策・小規模データの既存テストは全行可視のまま無影響）。1000件時の DOM+SVG 要素 約10,000〜16,000 → 約500〜800。表示仕様・API・ストア変更なし。 |
 
 ---
 
