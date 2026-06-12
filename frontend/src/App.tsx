@@ -15,6 +15,7 @@ import type { Task, Project } from './types/task';
 import { apiFetch } from './utils/api';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
+import { computeInsertOrder } from './utils/ganttCalc';
 
 export default function App() {
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
@@ -178,7 +179,11 @@ export default function App() {
     const idMap = new Map<string, string>();
     const subtreeTasks: Task[] = [];
 
-    async function copySubtree(task: Task, newParentId: string | null, isRoot: boolean): Promise<Task> {
+    // ルートタスクの挿入 order を事前計算（作成直後から正しい位置に表示するため）
+    const siblings = allTasksSnapshot.filter(t => t.parentId === parentId);
+    const targetOrder = computeInsertOrder(siblings, afterTaskId, beforeTaskId);
+
+    async function copySubtree(task: Task, newParentId: string | null, isRoot: boolean, rootOrder?: number): Promise<Task> {
       const newTask = await createTask({
         title:       isRoot ? rootTitle : task.title,
         summary:     task.summary,
@@ -193,6 +198,7 @@ export default function App() {
         predecessors: [],
         titleColor:  task.titleColor,
         titleBgColor: task.titleBgColor,
+        order:       isRoot && rootOrder !== undefined ? rootOrder : undefined,
         parentId:    newParentId,
         projectId:   currentProject.id,
       });
@@ -208,7 +214,7 @@ export default function App() {
     }
 
     try {
-      const newRootTask = await copySubtree(source, parentId, true);
+      const newRootTask = await copySubtree(source, parentId, true, targetOrder);
 
       // 第2パス: サブツリー内部の依存を新IDに付け替えてコピー（外部依存はコピーしない）
       for (const u of mapInternalPredecessors(subtreeTasks, idMap)) {

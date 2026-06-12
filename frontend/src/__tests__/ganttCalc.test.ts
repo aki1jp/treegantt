@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -714,5 +714,44 @@ describe('calcParentSpanMap', () => {
     expect(map.get('gp')?.endDate).toBe('2026-07-31');
     expect(map.get('p')?.startDate).toBe('2026-07-01');
     expect(map.get('p')?.endDate).toBe('2026-07-31');
+  });
+});
+
+describe('computeInsertOrder', () => {
+  const s = (id: string, order: number) => ({ id, order });
+
+  it('afterTaskId で中間挿入 → 両隣の中間値', () => {
+    const siblings = [s('a', 1), s('b', 2), s('c', 3)];
+    const result = computeInsertOrder(siblings, 'a', null);
+    expect(result).toBeGreaterThan(1);
+    expect(result).toBeLessThan(2);
+  });
+
+  it('afterTaskId で末尾挿入 → lastOrder + 1', () => {
+    const siblings = [s('a', 1), s('b', 2), s('c', 3)];
+    const result = computeInsertOrder(siblings, 'c', null);
+    expect(result).toBe(4);
+  });
+
+  it('beforeTaskId で先頭挿入 → firstOrder - 1', () => {
+    const siblings = [s('a', 1), s('b', 2), s('c', 3)];
+    const result = computeInsertOrder(siblings, null, 'a');
+    expect(result).toBe(0);
+  });
+
+  it('beforeTaskId で中間挿入 → 両隣の中間値', () => {
+    const siblings = [s('a', 1), s('b', 3), s('c', 5)];
+    const result = computeInsertOrder(siblings, null, 'b');
+    expect(result).toBe(2); // (1 + 3) / 2
+  });
+
+  it('空の siblings → 1 を返す', () => {
+    expect(computeInsertOrder([], null, null)).toBe(1);
+  });
+
+  it('afterTaskId が見つからない → 末尾 + 1', () => {
+    const siblings = [s('a', 2), s('b', 4)];
+    const result = computeInsertOrder(siblings, 'x', null);
+    expect(result).toBe(5);
   });
 });

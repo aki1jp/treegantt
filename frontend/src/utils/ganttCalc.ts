@@ -410,3 +410,22 @@ export function assignMilestoneLanes(
   });
 }
 
+export function computeInsertOrder(
+  siblings: { id: string; order: number }[],
+  afterTaskId: string | null,
+  beforeTaskId?: string | null,
+): number {
+  const sorted = [...siblings].sort((a, b) => a.order - b.order);
+  if (beforeTaskId) {
+    const idx = sorted.findIndex(t => t.id === beforeTaskId);
+    if (idx <= 0) return (sorted[0]?.order ?? 1) - 1;
+    return (sorted[idx - 1].order + sorted[idx].order) / 2;
+  }
+  if (afterTaskId) {
+    const idx = sorted.findIndex(t => t.id === afterTaskId);
+    if (idx === -1 || idx === sorted.length - 1) return (sorted[sorted.length - 1]?.order ?? 0) + 1;
+    return (sorted[idx].order + sorted[idx + 1].order) / 2;
+  }
+  return (sorted[sorted.length - 1]?.order ?? 0) + 1;
+}
+
