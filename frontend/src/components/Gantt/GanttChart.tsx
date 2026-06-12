@@ -11,6 +11,7 @@ import {
 import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
+import { calcVisibleRange } from '../../utils/virtualRange';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
@@ -330,29 +331,6 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     [showCriticalPath, sorted, criticalSet, collapsed],
   );
 
-  // 依存関係矢印（折りたたみ時は可視祖先へリダイレクト）
-  const dependencyArrows = useMemo(() => {
-    const seen = new Set<string>();
-    return sorted.flatMap(task =>
-      task.predecessors.flatMap(predId => {
-        const fromId = resolveVisibleId(predId, taskIndex, taskById);
-        const toId   = resolveVisibleId(task.id, taskIndex, taskById);
-        if (!fromId || !toId || fromId === toId) return [];
-        const key = `${fromId}->${toId}`;
-        if (seen.has(key)) return [];
-        seen.add(key);
-        const fromTask = taskById.get(fromId)!;
-        const toTask   = taskById.get(toId)!;
-        return [
-          <DependencyArrow key={key}
-            fromTask={fromTask} toTask={toTask} minDate={min}
-            zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
-            isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
-            style={depArrowStyle} />,
-        ];
-      })
-    );
-  }, [sorted, taskIndex, taskById, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle]);
 
   // ── ドラッグ状態（バー移動・リサイズ） ──────────────
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -572,10 +550,69 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     return () => ro.disconnect();
   }, []);
 
+  // ── 行仮想化（v2.64）: スクロール位置とビューポート高さを state 化 ──
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(800); // ResizeObserver 非対応環境のフォールバック
+  const pendingScrollTopRef = useRef(0);
+  const scrollRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const el = ganttPanelRef.current;
+    if (!el) return;
+    const update = () => setViewportH(el.clientHeight || 800);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     if (wbsBodyRef.current) wbsBodyRef.current.scrollTop = e.currentTarget.scrollTop;
     if (workloadScrollRef.current) workloadScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    // 可視範囲更新は rAF でスロットル（非対応環境は即時反映）
+    pendingScrollTopRef.current = e.currentTarget.scrollTop;
+    if (typeof requestAnimationFrame !== 'function') {
+      setScrollTop(pendingScrollTopRef.current);
+    } else if (scrollRafRef.current === null) {
+      scrollRafRef.current = requestAnimationFrame(() => {
+        scrollRafRef.current = null;
+        setScrollTop(pendingScrollTopRef.current);
+      });
+    }
   }
+
+  const { start: vStart, end: vEnd } = useMemo(
+    () => calcVisibleRange(scrollTop, viewportH, uiRowHeight, flatRows.length),
+    [scrollTop, viewportH, uiRowHeight, flatRows.length],
+  );
+
+  // 依存関係矢印（折りたたみ時は可視祖先へリダイレクト・可視範囲と交差するもののみ描画）
+  const dependencyArrows = useMemo(() => {
+    const seen = new Set<string>();
+    return sorted.flatMap(task =>
+      task.predecessors.flatMap(predId => {
+        const fromId = resolveVisibleId(predId, taskIndex, taskById);
+        const toId   = resolveVisibleId(task.id, taskIndex, taskById);
+        if (!fromId || !toId || fromId === toId) return [];
+        const key = `${fromId}->${toId}`;
+        if (seen.has(key)) return [];
+        seen.add(key);
+        const fromIdx = taskIndex.get(fromId)!;
+        const toIdx   = taskIndex.get(toId)!;
+        if (Math.max(fromIdx, toIdx) < vStart || Math.min(fromIdx, toIdx) >= vEnd) return [];
+        const fromTask = taskById.get(fromId)!;
+        const toTask   = taskById.get(toId)!;
+        return [
+          <DependencyArrow key={key}
+            fromTask={fromTask} toTask={toTask} minDate={min}
+            zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
+            isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
+            style={depArrowStyle} />,
+        ];
+      })
+    );
+  }, [sorted, taskIndex, taskById, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle, vStart, vEnd]);
 
   // WBSパネル上のホイール操作をガントパネルに転送（WBSはoverflow:hiddenのため）
   function handleWbsWheel(e: React.WheelEvent<HTMLDivElement>) {
@@ -955,9 +992,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
         {/* WBS ボディ（垂直スクロールはガントパネルと同期） */}
         <div ref={wbsBodyRef} style={{ flex: 1, overflowY: 'hidden' }}>
+          {/* 仮想化: 可視範囲外は上下スペーサで高さのみ確保（スクロール同期を維持） */}
+          <div style={{ height: vStart * uiRowHeight, flexShrink: 0 }} />
           {(() => {
             const dragIdx = rowDragId ? flatRows.findIndex(r => r.task.id === rowDragId) : -1;
-            return flatRows.map(({ task, depth }, idx) => {
+            return flatRows.slice(vStart, vEnd).map(({ task, depth }, sliceIdx) => {
+              const idx = vStart + sliceIdx; // D&D は絶対インデックスで処理する
               const isNoOp = dragIdx !== -1 && (rowDropIdx === dragIdx || rowDropIdx === dragIdx + 1);
               const showDropLine = rowDropIdx === idx && !!rowDragId && !isNoOp;
               return (
@@ -1012,6 +1052,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               );
             });
           })()}
+          <div style={{ height: (flatRows.length - vEnd) * uiRowHeight, flexShrink: 0 }} />
           <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
           {/* 横スクロールバー分の高さを補完してガントとのスクロール同期ズレを防止 */}
           <div style={{ height: hScrollbarH, flexShrink: 0 }} />
@@ -1119,13 +1160,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               </filter>
             </defs>
 
-            {/* 縞背景 */}
-            {flatRows.map(({ task, depth }, i) => {
+            {/* 縞背景（仮想化: 可視範囲のみ・Y座標は絶対インデックス） */}
+            {flatRows.slice(vStart, vEnd).map(({ task, depth }, sliceIdx) => {
+              const i = vStart + sliceIdx;
               const isParent    = (childCount.get(task.id) ?? 0) > 0;
               const isRootParent = depth === 0 && isParent;
               const canCreate   = !task.startDate && !isParent && !task.isMilestone;
               return (
-                <rect key={i} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
+                <rect key={task.id} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
                   style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')), cursor: canCreate ? 'crosshair' : undefined }}
                   onMouseDown={canCreate ? (e) => startCreateDrag(e, task.id) : undefined}
                 />
@@ -1153,8 +1195,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                 fill={milestoneHighlightColor + '33'} />
             ))}
 
-            {/* タスクバー */}
-            {flatRows.map(({ task }, i) => {
+            {/* タスクバー（仮想化: 可視範囲のみ・rowIndex は絶対インデックス） */}
+            {flatRows.slice(vStart, vEnd).map(({ task }, sliceIdx) => {
+              const i = vStart + sliceIdx;
               const preview = dragPreview?.taskId === task.id ? dragPreview : null;
               const isParent = (childCount.get(task.id) ?? 0) > 0;
               return (
