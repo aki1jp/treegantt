@@ -255,9 +255,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const milestoneItemsRaw = sorted
     .filter(t => t.isMilestone && !!t.startDate)
     .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title }));
-  const milestoneItems = assignMilestoneLanes(milestoneItemsRaw, uiFontSize);
+  const milestoneItems = assignMilestoneLanes(milestoneItemsRaw, 11);
   const milestoneXSet = new Set(milestoneItems.map(m => m.x));
-  const milestoneLaneH = uiFontSize + 9;
+  const milestoneLaneH = 20;
   const milestoneLaneCount = milestoneItems.length > 0
     ? Math.max(...milestoneItems.map(m => m.lane)) + 1
     : 0;
@@ -990,7 +990,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   <div key={i} style={{
                     position: 'absolute', left: m.x,
                     display: 'flex', alignItems: 'center', gap: 2,
-                    fontSize: uiFontSize, fontWeight: 600, color: milestoneHighlightColor,
+                    fontSize: 11, fontWeight: 600, color: milestoneHighlightColor,
                     whiteSpace: 'nowrap', paddingLeft: 2,
                     top: m.lane * milestoneLaneH + 2,
                     height: milestoneLaneH - 2,

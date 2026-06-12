@@ -325,6 +325,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
               onClick={() => setGanttHeaderLevels({ week:  !ganttHeaderLevels.week  })} />
             <ToggleBtn active={ganttHeaderLevels.day}   label="日" title="日ヘッダーを表示"
               onClick={() => setGanttHeaderLevels({ day:   !ganttHeaderLevels.day   })} />
+            <ToggleBtn
+              active={showMilestones}
+              label="マイル"
+              title="マイルストーン行を表示"
+              onClick={() => setShowMilestones(!showMilestones)}
+            />
             <input
               type="color"
               value={milestoneHighlightColor}
@@ -337,12 +343,6 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           <div style={DIVIDER} />
 
           {/* 表示トグル */}
-          <ToggleBtn
-            active={showMilestones}
-            label="マイル"
-            title="マイルストーン行を表示"
-            onClick={() => setShowMilestones(!showMilestones)}
-          />
           <ToggleBtn
             active={showTodayLine}
             label="今日バー"
