@@ -173,7 +173,17 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       .filter(t => showMilestones || !t.isMilestone),
     [tasks, filterStatus, filterAssignee, filterPriority, filterSearch, showMilestones],
   );
-  const assigneeOptions = useMemo(() => getUniqueAssignees(tasks), [tasks]);
+  // tasks が変わっても内容が同じなら前回の配列参照を維持する
+  // （全行に渡る props のため、参照が変わると React.memo が全行で無効化される）
+  const assigneeOptionsRaw = useMemo(() => getUniqueAssignees(tasks), [tasks]);
+  const assigneeOptionsRef = useRef(assigneeOptionsRaw);
+  if (
+    assigneeOptionsRaw.length !== assigneeOptionsRef.current.length ||
+    assigneeOptionsRaw.some((a, i) => a !== assigneeOptionsRef.current[i])
+  ) {
+    assigneeOptionsRef.current = assigneeOptionsRaw;
+  }
+  const assigneeOptions = assigneeOptionsRef.current;
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
   const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });
@@ -231,12 +241,20 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
 
   const start  = ganttStartDate || undefined;
   const period = ganttPeriod    || undefined;
-  // range の min は Date オブジェクト。useMemo による参照同一性が GanttBar 等の
-  // React.memo（Step 4）の前提になるため、再生成しないこと
-  const { min, max } = useMemo(
+  // range の min/max は Date オブジェクトで全 GanttBar に渡るため、
+  // 値（時刻）が同じなら前回の参照を維持して React.memo の無効化を防ぐ
+  const rangeRaw = useMemo(
     () => calcGanttRange(sorted, start, period, zoomLevel),
     [sorted, start, period, zoomLevel],
   );
+  const rangeRef = useRef(rangeRaw);
+  if (
+    rangeRaw.min.getTime() !== rangeRef.current.min.getTime() ||
+    rangeRaw.max.getTime() !== rangeRef.current.max.getTime()
+  ) {
+    rangeRef.current = rangeRaw;
+  }
+  const { min, max } = rangeRef.current;
   const totalWidth = useMemo(
     () => ganttTotalWidth(sorted, zoomLevel, start, period),
     [sorted, zoomLevel, start, period],
@@ -502,11 +520,33 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const ganttHeaderRef  = useRef<HTMLDivElement>(null);
   const workloadScrollRef = useRef<HTMLDivElement>(null);
 
-  // flatRows / taskById の最新値を ref に保持（リンクドラッグハンドラの stale closure 防止）
-  const flatRowsRef  = useRef(flatRows);
-  const taskByIdRef  = useRef(taskById);
-  useEffect(() => { flatRowsRef.current  = flatRows;  }, [flatRows]);
-  useEffect(() => { taskByIdRef.current  = taskById;  }, [taskById]);
+  // flatRows / taskById / childCount の最新値を ref に保持（安定コールバックの stale closure 防止）
+  const flatRowsRef   = useRef(flatRows);
+  const taskByIdRef   = useRef(taskById);
+  const childCountRef = useRef(childCount);
+  useEffect(() => { flatRowsRef.current   = flatRows;   }, [flatRows]);
+  useEffect(() => { taskByIdRef.current   = taskById;   }, [taskById]);
+  useEffect(() => { childCountRef.current = childCount; }, [childCount]);
+
+  // App から渡るコールバックは再レンダリングごとに再生成されるため、
+  // 最新値 ref + 安定 useCallback に変換して React.memo 行コンポーネントへ渡す
+  const onEditTaskRef     = useRef(onEditTask);
+  const onInlineUpdateRef = useRef(onInlineUpdate);
+  useEffect(() => {
+    onEditTaskRef.current     = onEditTask;
+    onInlineUpdateRef.current = onInlineUpdate;
+  });
+  const handleInlineUpdate = useCallback(
+    (id: string, patch: Partial<Task>) => onInlineUpdateRef.current(id, patch),
+    [],
+  );
+  const handleRowContextMenu = useCallback((x: number, y: number, taskId: string) => {
+    setRowCtxMenu({ x, y, taskId });
+    setBarCtxMenu(null);
+  }, []);
+  const handleBarClick = useCallback((task: Task) => {
+    if (!dragStateRef.current && !linkDragStateRef.current) onEditTaskRef.current(task);
+  }, []);
 
   // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
   const [hScrollbarH, setHScrollbarH] = useState(0);
@@ -675,11 +715,12 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   }, []);
 
 
-  function startDrag(e: React.MouseEvent, taskId: string, type: DragType) {
+  const startDrag = useCallback((e: React.MouseEvent, taskId: string, type: DragType) => {
     if (e.button !== 0) return;
     if (linkDragStateRef.current) return; // リンクドラッグ中は move/resize を無効化
+    if ((childCountRef.current.get(taskId) ?? 0) > 0) return; // 親バーは移動・リサイズ不可
     e.preventDefault();
-    const task = taskById.get(taskId);
+    const task = taskByIdRef.current.get(taskId);
     if (!task?.startDate) return;
     setDragState({
       taskId, type,
@@ -687,7 +728,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       origStart: task.startDate,
       origEnd: task.endDate ?? task.startDate,
     });
-  }
+  }, []);
+  const handleBarMoveStart        = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'move'),         [startDrag]);
+  const handleBarResizeLeftStart  = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-left'),  [startDrag]);
+  const handleBarResizeRightStart = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-right'), [startDrag]);
 
   function startLinkDrag(e: React.MouseEvent, taskId: string) {
     if (e.button !== 0) return;
@@ -769,13 +813,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     setDragState({ taskId, type: 'create', startClientX: e.clientX, anchorRelX: relX, origStart: anchorDate, origEnd: anchorDate });
   }
 
-  function toggleCollapse(id: string) {
+  const toggleCollapse = useCallback((id: string) => {
     setCollapsed(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  }
+  }, []);
 
   const TH: React.CSSProperties = {
     height: HEADER_ROW_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -960,9 +1004,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                     assigneeOptions={assigneeOptions}
                     displayStart={(childCount.get(task.id) ?? 0) > 0 ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
                     displayEnd={(childCount.get(task.id) ?? 0) > 0   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
-                    onToggleCollapse={() => toggleCollapse(task.id)}
-                    onInlineUpdate={onInlineUpdate}
-                    onRowContextMenu={(x, y) => { setRowCtxMenu({ x, y, taskId: task.id }); setBarCtxMenu(null); }}
+                    onToggleCollapse={toggleCollapse}
+                    onInlineUpdate={handleInlineUpdate}
+                    onRowContextMenu={handleRowContextMenu}
                   />
                 </div>
               );
@@ -1128,10 +1172,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
                   displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
                   milestoneColor={task.isMilestone ? milestoneHighlightColor : undefined}
-                  onMoveStart={(e, id) => !isParent && startDrag(e, id, 'move')}
-                  onResizeLeftStart={(e, id) => !isParent && startDrag(e, id, 'resize-left')}
-                  onResizeRightStart={(e, id) => !isParent && startDrag(e, id, 'resize-right')}
-                  onClick={() => !dragState && !linkDragState && onEditTask(task)}
+                  onMoveStart={handleBarMoveStart}
+                  onResizeLeftStart={handleBarResizeLeftStart}
+                  onResizeRightStart={handleBarResizeRightStart}
+                  onClick={handleBarClick}
                 />
               );
             })}

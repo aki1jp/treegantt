@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { Task, ZoomLevel } from '../../types/task';
 import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr } from '../../utils/ganttCalc';
 import { STATUS_COLOR } from '../../utils/taskColors';
@@ -18,7 +19,7 @@ interface Props {
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
-  onClick: () => void;
+  onClick: (task: Task) => void;
 }
 
 
@@ -37,13 +38,16 @@ function titleTextMode(
   return availableInner >= estimated + 4 ? 'inside' : 'outside';
 }
 
-export function GanttBar({
+// React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
+// コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
+export const GanttBar = memo(function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, isParent = false, effectiveProgress,
   displayStart, displayEnd,
   dragPreview, rowHeight = ROW_HEIGHT_PX, milestoneColor,
   onMoveStart, onResizeLeftStart, onResizeRightStart,
   onClick,
 }: Props) {
+  const handleClick = () => onClick(task);
   // 親タスクは子孫スパン（displayStart/End）を優先して描画位置を決める
   // 子タスクはドラッグプレビューを優先する
   const effectiveStart = isParent
@@ -83,7 +87,7 @@ export function GanttBar({
         </text>
         <rect
           x={cx - r - 4} y={centerY - r - 4} width={r * 2 + 8} height={r * 2 + 8}
-          fill="transparent" onClick={onClick} style={{ cursor: 'pointer' }}
+          fill="transparent" onClick={handleClick} style={{ cursor: 'pointer' }}
         />
       </g>
     );
@@ -108,7 +112,7 @@ export function GanttBar({
     const parentProgressWidth = Math.round(width * displayProgress / 100);
 
     return (
-      <g data-task-id={task.id} onClick={onClick} style={{ cursor: 'pointer' }}>
+      <g data-task-id={task.id} onClick={handleClick} style={{ cursor: 'pointer' }}>
         {/* 上部横バー */}
         <rect x={x} y={y} width={width} height={topH} rx={2}
           fill={barColor + 'cc'} stroke={barColor} strokeWidth={1}
@@ -165,7 +169,7 @@ export function GanttBar({
         stroke={isOverdue ? '#ef4444' : isCritical ? '#6366f1' : color}
         strokeWidth={isCritical && !isOverdue ? 2.5 : 1}
         filter={isCritical && !isOverdue ? 'url(#critical-glow)' : undefined}
-        onClick={onClick}
+        onClick={handleClick}
         style={{ cursor: 'pointer' }}
       />
       {/* 進捗バー */}
@@ -221,4 +225,4 @@ export function GanttBar({
       />
     </g>
   );
-}
+});

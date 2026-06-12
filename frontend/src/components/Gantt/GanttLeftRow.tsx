@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import type { Task } from '../../types/task';
 import { addDays, calcDuration } from '../../utils/ganttCalc';
 import { titlePaddingLeft } from '../../utils/wbsLayout';
@@ -23,12 +23,14 @@ export interface GanttLeftRowProps {
   assigneeOptions?: string[];
   displayStart?: string | null;
   displayEnd?:   string | null;
-  onToggleCollapse: () => void;
+  onToggleCollapse: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
-  onRowContextMenu: (x: number, y: number) => void;
+  onRowContextMenu: (x: number, y: number, taskId: string) => void;
 }
 
-export function GanttLeftRow({
+// React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
+// コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
+export const GanttLeftRow = memo(function GanttLeftRow({
   task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
@@ -153,7 +155,7 @@ export function GanttLeftRow({
         borderBottom: '1px solid var(--th-border)',
         borderLeft: isRootParent ? '3px solid var(--th-border-strong)' : '3px solid transparent',
       }}
-      onContextMenu={e => { e.preventDefault(); if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setTooltipVisible(false); onRowContextMenu(e.clientX, e.clientY); }}
+      onContextMenu={e => { e.preventDefault(); if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setTooltipVisible(false); onRowContextMenu(e.clientX, e.clientY, task.id); }}
     >
       {/* # (seq: 作成時発番・不変) */}
       <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
@@ -164,7 +166,7 @@ export function GanttLeftRow({
       {wbsPanelOpen && <div style={{ ...CELL, width: titleWidth, paddingLeft: indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
-            <button onClick={e => { e.stopPropagation(); onToggleCollapse(); }} style={{
+            <button onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
               width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -371,4 +373,4 @@ export function GanttLeftRow({
       )}
     </div>
   );
-}
+});
