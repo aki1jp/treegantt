@@ -10,6 +10,17 @@ export function buildChildCountMap(tasks: Task[]): Map<string, number> {
   return map;
 }
 
+export function buildChildrenMap(tasks: Task[]): Map<string, Task[]> {
+  const map = new Map<string, Task[]>();
+  for (const t of tasks) {
+    if (!t.parentId) continue;
+    const list = map.get(t.parentId);
+    if (list) list.push(t);
+    else map.set(t.parentId, [t]);
+  }
+  return map;
+}
+
 export function buildTree(tasks: Task[]): { roots: TreeNode[]; childCount: Map<string, number> } {
   const childCount = buildChildCountMap(tasks);
   const nodeMap = new Map<string, TreeNode>();
@@ -79,6 +90,39 @@ export function resolveVisibleId(
   return null;
 }
 
+// 全タスクの実効進捗（親=子の平均、葉=自身の progress）を post-order DFS 1パスで
+// まとめて計算する。結果 Map がメモを兼ねるため各タスクは1回しか計算されない。
+// 循環 parentId は「計算中セット」で検出して 0 を返す（calcEffectiveProgress と同仕様）。
+export function calcAllEffectiveProgress(
+  tasks: Task[],
+  childrenMap: Map<string, Task[]> = buildChildrenMap(tasks),
+): Map<string, number> {
+  const result = new Map<string, number>();
+  const inProgress = new Set<string>();
+  const byId = new Map(tasks.map(t => [t.id, t]));
+
+  const visit = (taskId: string): number => {
+    const cached = result.get(taskId);
+    if (cached !== undefined) return cached;
+    if (inProgress.has(taskId)) return 0;
+    const children = childrenMap.get(taskId);
+    let value: number;
+    if (!children || children.length === 0) {
+      value = byId.get(taskId)?.progress ?? 0;
+    } else {
+      inProgress.add(taskId);
+      const total = children.reduce((sum, c) => sum + visit(c.id), 0);
+      inProgress.delete(taskId);
+      value = Math.round(total / children.length);
+    }
+    result.set(taskId, value);
+    return value;
+  };
+
+  for (const t of tasks) visit(t.id);
+  return result;
+}
+
 export function calcEffectiveProgress(
   taskId: string,
   childCountMap: Map<string, number>,
@@ -86,15 +130,33 @@ export function calcEffectiveProgress(
   visited: Set<string> = new Set(),
 ): number {
   if (visited.has(taskId)) return 0;
-  visited.add(taskId);
-  if ((childCountMap.get(taskId) ?? 0) === 0) {
-    return allTasks.find(t => t.id === taskId)?.progress ?? 0;
-  }
-  const children = allTasks.filter(t => t.parentId === taskId);
-  if (children.length === 0) return allTasks.find(t => t.id === taskId)?.progress ?? 0;
-  const total = children.reduce(
-    (sum, c) => sum + calcEffectiveProgress(c.id, childCountMap, allTasks, new Set(visited)),
-    0,
-  );
-  return Math.round(total / children.length);
+  // childrenMap を1回構築して再帰のたびの allTasks.filter 線形探索を排除する
+  const childrenMap = buildChildrenMap(allTasks);
+  const byId = new Map(allTasks.map(t => [t.id, t]));
+  const memo = new Map<string, number>();
+  const inProgress = new Set(visited);
+
+  const visit = (id: string): number => {
+    const cached = memo.get(id);
+    if (cached !== undefined) return cached;
+    if (inProgress.has(id)) return 0;
+    let value: number;
+    if ((childCountMap.get(id) ?? 0) === 0) {
+      value = byId.get(id)?.progress ?? 0;
+    } else {
+      const children = childrenMap.get(id) ?? [];
+      if (children.length === 0) {
+        value = byId.get(id)?.progress ?? 0;
+      } else {
+        inProgress.add(id);
+        const total = children.reduce((sum, c) => sum + visit(c.id), 0);
+        inProgress.delete(id);
+        value = Math.round(total / children.length);
+      }
+    }
+    memo.set(id, value);
+    return value;
+  };
+
+  return visit(taskId);
 }

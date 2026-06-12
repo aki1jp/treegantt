@@ -360,33 +360,41 @@ export function calcParentSpanMap(
     }
   }
 
-  function getDescendantDates(
-    taskId: string, visited = new Set<string>()
-  ): { starts: string[]; ends: string[] } {
-    if (visited.has(taskId)) return { starts: [], ends: [] };
-    visited.add(taskId);
-    const children = childrenMap.get(taskId) ?? [];
-    const starts: string[] = [], ends: string[] = [];
-    for (const child of children) {
+  // post-order 1パス: 各ノードの最小開始日・最大終了日（葉かつ非マイルストーンの
+  // 子孫のみ対象）をメモしながら親へ畳み込む。各ノードの走査は1回だけ。
+  // ISO 日付文字列は辞書順比較で大小判定できる。循環 parentId は計算中セットで打ち切る。
+  const memo = new Map<string, { minStart: string | null; maxEnd: string | null }>();
+  const inProgress = new Set<string>();
+
+  function fold(taskId: string): { minStart: string | null; maxEnd: string | null } {
+    const cached = memo.get(taskId);
+    if (cached) return cached;
+    if (inProgress.has(taskId)) return { minStart: null, maxEnd: null };
+    inProgress.add(taskId);
+    let minStart: string | null = null;
+    let maxEnd: string | null = null;
+    for (const child of childrenMap.get(taskId) ?? []) {
       const isLeaf = !childrenMap.has(child.id);
-      if (isLeaf && !child.isMilestone) {
-        if (child.startDate) starts.push(child.startDate);
-        if (child.endDate)   ends.push(child.endDate);
+      if (isLeaf) {
+        if (child.isMilestone) continue;
+        if (child.startDate && (!minStart || child.startDate < minStart)) minStart = child.startDate;
+        if (child.endDate   && (!maxEnd   || child.endDate   > maxEnd))   maxEnd   = child.endDate;
+      } else {
+        const sub = fold(child.id);
+        if (sub.minStart && (!minStart || sub.minStart < minStart)) minStart = sub.minStart;
+        if (sub.maxEnd   && (!maxEnd   || sub.maxEnd   > maxEnd))   maxEnd   = sub.maxEnd;
       }
-      const sub = getDescendantDates(child.id, new Set(visited));
-      starts.push(...sub.starts);
-      ends.push(...sub.ends);
     }
-    return { starts, ends };
+    inProgress.delete(taskId);
+    const res = { minStart, maxEnd };
+    memo.set(taskId, res);
+    return res;
   }
 
   const result = new Map<string, { startDate: string | null; endDate: string | null }>();
   for (const [parentId] of childrenMap) {
-    const { starts, ends } = getDescendantDates(parentId);
-    result.set(parentId, {
-      startDate: starts.length > 0 ? [...starts].sort()[0]      : null,
-      endDate:   ends.length   > 0 ? [...ends].sort().at(-1)!   : null,
-    });
+    const { minStart, maxEnd } = fold(parentId);
+    result.set(parentId, { startDate: minStart, endDate: maxEnd });
   }
   return result;
 }
