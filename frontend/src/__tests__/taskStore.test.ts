@@ -272,3 +272,86 @@ describe('resetUi', () => {
     expect(s.showResourceView).toBe(false);
   });
 });
+
+// ─── 差分適用アクション（v2.63）─────────────────────────────
+describe('upsertTask', () => {
+  it('未知の id なら末尾に追加する', () => {
+    useTaskStore.getState().setTasks([makeTask({ id: 'a' })]);
+    useTaskStore.getState().upsertTask(makeTask({ id: 'b', title: '追加' }));
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks[1].id).toBe('b');
+  });
+
+  it('既存の id なら置換し、他タスクの参照は維持する', () => {
+    const a = makeTask({ id: 'a' });
+    const b = makeTask({ id: 'b', title: '旧' });
+    useTaskStore.getState().setTasks([a, b]);
+    useTaskStore.getState().upsertTask(makeTask({ id: 'b', title: '新' }));
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks[1].title).toBe('新');
+    expect(tasks[0]).toBe(a); // 参照維持（React.memo が効く前提）
+  });
+});
+
+describe('removeTasks', () => {
+  it('複数 id を一括削除する', () => {
+    useTaskStore.getState().setTasks([makeTask({ id: 'a' }), makeTask({ id: 'b' }), makeTask({ id: 'c' })]);
+    useTaskStore.getState().removeTasks(['a', 'c']);
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['b']);
+  });
+
+  it('残存タスクの predecessors から削除 id を除去する', () => {
+    useTaskStore.getState().setTasks([
+      makeTask({ id: 'a' }),
+      makeTask({ id: 'b', predecessors: ['a', 'x'] }),
+      makeTask({ id: 'c', predecessors: ['b'] }),
+    ]);
+    useTaskStore.getState().removeTasks(['a']);
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks.map(t => t.id)).toEqual(['b', 'c']);
+    expect(tasks[0].predecessors).toEqual(['x']);
+    expect(tasks[1].predecessors).toEqual(['b']);
+  });
+
+  it('依存に変化のないタスクは参照を維持する', () => {
+    const c = makeTask({ id: 'c', predecessors: ['b'] });
+    useTaskStore.getState().setTasks([makeTask({ id: 'a' }), makeTask({ id: 'b' }), c]);
+    useTaskStore.getState().removeTasks(['a']);
+    expect(useTaskStore.getState().tasks[1]).toBe(c);
+  });
+});
+
+describe('applyOrders', () => {
+  it('order を一括反映する（parentId 指定なしは据え置き）', () => {
+    useTaskStore.getState().setTasks([
+      makeTask({ id: 'a', order: 1 }),
+      makeTask({ id: 'b', order: 2, parentId: 'a' }),
+    ]);
+    useTaskStore.getState().applyOrders([
+      { id: 'a', order: 5 },
+      { id: 'b', order: 6 },
+    ]);
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks[0].order).toBe(5);
+    expect(tasks[1].order).toBe(6);
+    expect(tasks[1].parentId).toBe('a');
+  });
+
+  it('parentId 指定があれば付け替える（null でルート化）', () => {
+    useTaskStore.getState().setTasks([
+      makeTask({ id: 'a', order: 1 }),
+      makeTask({ id: 'b', order: 2, parentId: 'a' }),
+    ]);
+    useTaskStore.getState().applyOrders([{ id: 'b', order: 3, parentId: null }]);
+    expect(useTaskStore.getState().tasks[1].parentId).toBeNull();
+  });
+
+  it('orders に含まれないタスクは参照を維持する', () => {
+    const a = makeTask({ id: 'a', order: 1 });
+    useTaskStore.getState().setTasks([a, makeTask({ id: 'b', order: 2 })]);
+    useTaskStore.getState().applyOrders([{ id: 'b', order: 9 }]);
+    expect(useTaskStore.getState().tasks[0]).toBe(a);
+  });
+});

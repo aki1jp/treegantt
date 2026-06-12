@@ -10,10 +10,7 @@ export function useTasks(projectId: string) {
       body: JSON.stringify({ ...input, predecessors: input.predecessors ?? [] }),
     });
     // 楽観的追加（ブロードキャストより先に到着する場合の保険）
-    const store = useTaskStore.getState();
-    if (!store.tasks.some(t => t.id === data.task.id)) {
-      store.setTasks([...store.tasks, data.task]);
-    }
+    useTaskStore.getState().upsertTask(data.task as Task);
     return data.task as Task;
   }
 
@@ -21,7 +18,8 @@ export function useTasks(projectId: string) {
   async function updateTask(id: string, patch: Partial<Task>): Promise<void> {
     const store = useTaskStore.getState();
     const prev = store.tasks;
-    store.setTasks(prev.map(t => t.id === id ? { ...t, ...patch } : t));
+    const existing = prev.find(t => t.id === id);
+    if (existing) store.upsertTask({ ...existing, ...patch });
     try {
       await apiFetch(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
     } catch (e) {
@@ -36,13 +34,8 @@ export function useTasks(projectId: string) {
     const store = useTaskStore.getState();
     const prev = store.tasks;
 
-    // 削除されるIDへの依存（predecessors）は残存タスクから除去する
+    // 削除IDへの依存（predecessors）の除去は store.removeTasks が一括で行う
     // （幽霊参照のまま PATCH するとサーバーでFK違反になるため）
-    const stripDeleted = (t: Task, removed: ReadonlySet<string>): Task =>
-      t.predecessors.some(p => removed.has(p))
-        ? { ...t, predecessors: t.predecessors.filter(p => !removed.has(p)) }
-        : t;
-
     if (mode === 'subtree') {
       const removed = new Set([id]);
       let grew = true;
@@ -55,15 +48,12 @@ export function useTasks(projectId: string) {
           }
         }
       }
-      store.setTasks(prev.filter(t => !removed.has(t.id)).map(t => stripDeleted(t, removed)));
+      store.removeTasks([...removed]);
     } else {
+      // 子を祖父母へ付け替えてから本体を削除
       const newParentId = prev.find(t => t.id === id)?.parentId ?? null;
-      const removed = new Set([id]);
-      store.setTasks(
-        prev.filter(t => t.id !== id)
-          .map(t => t.parentId === id ? { ...t, parentId: newParentId } : t)
-          .map(t => stripDeleted(t, removed))
-      );
+      store.setTasks(prev.map(t => t.parentId === id ? { ...t, parentId: newParentId } : t));
+      store.removeTasks([id]);
     }
 
     try {
@@ -78,12 +68,7 @@ export function useTasks(projectId: string) {
   async function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): Promise<void> {
     const store = useTaskStore.getState();
     const prev = store.tasks;
-    const map = new Map(orders.map(o => [o.id, o]));
-    store.setTasks(prev.map(t => {
-      const o = map.get(t.id);
-      if (!o) return t;
-      return { ...t, order: o.order, ...(o.parentId !== undefined ? { parentId: o.parentId } : {}) };
-    }));
+    store.applyOrders(orders);
     try {
       await apiFetch(`/projects/${projectId}/tasks/reorder`, {
         method: 'PATCH',

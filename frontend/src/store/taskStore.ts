@@ -32,6 +32,9 @@ interface TaskStore {
   wbsHiddenCols:      string[];
   depArrowStyle:      DepArrowStyle;
   setTasks:               (tasks: Task[]) => void;
+  upsertTask:             (task: Task) => void;
+  removeTasks:            (ids: string[]) => void;
+  applyOrders:            (orders: { id: string; order: number; parentId?: string | null }[]) => void;
   setNeedsReload:         (v: boolean) => void;
   setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
   setZoomLevel:           (z: ZoomLevel) => void;
@@ -86,6 +89,36 @@ export const useTaskStore = create<TaskStore>()(
       wbsHiddenCols:     [] as string[],
       ...uiInitialState,
       setTasks:               (tasks) => set({ tasks }),
+      // 差分適用アクション（v2.63）: 全置換を避け、未変更タスクの参照を維持して
+      // React.memo 行コンポーネントの再レンダリングを最小化する
+      upsertTask:             (task) => set((s) => ({
+        tasks: s.tasks.some(t => t.id === task.id)
+          ? s.tasks.map(t => (t.id === task.id ? task : t))
+          : [...s.tasks, task],
+      })),
+      removeTasks:            (ids) => set((s) => {
+        const removed = new Set(ids);
+        return {
+          tasks: s.tasks
+            .filter(t => !removed.has(t.id))
+            // 削除タスクへの依存（predecessors）も残存タスクから除去（DB側は CASCADE 済み）
+            .map(t => t.predecessors.some(p => removed.has(p))
+              ? { ...t, predecessors: t.predecessors.filter(p => !removed.has(p)) }
+              : t),
+        };
+      }),
+      applyOrders:            (orders) => set((s) => {
+        const orderMap  = new Map(orders.map(o => [o.id, o.order]));
+        const parentMap = new Map(orders.filter(o => o.parentId !== undefined).map(o => [o.id, o.parentId ?? null]));
+        return {
+          tasks: s.tasks.map(t => {
+            if (!orderMap.has(t.id)) return t;
+            const updated: Task = { ...t, order: orderMap.get(t.id)! };
+            if (parentMap.has(t.id)) updated.parentId = parentMap.get(t.id) ?? null;
+            return updated;
+          }),
+        };
+      }),
       setNeedsReload:         (needsReload) => set({ needsReload }),
       setFilter:              (filter) => set((s) => ({ ...s, ...filter })),
       setZoomLevel:           (zoomLevel) => set({ zoomLevel }),

@@ -298,3 +298,31 @@ describe('useWebSocket', () => {
     unmount();
   });
 });
+
+// ─── applyMessage の差分適用委譲（v2.63）────────────────────
+describe('applyMessage 差分適用（v2.63）', () => {
+  it('task_updated: 未知 id のタスクは追加される（upsert: 作成通知より先着しても自己回復）', () => {
+    useTaskStore.setState({ tasks: [makeTask({ id: 't1' })] });
+    applyMessage({ type: 'task_updated', task: makeTask({ id: 'ghost', title: '先着更新' }), projectId: 'p1' });
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks[1].id).toBe('ghost');
+  });
+
+  it('連続した複数メッセージがすべて反映される', () => {
+    useTaskStore.setState({ tasks: [makeTask({ id: 't1', title: '旧1' }), makeTask({ id: 't2', title: '旧2' })] });
+    applyMessage({ type: 'task_updated', task: makeTask({ id: 't1', title: '新1' }), projectId: 'p1' });
+    applyMessage({ type: 'task_updated', task: makeTask({ id: 't2', title: '新2' }), projectId: 'p1' });
+    applyMessage({ type: 'task_deleted', id: 't1', projectId: 'p1' });
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe('新2');
+  });
+
+  it('task_updated: 更新されないタスクは参照を維持する（React.memo 前提）', () => {
+    const other = makeTask({ id: 'keep' });
+    useTaskStore.setState({ tasks: [other, makeTask({ id: 'chg', title: '旧' })] });
+    applyMessage({ type: 'task_updated', task: makeTask({ id: 'chg', title: '新' }), projectId: 'p1' });
+    expect(useTaskStore.getState().tasks[0]).toBe(other);
+  });
+});

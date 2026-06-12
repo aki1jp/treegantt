@@ -12,41 +12,20 @@ let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function applyMessage(msg: Record<string, unknown>) {
   const store = useTaskStore.getState();
-  const tasks = store.tasks;
 
   switch (msg.type) {
-    case 'task_created': {
-      const task = msg.task as Task;
-      if (!tasks.some(t => t.id === task.id)) {
-        store.setTasks([...tasks, task]);
-      }
-      break;
-    }
+    // created/updated とも upsert: 作成通知より更新通知が先着しても自己回復する
+    case 'task_created':
     case 'task_updated': {
-      const task = msg.task as Task;
-      store.setTasks(tasks.map(t => t.id === task.id ? task : t));
+      store.upsertTask(msg.task as Task);
       break;
     }
     case 'task_deleted': {
-      const deletedId = msg.id as string;
-      // 削除タスクへの依存（predecessors）も残存タスクから除去（DB側は CASCADE 済み）
-      store.setTasks(tasks.filter(t => t.id !== deletedId).map(t =>
-        t.predecessors.includes(deletedId)
-          ? { ...t, predecessors: t.predecessors.filter(p => p !== deletedId) }
-          : t
-      ));
+      store.removeTasks([msg.id as string]);
       break;
     }
     case 'tasks_reordered': {
-      const orders = msg.orders as { id: string; order: number; parentId?: string | null }[];
-      const orderMap    = new Map(orders.map(o => [o.id, o.order]));
-      const parentMap   = new Map(orders.filter(o => o.parentId !== undefined).map(o => [o.id, o.parentId ?? null]));
-      store.setTasks(tasks.map(t => {
-        if (!orderMap.has(t.id)) return t;
-        const updated: typeof t = { ...t, order: orderMap.get(t.id)! };
-        if (parentMap.has(t.id)) updated.parentId = parentMap.get(t.id) ?? null;
-        return updated;
-      }));
+      store.applyOrders(msg.orders as { id: string; order: number; parentId?: string | null }[]);
       break;
     }
     case 'reload': {

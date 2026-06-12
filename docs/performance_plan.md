@@ -106,7 +106,7 @@
 - **期待効果**: 1タスク更新時の再レンダー 1000行 → 数行。WS 受信時・楽観的更新時のカクつき解消
 - **リスク**: 中（イベント系既存テストが検知網）
 
-### Step 5（v2.63）: zustand 差分適用アクション — 状態: 未着手
+### Step 5（v2.63）: zustand 差分適用アクション — 状態: ✅完了（v2.63）
 
 - **内容**: `taskStore.ts` に `upsertTask(task)` / `removeTasks(ids)`（依存クリーンアップ含む）/ `applyOrders(orders)` を追加（`setTasks` は温存）。`useWebSocket.ts` の `applyMessage` と `useTasks.ts` の楽観的更新を同アクションへ委譲し一元化
 - **変更ファイル**: `frontend/src/store/taskStore.ts` / `frontend/src/hooks/useWebSocket.ts` / `frontend/src/hooks/useTasks.ts`
@@ -192,7 +192,7 @@
 | 2 | 2.60 | childrenMap で O(N²)→O(N) 化 | FE | 大（計算量） | 低 | ✅完了 |
 | 3 | 2.61 | GanttChart useMemo 化 | FE | 大（操作応答） | 中 | ✅完了 |
 | 4 | 2.62 | React.memo + props 安定化 | FE | 大（更新時） | 中 | ✅完了 |
-| 5 | 2.63 | zustand 差分アクション | FE | 中（基盤） | 低 | 未着手 |
+| 5 | 2.63 | zustand 差分アクション | FE | 中（基盤） | 低 | ✅完了 |
 | 6 | 2.64 | 行仮想化（自前スライス） | FE | 最大（DOM 数） | 高 | 未着手 |
 | 7 | 2.65 | DB バッチ化（CTE + DELETE IN） | API | 中（削除系） | 低 | 未着手 |
 | 8 | 2.66 | tasks_deleted 一括通知 | API+FE | 中 | 低〜中 | 未着手 |
