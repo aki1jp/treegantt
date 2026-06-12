@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.53 |
+| バージョン | 2.54 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -76,6 +76,7 @@
 | 2.50 | 2026年6月 | マイルストーン強調を常時ON化。ツールバーの「マイル強調」ON/OFFトグルボタンを廃止し、マイルストーンヘッダー行・列強調を常に表示するよう変更。カラーピッカーは継続表示。`taskStore`から`showMilestoneLines`・`setShowMilestoneLines`を削除し、`GanttChart`のミリストーン表示条件分岐を除去。 |
 | 2.51 | 2026年6月 | Markdown箇条書き・チェックボックス表示修正。①`index.html`グローバルCSS reset（`margin:0; padding:0`）が`ul/ol/li`にも適用され箇条書きのインデントと黒丸が消えていた問題を`.md-body`スコープのCSSで修正。②`- [ ]`/`- [x]`チェックボックスはGFM拡張のため`remark-gfm`を追加インストールし有効化。共通コンポーネント`MarkdownBody`（`src/components/MarkdownBody/MarkdownBody.tsx`）を新設し`remarkGfm`プラグイン設定と`.md-body`ラッパーを集約。`TaskModal`・`TaskTooltip`の`ReactMarkdown`直接使用を`MarkdownBody`に置換。 |
 | 2.52 | 2026年6月 | マイルストーン行表示トグル追加＆担当者フィルターからマイルストーン除外。①ツールバー表示トグルに「マイル」ボタン（`showMilestones`）を追加し、マイルストーン行をON/OFFで一括非表示にできるようにする（localStorage永続化）。②`filterTasks`でassigneeフィルター適用時にマイルストーンタスク（`isMilestone===true`）を除外対象から外す：マイルに担当者が設定されていても担当者フィルターで行が消えないよう修正。 |
+| 2.54 | 2026年6月 | マイルストーンUIレイアウト調整。①「マイル」ON/OFFトグルボタンをツールバーの表示トグルグループから「年/月/週/日」ヘッダーグループ内の「日」の隣に移動。カラーピッカーは「マイル」ボタンの右に配置。②マイルストーンヘッダーラベルのフォントサイズを`uiFontSize`（デフォルト13px）から`11`（ガント日付ヘッダー行の`TH`スタイルと同じ固定サイズ）に変更し、`milestoneLaneH`・`assignMilestoneLanes`の計算にも11を使用。 |
 | 2.53 | 2026年6月 | コピー挿入時の末尾フラッシュ解消。コピー&挿入（Ctrl+ドラッグ・右クリック）で新タスクが一瞬リスト末尾に表示されてから目的位置にジャンプする視覚フラッシュを修正。原因：`createTask`が`order=maxOrd+1`（末尾）でタスクを作成し、その後`reorderTasks`で移動していたため。修正：`handleCopyInsert`でルートタスク作成前に`computeInsertOrder(siblings, afterTaskId, beforeTaskId)`で挿入先の中間`order`値を計算し、`createTask`に渡す。APIは既存の`input.order`パラメータをそのまま利用。`filterTasks`がorderでソートするため、正しいorderを持つタスクは作成直後から正しい位置に表示される。`computeInsertOrder`を`ganttCalc.ts`に純関数として追加。 |
 
 ---
