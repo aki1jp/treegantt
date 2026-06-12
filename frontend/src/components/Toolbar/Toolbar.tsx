@@ -257,11 +257,17 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={FILTER_GROUP}>
             <span style={LABEL}>担当者</span>
-            <select style={{ ...SELECT, width: 100 }} value={filterAssignee}
-              onChange={e => setFilter({ filterAssignee: e.target.value })}>
-              <option value="">すべて</option>
-              {getUniqueAssignees(tasks).map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <input
+              type="text"
+              list="assignee-datalist"
+              placeholder="すべて"
+              value={filterAssignee}
+              onChange={e => setFilter({ filterAssignee: e.target.value })}
+              style={{ ...SELECT, width: 100 }}
+            />
+            <datalist id="assignee-datalist">
+              {getUniqueAssignees(tasks).map(a => <option key={a} value={a} />)}
+            </datalist>
           </div>
 
           {activeFilterCount > 0 && (

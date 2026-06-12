@@ -99,11 +99,32 @@ describe('Toolbar フィルタインライン表示', () => {
     expect(prioritySelect).toBeTruthy();
   });
 
-  it('行2（展開時）に担当者セレクトが直接表示される', () => {
+  it('行2（展開時）に担当者コンボボックス（input[list]）が直接表示される', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const select = row2.querySelector('select');
-    expect(select).toBeTruthy();
+    const combobox = row2.querySelector('input[list="assignee-datalist"]');
+    expect(combobox).toBeTruthy();
+  });
+
+  it('担当者コンボボックスに自由テキストを入力するとストアが更新される', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const combobox = row2.querySelector('input[list="assignee-datalist"]') as HTMLInputElement;
+    fireEvent.change(combobox, { target: { value: 'Alice' } });
+    expect(useTaskStore.getState().filterAssignee).toBe('Alice');
+  });
+
+  it('担当者コンボボックスにdatalistが存在する', () => {
+    renderToolbar();
+    const datalist = document.getElementById('assignee-datalist');
+    expect(datalist).toBeTruthy();
+  });
+
+  it('担当者コンボボックスのプレースホルダーは「すべて」', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const combobox = row2.querySelector('input[list="assignee-datalist"]') as HTMLInputElement;
+    expect(combobox.placeholder).toBe('すべて');
   });
 
   it('行2を折りたたむとフィルタコントロールが非表示になる', () => {
