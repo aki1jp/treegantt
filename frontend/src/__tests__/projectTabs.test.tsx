@@ -2,7 +2,7 @@
 /**
  * ProjectTabs — プロジェクトタブのバツボタン廃止・右クリックメニュー削除
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { ProjectTabs } from '../components/ProjectTabs/ProjectTabs';
 import type { Project } from '../types/task';
@@ -253,5 +253,117 @@ describe('ProjectTabs — プロジェクトカラー', () => {
     const swatch = screen.getByTitle('#ef4444');
     fireEvent.click(swatch);
     expect(onUpdateColor).toHaveBeenCalledWith(projects[0], '#ef4444');
+  });
+});
+
+// ── v2.55: localStorage 順序管理 ────────────────────────────────
+describe('ProjectTabs — localStorage 順序管理', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => { cleanup(); localStorage.clear(); });
+
+  it('localStorage に保存された順序でタブが描画される', () => {
+    localStorage.setItem('treegantt-project-order', JSON.stringify(['p2', 'p1']));
+    const projects = [makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[0]}
+        onSelect={NOOP} onDelete={NOOP} onRename={NOOP} />
+    );
+    // tab buttons have title={p.name}
+    const tabBtns = Array.from(document.querySelectorAll('button[title]'))
+      .filter(b => ['Alpha', 'Beta'].includes(b.getAttribute('title') ?? ''));
+    expect(tabBtns[0].getAttribute('title')).toBe('Beta');
+    expect(tabBtns[1].getAttribute('title')).toBe('Alpha');
+  });
+
+  it('ドラッグ後に localStorage が新しい順序で更新される', () => {
+    const projects = [makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[0]}
+        onSelect={NOOP} onDelete={NOOP} onRename={NOOP} />
+    );
+    const draggables = document.querySelectorAll('[draggable="true"]');
+    expect(draggables.length).toBeGreaterThan(0);
+    fireEvent.dragStart(draggables[0]);
+    fireEvent.dragOver(draggables[1]);
+    fireEvent.drop(draggables[1]);
+    const stored = localStorage.getItem('treegantt-project-order');
+    expect(stored).not.toBeNull();
+    const order = JSON.parse(stored!);
+    expect(order).toContain('p1');
+    expect(order).toContain('p2');
+  });
+});
+
+// ── v2.55: ドロップダウン収納 ────────────────────────────────────
+describe('ProjectTabs — ドロップダウン収納', () => {
+  let savedRO: typeof globalThis.ResizeObserver;
+  beforeEach(() => { savedRO = globalThis.ResizeObserver; localStorage.clear(); });
+  afterEach(() => { globalThis.ResizeObserver = savedRO; cleanup(); localStorage.clear(); });
+
+  // containerWidth=200: Alpha(88px) は収まるが Beta+Gamma はドロップダウンへ
+  function setupRO(width: number) {
+    globalThis.ResizeObserver = class {
+      private cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) { this.cb = cb; }
+      observe(el: Element) {
+        this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver);
+      }
+      disconnect() {}
+      unobserve() {}
+    } as unknown as typeof ResizeObserver;
+  }
+
+  it('コンテナ幅が小さいときオーバーフロータブがドロップダウンに収納される', () => {
+    setupRO(200);
+    const projects = [
+      makeProject('p1', 'Alpha'), makeProject('p2', 'Beta'), makeProject('p3', 'Gamma'),
+    ];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[0]}
+        onSelect={NOOP} onDelete={NOOP} onRename={NOOP} />
+    );
+    expect(screen.getByTestId('overflow-btn')).toBeTruthy();
+  });
+
+  it('アクティブプロジェクトがオーバーフローするとき、ボタンラベルにプロジェクト名が表示される', () => {
+    setupRO(200);
+    const projects = [
+      makeProject('p1', 'Alpha'), makeProject('p2', 'Beta'), makeProject('p3', 'Gamma'),
+    ];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[2]}
+        onSelect={NOOP} onDelete={NOOP} onRename={NOOP} />
+    );
+    const btn = screen.getByTestId('overflow-btn');
+    expect(btn.textContent).toContain('Gamma');
+  });
+
+  it('ドロップダウンを開くとオーバーフロータブ一覧が表示される', () => {
+    setupRO(200);
+    const projects = [
+      makeProject('p1', 'Alpha'), makeProject('p2', 'Beta'), makeProject('p3', 'Gamma'),
+    ];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[0]}
+        onSelect={NOOP} onDelete={NOOP} onRename={NOOP} />
+    );
+    fireEvent.click(screen.getByTestId('overflow-btn'));
+    expect(screen.getByTestId('overflow-dropdown')).toBeTruthy();
+  });
+
+  it('ドロップダウン内タブをクリックすると onSelect が呼ばれる', () => {
+    setupRO(200);
+    const onSelect = vi.fn();
+    const projects = [
+      makeProject('p1', 'Alpha'), makeProject('p2', 'Beta'), makeProject('p3', 'Gamma'),
+    ];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[0]}
+        onSelect={onSelect} onDelete={NOOP} onRename={NOOP} />
+    );
+    fireEvent.click(screen.getByTestId('overflow-btn'));
+    const items = screen.getByTestId('overflow-dropdown').querySelectorAll('button');
+    fireEvent.click(items[0]);
+    expect(onSelect).toHaveBeenCalled();
   });
 });

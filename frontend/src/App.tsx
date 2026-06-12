@@ -255,7 +255,7 @@ export default function App() {
         background: '#1e1b4b', color: '#fff', flexShrink: 0,
       }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>TreeGantt</span>
-        <div style={{ marginLeft: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ marginLeft: 16, display: 'flex', gap: 8, alignItems: 'center', flex: 1, minWidth: 0 }}>
           <ProjectTabs
             projects={projects}
             currentProject={currentProject}
@@ -268,6 +268,7 @@ export default function App() {
           <button onClick={handleCreateProject} style={{
             padding: '4px 12px', borderRadius: 4, border: '1px solid rgba(255,255,255,.3)',
             cursor: 'pointer', fontSize: 13, background: 'transparent', color: '#fff',
+            flexShrink: 0,
           }}>
             + プロジェクト
           </button>
