@@ -182,18 +182,19 @@ export async function taskRoutes(fastify: FastifyInstance) {
       const task = getTask(req.params.id);
       if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
 
+      // 削除通知は ids 配列の tasks_deleted 1通に一括（v2.66。N件削除で N通→1通）
       if (req.query.mode === 'single') {
         // 本体のみ削除: 直下の子を祖父母に付け替え
         const reparented = deleteTaskKeepChildren(req.params.id);
         if (reparented.length > 0) {
           notifyRoom(task.projectId, { type: 'tasks_reordered', projectId: task.projectId, orders: reparented });
         }
-        notifyRoom(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: req.params.id });
+        notifyRoom(task.projectId, { type: 'tasks_deleted', projectId: task.projectId, ids: [req.params.id] });
       } else {
         // デフォルト: 子孫ごと削除
         const deletedIds = deleteTaskSubtree(req.params.id);
-        for (const deletedId of deletedIds) {
-          notifyRoom(task.projectId, { type: 'task_deleted', projectId: task.projectId, id: deletedId });
+        if (deletedIds.length > 0) {
+          notifyRoom(task.projectId, { type: 'tasks_deleted', projectId: task.projectId, ids: deletedIds });
         }
       }
       reply.code(204).send();

@@ -139,7 +139,7 @@
 - **期待効果**: 1000件サブツリー削除 約2000クエリ → 約5クエリ
 - **リスク**: 低
 
-### Step 8（v2.66）: 削除 WS 通知の一括化 — 状態: 未着手
+### Step 8（v2.66）: 削除 WS 通知の一括化 — 状態: ✅完了（v2.66）
 
 - **内容**: `routes/tasks.ts` の削除通知を `{ type: 'tasks_deleted', projectId, ids }` 1通に変更（single 削除も `ids:[id]` に統一）。フロント `applyMessage` に `tasks_deleted` ケースを追加（Step 5 の `removeTasks` を使用）。旧 `task_deleted` ハンドラは互換のため残す（サーバー先行デプロイ時、旧クライアントは reload 通知で追随できる規模のため許容）
 - **変更ファイル**: `api/src/routes/tasks.ts` / `frontend/src/hooks/useWebSocket.ts`
@@ -195,5 +195,5 @@
 | 5 | 2.63 | zustand 差分アクション | FE | 中（基盤） | 低 | ✅完了 |
 | 6 | 2.64 | 行仮想化（自前スライス） | FE | 最大（DOM 数） | 高 | ✅完了 |
 | 7 | 2.65 | DB バッチ化（CTE + DELETE IN） | API | 中（削除系） | 低 | ✅完了 |
-| 8 | 2.66 | tasks_deleted 一括通知 | API+FE | 中 | 低〜中 | 未着手 |
+| 8 | 2.66 | tasks_deleted 一括通知 | API+FE | 中 | 低〜中 | ✅完了 |
 | 9 | 2.67 | @fastify/compress 圧縮 | API | 中（転送量85%減） | 極小 | 未着手 |

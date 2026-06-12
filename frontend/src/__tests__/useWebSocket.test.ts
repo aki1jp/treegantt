@@ -326,3 +326,27 @@ describe('applyMessage 差分適用（v2.63）', () => {
     expect(useTaskStore.getState().tasks[0]).toBe(other);
   });
 });
+
+// ─── tasks_deleted 一括削除メッセージ（v2.66）────────────────
+describe('applyMessage tasks_deleted（v2.66）', () => {
+  it('ids 配列のタスクを一括削除する', () => {
+    useTaskStore.setState({ tasks: [makeTask({ id: 'a' }), makeTask({ id: 'b' }), makeTask({ id: 'c' })] });
+    applyMessage({ type: 'tasks_deleted', ids: ['a', 'c'], projectId: 'p1' });
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['b']);
+  });
+
+  it('残存タスクの predecessors から削除IDを除去する', () => {
+    useTaskStore.setState({ tasks: [
+      makeTask({ id: 'a' }),
+      makeTask({ id: 'b', predecessors: ['a'] }),
+    ] });
+    applyMessage({ type: 'tasks_deleted', ids: ['a'], projectId: 'p1' });
+    expect(useTaskStore.getState().tasks[0].predecessors).toEqual([]);
+  });
+
+  it('旧形式 task_deleted も引き続き処理できる（互換）', () => {
+    useTaskStore.setState({ tasks: [makeTask({ id: 'a' }), makeTask({ id: 'b' })] });
+    applyMessage({ type: 'task_deleted', id: 'a', projectId: 'p1' });
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['b']);
+  });
+});

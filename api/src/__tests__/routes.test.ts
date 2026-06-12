@@ -1194,3 +1194,71 @@ describe('Import/Export API', () => {
     expect(list.json().tasks).toHaveLength(2);
   });
 });
+
+describe('Tasks API — 削除WS通知の一括化（v2.66）', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let projectId: string;
+
+  beforeEach(async () => {
+    testDb = createTestDb();
+    app = await buildApp();
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'WS Test Project' },
+    });
+    projectId = res.json().project.id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
+  });
+
+  async function createTask(overrides = {}) {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'WS Task', ...overrides },
+    });
+    return res.json().task;
+  }
+
+  it('subtree 削除: 削除ID全件を含む tasks_deleted を1通だけ送る', async () => {
+    const root = await createTask({ title: '親' });
+    const c1 = await createTask({ title: '子1', parentId: root.id });
+    const c2 = await createTask({ title: '子2', parentId: root.id });
+    const gc = await createTask({ title: '孫', parentId: c1.id });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({ method: 'DELETE', url: `/api/v1/tasks/${root.id}` });
+    expect(res.statusCode).toBe(204);
+
+    const calls = vi.mocked(notifyRoom).mock.calls;
+    const deletedMsgs = calls.filter(([, msg]) => (msg as { type: string }).type === 'tasks_deleted');
+    const legacyMsgs  = calls.filter(([, msg]) => (msg as { type: string }).type === 'task_deleted');
+
+    expect(legacyMsgs).toHaveLength(0);     // 旧形式は送らない
+    expect(deletedMsgs).toHaveLength(1);    // 4件削除でも1通
+    const ids = (deletedMsgs[0][1] as { ids: string[] }).ids;
+    expect(new Set(ids)).toEqual(new Set([root.id, c1.id, c2.id, gc.id]));
+    expect((deletedMsgs[0][1] as { projectId: string }).projectId).toBe(projectId);
+  });
+
+  it('single 削除: tasks_deleted（ids: [id]）と子の付け替え tasks_reordered を送る', async () => {
+    const root = await createTask({ title: '親' });
+    const child = await createTask({ title: '子', parentId: root.id });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({ method: 'DELETE', url: `/api/v1/tasks/${root.id}?mode=single` });
+    expect(res.statusCode).toBe(204);
+
+    const calls = vi.mocked(notifyRoom).mock.calls;
+    const deletedMsgs   = calls.filter(([, msg]) => (msg as { type: string }).type === 'tasks_deleted');
+    const reorderedMsgs = calls.filter(([, msg]) => (msg as { type: string }).type === 'tasks_reordered');
+
+    expect(deletedMsgs).toHaveLength(1);
+    expect((deletedMsgs[0][1] as { ids: string[] }).ids).toEqual([root.id]);
+    expect(reorderedMsgs).toHaveLength(1);
+    const orders = (reorderedMsgs[0][1] as { orders: { id: string }[] }).orders;
+    expect(orders.map(o => o.id)).toContain(child.id);
+  });
+});

@@ -20,6 +20,11 @@ export function applyMessage(msg: Record<string, unknown>) {
       store.upsertTask(msg.task as Task);
       break;
     }
+    case 'tasks_deleted': {
+      store.removeTasks(msg.ids as string[]);
+      break;
+    }
+    // 旧形式（v2.66 以前のサーバー）。互換のため残置
     case 'task_deleted': {
       store.removeTasks([msg.id as string]);
       break;
