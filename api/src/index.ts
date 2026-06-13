@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import type { FastifyError } from 'fastify';
 import cors from '@fastify/cors';
+import { corsOptions } from './plugins/cors.js';
 import { authPlugin } from './plugins/auth.js';
 import { registerCompression } from './plugins/compression.js';
 import { healthRoutes } from './routes/health.js';
@@ -14,9 +15,7 @@ const PORT = resolveApiPort();
 
 const fastify = Fastify({ logger: true });
 
-await fastify.register(cors, {
-  origin: process.env.CORS_ORIGIN ?? '*',
-});
+await fastify.register(cors, corsOptions);
 
 await registerCompression(fastify);
 
