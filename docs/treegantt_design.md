@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.0** |
-| ドキュメント版 | 0.2.82 |
+| ドキュメント版 | 0.2.83 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -487,7 +487,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 - E2E：`e2e/`（Playwright、フロント:3001 → API:4000 の**クロスオリジン**実構成）。プロジェクト/タスク CRUD・モーダル・ガント描画・**ガントバーのドラッグ（日付変更=PATCH）**。実ブラウザ×実サーバのため CORS など結合不具合を最終的に捕捉する（CORS プリフライトは E2E が定期実行されていれば検出できた）。
 - 依存ガード：`api/src/__tests__/security.test.ts`（既知脆弱依存の混入防止・fastify/cors/compress/uuid の major 下限）。
 - **本番配線テスト**：`api/src/app.ts` の `buildApp()`（cors/compress/auth/全ルート/エラーハンドラを登録）を `app.test.ts` で inject 検証する（`/health` の version 返却、エラーハンドラ形、CORS プリフライトが PATCH/DELETE を許可）。`index.ts` は `buildApp()` + `listen()` のみ。WSサーバ `wsRoom` のブロードキャストは `ws.test.ts` で実ソケット検証。
-- カバレッジ計測：フロントは `src/**/*.{ts,tsx}` を対象（コンポーネント/App/version を含む）。
+- カバレッジ計測：フロントは `src/**/*.{ts,tsx}` を対象（コンポーネント/App/version を含む）。provider は **istanbul**（`@vitest/coverage-istanbul`）。理由：`vitest@4` が内部で `vite@8`（rolldown/oxc）を使う一方フロントの dev/build は `vite@5`＋`@vitejs/plugin-react@4`（babel/esbuild）で、この混在下では **v8 provider が一部ファイル（theme/useTheme/version/sort 等）をソースマップ再マップ失敗で計上漏れ**していた。istanbul はトランスフォーム時にコードへ計測を埋め込むため oxc のソースマップに依存せず全実行ファイルを正確に計上する。
 - 設計方針：行カバレッジだけでなく、**ブラウザ経由でしか出ない結合（CORS プリフライト等）も明示的にテスト**する（`app.inject()` の CRUD はプリフライトを経由しないため）。
 
 ---
@@ -518,3 +518,4 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.80 | 2026/6 | CORS 許可メソッドを明示（`GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS`）。@fastify/cors の既定 `GET,HEAD,POST` ではクロスオリジンの PATCH/DELETE がプリフライトで弾かれていた（fastify5/cors11 更新で顕在化）。設定を `plugins/cors.ts` に集約し、プリフライト回帰テスト `cors.test.ts` を追加 |
 | 0.2.81 | 2026/6 | テスト網羅性の是正。本番配線を `app.ts` の `buildApp()` に抽出し `index.ts` を薄くして、本番と同じ配線で `/health`(version)・エラーハンドラ・CORS を検証（`app.test.ts`）。WSサーバ `wsRoom` のブロードキャストを `ws.test.ts` で検証。フロントは `useTheme`/`version`/`api.fetchHealth`/`batchCreateTasks`/Toolbar バージョン表示などの欠落ユニットを補完し、カバレッジ計測対象を `src/**/*.{ts,tsx}`（components/App 含む）へ拡大 |
 | 0.2.82 | 2026/6 | E2E 拡充。`e2e/tests/gantt-drag.spec.ts` を追加し、ガントバーのドラッグ（日付変更）→ PATCH が成功して DB の日付が更新されることを実ブラウザ（クロスオリジン）で検証。CORS プリフライト不具合（旧 0.2.80）のような結合不具合を E2E で最終捕捉できるようにした |
+| 0.2.83 | 2026/6 | カバレッジ計測の信頼性回復。フロントのカバレッジ provider を v8→**istanbul** に変更。`vitest@4`（内部 vite8/oxc）と dev/build の `vite5`＋`plugin-react@4`(babel/esbuild) の混在で v8 が一部ファイルを計上漏れしていた問題を解消（theme/useTheme/version/sort 等が正しく 100% で計上されることを確認）。`coverage/` を `.gitignore` 化（生成物の誤コミット防止）。oxc/esbuild の警告自体は dev/test の vite バージョン差に由来する非致命の表示（別途、ツールチェーン統一で解消可能）。 |
