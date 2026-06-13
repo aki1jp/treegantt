@@ -96,7 +96,7 @@ export function calcNowX(minDate: Date, zoom: ZoomLevel, now = new Date()): numb
 export interface LightningPoint { x: number; y: number; }
 
 export function calcLightningPoints(
-  flatRows: { task: Task; effectiveProgress: number; hasChildren?: boolean; isCollapsed?: boolean }[],
+  flatRows: { task: Task; effectiveProgress: number; hasChildren?: boolean; isCollapsed?: boolean; effectiveStart?: string | null; effectiveEnd?: string | null }[],
   minDate: Date,
   zoom: ZoomLevel,
   rowHeight: number = ROW_HEIGHT_PX,
@@ -105,18 +105,22 @@ export function calcLightningPoints(
   const nowX = Math.round(calcNowX(minDate, zoom));
   const pts: LightningPoint[] = [];
 
-  flatRows.forEach(({ task, effectiveProgress, hasChildren = false, isCollapsed = false }, i) => {
+  flatRows.forEach(({ task, effectiveProgress, hasChildren = false, isCollapsed = false, effectiveStart, effectiveEnd }, i) => {
     // 親タスクが展開中 → 子が各自描画するのでスキップ
     if (hasChildren && !isCollapsed) return;
 
     const centerY = i * rowHeight + rowHeight / 2;
 
-    if (task.startDate && task.endDate && !task.isMilestone) {
+    // 親タスクは表示スパン（parentSpanMap 由来）を優先。葉は生値にフォールバック
+    const startDate = effectiveStart ?? task.startDate;
+    const endDate   = effectiveEnd   ?? task.endDate;
+
+    if (startDate && endDate && !task.isMilestone) {
       if (task.status === 'pending') return; // pending はイナズマラインをスキップ
       let pointX: number;
       if (task.status === 'wip') {
-        const startX = dateToX(task.startDate, minDate, zoom);
-        const endX   = dateToX(task.endDate,   minDate, zoom) + dayWidth;
+        const startX = dateToX(startDate, minDate, zoom);
+        const endX   = dateToX(endDate,   minDate, zoom) + dayWidth;
         pointX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
       } else {
         // todo / done / wait → 現在時刻を頂点とする（時・分を含む）

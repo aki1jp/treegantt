@@ -447,4 +447,20 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       expect(path!.getAttribute('d')!.startsWith('M120,')).toBe(true);
     });
   });
+
+  describe('コネクタドットが親の表示スパンに一致（v2.73）', () => {
+    it('親バーをホバーしたコネクタドットの cx が子スパン端（DB生値ではない）になる', () => {
+      // tP の DB endDate(07-01) と子スパン(06-15)を意図的にずらす
+      const tasks = [
+        makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-07-01' }),
+        makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' }),
+      ];
+      const { container } = renderChart(tasks);
+      hoverRow(container, 0); // 親 tP の行
+      const dot = getConnectorDot(container);
+      expect(dot).toBeTruthy();
+      // cx = dateToX('2026-06-15') + dayWidth + 6 = 112 + 8 + 6 = 126（生値07-01なら254）
+      expect(dot!.getAttribute('cx')).toBe('126');
+    });
+  });
 });

@@ -306,6 +306,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const progressMap   = useMemo(() => calcAllEffectiveProgress(sorted), [sorted]);
   const parentSpanMap = useMemo(() => calcParentSpanMap(sorted), [sorted]);
 
+  // 実効日付ヘルパー: 親タスク（子を持つ）は表示スパン（parentSpanMap）、葉は生値を返す。
+  // ガントバー・依存矢印・コネクタドット等の座標を親サマリーバーの描画位置と一致させる。
+  const effStartDate = useCallback((t: Task): string | null =>
+    (childCount.get(t.id) ?? 0) > 0 ? (parentSpanMap.get(t.id)?.startDate ?? t.startDate) : t.startDate,
+    [childCount, parentSpanMap]);
+  const effEndDate = useCallback((t: Task): string | null =>
+    (childCount.get(t.id) ?? 0) > 0 ? (parentSpanMap.get(t.id)?.endDate ?? t.endDate) : t.endDate,
+    [childCount, parentSpanMap]);
+
   // イナズマライン
   const lightningPoints = useMemo(() => calcLightningPoints(
     flatRows.map(r => ({
@@ -313,11 +322,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       effectiveProgress: progressMap.get(r.task.id) ?? 0,
       hasChildren: (childCount.get(r.task.id) ?? 0) > 0,
       isCollapsed: collapsed.has(r.task.id),
+      effectiveStart: effStartDate(r.task),
+      effectiveEnd:   effEndDate(r.task),
     })),
     min,
     zoomLevel,
     uiRowHeight,
-  ), [flatRows, progressMap, childCount, collapsed, min, zoomLevel, uiRowHeight]);
+  ), [flatRows, progressMap, childCount, collapsed, effStartDate, effEndDate, min, zoomLevel, uiRowHeight]);
 
   // クリティカルパス
   const criticalSet = useMemo(
@@ -502,9 +513,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
   const flatRowsRef   = useRef(flatRows);
   const taskByIdRef   = useRef(taskById);
   const childCountRef = useRef(childCount);
-  useEffect(() => { flatRowsRef.current   = flatRows;   }, [flatRows]);
-  useEffect(() => { taskByIdRef.current   = taskById;   }, [taskById]);
-  useEffect(() => { childCountRef.current = childCount; }, [childCount]);
+  const parentSpanMapRef = useRef(parentSpanMap);
+  useEffect(() => { flatRowsRef.current     = flatRows;     }, [flatRows]);
+  useEffect(() => { taskByIdRef.current     = taskById;     }, [taskById]);
+  useEffect(() => { childCountRef.current   = childCount;   }, [childCount]);
+  useEffect(() => { parentSpanMapRef.current = parentSpanMap; }, [parentSpanMap]);
 
   // App から渡るコールバックは再レンダリングごとに再生成されるため、
   // 最新値 ref + 安定 useCallback に変換して React.memo 行コンポーネントへ渡す
@@ -604,23 +617,17 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         const fromTask = taskById.get(fromId)!;
         const toTask   = taskById.get(toId)!;
         // 端点が親（子を持つ）の場合は親バーと同じ表示スパン（parentSpanMap）で端点を計算する
-        const fromEndDate = (childCount.get(fromId) ?? 0) > 0
-          ? (parentSpanMap.get(fromId)?.endDate ?? fromTask.endDate)
-          : fromTask.endDate;
-        const toStartDate = (childCount.get(toId) ?? 0) > 0
-          ? (parentSpanMap.get(toId)?.startDate ?? toTask.startDate)
-          : toTask.startDate;
         return [
           <DependencyArrow key={key}
             fromTask={fromTask} toTask={toTask} minDate={min}
-            fromEndDate={fromEndDate} toStartDate={toStartDate}
+            fromEndDate={effEndDate(fromTask)} toStartDate={effStartDate(toTask)}
             zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
             isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
             style={depArrowStyle} />,
         ];
       })
     );
-  }, [sorted, taskIndex, taskById, childCount, parentSpanMap, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle, vStart, vEnd]);
+  }, [sorted, taskIndex, taskById, effStartDate, effEndDate, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle, vStart, vEnd]);
 
   // WBSパネル上のホイール操作をガントパネルに転送（WBSはoverflow:hiddenのため）
   function handleWbsWheel(e: React.WheelEvent<HTMLDivElement>) {
@@ -804,9 +811,13 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     if (candidate && candidate.task.id !== fromId) {
       const tgt = candidate.task;
       const tbr = taskByIdRef.current;
+      // 親タスクは表示スパンの開始日を実効開始日とみなす（DB 日付未設定でも接続可）
+      const tgtStart = (childCountRef.current.get(tgt.id) ?? 0) > 0
+        ? (parentSpanMapRef.current.get(tgt.id)?.startDate ?? tgt.startDate)
+        : tgt.startDate;
       if (
         !tgt.isMilestone &&
-        tgt.startDate &&
+        tgtStart &&
         !tgt.predecessors.includes(fromId) &&
         !isAncestorOrDescendant(fromId, tgt.id, tbr) &&
         !wouldCreateDepCycle(fromId, tgt.id, tbr)
@@ -1237,8 +1248,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* ホバー中バーの右端コネクタドット（リンクドラッグ開始点） */}
             {hoveredBarId && !linkDragState && (() => {
               const hTask = taskById.get(hoveredBarId);
-              if (!hTask || hTask.isMilestone || !hTask.endDate) return null;
-              const cx = dateToX(hTask.endDate, min, zoomLevel) + dayWidth + 6;
+              const hEnd = hTask ? effEndDate(hTask) : null;
+              if (!hTask || hTask.isMilestone || !hEnd) return null;
+              const cx = dateToX(hEnd, min, zoomLevel) + dayWidth + 6;
               const cy = (taskIndex.get(hTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
               return (
                 <circle
@@ -1254,8 +1266,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* リンクドラッグ中：ターゲットバー左端ドット */}
             {linkDragState?.targetTaskId && (() => {
               const tgt = taskById.get(linkDragState.targetTaskId!);
-              if (!tgt?.startDate) return null;
-              const cx = dateToX(tgt.startDate, min, zoomLevel) - 6;
+              const tgtStart = tgt ? effStartDate(tgt) : null;
+              if (!tgt || !tgtStart) return null;
+              const cx = dateToX(tgtStart, min, zoomLevel) - 6;
               const cy = (taskIndex.get(tgt.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
               return <circle data-link-target-dot cx={cx} cy={cy} r={6} fill="#378ADD" stroke="white" strokeWidth={1.5} pointerEvents="none" />;
             })()}
@@ -1263,8 +1276,9 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
             {/* リンクドラッグ中のプレビュー破線（fromTask の右端 → マウス位置） */}
             {linkDragState && (() => {
               const fromTask = taskById.get(linkDragState.fromTaskId);
-              if (!fromTask?.endDate) return null;
-              const x1 = dateToX(fromTask.endDate, min, zoomLevel) + dayWidth + 6;
+              const fromEnd = fromTask ? effEndDate(fromTask) : null;
+              if (!fromTask || !fromEnd) return null;
+              const x1 = dateToX(fromEnd, min, zoomLevel) + dayWidth + 6;
               const y1 = (taskIndex.get(fromTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
               return (
                 <line

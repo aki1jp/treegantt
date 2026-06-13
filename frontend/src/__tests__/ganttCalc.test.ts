@@ -224,6 +224,36 @@ describe('calcLightningPoints', () => {
     expect(pts).toHaveLength(1); // マイルストーンの行はスキップ
     expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（index=1）の中心Y
   });
+
+  it('折りたたみ親（wip）の頂点は effectiveStart/End（表示スパン）を優先する（v2.73）', () => {
+    // DB 生値は 05-01〜05-21（20日）だが、表示スパンは 05-01〜05-11（10日）
+    const collapsedParent = {
+      task: makeTask({ status: 'wip', progress: 50, startDate: '2026-05-01', endDate: '2026-05-21' }),
+      effectiveProgress: 50,
+      hasChildren: true,
+      isCollapsed: true,
+      effectiveStart: '2026-05-01',
+      effectiveEnd:   '2026-05-11',
+    };
+    const pts = calcLightningPoints([collapsedParent], minDate, zoom)!;
+    // スパン基準: startX=0, endX=(10+1)*dayWidth, X=endX*50% = 154（生値なら 294 でズレる）
+    const expectedX = Math.round((10 * dayWidth + dayWidth) * 0.5);
+    expect(pts[0].x).toBe(expectedX);
+  });
+
+  it('日付なしの折りたたみ親も effectiveStart/End があれば頂点を描く（v2.73）', () => {
+    const noDbDatesParent = {
+      task: makeTask({ status: 'wip', progress: 40, startDate: null, endDate: null }),
+      effectiveProgress: 40,
+      hasChildren: true,
+      isCollapsed: true,
+      effectiveStart: '2026-05-01',
+      effectiveEnd:   '2026-05-11',
+    };
+    const pts = calcLightningPoints([noDbDatesParent], minDate, zoom);
+    expect(pts).not.toBeNull();
+    expect(pts!).toHaveLength(1);
+  });
 });
 
 describe('calcDuration', () => {
