@@ -1122,14 +1122,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
               }}>
                 {milestoneItems.map((m, i) => (
                   <div key={i} style={{
-                    position: 'absolute', left: m.x,
+                    position: 'absolute', left: m.x + dayWidth / 2,
                     display: 'flex', alignItems: 'center', gap: 2,
                     fontSize: 11, fontWeight: 600, color: milestoneHighlightColor,
-                    whiteSpace: 'nowrap', paddingLeft: 2,
+                    whiteSpace: 'nowrap',
                     top: m.lane * milestoneLaneH + 2,
                     height: milestoneLaneH - 2,
                   }}>
-                    <span>◆</span>
+                    <span style={{ transform: 'translateX(-50%)' }}>◆</span>
                     {m.title}
                   </div>
                 ))}

@@ -844,6 +844,19 @@ describe('マイルストーン強調 UI', () => {
     expect(marker?.parentElement).toBe(ganttHeader);
   });
 
+  it('マイルストーンマーカー（◆＋タイトル）が日付セル中心に配置される', () => {
+    // マイルストーン 2026-06-15 / ganttStart 2026-06-01 / zoom day(dayWidth=28)
+    // m.x = 14日 * 28 = 392px、セル中心 = 392 + 28/2 = 406px
+    const { getByTestId } = renderWithMilestone();
+    const ganttHeader = getByTestId('gantt-header');
+    const marker = ganttHeader.querySelector('[data-milestone-marker]') as HTMLElement;
+    const item = marker.children[0] as HTMLElement;
+    expect(item.style.left).toBe('406px');
+    // ◆ span は半分ぶん左へずらして菱形中心をセル中心に合わせる
+    const diamond = item.querySelector('span') as HTMLElement;
+    expect(diamond.style.transform).toBe('translateX(-50%)');
+  });
+
   it('dow行のマイルストーン日セルに milestoneHighlightColor が適用される', () => {
     // ganttHeaderLevels.day=true で dow行が生成される（row.level==='dow'）
     const { getByTestId } = renderWithMilestone();
