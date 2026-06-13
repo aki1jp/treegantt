@@ -399,7 +399,8 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 - **データ形式バージョン = `1.0`**（エクスポート JSON の `version` フィールド。互換判定用の別軸。インポートは version 非検証で後方互換）。
 - **JSON Export**：`{version:'1.0', exportedAt, project:{id,name}, tasks[]}`。
 - **CSV Export**：ヘッダ `id,parentId,title,...,predecessors`。`id`/`parentId`/`predecessors` は `seq` 番号で出力。カンマ/引用符/改行は CSV エスケープ（`"` 二重化）。
-- **Import**：`{tasks[], mode}`。`mode='restore'` は既存タスク全削除後に投入、それ以外は追記。全タスクに新 UUID を採番し、`parentId`/`predecessors` を旧→新 ID へリマップ（バッチ外参照は除外）。3 パス（全件 INSERT→親リマップ→依存挿入）で FK 順序問題を回避。完了後 `reload` を broadcast。
+- **CSV Import**：CSV ファイルは**フロントエンド側で `papaparse` によりパース**し、`seq` 参照を解決してタスク配列へ変換した上で下記 Import API（JSON）を呼ぶ（API は JSON のみ受け付ける）。
+- **Import（API）**：`{tasks[], mode}`。`mode='restore'` は既存タスク全削除後に投入、それ以外は追記。全タスクに新 UUID を採番し、`parentId`/`predecessors` を旧→新 ID へリマップ（バッチ外参照は除外）。3 パス（全件 INSERT→親リマップ→依存挿入）で FK 順序問題を回避。完了後 `reload` を broadcast。
 - 文字列は許可リストで正規化（status/priority は不正値を既定へ、progress は 0–100 にクランプ）。
 
 ---
@@ -445,6 +446,28 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 ### 13.2 Docker
 - `api/Dockerfile`：多段（dev / builder / runtime）。builder で `tsc` ビルド＋`npm prune --omit=dev`。runtime は `node:20-slim` に `node_modules`/`dist`/**`package.json`**（/health のバージョン用）をコピー。
 - コマンド：開発 `bash start.sh`（API+フロント同時起動）、本番 `docker compose build && docker compose up -d`。
+
+### 13.3 主要依存ライブラリ（再実装の基準）
+
+| 層 | パッケージ | 版 | 用途 |
+|----|-----------|----|------|
+| frontend | react / react-dom | ^18.3 | UI |
+| frontend | zustand | ^4.5 | 状態管理（persist） |
+| frontend | dayjs | ^1.11 | 日付計算（ローカルタイム解釈） |
+| frontend | react-markdown / remark-gfm | ^10 / ^4 | Markdown(GFM) 描画 |
+| frontend | papaparse | ^5.4 | CSV パース（インポート） |
+| frontend | vite / @vitejs/plugin-react | ^5 / ^4 | ビルド・dev サーバー |
+| frontend | vitest | ^4 | テスト |
+| api | fastify | ^5.8 | REST フレームワーク |
+| api | @fastify/cors / @fastify/compress | ^11 / ^9 | CORS・圧縮（fastify5 対応ライン） |
+| api | better-sqlite3 | ^9.4 | SQLite（同期 API） |
+| api | uuid | ^11.1 | UUID v4 採番 |
+| api | ws | ^8.20 | WebSocket サーバー |
+| api | ldapjs | ^3.0 | LDAP（将来拡張・現状未使用） |
+| api | vitest | ^4 | テスト |
+| e2e | @playwright/test | — | E2E |
+
+Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 
 ---
 
