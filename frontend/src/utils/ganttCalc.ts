@@ -37,7 +37,7 @@ export function defaultGanttStart(zoom: ZoomLevel): string {
   const d = dayjs();
   if (zoom === 'month') return d.subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
   if (zoom === 'week')  return d.subtract(1, 'week').startOf('week').format('YYYY-MM-DD');
-  return d.subtract(1, 'day').format('YYYY-MM-DD');
+  return d.subtract(7, 'day').format('YYYY-MM-DD');
 }
 
 export function calcGanttRange(

@@ -62,8 +62,9 @@ describe('defaultGanttStart', () => {
     // 2026-05-21 の1週前 = 2026-05-14(木)、その週の日曜 = 2026-05-10
     expect(defaultGanttStart('week')).toBe('2026-05-10');
   });
-  it('day: 昨日を返す', () => {
-    expect(defaultGanttStart('day')).toBe('2026-05-20');
+  it('day: 7日前を返す', () => {
+    // 2026-05-21 の7日前 = 2026-05-14
+    expect(defaultGanttStart('day')).toBe('2026-05-14');
   });
 });
 
