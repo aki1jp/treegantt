@@ -34,4 +34,9 @@ describe('依存パッケージのセキュリティガード', () => {
   it('@fastify/compress は major 8 以上（fastify5 対応）', () => {
     expect(major(allDeps['@fastify/compress'])).toBeGreaterThanOrEqual(8);
   });
+
+  // uuid <11.1.1 は MODERATE（buf 提供時のバッファ境界チェック欠如 GHSA-w5hq-g745-h8pq）。
+  it('uuid は major 11 以上（脆弱性修正版）', () => {
+    expect(major(allDeps['uuid'])).toBeGreaterThanOrEqual(11);
+  });
 });
