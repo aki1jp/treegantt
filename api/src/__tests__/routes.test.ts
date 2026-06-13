@@ -601,7 +601,7 @@ describe('Import/Export API', () => {
     expect(res.headers['content-type']).toContain('application/json');
 
     const data = res.json();
-    expect(data.version).toBe('1.1');
+    expect(data.version).toBe('1.0');
     expect(data.tasks).toHaveLength(1);
     expect(data.tasks[0].title).toBe('Export Me');
   });

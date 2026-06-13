@@ -152,7 +152,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         .header('Content-Type', 'application/json')
         .header('Content-Disposition', `attachment; filename="treegantt-export-${req.params.id}.json"`)
         .send({
-          version: '1.1',
+          version: '1.0',
           exportedAt: new Date().toISOString(),
           project: { id: project.id, name: project.name },
           tasks,

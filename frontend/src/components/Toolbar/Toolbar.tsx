@@ -3,6 +3,7 @@ import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
 import { todayStr, getUniqueAssignees } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
+import { FRONTEND_VERSION } from '../../version';
 
 interface Props {
   onAddTask: () => void;
@@ -11,6 +12,7 @@ interface Props {
   onRestore: () => void;
   onExportJson: () => void;
   onExportCsv: () => void;
+  backendVersion?: string;
 }
 
 const BTN: React.CSSProperties = {
@@ -95,7 +97,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
   );
 }
 
-export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv }: Props) {
+export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, backendVersion }: Props) {
   const {
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
@@ -213,6 +215,15 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 </div>
                 <MenuItem label="JSON 出力" indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
                 <MenuItem label="CSV 出力"  indent onClick={() => { onExportCsv(); setMenuOpen(false); }} />
+
+                <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
+
+                {/* バージョン表示（フロント / バックエンド） */}
+                <div data-testid="app-version" style={{ padding: '6px 16px 8px', fontSize: 11, color: 'var(--th-text-dim)', lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 600, letterSpacing: '0.05em' }}>TreeGantt</div>
+                  <div>Frontend v{FRONTEND_VERSION}</div>
+                  <div>Backend v{backendVersion ?? '—'}</div>
+                </div>
               </div>
             )}
           </div>

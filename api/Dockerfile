@@ -18,5 +18,7 @@ FROM node:20-slim
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+# /health がバージョンを返すために package.json を実行時に配置する
+COPY --from=builder /app/package.json ./package.json
 EXPOSE 4000 4001
 CMD ["node", "dist/index.js"]

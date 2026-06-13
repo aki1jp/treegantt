@@ -14,6 +14,20 @@ export async function apiFetch(path: string, init?: RequestInit) {
   return res.status === 204 ? null : res.json();
 }
 
+export interface HealthInfo {
+  status: string;
+  version?: string;
+  timestamp?: string;
+}
+
+// バックエンドの /health（API_PREFIX 外に登録されている）を取得する。
+// バージョン表示用。失敗時は呼び出し側で握りつぶす。
+export async function fetchHealth(): Promise<HealthInfo> {
+  const res = await fetch(`${API_BASE}/health`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 const TASK_PAGE_SIZE = 1000;
 
 // プロジェクトの全タスクをページングで取得する。

@@ -12,7 +12,7 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
-import { apiFetch, fetchAllTasks } from './utils/api';
+import { apiFetch, fetchAllTasks, fetchHealth } from './utils/api';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { computeInsertOrder } from './utils/ganttCalc';
@@ -24,6 +24,7 @@ export default function App() {
 
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
   const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, deleteProject } = useProjects();
@@ -34,6 +35,15 @@ export default function App() {
   const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks } = useTasks(currentProject?.id ?? '');
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
     useImportExport(currentProject, tasks, setTasks);
+
+  // バックエンドのバージョンを初回ロード時に取得（ハンバーガーメニュー表示用）
+  useEffect(() => {
+    let alive = true;
+    fetchHealth()
+      .then(h => { if (alive) setBackendVersion(h.version ?? null); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
@@ -311,6 +321,7 @@ export default function App() {
             onRestore={() => handleImportClick('restore')}
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
+            backendVersion={backendVersion ?? undefined}
           />
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <GanttChart

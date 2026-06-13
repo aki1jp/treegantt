@@ -10,7 +10,7 @@ export interface ExportData {
 
 export function exportToJson(project: Pick<Project, 'id' | 'name'>, tasks: Task[]): string {
   const data: ExportData = {
-    version: '1.1',
+    version: '1.0',
     exportedAt: new Date().toISOString(),
     project,
     tasks,
