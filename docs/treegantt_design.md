@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.0** |
-| ドキュメント版 | 0.2.80 |
+| ドキュメント版 | 0.2.81 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -486,6 +486,9 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 - 単体/結合：Vitest。`cd api && npm test`（サービス・ルート inject・WS・圧縮・敵対的入力）、`cd frontend && npm test -- --run`（ガント計算・描画・ストア・hooks・コンポーネント）。
 - E2E：`e2e/`（Playwright）。プロジェクト/タスク CRUD・モーダル・ガント描画。
 - 依存ガード：`api/src/__tests__/security.test.ts`（既知脆弱依存の混入防止・fastify/cors/compress/uuid の major 下限）。
+- **本番配線テスト**：`api/src/app.ts` の `buildApp()`（cors/compress/auth/全ルート/エラーハンドラを登録）を `app.test.ts` で inject 検証する（`/health` の version 返却、エラーハンドラ形、CORS プリフライトが PATCH/DELETE を許可）。`index.ts` は `buildApp()` + `listen()` のみ。WSサーバ `wsRoom` のブロードキャストは `ws.test.ts` で実ソケット検証。
+- カバレッジ計測：フロントは `src/**/*.{ts,tsx}` を対象（コンポーネント/App/version を含む）。
+- 設計方針：行カバレッジだけでなく、**ブラウザ経由でしか出ない結合（CORS プリフライト等）も明示的にテスト**する（`app.inject()` の CRUD はプリフライトを経由しないため）。
 
 ---
 
@@ -513,3 +516,4 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.70–0.2.78 | 2026/6 | ガント微修正（マイルストーン中心配置・day 既定開始日 7 日前）、親折りたたみ時の依存矢印/コネクタ/イナズマ整合（実効日付）、依存セキュリティ刷新（fast-jwt 除去・fastify5・uuid11）、製品 1.0 化＋バージョン表示 |
 | 0.2.79 | 2026/6 | Import/Export のバージョン互換チェックは導入しないと決定（`version` は情報用メタデータに留め、インポートは寛容な取り込みを継続）。10.1 節に設計判断として明文化 |
 | 0.2.80 | 2026/6 | CORS 許可メソッドを明示（`GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS`）。@fastify/cors の既定 `GET,HEAD,POST` ではクロスオリジンの PATCH/DELETE がプリフライトで弾かれていた（fastify5/cors11 更新で顕在化）。設定を `plugins/cors.ts` に集約し、プリフライト回帰テスト `cors.test.ts` を追加 |
+| 0.2.81 | 2026/6 | テスト網羅性の是正。本番配線を `app.ts` の `buildApp()` に抽出し `index.ts` を薄くして、本番と同じ配線で `/health`(version)・エラーハンドラ・CORS を検証（`app.test.ts`）。WSサーバ `wsRoom` のブロードキャストを `ws.test.ts` で検証。フロントは `useTheme`/`version`/`api.fetchHealth`/`batchCreateTasks`/Toolbar バージョン表示などの欠落ユニットを補完し、カバレッジ計測対象を `src/**/*.{ts,tsx}`（components/App 含む）へ拡大 |
