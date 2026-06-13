@@ -1,39 +1,10 @@
-import Fastify from 'fastify';
-import type { FastifyError } from 'fastify';
-import cors from '@fastify/cors';
-import { corsOptions } from './plugins/cors.js';
-import { authPlugin } from './plugins/auth.js';
-import { registerCompression } from './plugins/compression.js';
-import { healthRoutes } from './routes/health.js';
-import { projectRoutes } from './routes/projects.js';
-import { taskRoutes } from './routes/tasks.js';
-import { importExportRoutes } from './routes/importExport.js';
+import { buildApp } from './app.js';
 import { wss } from './ws/wsRoom.js';
 import { resolveApiPort } from './config.js';
 
 const PORT = resolveApiPort();
 
-const fastify = Fastify({ logger: true });
-
-await fastify.register(cors, corsOptions);
-
-await registerCompression(fastify);
-
-await fastify.register(authPlugin);
-
-const API_PREFIX = '/api/v1';
-await fastify.register(healthRoutes);
-await fastify.register(projectRoutes, { prefix: API_PREFIX });
-await fastify.register(taskRoutes, { prefix: API_PREFIX });
-await fastify.register(importExportRoutes, { prefix: API_PREFIX });
-
-fastify.setErrorHandler((err: FastifyError, _req, reply) => {
-  const statusCode = err.statusCode ?? 500;
-  reply.code(statusCode).send({
-    error: err.message,
-    code: err.code ?? 'INTERNAL_ERROR',
-  });
-});
+const fastify = await buildApp({ logger: true });
 
 await fastify.listen({ port: PORT, host: '0.0.0.0' });
 fastify.log.info(`API listening on port ${PORT}`);
