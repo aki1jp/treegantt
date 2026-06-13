@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import type { FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import { authPlugin } from './plugins/auth.js';
 import { registerCompression } from './plugins/compression.js';
@@ -27,7 +28,7 @@ await fastify.register(projectRoutes, { prefix: API_PREFIX });
 await fastify.register(taskRoutes, { prefix: API_PREFIX });
 await fastify.register(importExportRoutes, { prefix: API_PREFIX });
 
-fastify.setErrorHandler((err, _req, reply) => {
+fastify.setErrorHandler((err: FastifyError, _req, reply) => {
   const statusCode = err.statusCode ?? 500;
   reply.code(statusCode).send({
     error: err.message,
