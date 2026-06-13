@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { Toolbar } from '../components/Toolbar/Toolbar';
 import { useTaskStore } from '../store/taskStore';
+import { FRONTEND_VERSION } from '../version';
 
 afterEach(() => { cleanup(); });
 
@@ -359,5 +360,30 @@ describe('Toolbar マイルトグルボタン位置（v2.54）', () => {
     const before = useTaskStore.getState().showMilestones;
     fireEvent.click(screen.getByTitle('マイルストーン行を表示'));
     expect(useTaskStore.getState().showMilestones).toBe(!before);
+  });
+});
+
+describe('バージョン表示（ハンバーガーメニュー）', () => {
+  function renderWith(backendVersion?: string) {
+    return render(
+      <Toolbar
+        onAddTask={NOOP} onAddMilestone={NOOP} onImport={NOOP} onRestore={NOOP}
+        onExportJson={NOOP} onExportCsv={NOOP} backendVersion={backendVersion}
+      />
+    );
+  }
+
+  it('メニューを開くと Frontend 版と Backend 版が表示される', () => {
+    renderWith('9.9.9');
+    fireEvent.click(screen.getByTitle('メニュー'));
+    const v = screen.getByTestId('app-version');
+    expect(v.textContent).toContain(`v${FRONTEND_VERSION}`);
+    expect(v.textContent).toContain('v9.9.9');
+  });
+
+  it('backendVersion 未指定時は Backend が「—」表示になる', () => {
+    renderWith(undefined);
+    fireEvent.click(screen.getByTitle('メニュー'));
+    expect(screen.getByTestId('app-version').textContent).toContain('Backend v—');
   });
 });

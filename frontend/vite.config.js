@@ -13,7 +13,9 @@ export default defineConfig({
     test: {
         coverage: {
             provider: 'v8',
-            include: ['src/utils/**/*.ts', 'src/store/**/*.ts', 'src/hooks/**/*.ts'],
+            // アプリ全体（components/App/version 含む）を計測対象にし、数値を実態化する。
+            include: ['src/**/*.{ts,tsx}'],
+            exclude: ['src/**/__tests__/**', 'src/**/*.test.{ts,tsx}', 'src/types/**', 'src/main.tsx'],
             reporter: ['text'],
             skipFull: false,
         },

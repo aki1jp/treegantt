@@ -321,3 +321,29 @@ describe('reorderTasks', () => {
     expect(useTaskStore.getState().tasks.find(t => t.id === 't3')?.order).toBe(3);
   });
 });
+
+describe('batchCreateTasks', () => {
+  it('バッチ作成 API を呼び全タスクをストアに追加する', async () => {
+    const b1 = makeTask({ id: 'b1', title: 'B1' });
+    const b2 = makeTask({ id: 'b2', title: 'B2', parentId: 'b1' });
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 201,
+      json: async () => ({ tasks: [b1, b2] }),
+    } as Response);
+
+    const { batchCreateTasks } = useTasks('p1');
+    const result = await batchCreateTasks(
+      [{ parentRef: null, title: 'B1' }, { parentRef: 0, title: 'B2' }],
+      null,
+    );
+
+    expect(result).toHaveLength(2);
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['b1', 'b2']);
+    // 1リクエストにまとまっている（N件→1リクエスト）
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[0]).toContain('/tasks/batch');
+    const body = JSON.parse((call[1] as RequestInit).body as string);
+    expect(body.tasks).toHaveLength(2);
+  });
+});
