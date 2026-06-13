@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| バージョン | 2.68 |
+| バージョン | 2.69 |
 | 作成日 | 2026年5月 |
 | 対象読者 | 開発者・アーキテクト |
 | ステータス | レビュー済みドラフト |
@@ -92,6 +92,7 @@
 | 2.66 | 2026年6月 | 1000件パフォーマンス改善 Step 8（親台帳: `docs/performance_plan.md`）。タスク削除の WS 通知を一括化。サーバー（`routes/tasks.ts`）は subtree 削除時に削除ID数ぶんの `task_deleted` を送っていたのを `{ type: 'tasks_deleted', projectId, ids: string[] }` 1通に変更（1000件削除で 1000通→1通）。single モードも `tasks_deleted`（`ids: [id]`）に統一。フロント（`useWebSocket.applyMessage`）に `tasks_deleted` ケースを追加し `removeTasks(ids)`（v2.63）で1回の状態更新に反映。旧 `task_deleted` 受信ハンドラは互換のため残置（サーバー先行デプロイ時、旧クライアントは新メッセージを無視するだけで reload 通知により追随可能な規模のため許容）。メッセージ型一覧（6.3節）も更新。 |
 | 2.67 | 2026年6月 | 1000件パフォーマンス改善 Step 9（最終、親台帳: `docs/performance_plan.md`）。REST レスポンスの圧縮を導入。`@fastify/compress@^7`（fastify 4 対応）を追加し、`plugins/compression.ts` の `registerCompression(fastify)`（`{ global: true, threshold: 1024 }`、encodings: br/gzip）を `index.ts` で register。1024バイト未満の小レスポンスは圧縮しない。1000件タスク一覧 JSON 約300〜500KB → 約40〜60KB（転送量約85%減）。クライアント側は fetch が `Accept-Encoding`/展開を自動処理するため変更不要。ETag は更新頻度が高くキャッシュヒットしにくいため見送り。 |
 | 2.68 | 2026年6月 | E2Eテスト基盤（Playwright）導入。`/workspace/e2e/` に `@playwright/test` パッケージを新設。`playwright.config.ts` で API（port 4000）・フロントエンド（port 3001）を `webServer` 自動起動（`reuseExistingServer: !CI` でローカルは起動済みサーバーを再利用）。`fixtures/app.ts` で E2E テスト用プロジェクトを自動生成・後片付けするカスタムフィクスチャを定義。テストスペック4本: `project.spec.ts`（プロジェクト作成・選択）、`task-crud.spec.ts`（タスク作成・インライン編集・子タスク・削除）、`task-modal.spec.ts`（モーダル編集・ガントバー反映）、`gantt-render.spec.ts`（SVGバー・日付ヘッダー・仮想化スクロール確認）。既存 Vitest テストは無変更。 |
+| 2.69 | 2026年6月 | サブツリー一括コピー API（`POST /api/v1/projects/:id/tasks/batch`）導入。背景：`@fastify/compress` の `global: true` 設定下で連続 POST リクエストの最後が "premature close" となりコピー失敗するバグを根本修正。変更内容: (1) API — `batchCreateTasks(projectId, inputs)` サービス関数を追加（単一 SQLite トランザクションで全タスクを作成）、バッチルート追加（`parentRef` インデックスで親子解決・単一 WS `tasks_created` ブロードキャスト）。(2) Frontend — `useWebSocket.ts` に `tasks_created` ハンドラ追加、`useTasks.ts` に `batchCreateTasks` 追加、`App.tsx` の `handleCopyInsert` をシーケンシャル createTask 呼び出しからバッチ API 1リクエストに変更。HTTP リクエスト数: N件 → 1件。WS ブロードキャスト数: N件 → 1件。 |
 
 ---
 
