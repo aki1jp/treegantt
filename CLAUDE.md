@@ -17,6 +17,25 @@ cd /workspace/frontend && npm test -- --run
 docker compose build && docker compose up -d
 ```
 
+## Git コミット規約
+
+**すべてのコミットメッセージの末尾に、どのモデルがコミットしたかを示すトレーラを必ず付ける。**
+
+形式（`Co-Authored-By` トレーラ。本文との間に空行を1つ入れる）:
+
+```
+Co-Authored-By: Claude <モデル名> <noreply@anthropic.com>
+```
+
+例（Opus 4.8 の場合）:
+
+```
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+```
+
+- **モデル名はコミット時点で実際に使用しているもの**を記載する（例: `Opus 4.8` / `Sonnet 4.6` / `Haiku 4.5` / `Fable 5`）。固定値をハードコードしない。
+- これにより、各コミットがどのモデルによる作業かを後から追跡できる。
+
 ## 開発ルール
 
 順序厳守: **ドキュメントコミット → 失敗テスト追加 → 実装 → 全通過 → 実装コミット**
