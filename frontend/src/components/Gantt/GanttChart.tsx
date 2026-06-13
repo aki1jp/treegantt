@@ -603,16 +603,24 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
         if (Math.max(fromIdx, toIdx) < vStart || Math.min(fromIdx, toIdx) >= vEnd) return [];
         const fromTask = taskById.get(fromId)!;
         const toTask   = taskById.get(toId)!;
+        // 端点が親（子を持つ）の場合は親バーと同じ表示スパン（parentSpanMap）で端点を計算する
+        const fromEndDate = (childCount.get(fromId) ?? 0) > 0
+          ? (parentSpanMap.get(fromId)?.endDate ?? fromTask.endDate)
+          : fromTask.endDate;
+        const toStartDate = (childCount.get(toId) ?? 0) > 0
+          ? (parentSpanMap.get(toId)?.startDate ?? toTask.startDate)
+          : toTask.startDate;
         return [
           <DependencyArrow key={key}
             fromTask={fromTask} toTask={toTask} minDate={min}
+            fromEndDate={fromEndDate} toStartDate={toStartDate}
             zoom={zoomLevel} taskIndex={taskIndex} rowHeight={uiRowHeight}
             isCritical={criticalSet.has(fromId) && criticalSet.has(toId)}
             style={depArrowStyle} />,
         ];
       })
     );
-  }, [sorted, taskIndex, taskById, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle, vStart, vEnd]);
+  }, [sorted, taskIndex, taskById, childCount, parentSpanMap, min, zoomLevel, uiRowHeight, criticalSet, depArrowStyle, vStart, vEnd]);
 
   // WBSパネル上のホイール操作をガントパネルに転送（WBSはoverflow:hiddenのため）
   function handleWbsWheel(e: React.WheelEvent<HTMLDivElement>) {

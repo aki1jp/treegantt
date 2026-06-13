@@ -11,6 +11,10 @@ interface Props {
   rowHeight?: number;
   isCritical?: boolean;
   style?: DepArrowStyle;
+  // 親タスクは DB 日付ではなく表示スパン（parentSpanMap）で描かれるため、
+  // 端点座標もその実効日付を優先して計算する（未指定時は task の日付にフォールバック）
+  fromEndDate?: string | null;
+  toStartDate?: string | null;
 }
 
 function buildPath(x1: number, y1: number, x2: number, y2: number, style: DepArrowStyle): string {
@@ -32,17 +36,19 @@ function buildPath(x1: number, y1: number, x2: number, y2: number, style: DepArr
   return `M${x1},${y1} C${x1 + 30},${y1} ${x2 - 30},${y2} ${x2},${y2}`;
 }
 
-export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX, isCritical = false, style = 'bezier' }: Props) {
-  if (!fromTask.endDate || !toTask.startDate) return null;
+export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, rowHeight = ROW_HEIGHT_PX, isCritical = false, style = 'bezier', fromEndDate, toStartDate }: Props) {
+  const endDate   = fromEndDate ?? fromTask.endDate;
+  const startDate = toStartDate ?? toTask.startDate;
+  if (!endDate || !startDate) return null;
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const fromRow = taskIndex.get(fromTask.id);
   const toRow   = taskIndex.get(toTask.id);
   if (fromRow === undefined || toRow === undefined) return null;
 
-  const x1 = dateToX(fromTask.endDate, minDate, zoom) + dayWidth;
+  const x1 = dateToX(endDate, minDate, zoom) + dayWidth;
   const y1 = fromRow * rowHeight + rowHeight / 2;
-  const x2 = dateToX(toTask.startDate, minDate, zoom);
+  const x2 = dateToX(startDate, minDate, zoom);
   const y2 = toRow * rowHeight + rowHeight / 2;
 
   const d = buildPath(x1, y1, x2, y2, style);

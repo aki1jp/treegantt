@@ -422,4 +422,29 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       expect(d).toMatch(/^M[\d.,]+ L[\d.,]+$/);
     });
   });
+
+  describe('折りたたみ時の親リダイレクト矢印の整合（v2.72）', () => {
+    // tP の DB endDate(07-01) は子スパン(06-15)と意図的に別 → 親バーは parentSpanMap(06-15)で描かれる
+    const makeParentDepTasks = () => ([
+      makeTask({ id: 'tP', startDate: '2026-06-10', endDate: '2026-07-01' }),
+      makeTask({ id: 'tC', parentId: 'tP', startDate: '2026-06-10', endDate: '2026-06-15' }),
+      makeTask({ id: 'tX', startDate: '2026-08-01', endDate: '2026-08-10', predecessors: ['tC'] }),
+    ]);
+
+    function collapse(container: HTMLElement) {
+      const toggle = Array.from(container.querySelectorAll('button'))
+        .find(b => b.textContent === '▼');
+      fireEvent.click(toggle!);
+    }
+
+    it('親を折りたたむと矢印の起点が親サマリーバー端（子スパン）に一致する', () => {
+      const { container } = renderChart(makeParentDepTasks());
+      collapse(container);
+      // tC が隠れ矢印は tP→tX にリダイレクト
+      const path = container.querySelector<SVGPathElement>('path[data-dep-from="tP"]');
+      expect(path).toBeTruthy();
+      // x1 = dateToX('2026-06-15') + dayWidth = 112 + 8 = 120（DB値07-01なら248でズレる）
+      expect(path!.getAttribute('d')!.startsWith('M120,')).toBe(true);
+    });
+  });
 });
