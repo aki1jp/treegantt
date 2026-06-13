@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { db } from '../db/client.js';
 import type { Task, TaskWithSuccessors } from '../types/task.js';
 
@@ -385,4 +386,71 @@ export function reorderTasks(orders: { id: string; order: number; parentId?: str
   })();
 
   return new Set<string>();
+}
+
+export interface BatchTaskInput {
+  parentRef: number | null;
+  title: string;
+  summary?: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  progress?: number;
+  assignee?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  isMilestone?: boolean;
+  order?: number;
+  titleColor?: string | null;
+  titleBgColor?: string | null;
+}
+
+export function batchCreateTasks(
+  projectId: string,
+  parentId: string | null,
+  inputs: BatchTaskInput[],
+): TaskWithSuccessors[] {
+  const { m: maxOrd } = db
+    .prepare('SELECT COALESCE(MAX(ord), 0) as m FROM tasks WHERE project_id = ?')
+    .get(projectId) as { m: number };
+
+  const ids: string[] = inputs.map(() => uuidv4());
+  const createdIds: string[] = [];
+
+  db.transaction(() => {
+    for (let i = 0; i < inputs.length; i++) {
+      const input = inputs[i];
+      const resolvedParentId =
+        input.parentRef === null ? parentId : (ids[input.parentRef] ?? null);
+
+      const { next_seq: seq } = db
+        .prepare('SELECT next_seq FROM projects WHERE id = ?')
+        .get(projectId) as { next_seq: number };
+      db.prepare('UPDATE projects SET next_seq = next_seq + 1 WHERE id = ?').run(projectId);
+
+      db.prepare(
+        `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        ids[i],
+        projectId,
+        resolvedParentId,
+        input.title,
+        input.summary ?? '',
+        input.description ?? '',
+        input.status ?? 'todo',
+        input.priority ?? 'medium',
+        input.progress ?? 0,
+        input.assignee ?? '',
+        input.startDate ?? null,
+        input.endDate ?? null,
+        input.isMilestone ? 1 : 0,
+        input.order ?? maxOrd + i + 1,
+        seq,
+      );
+      createdIds.push(ids[i]);
+    }
+  })();
+
+  return createdIds.map(id => getTask(id)!);
 }

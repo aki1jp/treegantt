@@ -20,6 +20,13 @@ export function applyMessage(msg: Record<string, unknown>) {
       store.upsertTask(msg.task as Task);
       break;
     }
+    // バッチ作成（v2.69）: 1通で複数タスクをまとめて反映
+    case 'tasks_created': {
+      for (const task of (msg.tasks as Task[])) {
+        store.upsertTask(task);
+      }
+      break;
+    }
     case 'tasks_deleted': {
       store.removeTasks(msg.ids as string[]);
       break;

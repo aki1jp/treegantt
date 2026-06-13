@@ -1262,3 +1262,114 @@ describe('Tasks API — 削除WS通知の一括化（v2.66）', () => {
     expect(orders.map(o => o.id)).toContain(child.id);
   });
 });
+
+// ─── Tasks Batch API（v2.69）───────────────────────────────────────────────
+describe('Tasks Batch API — POST /projects/:id/tasks/batch', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let projectId: string;
+
+  beforeEach(async () => {
+    testDb = createTestDb();
+    app = await buildApp();
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'Batch Test Project' },
+    });
+    projectId = res.json().project.id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
+  });
+
+  it('親＋子2件のバッチを1リクエストで作成し 201 で全タスクを返す', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: {
+        parentId: null,
+        tasks: [
+          { parentRef: null, title: 'Root', order: 1 },
+          { parentRef: 0,    title: 'Child A' },
+          { parentRef: 0,    title: 'Child B' },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const { tasks } = res.json() as { tasks: { id: string; title: string; parentId: string | null }[] };
+    expect(tasks).toHaveLength(3);
+    expect(tasks[0].title).toBe('Root');
+    expect(tasks[0].parentId).toBeNull();
+    expect(tasks[1].title).toBe('Child A');
+    expect(tasks[1].parentId).toBe(tasks[0].id);
+    expect(tasks[2].title).toBe('Child B');
+    expect(tasks[2].parentId).toBe(tasks[0].id);
+  });
+
+  it('3階層のネストも parentRef で正しく解決される', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: {
+        parentId: null,
+        tasks: [
+          { parentRef: null, title: 'L0' },
+          { parentRef: 0,    title: 'L1' },
+          { parentRef: 1,    title: 'L2' },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const { tasks } = res.json() as { tasks: { id: string; title: string; parentId: string | null }[] };
+    expect(tasks[2].parentId).toBe(tasks[1].id);
+    expect(tasks[1].parentId).toBe(tasks[0].id);
+  });
+
+  it('tasks_created を1通だけ WS ブロードキャストする', async () => {
+    vi.mocked(notifyRoom).mockClear();
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: {
+        parentId: null,
+        tasks: [
+          { parentRef: null, title: 'R' },
+          { parentRef: 0,    title: 'C1' },
+          { parentRef: 0,    title: 'C2' },
+        ],
+      },
+    });
+    const calls = vi.mocked(notifyRoom).mock.calls;
+    const batchMsgs  = calls.filter(([, msg]) => (msg as { type: string }).type === 'tasks_created');
+    const singleMsgs = calls.filter(([, msg]) => (msg as { type: string }).type === 'task_created');
+    expect(batchMsgs).toHaveLength(1);
+    expect(singleMsgs).toHaveLength(0);
+    const payload = batchMsgs[0][1] as { tasks: { title: string }[]; projectId: string };
+    expect(payload.tasks).toHaveLength(3);
+    expect(payload.projectId).toBe(projectId);
+  });
+
+  it('空配列はエラーを返す', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: null, tasks: [] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('parentRef が範囲外のときエラーを返す', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: {
+        parentId: null,
+        tasks: [
+          { parentRef: 99, title: 'Bad ref' },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});

@@ -9,6 +9,8 @@ import {
   deleteTaskKeepChildren,
   reorderTasks,
   wouldCreateCycle,
+  batchCreateTasks,
+  type BatchTaskInput,
 } from '../services/taskService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
@@ -198,6 +200,67 @@ export async function taskRoutes(fastify: FastifyInstance) {
         }
       }
       reply.code(204).send();
+    },
+  );
+
+  // サブツリー一括作成（v2.69）
+  // コピー操作でシーケンシャル POST を避け1リクエストで完結させる。
+  // parentRef はリクエスト配列内のインデックスで親子関係を指定する。
+  fastify.post<{
+    Params: { id: string };
+    Body: { parentId: string | null; tasks: BatchTaskInput[] };
+  }>(
+    '/projects/:id/tasks/batch',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['tasks'],
+          properties: {
+            parentId: { type: ['string', 'null'] },
+            tasks: {
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'object',
+                required: ['title'],
+                properties: {
+                  parentRef:    { type: ['number', 'null'] },
+                  title:        { type: 'string', minLength: 1, maxLength: 200 },
+                  summary:      { type: 'string' },
+                  description:  { type: 'string' },
+                  status:       { type: 'string' },
+                  priority:     { type: 'string' },
+                  progress:     { type: 'number' },
+                  assignee:     { type: 'string' },
+                  startDate:    { type: ['string', 'null'] },
+                  endDate:      { type: ['string', 'null'] },
+                  isMilestone:  { type: 'boolean' },
+                  order:        { type: 'number' },
+                  titleColor:   { type: ['string', 'null'] },
+                  titleBgColor: { type: ['string', 'null'] },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id: projectId } = req.params;
+      const { parentId = null, tasks: inputs } = req.body;
+
+      // parentRef の範囲チェック
+      for (let i = 0; i < inputs.length; i++) {
+        const ref = inputs[i].parentRef;
+        if (ref !== null && ref !== undefined && (ref < 0 || ref >= i)) {
+          return reply.code(400).send({ error: `tasks[${i}].parentRef=${ref} is out of range`, code: 'INVALID_PARENT_REF' });
+        }
+      }
+
+      const tasks = batchCreateTasks(projectId, parentId, inputs);
+      notifyRoom(projectId, { type: 'tasks_created', projectId, tasks });
+      return reply.code(201).send({ tasks });
     },
   );
 }

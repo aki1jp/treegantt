@@ -31,7 +31,7 @@ export default function App() {
   useTheme();
   useWebSocket(currentProject?.id ?? null);
 
-  const { createTask, updateTask, deleteTask, reorderTasks } = useTasks(currentProject?.id ?? '');
+  const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks } = useTasks(currentProject?.id ?? '');
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
     useImportExport(currentProject, tasks, setTasks);
 
@@ -175,52 +175,56 @@ export default function App() {
     );
     const rootTitle = makeCopyTitle(source.title, siblingTitles);
 
-    // 旧ID→新ID のマップと訪問タスク（サブツリー内部の依存コピー用）
-    const idMap = new Map<string, string>();
-    const subtreeTasks: Task[] = [];
+    // ルートタスクの挿入 order を事前計算
+    const rootSiblings = allTasksSnapshot.filter(t => t.parentId === parentId);
+    const targetOrder = computeInsertOrder(rootSiblings, afterTaskId, beforeTaskId);
 
-    // ルートタスクの挿入 order を事前計算（作成直後から正しい位置に表示するため）
-    const siblings = allTasksSnapshot.filter(t => t.parentId === parentId);
-    const targetOrder = computeInsertOrder(siblings, afterTaskId, beforeTaskId);
+    // サブツリーをフラットな配列（parentRef インデックス方式）に展開
+    type BatchInput = { parentRef: number | null; title: string; [key: string]: unknown };
+    const batchInputs: BatchInput[] = [];
+    const sourceTasksFlat: Task[] = [];
 
-    async function copySubtree(task: Task, newParentId: string | null, isRoot: boolean, rootOrder?: number): Promise<Task> {
-      const newTask = await createTask({
-        title:       isRoot ? rootTitle : task.title,
-        summary:     task.summary,
-        description: task.description,
-        status:      task.status,
-        priority:    task.priority,
-        progress:    task.progress,
-        assignee:    task.assignee,
-        startDate:   task.startDate,
-        endDate:     task.endDate,
-        isMilestone: task.isMilestone,
-        predecessors: [],
-        titleColor:  task.titleColor,
+    function buildBatch(task: Task, parentRef: number | null, isRoot: boolean): void {
+      const idx = batchInputs.length;
+      batchInputs.push({
+        parentRef,
+        title:        isRoot ? rootTitle : task.title,
+        summary:      task.summary,
+        description:  task.description,
+        status:       task.status,
+        priority:     task.priority,
+        progress:     task.progress,
+        assignee:     task.assignee,
+        startDate:    task.startDate,
+        endDate:      task.endDate,
+        isMilestone:  task.isMilestone,
+        titleColor:   task.titleColor,
         titleBgColor: task.titleBgColor,
-        order:       isRoot && rootOrder !== undefined ? rootOrder : undefined,
-        parentId:    newParentId,
-        projectId:   currentProject.id,
+        order:        isRoot ? targetOrder : undefined,
       });
-      idMap.set(task.id, newTask.id);
-      subtreeTasks.push(task);
+      sourceTasksFlat.push(task);
       const children = allTasksSnapshot
         .filter(t => t.parentId === task.id)
         .sort((a, b) => a.order - b.order);
       for (const child of children) {
-        await copySubtree(child, newTask.id, false);
+        buildBatch(child, idx, false);
       }
-      return newTask;
     }
 
-    try {
-      const newRootTask = await copySubtree(source, parentId, true, targetOrder);
+    buildBatch(source, null, true);
 
-      // 第2パス: サブツリー内部の依存を新IDに付け替えてコピー（外部依存はコピーしない）
-      for (const u of mapInternalPredecessors(subtreeTasks, idMap)) {
+    try {
+      // バッチ API で1リクエストにまとめる（v2.69 以前のシーケンシャル POST を置き換え）
+      const newTasks = await batchCreateTasks(batchInputs, parentId);
+
+      // 旧ID→新ID マップを構築して predecessor を付け替え
+      const idMap = new Map<string, string>();
+      sourceTasksFlat.forEach((t, i) => idMap.set(t.id, newTasks[i].id));
+      for (const u of mapInternalPredecessors(sourceTasksFlat, idMap)) {
         await updateTask(u.id, { predecessors: u.predecessors });
       }
 
+      const newRootTask = newTasks[0];
       const siblings = allTasksSnapshot
         .filter(t => t.parentId === parentId && t.id !== newRootTask.id)
         .sort((a, b) => a.order - b.order);

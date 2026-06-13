@@ -80,5 +80,22 @@ export function useTasks(projectId: string) {
     }
   }
 
-  return { createTask, updateTask, deleteTask, reorderTasks };
+  // サブツリー一括作成（v2.69）: 1リクエストで複数タスクを作成し tasks_created を受け取る
+  async function batchCreateTasks(
+    inputs: { parentRef: number | null; title: string; [key: string]: unknown }[],
+    parentId: string | null,
+  ): Promise<Task[]> {
+    const data = await apiFetch(`/projects/${projectId}/tasks/batch`, {
+      method: 'POST',
+      body: JSON.stringify({ parentId, tasks: inputs }),
+    });
+    const tasks = data.tasks as Task[];
+    // 楽観的追加（WS ブロードキャストより先に到着する場合の保険）
+    for (const task of tasks) {
+      useTaskStore.getState().upsertTask(task);
+    }
+    return tasks;
+  }
+
+  return { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks };
 }

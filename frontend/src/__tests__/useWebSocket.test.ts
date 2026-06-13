@@ -349,4 +349,23 @@ describe('applyMessage tasks_deleted（v2.66）', () => {
     applyMessage({ type: 'task_deleted', id: 'a', projectId: 'p1' });
     expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['b']);
   });
+
+  it('tasks_created: バッチのタスクをすべてストアに追加する', () => {
+    const tasks = [
+      makeTask({ id: 'b1', title: '一括1' }),
+      makeTask({ id: 'b2', title: '一括2' }),
+      makeTask({ id: 'b3', title: '一括3' }),
+    ];
+    applyMessage({ type: 'tasks_created', tasks, projectId: 'p1' });
+    const stored = useTaskStore.getState().tasks;
+    expect(stored).toHaveLength(3);
+    expect(stored.map(t => t.id)).toEqual(['b1', 'b2', 'b3']);
+  });
+
+  it('tasks_created: 既存タスクと重複するIDはupsert（上書き）される', () => {
+    useTaskStore.setState({ tasks: [makeTask({ id: 'b1', title: '旧' })] });
+    applyMessage({ type: 'tasks_created', tasks: [makeTask({ id: 'b1', title: '新' })], projectId: 'p1' });
+    expect(useTaskStore.getState().tasks).toHaveLength(1);
+    expect(useTaskStore.getState().tasks[0].title).toBe('新');
+  });
 });
