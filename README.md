@@ -89,13 +89,74 @@ docker compose up -d
 ```
 `http://<サーバーIP>:3000` でアクセス。API/WS の接続先はブラウザの `window.location.hostname` から自動検出されるため、設定変更なしで動作します。データは `api/data/treegantt.db`（ホストにマウント）へ永続化されます。
 
-#### 主な環境変数（`api`）
-| 変数 | 既定 | 説明 |
+> 設定（ポート等）の変更は下記 **「⚙️ 設定」** を参照。
+
+---
+
+## ⚙️ 設定（`.env` / 環境変数でポート等を変更）
+
+ポートなどの設定は **プロジェクトルートの `.env`** か **環境変数**で変更できます。`.env` は
+開発（`start.sh`）と Docker の**両方で同じものが使われます**。
+
+```bash
+cp .env.example .env     # テンプレをコピーして編集
+bash start.sh            # 開発
+docker compose up -d     # 本番
+```
+
+環境変数で直接渡すこともできます:
+
+```bash
+PORT=5000 WS_PORT=5001 FRONTEND_PORT=3005 bash start.sh
+```
+
+### 設定キー（`.env.example` と同じ）
+| キー | 既定 | 説明 |
 |------|------|------|
+| `FRONTEND_PORT` | `3000` | フロントエンドの表示ポート |
 | `PORT` | `4000` | REST API ポート |
 | `WS_PORT` | `4001` | WebSocket ポート |
-| `DB_PATH` | `/app/data/treegantt.db` | SQLite ファイル |
+| `VITE_API_URL` | `http://localhost:4000` | **ブラウザからの API 接続先** |
+| `VITE_WS_URL` | `ws://localhost:4001` | **ブラウザからの WebSocket 接続先** |
+| `DB_PATH` | `/app/data/treegantt.db` | SQLite ファイル（Docker） |
 | `CORS_ORIGIN` | `*` | CORS 許可オリジン |
+| `LDAP_ENABLED` | `false` | LDAP 認証（将来用・未使用） |
+
+> ⚠️ **`PORT` / `WS_PORT` を変えたら `VITE_API_URL` / `VITE_WS_URL` も合わせてください。**
+> フロントは既定で `:4000` / `:4001` に接続するため、API ポートだけ変えると繋がりません。
+> `FRONTEND_PORT` のみの変更は単独で OK です。
+
+### 優先順位（開発と Docker で逆なので注意）
+| 起動方法 | 優先順位 |
+|----------|----------|
+| `bash start.sh`（開発） | **`.env` > 環境変数** — start.sh が `.env` を `source` するため、`.env` があればその値が勝つ |
+| `docker compose`（本番） | **環境変数 > `.env`** — Compose の仕様 |
+
+混乱を避けるため、**どちらか一方（推奨は `.env`）に統一**して運用するのがおすすめです。
+開発で環境変数だけで指定したい場合は `.env` を置かないでください。
+
+---
+
+## 🧰 運用 Tips（よくある操作）
+
+| やりたいこと | 方法 |
+|--------------|------|
+| **バックアップ** | `api/data/treegantt.db` をコピー（停止中推奨）／または ☰ メニューから **JSON・CSV エクスポート** |
+| **復元** | バックアップした `.db` を戻す／または ☰ → インポート（**レストア**＝既存を置換、追記も可） |
+| **DB を初期化** | `api/data/treegantt.db*` を削除して再起動（マイグレーションで自動再作成） |
+| **ログ確認** | Docker: `docker compose logs -f` ／ 開発: `start.sh` の `[API]` / `[FE]` 出力 |
+| **停止** | 開発: `Ctrl+C` または `bash stop.sh` ／ Docker: `docker compose down` |
+| **更新・再デプロイ** | `docker compose build && docker compose up -d` |
+
+---
+
+## 🩺 トラブルシューティング
+
+| 症状 | 原因と対処 |
+|------|-----------|
+| **更新に失敗しました: Failed to fetch** | フロント⇔API のクロスオリジン不一致。`CORS_ORIGIN` がフロントの URL を許可しているか、`VITE_API_URL` が正しい API ポートを指しているか確認 |
+| **ポートが使用中（address already in use）** | `.env` でポートを変更、または `bash stop.sh` で既存プロセスを停止 |
+| **ポート変更後フロントが API に繋がらない** | `VITE_API_URL` / `VITE_WS_URL` を新しいポートに合わせる（既定は `:4000` / `:4001`） |
 
 ---
 
