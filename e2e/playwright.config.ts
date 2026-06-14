@@ -22,7 +22,9 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     launchOptions: {
-      env: { LD_LIBRARY_PATH },
+      // process.env をマージして HOME 等を保持する（落とすと fontconfig が
+      // ~/.local/share/fonts の Noto CJK を見つけられず日本語が豆腐化する）。
+      env: { ...process.env, LD_LIBRARY_PATH },
     },
   },
 

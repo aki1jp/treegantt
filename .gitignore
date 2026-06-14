@@ -10,3 +10,4 @@ coverage/
 .claude/*
 !.claude/settings.json
 frontend/src/**/*.js
+e2e/.gif-frames/
