@@ -148,6 +148,47 @@ describe('GanttChart フィルタ統合: 担当者', () => {
     expect(titles).toContain('AliceTask');
     expect(titles).toContain('BobTask');
   });
+
+  it('親が一致するとき、担当が異なる/空の子タスクも全て表示される（親子継承）', () => {
+    const parent = makeTask({ title: 'AliceParent', assignee: 'Alice' });
+    const tasks = [
+      parent,
+      makeTask({ title: 'ChildEmpty', assignee: '',    parentId: parent.id }),
+      makeTask({ title: 'ChildBob',   assignee: 'Bob', parentId: parent.id }),
+    ];
+    renderChart(tasks, { filterAssignee: 'Alice' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('AliceParent');
+    expect(titles).toContain('ChildEmpty');
+    expect(titles).toContain('ChildBob');
+  });
+
+  it('祖先一致は任意の深さの子孫に及ぶ（3階層）', () => {
+    const root  = makeTask({ title: 'AliceRoot', assignee: 'Alice' });
+    const mid   = makeTask({ title: 'MidBob',    assignee: 'Bob', parentId: root.id });
+    const leaf  = makeTask({ title: 'LeafEmpty', assignee: '',    parentId: mid.id });
+    renderChart([root, mid, leaf], { filterAssignee: 'Alice' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('AliceRoot');
+    expect(titles).toContain('MidBob');
+    expect(titles).toContain('LeafEmpty');
+  });
+
+  it('継承は下方向のみ：親が不一致なら一致する子は出るが、不一致の兄弟は出ない', () => {
+    const parent = makeTask({ title: 'BobParent', assignee: 'Bob' });
+    const tasks = [
+      parent,
+      makeTask({ title: 'ChildAlice',  assignee: 'Alice', parentId: parent.id }),
+      makeTask({ title: 'ChildCarol',  assignee: 'Carol', parentId: parent.id }),
+    ];
+    renderChart(tasks, { filterAssignee: 'Alice' });
+    const titles = getWbsTitles();
+    // 一致する子は表示、その親は構造として表示（includeAncestors）
+    expect(titles).toContain('ChildAlice');
+    expect(titles).toContain('BobParent');
+    // 不一致かつ祖先も不一致の兄弟は非表示
+    expect(titles).not.toContain('ChildCarol');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
