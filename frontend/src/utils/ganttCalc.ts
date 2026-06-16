@@ -80,6 +80,16 @@ export function todayStr(): string {
   return dayjs().format('YYYY-MM-DD');
 }
 
+/**
+ * 任意の解釈可能な日付文字列を ISO `YYYY-MM-DD` へ正規化する。解釈不能なら原文を返す。
+ * 日付の大小は文字列順序で比較されるため、`/` 区切り等の非 ISO 形式（`'2026/01/10'`）が
+ * 混ざると誤判定する（`'/'`(0x2F) > `'-'`(0x2D)）。比較・保存の前に本関数で揃える。
+ */
+export function normalizeDateStr(s: string): string {
+  const d = dayjs(s);
+  return d.isValid() ? d.format('YYYY-MM-DD') : s;
+}
+
 export function calcTodayX(minDate: Date, zoom: ZoomLevel): number {
   return dateToX(todayStr(), minDate, zoom);
 }
@@ -118,7 +128,7 @@ export function calcVertexX(
     const endX   = dateToX(endDate,   minDate, zoom) + dayWidth;
     return Math.round(startX + (endX - startX) * progress / 100);
   }
-  if (task.status === 'todo' && startDate < todayStr()) {
+  if (task.status === 'todo' && normalizeDateStr(startDate) < todayStr()) {
     return Math.round(dateToX(startDate, minDate, zoom));
   }
   return Math.round(nowX);
@@ -396,8 +406,14 @@ export function calcParentSpanMap(
       const isLeaf = !childrenMap.has(child.id);
       if (isLeaf) {
         if (child.isMilestone) continue;
-        if (child.startDate && (!minStart || child.startDate < minStart)) minStart = child.startDate;
-        if (child.endDate   && (!maxEnd   || child.endDate   > maxEnd))   maxEnd   = child.endDate;
+        if (child.startDate) {
+          const cs = normalizeDateStr(child.startDate);
+          if (!minStart || cs < minStart) minStart = cs;
+        }
+        if (child.endDate) {
+          const ce = normalizeDateStr(child.endDate);
+          if (!maxEnd || ce > maxEnd) maxEnd = ce;
+        }
       } else {
         const sub = fold(child.id);
         if (sub.minStart && (!minStart || sub.minStart < minStart)) minStart = sub.minStart;

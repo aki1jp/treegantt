@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, normalizeDateStr, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -264,6 +264,31 @@ describe('calcLightningPoints', () => {
     const pts = calcLightningPoints([noDbDatesParent], minDate, zoom);
     expect(pts).not.toBeNull();
     expect(pts!).toHaveLength(1);
+  });
+});
+
+describe('normalizeDateStr', () => {
+  it('スラッシュ区切りを ISO（ハイフン）へ変換する', () => {
+    expect(normalizeDateStr('2026/01/10')).toBe('2026-01-10');
+  });
+  it('ISO はそのまま返す', () => {
+    expect(normalizeDateStr('2026-01-10')).toBe('2026-01-10');
+  });
+  it('解釈不能な文字列は原文を返す（データ消失防止）', () => {
+    expect(normalizeDateStr('not-a-date')).toBe('not-a-date');
+  });
+});
+
+describe('calcVertexX（スラッシュ日付）', () => {
+  const minDate = new Date('2026-05-01T00:00:00.000Z');
+  const zoom = 'day';
+  const nowX = Math.round(calcNowX(minDate, zoom)); // today=2026-05-21（fake timer）
+
+  it('スラッシュ区切りの過去開始 todo も開始X（遅れ）を返す', () => {
+    const t = makeTask({ status: 'todo', progress: 0 });
+    // '2026/05/05' は today(2026-05-21) より過去 → 開始X
+    expect(calcVertexX(t, '2026/05/05', '2026/05/15', 0, minDate, zoom, nowX))
+      .toBe(Math.round(dateToX('2026/05/05', minDate, zoom)));
   });
 });
 

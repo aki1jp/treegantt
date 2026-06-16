@@ -404,4 +404,21 @@ describe('GanttBar 進捗遅延の赤帯', () => {
     const { container } = renderBand({ status: 'wip', progress: 10, isParent: true, isCollapsed: false });
     expect(band(container)).toBeFalsy();
   });
+
+  // 日付がスラッシュ区切り（非ISO）でも赤が出ること（文字列比較の取りこぼし防止）
+  it('スラッシュ区切りの締切超過タスクも overdue 赤（#fca5a5）になる', () => {
+    const slashPast = addDays(todayStr(), -5).replace(/-/g, '/'); // 例 2026/06/11
+    const { container } = renderBand({ status: 'todo', progress: 0, start: addDays(todayStr(), -20).replace(/-/g, '/'), end: slashPast });
+    const bg = Array.from(container.querySelectorAll('rect')).find(r => r.getAttribute('fill') === '#fca5a5');
+    expect(bg).toBeTruthy();
+  });
+
+  it('スラッシュ区切りの過去開始 todo（0%）も赤帯を描く', () => {
+    const { container } = renderBand({
+      status: 'todo', progress: 0,
+      start: addDays(todayStr(), -10).replace(/-/g, '/'),
+      end:   addDays(todayStr(), 10).replace(/-/g, '/'),
+    });
+    expect(band(container)).toBeTruthy();
+  });
 });

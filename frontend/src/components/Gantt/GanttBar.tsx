@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { Task, ZoomLevel } from '../../types/task';
-import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr, calcNowX, calcVertexX } from '../../utils/ganttCalc';
+import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr, calcNowX, calcVertexX, normalizeDateStr } from '../../utils/ganttCalc';
 import { STATUS_COLOR } from '../../utils/taskColors';
 
 interface Props {
@@ -62,7 +62,7 @@ export const GanttBar = memo(function GanttBar({
 
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const color = STATUS_COLOR[task.status];
-  const isOverdue = task.endDate !== null && task.endDate < TODAY && task.status !== 'done' && task.status !== 'pending';
+  const isOverdue = task.endDate !== null && normalizeDateStr(task.endDate) < TODAY && task.status !== 'done' && task.status !== 'pending';
   const centerY = rowIndex * rowHeight + rowHeight / 2;
   const barHeight = rowHeight - 12;
   const barFontSize = Math.max(11, Math.min(15, Math.round(barHeight * 0.58)));
