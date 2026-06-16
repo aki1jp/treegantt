@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { Task, ZoomLevel } from '../../types/task';
-import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr } from '../../utils/ganttCalc';
+import { dateToX, ROW_HEIGHT_PX, ZOOM_CONFIG, todayStr, calcNowX, calcVertexX } from '../../utils/ganttCalc';
 import { STATUS_COLOR } from '../../utils/taskColors';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
   rowIndex: number;
   isCritical?: boolean;
   isParent?: boolean;
+  isCollapsed?: boolean;
   effectiveProgress?: number;
   displayStart?: string | null;
   displayEnd?: string | null;
@@ -41,7 +42,7 @@ function titleTextMode(
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttBar = memo(function GanttBar({
-  task, minDate, zoom, rowIndex, isCritical, isParent = false, effectiveProgress,
+  task, minDate, zoom, rowIndex, isCritical, isParent = false, isCollapsed = false, effectiveProgress,
   displayStart, displayEnd,
   dragPreview, rowHeight = ROW_HEIGHT_PX, milestoneColor,
   onMoveStart, onResizeLeftStart, onResizeRightStart,
@@ -102,6 +103,14 @@ export const GanttBar = memo(function GanttBar({
   const y = rowIndex * rowHeight + 6;
   const progressWidth = Math.round(width * task.progress / 100);
 
+  // 進捗遅延の赤帯: イナズマ線頂点（あるべき進捗位置）が今(nowX)より左＝遅れのとき、
+  // [頂点X, min(nowX, 終了X)] を赤帯で示す（今がバー終端を越える分はバー内にクランプ）。
+  const nowX = Math.round(calcNowX(minDate, zoom)); // 頂点も丸めるので比較は丸めた今で揃える
+  const vertexX = calcVertexX(task, effectiveStart, effectiveEnd, effectiveProgress ?? task.progress, minDate, zoom, nowX);
+  const delayBand = (vertexX !== null && vertexX < nowX)
+    ? { x: vertexX, width: Math.min(nowX, endX) - vertexX }
+    : null;
+
   // ── 親タスク：サマリーバー（上部横バー＋左右下向き三角） ────
   if (isParent) {
     const topH = Math.round(barHeight * 0.42);
@@ -121,6 +130,11 @@ export const GanttBar = memo(function GanttBar({
         {displayProgress > 0 && (
           <rect x={x} y={y} width={parentProgressWidth} height={topH} rx={2}
             fill={barColor} style={{ pointerEvents: 'none' }} />
+        )}
+        {/* 進捗遅延の赤帯（折りたたみ親のみ。展開中は子が各自描画） */}
+        {delayBand && isCollapsed && (
+          <rect data-delay-band="true" x={delayBand.x} y={y} width={delayBand.width} height={topH} rx={2}
+            fill="#ef4444" opacity={0.6} style={{ pointerEvents: 'none' }} />
         )}
         {/* 左下向き三角（左辺垂直・右辺斜め） */}
         <polygon
@@ -176,6 +190,11 @@ export const GanttBar = memo(function GanttBar({
       {task.progress > 0 && (
         <rect x={x} y={y} width={progressWidth} height={barHeight} rx={3}
           fill={color + 'aa'} style={{ pointerEvents: 'none' }} />
+      )}
+      {/* 進捗遅延の赤帯（頂点→今）。進捗塗りの右隣＝今日までに終わっているべき未達分 */}
+      {delayBand && (
+        <rect data-delay-band="true" x={delayBand.x} y={y} width={delayBand.width} height={barHeight} rx={3}
+          fill="#ef4444" opacity={0.6} style={{ pointerEvents: 'none' }} />
       )}
       {/* タイトル */}
       {(() => {

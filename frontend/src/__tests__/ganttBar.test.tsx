@@ -291,7 +291,7 @@ describe('GanttBar 親タスク effectiveProgress（v2.30）', () => {
 });
 
 // ── v2.37: 親タスク displayStart/displayEnd ──────────────────────────────────
-import { ZOOM_CONFIG, dateToX } from '../utils/ganttCalc';
+import { ZOOM_CONFIG, dateToX, calcNowX, calcVertexX, addDays, todayStr } from '../utils/ganttCalc';
 
 describe('GanttBar 親タスク displayStart/displayEnd（v2.37）', () => {
   const DAY_WIDTH = ZOOM_CONFIG['month'].dayWidth;
@@ -342,5 +342,66 @@ describe('GanttBar 親タスク displayStart/displayEnd（v2.37）', () => {
       return Math.abs(x - expectedX) < 1;
     });
     expect(topBar).toBeTruthy();
+  });
+});
+
+// ── 進捗遅延の赤帯（イナズマ線頂点が今より左） ──────────────────────────────
+// 今(実時刻)を基準にするため、日付は todayStr() からの相対で組む。
+describe('GanttBar 進捗遅延の赤帯', () => {
+  const BMIN = new Date(addDays(todayStr(), -15));
+  const ZOOM = 'day';
+  const dayWidth = ZOOM_CONFIG[ZOOM].dayWidth;
+  const START = addDays(todayStr(), -10);
+  const END   = addDays(todayStr(), 10); // 今をまたぐ20日スパン
+
+  function renderBand(opts: { status: Task['status']; progress: number; start?: string; end?: string; isParent?: boolean; isCollapsed?: boolean }) {
+    const task: Task = {
+      ...BASE_TASK, status: opts.status, progress: opts.progress,
+      startDate: opts.start ?? START, endDate: opts.end ?? END,
+    };
+    return render(
+      <svg>
+        <GanttBar
+          task={task} minDate={BMIN} zoom={ZOOM} rowIndex={0}
+          isParent={opts.isParent ?? false} isCollapsed={opts.isCollapsed}
+          onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+        />
+      </svg>
+    );
+  }
+  const band = (c: HTMLElement) =>
+    Array.from(c.querySelectorAll('rect')).find(r => r.getAttribute('data-delay-band') === 'true');
+
+  it('遅れている wip（進捗小）は赤帯を描き、x≈頂点・右端≈min(now,終了)', () => {
+    const { container } = renderBand({ status: 'wip', progress: 10 });
+    const b = band(container);
+    expect(b).toBeTruthy();
+    const nowX = calcNowX(BMIN, ZOOM);
+    const vertexX = calcVertexX({ status: 'wip', isMilestone: false }, START, END, 10, BMIN, ZOOM, nowX)!;
+    const endX = dateToX(END, BMIN, ZOOM) + dayWidth;
+    const x = parseFloat(b!.getAttribute('x')!);
+    const w = parseFloat(b!.getAttribute('width')!);
+    expect(Math.abs(x - vertexX)).toBeLessThan(1.5);
+    expect(Math.abs((x + w) - Math.min(nowX, endX))).toBeLessThan(1.5);
+  });
+
+  it('前倒し/オントラックの wip（進捗大）は赤帯なし', () => {
+    const { container } = renderBand({ status: 'wip', progress: 95 });
+    expect(band(container)).toBeFalsy();
+  });
+
+  it('開始日が過去の未着手 todo（0%）は赤帯を描く（開始→今）', () => {
+    const { container } = renderBand({ status: 'todo', progress: 0 });
+    expect(band(container)).toBeTruthy();
+  });
+
+  it('done / wait は赤帯なし', () => {
+    expect(band(renderBand({ status: 'done', progress: 100 }).container)).toBeFalsy();
+    expect(band(renderBand({ status: 'wait', progress: 0 }).container)).toBeFalsy();
+  });
+
+  it('展開中の親（isParent かつ非collapsed）は赤帯なし', () => {
+    const { container } = renderBand({ status: 'wip', progress: 10, isParent: true, isCollapsed: false });
+    expect(band(container)).toBeFalsy();
   });
 });

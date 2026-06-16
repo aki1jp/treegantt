@@ -95,13 +95,41 @@ export function calcNowX(minDate: Date, zoom: ZoomLevel, now = new Date()): numb
 // イナズマライン: 各タスクの進捗率をX座標に変換し、行の中心点を斜線でつなぐ
 export interface LightningPoint { x: number; y: number; }
 
+/**
+ * イナズマ線頂点（＝「今日時点であるべき進捗位置」）の X を返す。バーの遅延赤帯と共有する。
+ * 描画対象外（pending / マイルストーン / 日付なし）は null。
+ * - wip:  進捗到達点 startX +(endX-startX)*progress/100
+ * - todo: 開始日が今日より前なら startX（左＝遅れを表す）、それ以外は nowX
+ * - done/wait: nowX（時・分含む現在時刻）
+ */
+export function calcVertexX(
+  task: Pick<Task, 'status' | 'isMilestone'>,
+  startDate: string | null,
+  endDate: string | null,
+  progress: number,
+  minDate: Date,
+  zoom: ZoomLevel,
+  nowX: number,
+): number | null {
+  if (task.isMilestone || !startDate || !endDate || task.status === 'pending') return null;
+  const { dayWidth } = ZOOM_CONFIG[zoom];
+  if (task.status === 'wip') {
+    const startX = dateToX(startDate, minDate, zoom);
+    const endX   = dateToX(endDate,   minDate, zoom) + dayWidth;
+    return Math.round(startX + (endX - startX) * progress / 100);
+  }
+  if (task.status === 'todo' && startDate < todayStr()) {
+    return Math.round(dateToX(startDate, minDate, zoom));
+  }
+  return Math.round(nowX);
+}
+
 export function calcLightningPoints(
   flatRows: { task: Task; effectiveProgress: number; hasChildren?: boolean; isCollapsed?: boolean; effectiveStart?: string | null; effectiveEnd?: string | null }[],
   minDate: Date,
   zoom: ZoomLevel,
   rowHeight: number = ROW_HEIGHT_PX,
 ): LightningPoint[] | null {
-  const { dayWidth } = ZOOM_CONFIG[zoom];
   const nowX = Math.round(calcNowX(minDate, zoom));
   const pts: LightningPoint[] = [];
 
@@ -109,26 +137,13 @@ export function calcLightningPoints(
     // 親タスクが展開中 → 子が各自描画するのでスキップ
     if (hasChildren && !isCollapsed) return;
 
-    const centerY = i * rowHeight + rowHeight / 2;
-
     // 親タスクは表示スパン（parentSpanMap 由来）を優先。葉は生値にフォールバック
     const startDate = effectiveStart ?? task.startDate;
     const endDate   = effectiveEnd   ?? task.endDate;
 
-    if (startDate && endDate && !task.isMilestone) {
-      if (task.status === 'pending') return; // pending はイナズマラインをスキップ
-      let pointX: number;
-      if (task.status === 'wip') {
-        const startX = dateToX(startDate, minDate, zoom);
-        const endX   = dateToX(endDate,   minDate, zoom) + dayWidth;
-        pointX = Math.round(startX + (endX - startX) * effectiveProgress / 100);
-      } else {
-        // todo / done / wait → 現在時刻を頂点とする（時・分を含む）
-        pointX = nowX;
-      }
-      pts.push({ x: pointX, y: centerY });
-    }
-    // 日付なし行はスキップ（斜線が飛ぶだけで見た目が自然）
+    const x = calcVertexX(task, startDate, endDate, effectiveProgress, minDate, zoom, nowX);
+    if (x === null) return; // 日付なし行はスキップ（斜線が飛ぶだけで見た目が自然）
+    pts.push({ x, y: i * rowHeight + rowHeight / 2 });
   });
 
   return pts.length > 0 ? pts : null;

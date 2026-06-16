@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -166,9 +166,20 @@ describe('calcLightningPoints', () => {
     expect(pts[0].x).toBe(expectedX);
   });
 
-  it('todo タスクは進捗率に関係なく nowX を返す', () => {
-    const todayX = Math.round(calcNowX(minDate, zoom));
+  it('todo タスクは開始日が今日より前なら開始X（左＝遅れ）を返す', () => {
+    // makeRow の startDate=2026-05-01 は today(2026-05-21)より前
+    const startX = Math.round(dateToX('2026-05-01', minDate, zoom));
     const rows = [makeRow('todo', 0)];
+    const pts = calcLightningPoints(rows, minDate, zoom)!;
+    expect(pts[0].x).toBe(startX);
+  });
+
+  it('todo タスクは開始日が今日以降なら nowX を返す', () => {
+    const todayX = Math.round(calcNowX(minDate, zoom));
+    const rows = [{
+      task: makeTask({ status: 'todo', progress: 0, startDate: '2026-05-25', endDate: '2026-05-30' }),
+      effectiveProgress: 0,
+    }];
     const pts = calcLightningPoints(rows, minDate, zoom)!;
     expect(pts[0].x).toBe(todayX);
   });
@@ -253,6 +264,41 @@ describe('calcLightningPoints', () => {
     const pts = calcLightningPoints([noDbDatesParent], minDate, zoom);
     expect(pts).not.toBeNull();
     expect(pts!).toHaveLength(1);
+  });
+});
+
+describe('calcVertexX', () => {
+  const minDate = new Date('2026-05-01T00:00:00.000Z');
+  const zoom = 'day';
+  const dayWidth = ZOOM_CONFIG['day'].dayWidth;
+  const nowX = Math.round(calcNowX(minDate, zoom)); // today=2026-05-21（fake timer）
+
+  it('wip は進捗到達点を返す', () => {
+    const t = makeTask({ status: 'wip', progress: 50 });
+    const expected = Math.round((10 * dayWidth + dayWidth) * 0.5);
+    expect(calcVertexX(t, '2026-05-01', '2026-05-11', 50, minDate, zoom, nowX)).toBe(expected);
+  });
+
+  it('todo（開始日が過去）は開始Xを返す', () => {
+    const t = makeTask({ status: 'todo', progress: 0 });
+    expect(calcVertexX(t, '2026-05-01', '2026-05-11', 0, minDate, zoom, nowX))
+      .toBe(Math.round(dateToX('2026-05-01', minDate, zoom)));
+  });
+
+  it('todo（開始日が未来）は nowX を返す', () => {
+    const t = makeTask({ status: 'todo', progress: 0 });
+    expect(calcVertexX(t, '2026-05-25', '2026-05-30', 0, minDate, zoom, nowX)).toBe(nowX);
+  });
+
+  it('done / wait は nowX を返す', () => {
+    expect(calcVertexX(makeTask({ status: 'done' }), '2026-05-01', '2026-05-11', 100, minDate, zoom, nowX)).toBe(nowX);
+    expect(calcVertexX(makeTask({ status: 'wait' }), '2026-05-01', '2026-05-11', 30, minDate, zoom, nowX)).toBe(nowX);
+  });
+
+  it('pending / マイルストーン / 日付なし は null', () => {
+    expect(calcVertexX(makeTask({ status: 'pending' }), '2026-05-01', '2026-05-11', 0, minDate, zoom, nowX)).toBeNull();
+    expect(calcVertexX(makeTask({ status: 'wip', isMilestone: true }), '2026-05-01', '2026-05-11', 50, minDate, zoom, nowX)).toBeNull();
+    expect(calcVertexX(makeTask({ status: 'wip' }), null, null, 50, minDate, zoom, nowX)).toBeNull();
   });
 });
 
