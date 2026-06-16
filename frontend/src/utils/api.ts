@@ -4,8 +4,13 @@ const API_BASE = import.meta.env.VITE_API_URL ?? `http://${window.location.hostn
 
 export async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}/api/v1${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: {
+      // ボディがある時だけ付与する。空ボディ（DELETE 等）に application/json を
+      // 付けると Fastify が FST_ERR_CTP_EMPTY_JSON_BODY(400) を返すため。
+      ...(init?.body != null ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers as Record<string, string> | undefined),
+    },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
