@@ -218,6 +218,7 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 ### 5.1 共通仕様
 - ベース URL：`/api/v1`（`/health` のみ prefix 外）。
 - リクエスト/レスポンス：JSON。バリデーションは Fastify JSON スキーマ。
+- リクエストの `Content-Type: application/json` は**ボディがある時のみ**付与する。空ボディに付けると Fastify が `FST_ERR_CTP_EMPTY_JSON_BODY`（400）を返すため（ボディを持たない DELETE 等が該当）。クライアント `apiFetch` は `init.body` の有無で自動制御する。
 - 圧縮：`@fastify/compress`（`global:true, threshold:1024, encodings:[br,gzip]`）。1KB 未満は非圧縮。
 - CORS：`CORS_ORIGIN`（既定 `*`）。**許可メソッドを明示**（`GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS`）。@fastify/cors の既定は `GET,HEAD,POST` のみで PATCH/PUT/DELETE が含まれず、クロスオリジン（フロント:3000/3001 → API:4000）の PATCH/DELETE がプリフライトで弾かれるため。設定は `plugins/cors.ts` の `corsOptions` に集約。
 - 認証：`auth` プラグインが全リクエストに `req.user`（現状 `{id:'guest'}`）を付与。
