@@ -11,7 +11,6 @@ import {
   calcCriticalPath,
   calcDuration,
   calcTodayX,
-  calcNowX,
   ganttTotalWidth,
   dateToX,
   PERIOD_DAYS,
@@ -400,7 +399,8 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
   });
 
   it('ズームレベルが小さいほど X 座標が小さい（同じ進捗）', () => {
-    const rows = [makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 50 }))];
+    // wip の進捗位置はズーム幅に比例する（todo は開始位置基準になり minDate と同じだと 0 固定になるため wip で検証）
+    const rows = [makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', progress: 50, status: 'wip' }))];
     const ptsDay   = calcLightningPoints(rows, minDate, 'day')!;
     const ptsWeek  = calcLightningPoints(rows, minDate, 'week')!;
     const ptsMonth = calcLightningPoints(rows, minDate, 'month')!;
@@ -422,11 +422,12 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
     expect(pts[0].y).toBe(1 * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2); // 2行目（index 1）
   });
 
-  it('todo タスクは進捗率に関係なく nowX を返す', () => {
-    const nowX = Math.round(calcNowX(minDate, 'day'));
+  it('todo タスクは開始日が今日より前なら開始X（左＝遅れ）を返す', () => {
+    // minDate=2026-01-01 / startDate=2026-01-10 は今日(2026年6月想定)より過去 → 開始Xに頂点
+    const startX = Math.round(dateToX('2026-01-10', minDate, 'day'));
     const rows = [makeRow(makeTask({ startDate: '2026-01-10', endDate: '2026-01-20', progress: 0, status: 'todo' }))];
     const pts = calcLightningPoints(rows, minDate, 'day')!;
-    expect(pts[0].x).toBe(nowX);
+    expect(pts[0].x).toBe(startX);
   });
 
   it('親タスク展開中（hasChildren=true, isCollapsed=false）はスキップされる', () => {
@@ -438,11 +439,12 @@ describe('§4.8 イナズマライン (calcLightningPoints)', () => {
   });
 
   it('親タスク折りたたみ中（hasChildren=true, isCollapsed=true）は自身のステータスで参加する', () => {
-    const nowX = Math.round(calcNowX(minDate, 'day'));
-    const parent = { ...makeRow(makeTask({ startDate: '2026-01-01', endDate: '2026-01-10', status: 'todo', progress: 0 })), hasChildren: true, isCollapsed: true };
+    // 折りたたみ親（todo・開始日が過去）→ 開始X（左＝遅れ）に頂点を打つ
+    const startX = Math.round(dateToX('2026-01-05', minDate, 'day'));
+    const parent = { ...makeRow(makeTask({ startDate: '2026-01-05', endDate: '2026-01-10', status: 'todo', progress: 0 })), hasChildren: true, isCollapsed: true };
     const pts = calcLightningPoints([parent], minDate, 'day')!;
     expect(pts).toHaveLength(1);
-    expect(pts[0].x).toBe(nowX); // todo → nowX
+    expect(pts[0].x).toBe(startX);
   });
 });
 

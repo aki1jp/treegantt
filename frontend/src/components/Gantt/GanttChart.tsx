@@ -1230,6 +1230,7 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
                   dragPreview={preview}
                   rowHeight={uiRowHeight}
                   isParent={isParent}
+                  isCollapsed={collapsed.has(task.id)}
                   effectiveProgress={isParent ? progressMap.get(task.id) : undefined}
                   displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
                   displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}

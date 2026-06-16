@@ -90,6 +90,13 @@ describe('importFromCsv', () => {
     expect(tasks[0].startDate).toBe('2026-05-01');
     expect(tasks[0].endDate).toBe('2026-05-10');
   });
+
+  it('スラッシュ区切りの日付を ISO（YYYY-MM-DD）へ正規化する', () => {
+    const csv = 'title,startDate,endDate\nスラッシュ,2026/01/10,2026/01/20';
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].startDate).toBe('2026-01-10');
+    expect(tasks[0].endDate).toBe('2026-01-20');
+  });
 });
 
 describe('exportToJson / importFromJson', () => {
@@ -101,6 +108,17 @@ describe('exportToJson / importFromJson', () => {
     expect(result.tasks).toHaveLength(2);
     expect(result.tasks[0].title).toBe('テストタスク');
     expect(result.project.name).toBe('テストプロジェクト');
+  });
+
+  it('スラッシュ区切りの日付を ISO へ正規化する', () => {
+    const json = JSON.stringify({
+      version: '1.0',
+      project: { id: 'p1', name: 'P' },
+      tasks: [{ ...makeTask(), startDate: '2026/01/10', endDate: '2026/01/20' }],
+    });
+    const result = importFromJson(json);
+    expect(result.tasks[0].startDate).toBe('2026-01-10');
+    expect(result.tasks[0].endDate).toBe('2026-01-20');
   });
 });
 

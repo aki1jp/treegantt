@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import type { Task, Project } from '../types/task';
+import { normalizeDateStr } from './ganttCalc';
 
 export interface ExportData {
   version: string;
@@ -21,7 +22,13 @@ export function exportToJson(project: Pick<Project, 'id' | 'name'>, tasks: Task[
 export function importFromJson(jsonStr: string): { tasks: Task[]; project: Pick<Project, 'id' | 'name'> } {
   const data = JSON.parse(jsonStr) as ExportData;
   if (!Array.isArray(data.tasks)) throw new Error('Invalid format: tasks array missing');
-  return { tasks: data.tasks, project: data.project };
+  // 日付は ISO に正規化（スラッシュ区切り等の非 ISO 形式が比較で誤判定されるのを防ぐ）
+  const tasks = data.tasks.map(t => ({
+    ...t,
+    startDate: t.startDate ? normalizeDateStr(t.startDate) : t.startDate,
+    endDate:   t.endDate   ? normalizeDateStr(t.endDate)   : t.endDate,
+  }));
+  return { tasks, project: data.project };
 }
 
 export function exportToCsv(tasks: Task[]): string {
@@ -56,8 +63,8 @@ export function importFromCsv(csvStr: string): { tasks: Partial<Task>[] } {
     priority:     (row.priority as Task['priority']) || 'medium',
     progress:     Number(row.progress) || 0,
     assignee:     row.assignee ?? '',
-    startDate:    row.startDate || null,
-    endDate:      row.endDate || null,
+    startDate:    row.startDate ? normalizeDateStr(row.startDate) : null,
+    endDate:      row.endDate ? normalizeDateStr(row.endDate) : null,
     isMilestone:  row.isMilestone === '1',
     predecessors: row.predecessors ? row.predecessors.split(';').filter(Boolean) : [],
   }));
