@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import type { FastifyInstance, FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import { corsOptions } from './plugins/cors.js';
+import { registerJsonBodyParser } from './plugins/jsonParser.js';
 import { registerCompression } from './plugins/compression.js';
 import { authPlugin } from './plugins/auth.js';
 import { healthRoutes } from './routes/health.js';
@@ -20,6 +21,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   const app = Fastify({ logger: opts.logger ?? false });
 
   await app.register(cors, corsOptions);
+  registerJsonBodyParser(app);
   await registerCompression(app);
   await app.register(authPlugin);
 

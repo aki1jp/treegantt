@@ -139,7 +139,11 @@ export default function App() {
     // 子を持たないタスクは従来通りの確認ダイアログ
     if (!tasks.some(t => t.parentId === id)) {
       if (!confirm('このタスクを削除しますか？')) return;
-      await deleteTask(id);
+      try {
+        await deleteTask(id);
+      } catch (err) {
+        alert('削除に失敗しました: ' + (err as Error).message);
+      }
       return;
     }
     setDeleteTarget(task);

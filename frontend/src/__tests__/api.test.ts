@@ -36,6 +36,31 @@ describe('apiFetch', () => {
     expect(result).toBeNull();
   });
 
+  it('ボディなし（DELETE 等）では Content-Type を送らない', async () => {
+    // 空ボディに application/json を付けると Fastify が
+    // FST_ERR_CTP_EMPTY_JSON_BODY(400) を返すため、ボディが無い時は付与しない。
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 204, json: async () => null,
+    } as Response);
+
+    await apiFetch('/tasks/1', { method: 'DELETE' });
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    const headers = (init.headers ?? {}) as Record<string, string>;
+    expect('Content-Type' in headers).toBe(false);
+    expect('content-type' in headers).toBe(false);
+  });
+
+  it('ボディありでは Content-Type: application/json を送る', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200, json: async () => ({}),
+    } as Response);
+
+    await apiFetch('/tasks/1', { method: 'PATCH', body: JSON.stringify({ progress: 50 }) });
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    const headers = (init.headers ?? {}) as Record<string, string>;
+    expect(headers['Content-Type']).toBe('application/json');
+  });
+
   it('エラーレスポンスは error フィールドのメッセージで throw する', async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,

@@ -17,6 +17,7 @@ vi.mock('../ws/wsRoom.js', () => ({
   wss: { on: vi.fn() },
 }));
 
+const { registerJsonBodyParser } = await import('../plugins/jsonParser.js');
 const { healthRoutes }     = await import('../routes/health.js');
 const { projectRoutes }    = await import('../routes/projects.js');
 const { taskRoutes }       = await import('../routes/tasks.js');
@@ -26,6 +27,7 @@ const { authPlugin }       = await import('../plugins/auth.js');
 async function buildApp() {
   const app = Fastify();
   await app.register(cors);
+  registerJsonBodyParser(app);
   await app.register(authPlugin);
   await app.register(healthRoutes);
   await app.register(projectRoutes, { prefix: '/api/v1' });
@@ -110,6 +112,21 @@ describe('Projects API', () => {
   it('DELETE /api/v1/projects/:id returns 404 for unknown id', async () => {
     const res = await app.inject({ method: 'DELETE', url: '/api/v1/projects/no-such-id' });
     expect(res.statusCode).toBe(404);
+  });
+
+  // ブラウザの fetch は content-type を付けつつボディ空で DELETE する。
+  // 空ボディ+application/json を Fastify が FST_ERR_CTP_EMPTY_JSON_BODY(400) で
+  // 弾く回帰を防ぐ（通常の inject は content-type を付けないため検出できなかった）。
+  it('DELETE /api/v1/projects/:id は content-type:application/json（ボディ空）でも 204', async () => {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/v1/projects', payload: { name: 'CT Delete' },
+    });
+    const { project } = createRes.json();
+    const res = await app.inject({
+      method: 'DELETE', url: `/api/v1/projects/${project.id}`,
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(res.statusCode).toBe(204);
   });
 
   it('PATCH /api/v1/projects/:id renames a project', async () => {
@@ -357,6 +374,18 @@ describe('Tasks API', () => {
 
     const getRes = await app.inject({ method: 'GET', url: `/api/v1/tasks/${task.id}` });
     expect(getRes.statusCode).toBe(404);
+  });
+
+  // ブラウザの fetch 実挙動（content-type 付き・ボディ空）でも 204 になること。
+  // 空ボディ+application/json の FST_ERR_CTP_EMPTY_JSON_BODY(400) 回帰を防ぐ。
+  it('DELETE /api/v1/tasks/:id は content-type:application/json（ボディ空）でも 204', async () => {
+    const task = await createTask();
+    const res = await app.inject({
+      method: 'DELETE', url: `/api/v1/tasks/${task.id}`,
+      headers: { 'content-type': 'application/json' },
+    });
+    expect(res.statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: `/api/v1/tasks/${task.id}` })).statusCode).toBe(404);
   });
 
   it('DELETE /api/v1/tasks/:id はデフォルトで子孫ごと削除する', async () => {
