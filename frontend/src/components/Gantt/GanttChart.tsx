@@ -169,10 +169,11 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
+  // マイルストーン行・本体の菱形は常に表示する。`showMilestones`（「マイル」トグル）は
+  // ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯＝milestoneItems）のみ制御する。
   const sorted = useMemo(
-    () => filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch)
-      .filter(t => showMilestones || !t.isMilestone),
-    [tasks, filterStatus, filterAssignee, filterPriority, filterSearch, showMilestones],
+    () => filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch),
+    [tasks, filterStatus, filterAssignee, filterPriority, filterSearch],
   );
   // tasks が変わっても内容が同じなら前回の配列参照を維持する
   // （全行に渡る props のため、参照が変わると React.memo が全行で無効化される）
@@ -287,13 +288,14 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     return xs;
   }, [showWeekend, min, max, dayWidth]);
 
-  // マイルストーン列強調（常時表示）
-  const milestoneItems = useMemo(() => assignMilestoneLanes(
+  // ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯）。
+  // 「マイル」トグル（showMilestones）が OFF のときは空にして一式を非表示にする。
+  const milestoneItems = useMemo(() => !showMilestones ? [] : assignMilestoneLanes(
     sorted
       .filter(t => t.isMilestone && !!t.startDate)
       .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title })),
     11,
-  ), [sorted, min, zoomLevel]);
+  ), [sorted, min, zoomLevel, showMilestones]);
   const milestoneXSet = useMemo(() => new Set(milestoneItems.map(m => m.x)), [milestoneItems]);
   const milestoneLaneH = 20;
   const milestoneLaneCount = milestoneItems.length > 0

@@ -327,13 +327,13 @@ describe('Toolbar マイルトグルボタン位置（v2.54）', () => {
   it('マイルボタンと日ボタンが同じ親コンテナに存在する', () => {
     renderToolbar();
     const dayBtn = screen.getByTitle('日ヘッダーを表示');
-    const mileBtn = screen.getByTitle('マイルストーン行を表示');
+    const mileBtn = screen.getByTitle('マイルストーンをヘッダーに表示');
     expect(dayBtn.parentElement).toBe(mileBtn.parentElement);
   });
 
   it('マイルボタンはカラーピッカーより前の位置にある', () => {
     renderToolbar();
-    const mileBtn = screen.getByTitle('マイルストーン行を表示');
+    const mileBtn = screen.getByTitle('マイルストーンをヘッダーに表示');
     const colorPicker = document.querySelector('input[type="color"]') as HTMLInputElement;
     expect(colorPicker).toBeTruthy();
     const parent = mileBtn.parentElement!;
@@ -347,7 +347,7 @@ describe('Toolbar マイルトグルボタン位置（v2.54）', () => {
   it('マイルボタンは日ボタンの後の位置にある', () => {
     renderToolbar();
     const dayBtn = screen.getByTitle('日ヘッダーを表示');
-    const mileBtn = screen.getByTitle('マイルストーン行を表示');
+    const mileBtn = screen.getByTitle('マイルストーンをヘッダーに表示');
     const parent = dayBtn.parentElement!;
     const children = Array.from(parent.children);
     const dayIdx = children.indexOf(dayBtn);
@@ -358,7 +358,7 @@ describe('Toolbar マイルトグルボタン位置（v2.54）', () => {
   it('マイルボタンをクリックすると showMilestones が切り替わる', () => {
     renderToolbar();
     const before = useTaskStore.getState().showMilestones;
-    fireEvent.click(screen.getByTitle('マイルストーン行を表示'));
+    fireEvent.click(screen.getByTitle('マイルストーンをヘッダーに表示'));
     expect(useTaskStore.getState().showMilestones).toBe(!before);
   });
 });

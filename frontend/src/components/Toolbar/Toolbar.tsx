@@ -358,7 +358,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             <ToggleBtn
               active={showMilestones}
               label="マイル"
-              title="マイルストーン行を表示"
+              title="マイルストーンをヘッダーに表示"
               onClick={() => setShowMilestones(!showMilestones)}
             />
             <input

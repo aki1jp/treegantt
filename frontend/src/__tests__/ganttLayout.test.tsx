@@ -33,6 +33,7 @@ beforeEach(() => {
     showWeekend: true,
     showCriticalPath: false,
     showResourceView: true,
+    showMilestones: true,
     uiFontSize: 13,
     uiRowHeight: 36,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
@@ -868,6 +869,26 @@ describe('マイルストーン強調 UI', () => {
       c.style.background.includes('#8b5cf6') || c.style.background.includes('139, 92, 246')
     );
     expect(hasHighlight).toBe(true);
+  });
+
+  it('showMilestones=false: ヘッダーのマイルストーン表示は消えるが WBS/本体のマイルストーンは残る', () => {
+    useTaskStore.setState({
+      tasks: [MILESTONE_TASK],
+      ganttStartDate: '2026-06-01',
+      ganttPeriod: '3m',
+      showResourceView: false,
+      showMilestones: false,
+      zoomLevel: 'day',
+      ganttHeaderLevels: { year: false, month: false, week: false, day: true },
+    });
+    const { getByTestId, container } = render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+    // ヘッダーの ◆ マーカー行は出ない
+    expect(getByTestId('gantt-header').querySelector('[data-milestone-marker]')).toBeNull();
+    // 本体のマイルストーン菱形バー（タスクそのもの）は残る
+    expect(container.querySelector('[data-task-id="ms1"]')).toBeTruthy();
   });
 
   it('マイルストーンが土曜日と重なる場合はマイルストーン色が土曜色より優先される', () => {
