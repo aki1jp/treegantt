@@ -4,11 +4,12 @@ import { renderHook, act } from '@testing-library/react';
 import { useProjects } from '../hooks/useProjects';
 
 function makeProject(id: string, name: string) {
-  return { id, name, createdAt: '2026-01-01' };
+  return { id, name, color: null, createdAt: '2026-01-01' };
 }
 
 beforeEach(() => {
   localStorage.clear();
+  window.history.pushState({}, '', '/'); // URL をトップにリセット
   vi.stubGlobal('fetch', vi.fn());
 });
 afterEach(() => {
@@ -189,5 +190,61 @@ describe('useProjects — localStorage 永続化', () => {
     await act(async () => {});
     await act(async () => { await result.current.createProject('Created'); });
     expect(localStorage.getItem(LS_KEY)).toBe('p2');
+  });
+});
+
+describe('useProjects — URL（アドレス）連携', () => {
+  function mockLoad(projects: ReturnType<typeof makeProject>[]) {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ projects }),
+    } as Response);
+  }
+
+  it('/p/<名前> で開くと localStorage より優先してそのプロジェクトを選択する', async () => {
+    localStorage.setItem('treegantt-current-project', 'p1');
+    window.history.pushState({}, '', '/p/Beta');
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.currentProject?.id).toBe('p2');
+  });
+
+  it('/p/<ID> でも開ける', async () => {
+    window.history.pushState({}, '', '/p/p2');
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.currentProject?.id).toBe('p2');
+  });
+
+  it('setCurrentProject でアドレスが正準パスになる（ユニーク名→/p/<名前>）', async () => {
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    act(() => { result.current.setCurrentProject(makeProject('p2', 'Beta')); });
+    expect(window.location.pathname).toBe('/p/Beta');
+  });
+
+  it('setCurrentProject で同名が複数あるプロジェクトはアドレスが /p/<id> になる', async () => {
+    mockLoad([makeProject('p1', 'Same'), makeProject('p2', 'Same')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    act(() => { result.current.setCurrentProject(makeProject('p2', 'Same')); });
+    expect(window.location.pathname).toBe('/p/p2');
+  });
+
+  it('URL の key が無効なら先頭にフォールバックし、URL を / に戻す', async () => {
+    window.history.pushState({}, '', '/p/does-not-exist');
+    mockLoad([makeProject('p1', 'Alpha'), makeProject('p2', 'Beta')]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.currentProject?.id).toBe('p1');
+    expect(window.location.pathname).toBe('/');
   });
 });
