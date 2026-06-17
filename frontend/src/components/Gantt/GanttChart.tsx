@@ -48,6 +48,10 @@ const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
 // ── ドラッグ状態 ────────────────────────────────────
+// 作成ドラッグの開始閾値（px）。mousedown 位置からこの距離以上動いて初めて
+// 作成対象になる。クリックの手ぶれによる日付の誤作成を防ぐ（§9.4）。
+export const CREATE_DRAG_THRESHOLD_PX = 4;
+
 type DragType = 'move' | 'resize-left' | 'resize-right' | 'create';
 interface DragState {
   taskId: string;
@@ -353,6 +357,8 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const dragStateRef  = useRef<DragState | null>(null);
+  // 作成ドラッグが開始閾値（CREATE_DRAG_THRESHOLD_PX）を超えたか。超えるまでプレビューを作らない。
+  const createArmedRef = useRef(false);
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [titleHeaderCtxMenu, setTitleHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null);
@@ -724,6 +730,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
       newStart = addDays(dragState.origStart, delta);
       if (newStart > newEnd) newStart = newEnd;
     } else if (dragState.type === 'create') {
+      // 開始閾値を超えるまではプレビューを作らない（クリックの手ぶれによる誤作成防止）。
+      // 一度超えたら以降は閾値内に戻っても追従する（スティッキー）。
+      if (!createArmedRef.current && Math.abs(e.clientX - dragState.startClientX) < CREATE_DRAG_THRESHOLD_PX) return;
+      createArmedRef.current = true;
       const cursorRelX = Math.max(0, (dragState.anchorRelX ?? 0) + (e.clientX - dragState.startClientX));
       const currentDate = xToDateStr(cursorRelX, min, dayWidth);
       newStart = currentDate <= dragState.origStart ? currentDate : dragState.origStart;
@@ -748,6 +758,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         onInlineUpdate(preview.taskId, patch);
       }
     }
+    createArmedRef.current = false;
     setDragState(null);
     setDragPreview(null);
   }, [dragState, taskById, onInlineUpdate]);
@@ -767,6 +778,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
       if (e.key === 'Escape') {
         if (dragStateRef.current) {
           dragStateRef.current = null;
+          createArmedRef.current = false;
           setDragState(null);
           setDragPreview(null);
         }
@@ -880,6 +892,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     if (!panelRect) return;
     const relX = e.clientX - panelRect.left + scrollLeft;
     const anchorDate = xToDateStr(relX, min, dayWidth);
+    createArmedRef.current = false; // 閾値判定をリセット
     setDragState({ taskId, type: 'create', startClientX: e.clientX, anchorRelX: relX, origStart: anchorDate, origEnd: anchorDate });
   }
 
