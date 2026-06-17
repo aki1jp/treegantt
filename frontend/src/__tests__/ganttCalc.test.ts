@@ -325,6 +325,22 @@ describe('calcVertexX', () => {
     expect(calcVertexX(makeTask({ status: 'wip', isMilestone: true }), '2026-05-01', '2026-05-11', 50, minDate, zoom, nowX)).toBeNull();
     expect(calcVertexX(makeTask({ status: 'wip' }), null, null, 50, minDate, zoom, nowX)).toBeNull();
   });
+
+  it('親（isParent）は status=todo・開始日過去でも進捗到達点を返す', () => {
+    const t = makeTask({ status: 'todo', progress: 40 });
+    const expected = Math.round((10 * dayWidth + dayWidth) * 0.4);
+    // isParent=true → status 分岐より優先して進捗％位置（開始Xではない）
+    expect(calcVertexX(t, '2026-05-01', '2026-05-11', 40, minDate, zoom, nowX, true)).toBe(expected);
+    // 回帰: 葉（isParent=false）は従来どおり開始X
+    expect(calcVertexX(t, '2026-05-01', '2026-05-11', 40, minDate, zoom, nowX, false))
+      .toBe(Math.round(dateToX('2026-05-01', minDate, zoom)));
+  });
+
+  it('親（isParent）でも pending / マイルストーン / 日付なし は null', () => {
+    expect(calcVertexX(makeTask({ status: 'pending' }), '2026-05-01', '2026-05-11', 40, minDate, zoom, nowX, true)).toBeNull();
+    expect(calcVertexX(makeTask({ status: 'todo', isMilestone: true }), '2026-05-01', '2026-05-11', 40, minDate, zoom, nowX, true)).toBeNull();
+    expect(calcVertexX(makeTask({ status: 'todo' }), null, null, 40, minDate, zoom, nowX, true)).toBeNull();
+  });
 });
 
 describe('calcDuration', () => {

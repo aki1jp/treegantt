@@ -108,6 +108,7 @@ export interface LightningPoint { x: number; y: number; }
 /**
  * イナズマ線頂点（＝「今日時点であるべき進捗位置」）の X を返す。バーの遅延赤帯と共有する。
  * 描画対象外（pending / マイルストーン / 日付なし）は null。
+ * - 親（isParent）: status に依らず進捗到達点（親はステータスを集計しないため進捗％を使う）
  * - wip:  進捗到達点 startX +(endX-startX)*progress/100
  * - todo: 開始日が今日より前なら startX（左＝遅れを表す）、それ以外は nowX
  * - done/wait: nowX（時・分含む現在時刻）
@@ -120,10 +121,12 @@ export function calcVertexX(
   minDate: Date,
   zoom: ZoomLevel,
   nowX: number,
+  isParent = false,
 ): number | null {
   if (task.isMilestone || !startDate || !endDate || task.status === 'pending') return null;
   const { dayWidth } = ZOOM_CONFIG[zoom];
-  if (task.status === 'wip') {
+  // 親は status 分岐より優先して進捗割合 X（wip と同式）。葉は従来どおり status 分岐。
+  if (isParent || task.status === 'wip') {
     const startX = dateToX(startDate, minDate, zoom);
     const endX   = dateToX(endDate,   minDate, zoom) + dayWidth;
     return Math.round(startX + (endX - startX) * progress / 100);
@@ -151,7 +154,7 @@ export function calcLightningPoints(
     const startDate = effectiveStart ?? task.startDate;
     const endDate   = effectiveEnd   ?? task.endDate;
 
-    const x = calcVertexX(task, startDate, endDate, effectiveProgress, minDate, zoom, nowX);
+    const x = calcVertexX(task, startDate, endDate, effectiveProgress, minDate, zoom, nowX, hasChildren);
     if (x === null) return; // 日付なし行はスキップ（斜線が飛ぶだけで見た目が自然）
     pts.push({ x, y: i * rowHeight + rowHeight / 2 });
   });

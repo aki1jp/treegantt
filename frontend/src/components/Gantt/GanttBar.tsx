@@ -106,7 +106,7 @@ export const GanttBar = memo(function GanttBar({
   // 進捗遅延の赤帯: イナズマ線頂点（あるべき進捗位置）が今(nowX)より左＝遅れのとき、
   // [頂点X, min(nowX, 終了X)] を赤帯で示す（今がバー終端を越える分はバー内にクランプ）。
   const nowX = Math.round(calcNowX(minDate, zoom)); // 頂点も丸めるので比較は丸めた今で揃える
-  const vertexX = calcVertexX(task, effectiveStart, effectiveEnd, effectiveProgress ?? task.progress, minDate, zoom, nowX);
+  const vertexX = calcVertexX(task, effectiveStart, effectiveEnd, effectiveProgress ?? task.progress, minDate, zoom, nowX, isParent);
   const delayBand = (vertexX !== null && vertexX < nowX)
     ? { x: vertexX, width: Math.min(nowX, endX) - vertexX }
     : null;
