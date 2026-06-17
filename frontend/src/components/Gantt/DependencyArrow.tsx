@@ -48,7 +48,10 @@ export function DependencyArrow({ fromTask, toTask, minDate, zoom, taskIndex, ro
 
   const x1 = dateToX(endDate, minDate, zoom) + dayWidth;
   const y1 = fromRow * rowHeight + rowHeight / 2;
-  const x2 = dateToX(startDate, minDate, zoom);
+  // 終点がマイルストーンのときは菱形の左頂点（cx - r、GanttBar と同式）へ接続する
+  const x2 = toTask.isMilestone
+    ? dateToX(startDate, minDate, zoom) + dayWidth / 2 - (rowHeight - 14) / 2
+    : dateToX(startDate, minDate, zoom);
   const y2 = toRow * rowHeight + rowHeight / 2;
 
   const d = buildPath(x1, y1, x2, y2, style);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
-import { getUniqueAssignees } from '../../utils/ganttCalc';
+import { getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
 
 interface Props {
   task: Task | null;
@@ -43,7 +43,17 @@ export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
     );
   }, [task]);
 
-  const candidates = allTasks.filter(t => t.id !== task?.id);
+  // 先行候補：非マイルストーンのみ（マイルストーンは後続=終点専用）。
+  // 既存マイルストーン編集時は循環・祖先子孫も除外する（TaskModal と同等のガード）。
+  const taskById = new Map(allTasks.map(t => [t.id, t]));
+  const candidates = allTasks.filter(t =>
+    t.id !== task?.id &&
+    !t.isMilestone &&
+    (!task || (
+      !isAncestorOrDescendant(t.id, task.id, taskById) &&
+      !wouldCreateDepCycle(t.id, task.id, taskById)
+    ))
+  );
 
   function togglePredecessor(id: string) {
     setPredecessors(prev => {

@@ -87,6 +87,18 @@ function getLinkTargetDot(container: HTMLElement): SVGCircleElement | null {
   return container.querySelector<SVGCircleElement>('circle[data-link-target-dot]');
 }
 
+// 可視の依存矢印パス (marker-end 付き path)
+function visibleArrowPath(container: HTMLElement): SVGPathElement | null {
+  return container.querySelector<SVGPathElement>('path[marker-end]');
+}
+
+// 矢印パス d 属性の終点 X 座標を取り出す（最後のトークン "x,y" の x）
+function lastX(path: SVGPathElement): number {
+  const d = path.getAttribute('d')!;
+  const lastToken = d.trim().split(/\s+/).pop()!;
+  return parseFloat(lastToken.split(',')[0]);
+}
+
 describe('ガントチャート — 先行・後続タスク設定', () => {
 
   describe('コネクタドット', () => {
@@ -293,6 +305,61 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
       fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (tB) — 既接続
       expect(getLinkTargetDot(container)).toBeNull();
+    });
+  });
+
+  describe('マイルストーンを後続（終点）にできる（v0.2.90）', () => {
+    it('通常バーからマイルストーン行へドロップすると predecessors が更新される', () => {
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const ms = makeTask({ id: 'tM', isMilestone: true, startDate: '2026-06-20', endDate: '2026-06-20' });
+      const { container } = renderChart([taskA, ms]);
+
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
+      expect(dot).toBeTruthy();
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 }); // row 0 (tA)
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 });          // row 1 (milestone)
+      fireEvent.mouseUp(window);
+
+      expect(onInlineUpdate).toHaveBeenCalledWith('tM', { predecessors: ['tA'] });
+    });
+
+    it('マイルストーン行へドラッグするとターゲットドットが表示される', () => {
+      const taskA = makeTask({ id: 'tA', startDate: '2026-06-10', endDate: '2026-06-15' });
+      const ms = makeTask({ id: 'tM', isMilestone: true, startDate: '2026-06-20', endDate: '2026-06-20' });
+      const { container } = renderChart([taskA, ms]);
+
+      hoverRow(container, 0);
+      const dot = getConnectorDot(container)!;
+      fireEvent.mouseDown(dot, { button: 0, clientX: 200, clientY: 18 });
+      fireEvent.mouseMove(window, { clientX: 200, clientY: 50 }); // row 1 (milestone)
+      expect(getLinkTargetDot(container)).toBeTruthy();
+    });
+
+    it('マイルストーン自身はコネクタドットを出さない（先行＝始点にはなれない）', () => {
+      const ms = makeTask({ id: 'tM', isMilestone: true });
+      const { container } = renderChart([ms]);
+      hoverRow(container, 0);
+      expect(getConnectorDot(container)).toBeNull();
+    });
+
+    it('終点がマイルストーンの矢印は終点 X が菱形左頂点（通常終点より dayWidth/2 - r だけずれる）', () => {
+      useTaskStore.setState({ zoomLevel: 'day', uiRowHeight: 36 });
+      // 同じ開始日の通常タスク終点とマイルストーン終点で終点 X の差を比較
+      const src = makeTask({ id: 'tS', startDate: '2026-06-10', endDate: '2026-06-12' });
+      const normalTo = makeTask({ id: 'tN', startDate: '2026-06-20', endDate: '2026-06-22', predecessors: ['tS'] });
+      const { container, unmount } = renderChart([src, normalTo]);
+      const normalX2 = lastX(visibleArrowPath(container)!);
+      unmount();
+
+      const src2 = makeTask({ id: 'tS2', startDate: '2026-06-10', endDate: '2026-06-12' });
+      const msTo = makeTask({ id: 'tM2', isMilestone: true, startDate: '2026-06-20', endDate: '2026-06-20', predecessors: ['tS2'] });
+      const { container: c2 } = renderChart([src2, msTo]);
+      const msX2 = lastX(visibleArrowPath(c2)!);
+
+      const dayWidth = 28;            // ZOOM_CONFIG.day
+      const r = (36 - 14) / 2;        // GanttBar の菱形半径
+      expect(msX2 - normalX2).toBeCloseTo(dayWidth / 2 - r, 3);
     });
   });
 

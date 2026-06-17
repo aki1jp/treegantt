@@ -815,8 +815,8 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
       const tgtStart = (childCountRef.current.get(tgt.id) ?? 0) > 0
         ? (parentSpanMapRef.current.get(tgt.id)?.startDate ?? tgt.startDate)
         : tgt.startDate;
+      // マイルストーンは後続（終点）にのみ接続可。先行（始点＝コネクタドット）にはなれない（§9.4）
       if (
-        !tgt.isMilestone &&
         tgtStart &&
         !tgt.predecessors.includes(fromId) &&
         !isAncestorOrDescendant(fromId, tgt.id, tbr) &&
