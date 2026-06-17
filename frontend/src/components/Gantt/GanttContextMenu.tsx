@@ -26,7 +26,7 @@ export function AddChildMenuItem({ onAddTask, onAddMilestone }: { onAddTask: () 
     <div style={{ position: 'relative' }} onMouseLeave={() => setOpen(false)}>
       <button style={{ ...MENU_BTN, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         onMouseEnter={(e) => { setOpen(true); onBtnEnter(e); }} onMouseLeave={onBtnLeave}>
-        <span>＋ 追加</span>
+        <span>＋ 子追加</span>
         <span style={{ marginLeft: 12, color: 'var(--th-text-muted)' }}>▶</span>
       </button>
       {open && (
@@ -36,9 +36,9 @@ export function AddChildMenuItem({ onAddTask, onAddMilestone }: { onAddTask: () 
           boxShadow: '0 4px 16px rgba(0,0,0,.18)', zIndex: 10000, minWidth: 150,
         }}>
           <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
-            onClick={onAddTask}>子タスク</button>
+            onClick={onAddTask}>タスク</button>
           <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
-            onClick={onAddMilestone}>子マイルストーン</button>
+            onClick={onAddMilestone}>マイルストーン</button>
         </div>
       )}
     </div>
