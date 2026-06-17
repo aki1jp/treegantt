@@ -151,6 +151,8 @@ const onMenuLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarge
 
 // ── メインコンポーネント ──────────────────────────────
 interface Props {
+  /** 現在のプロジェクトID。変化時にスクロールを先頭へリセットする（プロジェクト切替で先頭表示）。 */
+  projectId?: string;
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
@@ -161,7 +163,7 @@ interface Props {
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
 }
 
-export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert }: Props) {
+export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert }: Props) {
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
@@ -582,6 +584,15 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // プロジェクト切替時はスクロールを先頭へ戻す。新しいプロジェクトを先頭から表示し、
+  // 旧プロジェクトの過大な scrollTop が残って可視範囲が空＝白画面になるのも防ぐ。
+  useEffect(() => {
+    if (ganttPanelRef.current) ganttPanelRef.current.scrollTop = 0;
+    if (wbsBodyRef.current)    wbsBodyRef.current.scrollTop = 0;
+    pendingScrollTopRef.current = 0;
+    setScrollTop(0);
+  }, [projectId]);
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
     if (wbsBodyRef.current) wbsBodyRef.current.scrollTop = e.currentTarget.scrollTop;

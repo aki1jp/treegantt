@@ -335,6 +335,7 @@ export default function App() {
           />
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <GanttChart
+              projectId={currentProject.id}
               onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
               onDeleteTask={handleDeleteTask}
               onInlineUpdate={handleInlineUpdate}

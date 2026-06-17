@@ -43,9 +43,10 @@ beforeEach(() => {
   });
 });
 
-function renderChart() {
+function renderChart(projectId?: string) {
   return render(
     <GanttChart
+      projectId={projectId}
       onEditTask={NOOP}
       onDeleteTask={NOOP}
       onInlineUpdate={NOOP}
@@ -82,6 +83,15 @@ describe('calcVisibleRange', () => {
 
   it('負の scrollTop は 0 扱い', () => {
     expect(calcVisibleRange(-100, 720, 36, 1000, 10).start).toBe(0);
+  });
+
+  it('scrollTop がコンテンツ高さを超えても start ≤ end で末尾まで描画する（白画面対策）', () => {
+    // 行20件・行高36px・ビューポート800px → 最大スクロールは 0。
+    // 古い大きな scrollTop が残っても有効範囲にクランプされ、空範囲にならない。
+    const r = calcVisibleRange(18000, 800, 36, 20, 10);
+    expect(r.start).toBeLessThanOrEqual(r.end);
+    expect(r.start).toBe(0);
+    expect(r.end).toBe(20);
   });
 });
 
@@ -123,5 +133,66 @@ describe('GanttChart 行仮想化（1000件）', () => {
   it('QuickAddRow（タスク追加行）は仮想化後も常に表示される', () => {
     const { getByText } = renderChart();
     expect(getByText('＋ タスクを追加…')).toBeTruthy();
+  });
+});
+
+describe('プロジェクト切り替え時の白画面対策', () => {
+  it('下方スクロール後に行数が激減しても白画面にならない（行が描画される）', async () => {
+    const { container, getByTestId } = renderChart();
+    const panel = getByTestId('gantt-panel');
+
+    // 行300 付近までスクロール（scrollTop state を大きくする）。
+    // rAF スロットルが反映され先頭行が可視範囲外に出る＝state が確実に更新された状態を待つ。
+    const firstTaskId = useTaskStore.getState().tasks[0].id;
+    fireEvent.scroll(panel, { target: { scrollTop: 10800 } });
+    await waitFor(() =>
+      expect(container.querySelector(`svg [data-task-id="${firstTaskId}"]`)).toBeNull()
+    );
+
+    const rowSel = '[data-testid="wbs-panel"] [draggable="true"]';
+    const rowsBefore = container.querySelectorAll(rowSel).length;
+
+    // 行数の少ないプロジェクトに切り替わった状況を再現（tasks を 20 件へ置換）。
+    // scrollTop state は過大（10800）なまま残る。
+    useTaskStore.setState({ tasks: genLargeTasks(20) });
+
+    // 置換後の再レンダリングが反映されるまで待つ（旧描画の行数から変化したら反映済み）。
+    await waitFor(() =>
+      expect(container.querySelectorAll(rowSel).length).not.toBe(rowsBefore)
+    );
+
+    // 反映後、可視範囲が空にならず行が描画されている＝白画面でないこと。
+    expect(container.querySelectorAll(rowSel).length).toBeGreaterThan(0);
+  });
+
+  it('projectId が変わるとスクロールが先頭に戻る', async () => {
+    const { container, getByTestId, rerender } = renderChart('p1');
+    const panel = getByTestId('gantt-panel') as HTMLDivElement;
+
+    fireEvent.scroll(panel, { target: { scrollTop: 10800 } });
+    await waitFor(() =>
+      expect(container.querySelector(`svg [data-task-id="${useTaskStore.getState().tasks[0].id}"]`)).toBeNull()
+    );
+
+    // 別プロジェクトへ切り替え
+    rerender(
+      <GanttChart
+        projectId="p2"
+        onEditTask={NOOP}
+        onDeleteTask={NOOP}
+        onInlineUpdate={NOOP}
+        onQuickAdd={NOOP}
+        onAddSubTask={NOOP}
+        onReorder={NOOP}
+        onCopyInsert={NOOP}
+      />
+    );
+
+    // 先頭行が再び描画され、DOM スクロール位置も 0 に戻る
+    await waitFor(() => {
+      const firstId = useTaskStore.getState().tasks[0].id;
+      expect(container.querySelector(`svg [data-task-id="${firstId}"]`)).not.toBeNull();
+    });
+    expect(panel.scrollTop).toBe(0);
   });
 });
