@@ -102,6 +102,18 @@ describe('MilestoneModal — 先行タスク候補のガード（v0.2.90）', ()
   });
 });
 
+describe('MilestoneModal — initialParentId（子マイルストーン作成）', () => {
+  it('新規マイルストーン: initialParentId を渡すと保存ペイロードの parentId に反映される', () => {
+    const onSave = vi.fn();
+    render(
+      <MilestoneModal task={null} allTasks={[]} initialParentId="tP" onSave={onSave} onClose={NOOP} />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '子マイル' } });
+    fireEvent.submit(screen.getByText('保存').closest('form')!);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ parentId: 'tP', isMilestone: true }));
+  });
+});
+
 describe('MilestoneModal — backdrop クリック時の shake アニメーション', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });

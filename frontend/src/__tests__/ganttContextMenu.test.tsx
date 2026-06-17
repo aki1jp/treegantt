@@ -9,6 +9,7 @@ let onEditTask: ReturnType<typeof vi.fn>;
 let onDeleteTask: ReturnType<typeof vi.fn>;
 let onInlineUpdate: ReturnType<typeof vi.fn>;
 let onAddSubTask: ReturnType<typeof vi.fn>;
+let onAddSubMilestone: ReturnType<typeof vi.fn>;
 const NOOP = vi.fn();
 
 let seq = 0;
@@ -31,6 +32,7 @@ beforeEach(() => {
   onDeleteTask  = vi.fn();
   onInlineUpdate = vi.fn();
   onAddSubTask  = vi.fn();
+  onAddSubMilestone = vi.fn();
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
   localStorage.clear();
@@ -59,6 +61,7 @@ function renderChart(tasks: Task[]) {
       onInlineUpdate={onInlineUpdate}
       onQuickAdd={NOOP}
       onAddSubTask={onAddSubTask}
+      onAddSubMilestone={onAddSubMilestone}
       onReorder={NOOP}
     />
   );
@@ -78,22 +81,33 @@ describe('ガントバー右クリックメニュー（barCtxMenu）', () => {
     expect(screen.getByText('削除')).toBeTruthy();
   });
 
-  it('非マイルストーンタスクのメニューに「子タスクを追加」が表示される', () => {
+  it('非マイルストーンタスクのメニューに「＋ 追加」が表示される', () => {
     const task = makeTask({ isMilestone: false });
     const { container } = renderChart([task]);
 
     fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
 
-    expect(screen.getByText('＋ 子タスクを追加')).toBeTruthy();
+    expect(screen.getByText('＋ 追加', { exact: false })).toBeTruthy();
   });
 
-  it('マイルストーンのメニューに「子タスクを追加」は表示されない', () => {
+  it('マイルストーンのメニューに「＋ 追加」は表示されない', () => {
     const task = makeTask({ isMilestone: true });
     const { container } = renderChart([task]);
 
     fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
 
-    expect(screen.queryByText('＋ 子タスクを追加')).toBeNull();
+    expect(screen.queryByText('＋ 追加', { exact: false })).toBeNull();
+  });
+
+  it('「＋ 追加」にホバーすると「子タスク」「子マイルストーン」の子メニューが出る', () => {
+    const task = makeTask();
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+    expect(screen.queryByText('子タスク')).toBeNull();      // ホバー前は出ない
+    fireEvent.mouseEnter(screen.getByText('＋ 追加', { exact: false }));
+    expect(screen.getByText('子タスク')).toBeTruthy();
+    expect(screen.getByText('子マイルストーン')).toBeTruthy();
   });
 
   it('「削除」クリックで onDeleteTask が呼ばれメニューが閉じる', () => {
@@ -118,15 +132,28 @@ describe('ガントバー右クリックメニュー（barCtxMenu）', () => {
     expect(screen.queryByText('編集（詳細）')).toBeNull();
   });
 
-  it('「子タスクを追加」クリックで onAddSubTask が呼ばれメニューが閉じる', () => {
+  it('子メニュー「子タスク」クリックで onAddSubTask が呼ばれメニューが閉じる', () => {
     const task = makeTask();
     const { container } = renderChart([task]);
 
     fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
-    fireEvent.click(screen.getByText('＋ 子タスクを追加'));
+    fireEvent.mouseEnter(screen.getByText('＋ 追加', { exact: false }));
+    fireEvent.click(screen.getByText('子タスク'));
 
     expect(onAddSubTask).toHaveBeenCalledWith(task.id);
-    expect(screen.queryByText('＋ 子タスクを追加')).toBeNull();
+    expect(screen.queryByText('＋ 追加', { exact: false })).toBeNull();
+  });
+
+  it('子メニュー「子マイルストーン」クリックで onAddSubMilestone が呼ばれメニューが閉じる', () => {
+    const task = makeTask();
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+    fireEvent.mouseEnter(screen.getByText('＋ 追加', { exact: false }));
+    fireEvent.click(screen.getByText('子マイルストーン'));
+
+    expect(onAddSubMilestone).toHaveBeenCalledWith(task.id);
+    expect(screen.queryByText('＋ 追加', { exact: false })).toBeNull();
   });
 
   it('メニューが開いているときに window でマウスダウンするとメニューが閉じる', () => {

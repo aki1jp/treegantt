@@ -174,6 +174,12 @@ export default function App() {
     setModalTask(null);
   }
 
+  function handleAddSubMilestone(parentId: string) {
+    setModalIsMilestone(true);
+    setModalInitialParentId(parentId);
+    setModalTask(null);
+  }
+
   async function handleCopyInsert(
     source: Task,
     parentId: string | null,
@@ -334,6 +340,7 @@ export default function App() {
               onInlineUpdate={handleInlineUpdate}
               onQuickAdd={handleQuickAdd}
               onAddSubTask={handleAddSubTask}
+              onAddSubMilestone={handleAddSubMilestone}
               onReorder={reorderTasks}
               onCopyInsert={handleCopyInsert}
             />
@@ -356,8 +363,9 @@ export default function App() {
           <MilestoneModal
             task={modalTask}
             allTasks={tasks}
+            initialParentId={modalInitialParentId}
             onSave={handleSaveTask}
-            onClose={() => setModalTask(undefined)}
+            onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
           />
         ) : (
           <TaskModal

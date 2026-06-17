@@ -5,6 +5,7 @@ import { getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from 
 interface Props {
   task: Task | null;
   allTasks: Task[];
+  initialParentId?: string;
   onSave: (data: Partial<Task> & { title: string }) => void;
   onClose: () => void;
 }
@@ -16,7 +17,7 @@ const INPUT: React.CSSProperties = {
   fontSize: 14, width: '100%', background: 'var(--th-input-bg)', color: 'var(--th-text)',
 };
 
-export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
+export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClose }: Props) {
   const [shaking, setShaking] = useState(false);
   const [title, setTitle]       = useState(task?.title    ?? '');
   const [date, setDate]         = useState(task?.startDate ?? '');
@@ -83,7 +84,7 @@ export function MilestoneModal({ task, allTasks, onSave, onClose }: Props) {
       status:      task?.status      ?? 'todo',
       priority:    task?.priority    ?? 'medium',
       progress:    task?.progress    ?? 0,
-      parentId:    task?.parentId    ?? null,
+      parentId:    task?.parentId    ?? initialParentId ?? null,
     });
   }
 

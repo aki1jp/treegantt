@@ -16,7 +16,7 @@ import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
-import { ContextMenu } from './GanttContextMenu';
+import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
 
 const HEADER_ROW_H = 26;
@@ -156,11 +156,12 @@ interface Props {
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
+  onAddSubMilestone?: (parentId: string) => void;
   onReorder: (orders: { id: string; order: number; parentId?: string | null }[]) => Promise<void>;
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
 }
 
-export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onReorder, onCopyInsert }: Props) {
+export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert }: Props) {
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
@@ -1326,10 +1327,10 @@ export function GanttChart({ onEditTask, onDeleteTask, onInlineUpdate, onQuickAd
           >
             {!task.isMilestone && (
               <>
-                <button onClick={() => { onAddSubTask(task.id); close(); }}
-                  style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-                  ＋ 子タスクを追加
-                </button>
+                <AddChildMenuItem
+                  onAddTask={() => { onAddSubTask(task.id); close(); }}
+                  onAddMilestone={() => { onAddSubMilestone?.(task.id); close(); }}
+                />
                 <div style={{ height: 1, background: 'var(--th-border)' }} />
               </>
             )}
