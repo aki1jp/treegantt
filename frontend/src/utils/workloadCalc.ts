@@ -17,7 +17,11 @@ function addDays(dateStr: string, n: number): string {
 }
 
 function toDateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  // ガント本体（dateToX / buildMultiLevelHeaders）はローカル時刻の dayjs で日付グリッドを
+  // 作るため、ここも UTC（toISOString）ではなくローカルで整形して列を一致させる。
+  // UTC にすると UTC+9（JST）等でローカル深夜の min が前日へずれ、リソースビューが
+  // ガントより 1 日前から表示されてしまう。
+  return dayjs(d).format('YYYY-MM-DD');
 }
 
 /** 土日（曜日 0=日・6=土）は非稼働日 */
