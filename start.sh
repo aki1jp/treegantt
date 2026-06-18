@@ -70,11 +70,16 @@ cleanup() {
 }
 trap cleanup INT TERM
 
+# ANSI ESC を実バイトで用意する。
+# sed の置換文字列内の `\033` は実装依存で、特に GNU sed では `\0`（マッチ全体への
+# 後方参照）＋`33` と解釈され ESC バイトが脱落する。printf で実 ESC を生成して渡す。
+ESC=$(printf '\033')
+
 # API（青プレフィックス）・フロントエンド（緑プレフィックス）を同時起動
-(cd api && npm run dev 2>&1 | sed 's/^/\033[34m[API]\033[0m /') &
+(cd api && npm run dev 2>&1 | sed "s/^/${ESC}[34m[API]${ESC}[0m /") &
 API_PID=$!
 
-(cd frontend && npm run dev 2>&1 | sed 's/^/\033[32m[FE] \033[0m /') &
+(cd frontend && npm run dev 2>&1 | sed "s/^/${ESC}[32m[FE] ${ESC}[0m /") &
 FE_PID=$!
 
 wait "$API_PID" "$FE_PID"
