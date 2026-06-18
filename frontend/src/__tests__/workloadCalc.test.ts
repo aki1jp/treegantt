@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcWorkloadMatrix, workloadColor } from '../utils/workloadCalc';
+import { calcWorkloadMatrix, workloadColor, workloadBuckets } from '../utils/workloadCalc';
 import type { Task } from '../types/task';
 
 function makeTask(partial: Partial<Task>): Task {
@@ -53,15 +53,37 @@ describe('calcWorkloadMatrix', () => {
     expect(result.assignees).toEqual([]);
   });
 
-  it('1人1タスク: 対象日に count=1 が返る', () => {
+  it('1人1タスク: 対象稼働日に count=1 が返る', () => {
+    // 2026-05-04(月)〜05-06(水) は全て平日
     const tasks = [
-      makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-03', status: 'todo' }),
+      makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-06', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-03'));
+    const result = calcWorkloadMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'));
     expect(result.assignees).toEqual(['Alice']);
-    expect(result.days).toEqual(['2026-05-01', '2026-05-02', '2026-05-03']);
-    // Alice の全3日 count=1
+    expect(result.days).toEqual(['2026-05-04', '2026-05-05', '2026-05-06']);
+    // Alice の全3日（平日）count=1
     expect(result.matrix[0]).toEqual([1, 1, 1]);
+  });
+
+  it('土日は負荷に加算されない（キャパ0）', () => {
+    // 2026-05-01(金)〜05-04(月): 金=平日, 土日=0, 月=平日
+    const tasks = [
+      makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-04', status: 'todo' }),
+    ];
+    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-04'));
+    expect(result.days).toEqual(['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04']);
+    expect(result.matrix[0]).toEqual([1, 0, 0, 1]);
+  });
+
+  it('dayTasks に各稼働日の寄与タスク名が入る（土日は空）', () => {
+    const tasks = [
+      makeTask({ id: 't1', assignee: 'Alice', title: '設計', startDate: '2026-05-01', endDate: '2026-05-04', status: 'todo' }),
+    ];
+    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-04'));
+    expect(result.dayTasks[0][0]).toEqual(['設計']); // 金
+    expect(result.dayTasks[0][1]).toEqual([]);        // 土
+    expect(result.dayTasks[0][2]).toEqual([]);        // 日
+    expect(result.dayTasks[0][3]).toEqual(['設計']); // 月
   });
 
   it('同日に2タスク: count=2 が返る', () => {
@@ -90,11 +112,11 @@ describe('calcWorkloadMatrix', () => {
 
   it('範囲外の日は含まれない', () => {
     const tasks = [
-      makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-04-28', endDate: '2026-05-05', status: 'todo' }),
+      makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-04-28', endDate: '2026-05-08', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-03'));
-    // 範囲は5/1〜5/3 のみ
-    expect(result.days).toEqual(['2026-05-01', '2026-05-02', '2026-05-03']);
+    const result = calcWorkloadMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'));
+    // 範囲は5/4〜5/6 のみ（全て平日）
+    expect(result.days).toEqual(['2026-05-04', '2026-05-05', '2026-05-06']);
     expect(result.matrix[0]).toEqual([1, 1, 1]);
   });
 
@@ -129,5 +151,42 @@ describe('workloadColor', () => {
   it('count=4 以上は red', () => {
     expect(workloadColor(4)).toContain('239,68,68');
     expect(workloadColor(100)).toContain('239,68,68');
+  });
+});
+
+describe('workloadBuckets（ズーム集計）', () => {
+  const days7 = ['2026-06-01','2026-06-02','2026-06-03','2026-06-04','2026-06-05','2026-06-06','2026-06-07'];
+
+  it('day ズームは 1 日 1 バケット', () => {
+    const buckets = workloadBuckets(days7, 'day');
+    expect(buckets.length).toBe(days7.length);
+    expect(buckets.every(b => b.span === 1)).toBe(true);
+    expect(buckets[0].dayIdxs).toEqual([0]);
+  });
+
+  it('全バケットの span 合計は日数に一致し、dayIdxs は連続', () => {
+    for (const zoom of ['day','week','month'] as const) {
+      const buckets = workloadBuckets(days7, zoom);
+      const total = buckets.reduce((s, b) => s + b.span, 0);
+      expect(total).toBe(days7.length);
+      for (const b of buckets) {
+        expect(b.dayIdxs.length).toBe(b.span);
+        for (let i = 1; i < b.dayIdxs.length; i++) {
+          expect(b.dayIdxs[i]).toBe(b.dayIdxs[i - 1] + 1);
+        }
+      }
+    }
+  });
+
+  it('month ズームは月境界でバケットが分割される', () => {
+    const days = ['2026-06-28','2026-06-29','2026-06-30','2026-07-01','2026-07-02'];
+    const buckets = workloadBuckets(days, 'month');
+    expect(buckets.length).toBe(2);
+    expect(buckets[0].span).toBe(3); // 6/28-6/30
+    expect(buckets[1].span).toBe(2); // 7/1-7/2
+  });
+
+  it('空配列は空バケット', () => {
+    expect(workloadBuckets([], 'week')).toEqual([]);
   });
 });

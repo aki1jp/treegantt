@@ -75,6 +75,23 @@ describe('ResourceView: 表示条件', () => {
     renderChart([makeTask({ assignee: 'Alice', startDate: null, endDate: null })]);
     expect(screen.queryByTestId('workload-panel')).toBeNull();
   });
+
+  it('done タスクのみなら workload-panel は表示されない', () => {
+    renderChart([makeTask({ assignee: 'Alice', status: 'done', startDate: '2026-06-10', endDate: '2026-06-15' })]);
+    expect(screen.queryByTestId('workload-panel')).toBeNull();
+  });
+
+  it('endDate=null のタスクは担当者があっても集計されない', () => {
+    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: null })]);
+    expect(screen.queryByTestId('workload-panel')).toBeNull();
+  });
+});
+
+describe('ResourceView: 色凡例', () => {
+  it('負荷の色凡例がパネルに表示される', () => {
+    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15' })]);
+    expect(screen.getByTestId('workload-panel').textContent).toContain('凡例');
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
