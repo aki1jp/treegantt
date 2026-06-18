@@ -914,4 +914,37 @@ describe('マイルストーン強調 UI', () => {
     expect(satBg.includes('#8b5cf6') || satBg.includes('139, 92, 246')).toBe(true);
   });
 
+  it('週/月レベルのヘッダーセルはマイルストーン強調色を持たない（日・曜日セルのみ強調）', () => {
+    // マイルストーン 2026-06-01（月初／週頭側）。min=ganttStartDate=2026-06-01 で
+    // month/week セルの左端 x も day セルと同じ 0 になる。
+    useTaskStore.setState({
+      tasks: [{ ...MILESTONE_TASK, id: 'ms-mstart', startDate: '2026-06-01', endDate: '2026-06-01' }],
+      ganttStartDate: '2026-06-01',
+      ganttPeriod: '3m',
+      showResourceView: false,
+      zoomLevel: 'day',
+      ganttHeaderLevels: { year: false, month: true, week: true, day: true },
+    });
+    const { getByTestId } = render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} />
+    );
+    const ganttHeader = getByTestId('gantt-header');
+    const hasMsColor = (el: HTMLElement) =>
+      el.style.background.includes('#8b5cf6') || el.style.background.includes('139, 92, 246');
+
+    // 月・週レベルの行のセルは強調色を持たない（週/月全体が色づかない）
+    for (const level of ['month', 'week']) {
+      const row = ganttHeader.querySelector<HTMLElement>(`[data-level="${level}"]`);
+      expect(row).toBeTruthy();
+      const cells = Array.from(row!.querySelectorAll<HTMLElement>(':scope > div'));
+      expect(cells.length).toBeGreaterThan(0);
+      expect(cells.some(hasMsColor)).toBe(false);
+    }
+
+    // 日・曜日セルは従来どおりマイルストーン日（2026-06-01）が強調される
+    const dowCells = Array.from(ganttHeader.querySelectorAll<HTMLElement>('[data-dow]'));
+    expect(dowCells.some(hasMsColor)).toBe(true);
+  });
+
 });

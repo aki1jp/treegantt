@@ -1116,7 +1116,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
             minHeight: HEADER_ROW_H,
           }}>
             {headerRows.map((row, ri) => (
-              <div key={row.level} style={{
+              <div key={row.level} data-level={row.level} style={{
                 width: totalWidth, position: 'relative',
                 height: HEADER_ROW_H, boxSizing: 'border-box',
                 background: 'var(--th-bg2)',
@@ -1125,7 +1125,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                 {row.cells.map((cell, ci) => {
                   const isSat = (row.level === 'day' || row.level === 'dow') && cell.dow === 6;
                   const isSun = (row.level === 'day' || row.level === 'dow') && cell.dow === 0;
-                  const isMilestoneDate = milestoneXSet.has(cell.x);
+                  // マイルストーン強調は日（day）・曜日（dow）行のセルのみ。
+                  // week/month/year セルは週頭・月初・年初の x が一致しても色づけない。
+                  const isMilestoneDate = (row.level === 'day' || row.level === 'dow')
+                    && milestoneXSet.has(cell.x);
                   const bg = isMilestoneDate
                     ? milestoneHighlightColor + '55'
                     : isSat
