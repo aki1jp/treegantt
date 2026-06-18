@@ -28,6 +28,21 @@ function task(partial: Partial<Task>): Task {
   };
 }
 
+describe('calcWorkloadMatrix: タイムゾーン整合（JST, UTC+9）', () => {
+  it('days はガントと同じローカル日付に揃う（min を1日前にずらさない）', () => {
+    const min = dayjs('2026-06-10').toDate();
+    const max = dayjs('2026-06-12').toDate();
+    const r = calcWorkloadMatrix(
+      [task({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-12' })],
+      min, max,
+    );
+    expect(r.days[0]).toBe(dayjs(min).format('YYYY-MM-DD'));
+    expect(r.days[0]).toBe('2026-06-10');
+    expect(r.days).toEqual(['2026-06-10', '2026-06-11', '2026-06-12']);
+    expect(r.matrix[0]).toEqual([1, 1, 1]);
+  });
+});
+
 describe('リソースビューの日付列がガントチャートと一致する（JST, UTC+9）', () => {
   // parseDateStr と同じく dayjs(str).toDate() でローカル深夜の min/max を作る
   const min = dayjs('2026-06-10').toDate();
