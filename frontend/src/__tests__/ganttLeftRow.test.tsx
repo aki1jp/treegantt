@@ -210,6 +210,43 @@ describe('GanttLeftRow インライン編集 — 日付前後矛盾クランプ'
   });
 });
 
+// ─── マイルストーン（終了日ロック・開始日追従）────────────────────────────────
+
+describe('GanttLeftRow インライン編集 — マイルストーン', () => {
+  it('マイルストーン行の終了日は編集不可（クリックしても入力欄が出ず onInlineUpdate も呼ばれない）', () => {
+    const onInlineUpdate = vi.fn();
+    const task = makeTask({ isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+    renderRow(task, onInlineUpdate);
+
+    // 終了日セルは読み取り専用（date-readonly）として描画される
+    const endCell = screen.getByTestId('date-readonly');
+    expect(endCell.textContent).toContain('2026-06-01');
+
+    fireEvent.click(endCell);
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('マイルストーンの開始日を過去方向へ編集しても終了日が同じ日付に追従する', () => {
+    const onInlineUpdate = vi.fn();
+    const task = makeTask({ isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+    renderRow(task, onInlineUpdate);
+
+    // 開始日セルは編集可能（DOM 上、終了日の読み取り専用スパンより前に来る）
+    fireEvent.click(screen.getAllByText('2026-06-01')[0]);
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(dateInput).toBeTruthy();
+
+    // 既存の前後クランプが効かない「より前の日付」でも終了日が取り残されないこと
+    fireEvent.change(dateInput, { target: { value: '2026-05-01' } });
+    fireEvent.blur(dateInput);
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', {
+      startDate: '2026-05-01',
+      endDate: '2026-05-01',
+    });
+  });
+});
+
 // ─── タイトルホバーツールチップ ────────────────────────────────────────────────
 
 describe('GanttLeftRow タイトルホバーツールチップ', () => {

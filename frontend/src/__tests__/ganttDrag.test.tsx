@@ -127,21 +127,19 @@ describe('ガントバードラッグ: move（バー移動）', () => {
     expect(onInlineUpdate).not.toHaveBeenCalled();
   });
 
-  it('マイルストーン移動では endDate が startDate と同じになる', () => {
+  it('マイルストーンはガント上で移動できない（菱形に移動ドラッグ入口がない）', () => {
     const task = makeTask({ isMilestone: true, startDate: '2026-06-10', endDate: '2026-06-10' });
     const { container } = renderChart([task]);
 
     const poly = container.querySelector(`g[data-task-id="${task.id}"] polygon`);
     expect(poly).toBeTruthy();
 
+    // 菱形をドラッグしようとしても日付は変更されない（移動入口を持たない）
     fireEvent.mouseDown(poly!, { button: 0, clientX: 100 });
     fireEvent.mouseMove(window, { clientX: 100 + 2 * DAY_W });
     fireEvent.mouseUp(window);
 
-    expect(onInlineUpdate).toHaveBeenCalledTimes(1);
-    const patch = onInlineUpdate.mock.calls[0][1] as { startDate: string; endDate: string };
-    expect(patch.startDate).toBe('2026-06-12');
-    expect(patch.endDate).toBe(patch.startDate);
+    expect(onInlineUpdate).not.toHaveBeenCalled();
   });
 });
 

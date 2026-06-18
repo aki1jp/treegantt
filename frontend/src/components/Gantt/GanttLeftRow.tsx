@@ -91,6 +91,12 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       setEditField(null);
       return;
     }
+    // マイルストーンは1点: 開始日を編集したら終了日も同値に追従させる
+    if (task.isMilestone && field === 'startDate') {
+      onInlineUpdate(task.id, { startDate: myVal as string | null, endDate: myVal as string | null });
+      setEditField(null);
+      return;
+    }
     // 開始日・終了日の前後矛盾チェック: 矛盾する場合は両方を新しい値にクランプ
     if (field === 'startDate' && myVal && task.endDate && (myVal as string) > task.endDate) {
       onInlineUpdate(task.id, { startDate: myVal as string, endDate: myVal as string });
@@ -146,6 +152,8 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   const effectiveStartDate = hasChildren ? (displayStart ?? null) : task.startDate;
   const effectiveEndDate   = hasChildren ? (displayEnd   ?? null) : task.endDate;
   const duration = calcDuration({ ...task, startDate: effectiveStartDate, endDate: effectiveEndDate });
+  // マイルストーンは1点（endDate=startDate）。終了日は親と同様に編集不可（淡色）。
+  const endLocked = hasChildren || task.isMilestone;
 
   return (
     <div
@@ -315,9 +323,9 @@ export const GanttLeftRow = memo(function GanttLeftRow({
         )}
       </div>}
 
-      {/* 終了日 */}
+      {/* 終了日（マイルストーンは開始日に同期する1点のため編集不可） */}
       {show('endDate') && <div style={{ ...CELL, width: dateColWidth }}>
-        {!hasChildren && editField === 'endDate' ? (
+        {!endLocked && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             min={task.startDate || undefined}
             onChange={e => setEditVal(e.target.value)}
@@ -325,12 +333,12 @@ export const GanttLeftRow = memo(function GanttLeftRow({
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />
         ) : (
           <span
-            data-testid={hasChildren ? 'date-readonly' : undefined}
-            onClick={() => !hasChildren && startEdit('endDate', task.endDate ?? '')}
-            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
+            data-testid={endLocked ? 'date-readonly' : undefined}
+            onClick={() => !endLocked && startEdit('endDate', task.endDate ?? '')}
+            title={task.isMilestone ? 'マイルストーンの終了日は開始日に同期' : hasChildren ? '子タスクの日付から自動計算' : undefined}
             style={{
-              cursor: hasChildren ? 'default' : 'text',
-              color: hasChildren ? 'var(--th-text-dim)' : (task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
+              cursor: endLocked ? 'default' : 'text',
+              color: endLocked ? 'var(--th-text-dim)' : (task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
             }}>
             {effectiveEndDate ?? '—'}
           </span>

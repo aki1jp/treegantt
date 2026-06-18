@@ -751,17 +751,14 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
           onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
         }
       } else if (preview && (preview.startDate !== dragState.origStart || preview.endDate !== dragState.origEnd)) {
-        const patch: Partial<Task> = { startDate: preview.startDate, endDate: preview.endDate };
-        // マイルストーンは startDate のみ（endDate は同日）
-        const task = taskById.get(preview.taskId);
-        if (task?.isMilestone) patch.endDate = preview.startDate;
-        onInlineUpdate(preview.taskId, patch);
+        // 移動・リサイズ（通常バーのみ。マイルストーン/親はドラッグ入口を持たない）
+        onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
       }
     }
     createArmedRef.current = false;
     setDragState(null);
     setDragPreview(null);
-  }, [dragState, taskById, onInlineUpdate]);
+  }, [dragState, onInlineUpdate]);
 
   useEffect(() => {
     if (!dragState) return;
