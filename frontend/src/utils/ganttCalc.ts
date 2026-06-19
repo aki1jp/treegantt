@@ -453,13 +453,20 @@ export function assignMilestoneLanes<T extends { x: number; title: string }>(
   const charW = fontSize * 0.65;
   const pad   = 4;
   const laneEnds: number[] = [];
-  return items.map(item => {
+  // x 昇順の first-fit で詰める（左から空いた最上段へ各ラベル箱を入れる）。
+  // 入力順（WBS 並び＝x 非昇順）のまま詰めると重なっていなくても不要に段が増えるため、
+  // レーン計算は x 昇順で行い、結果は元の入力順を保って返す。
+  const order = items.map((_, i) => i).sort((a, b) => items[a].x - items[b].x);
+  const laneOf = new Array<number>(items.length);
+  for (const i of order) {
+    const item = items[i];
     const width = iconW + item.title.length * charW + pad;
     let lane = laneEnds.findIndex(end => end <= item.x);
     if (lane === -1) lane = laneEnds.length;
     laneEnds[lane] = item.x + width;
-    return { ...item, lane };
-  });
+    laneOf[i] = lane;
+  }
+  return items.map((item, i) => ({ ...item, lane: laneOf[i] }));
 }
 
 export function computeInsertOrder(
