@@ -12,6 +12,7 @@ interface Props {
   onRestore: () => void;
   onExportJson: () => void;
   onExportCsv: () => void;
+  onOpenResourceSettings?: () => void;
   backendVersion?: string;
 }
 
@@ -97,7 +98,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
   );
 }
 
-export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, backendVersion }: Props) {
+export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, backendVersion }: Props) {
   const {
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
@@ -215,6 +216,16 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 </div>
                 <MenuItem label="JSON 出力" indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
                 <MenuItem label="CSV 出力"  indent onClick={() => { onExportCsv(); setMenuOpen(false); }} />
+
+                {onOpenResourceSettings && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
+                    <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                      ⚙ 設定
+                    </div>
+                    <MenuItem label="リソース設定" indent onClick={() => { onOpenResourceSettings(); setMenuOpen(false); }} />
+                  </>
+                )}
 
                 <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 

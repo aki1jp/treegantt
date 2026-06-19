@@ -114,6 +114,20 @@ export function useProjects() {
     if (currentProject?.id === project.id) setCurrentProjectState(data.project);
   }
 
+  async function updateProjectResource(
+    project: Project,
+    patch: { capacityMinutesPerDay?: number | null; workingDays?: number[] | null },
+  ): Promise<void> {
+    const data = await apiFetch(`/projects/${project.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    const next = projectsRef.current.map(p => p.id === project.id ? data.project : p);
+    setProjects(next);
+    projectsRef.current = next;
+    if (currentProject?.id === project.id) setCurrentProjectState(data.project);
+  }
+
   async function deleteProject(project: Project): Promise<void> {
     await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
     const remaining = projectsRef.current.filter(p => p.id !== project.id);
@@ -122,5 +136,5 @@ export function useProjects() {
     setCurrentProject(remaining.length > 0 ? remaining[0] : null);
   }
 
-  return { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, deleteProject };
+  return { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject };
 }

@@ -12,9 +12,10 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
-import { apiFetch, fetchAllTasks, fetchHealth, fetchSettings } from './utils/api';
+import { apiFetch, fetchAllTasks, fetchHealth, fetchSettings, updateAppSettings } from './utils/api';
 import { useSettingsStore } from './store/settingsStore';
 import { resolveCapacityMinutes, resolveWorkingDays } from './utils/duration';
+import { ResourceSettingsModal } from './components/ResourceSettingsModal/ResourceSettingsModal';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { computeInsertOrder } from './utils/ganttCalc';
@@ -26,10 +27,12 @@ export default function App() {
 
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  // リソース設定モーダル: 'app'=アプリ既定 / Project=そのプロジェクト上書き / null=非表示
+  const [settingsModal, setSettingsModal] = useState<'app' | Project | null>(null);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
-  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, deleteProject } = useProjects();
+  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject } = useProjects();
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);
@@ -307,6 +310,7 @@ export default function App() {
             onDelete={handleDeleteProject}
             onRename={handleRenameProject}
             onUpdateColor={(project, color) => updateProjectColor(project, color)}
+            onProjectSettings={(project) => setSettingsModal(project)}
             taskCounts={taskCounts}
           />
           <button onClick={handleCreateProject} style={{
@@ -351,6 +355,7 @@ export default function App() {
             onRestore={() => handleImportClick('restore')}
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
+            onOpenResourceSettings={() => setSettingsModal('app')}
             backendVersion={backendVersion ?? undefined}
           />
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -401,6 +406,45 @@ export default function App() {
             onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
           />
         )
+      )}
+
+      {settingsModal === 'app' && (
+        <ResourceSettingsModal
+          title="リソース設定（アプリ既定）"
+          initialCapacityMinutes={appSettings.capacityMinutesPerDay}
+          initialWorkingDays={appSettings.workingDays}
+          fallbackCapacityMinutes={appSettings.capacityMinutesPerDay}
+          fallbackWorkingDays={appSettings.workingDays}
+          onClose={() => setSettingsModal(null)}
+          onSave={async (patch) => {
+            try {
+              const updated = await updateAppSettings({
+                capacityMinutesPerDay: patch.capacityMinutesPerDay ?? undefined,
+                workingDays: patch.workingDays ?? undefined,
+              });
+              setAppSettings(updated);
+            } catch (err) { alert('保存に失敗しました: ' + (err as Error).message); }
+            setSettingsModal(null);
+          }}
+        />
+      )}
+
+      {settingsModal && settingsModal !== 'app' && (
+        <ResourceSettingsModal
+          title={`プロジェクト設定: ${settingsModal.name}`}
+          inheritable
+          initialCapacityMinutes={settingsModal.capacityMinutesPerDay}
+          initialWorkingDays={settingsModal.workingDays}
+          fallbackCapacityMinutes={appSettings.capacityMinutesPerDay}
+          fallbackWorkingDays={appSettings.workingDays}
+          onClose={() => setSettingsModal(null)}
+          onSave={async (patch) => {
+            try {
+              await updateProjectResource(settingsModal, patch);
+            } catch (err) { alert('保存に失敗しました: ' + (err as Error).message); }
+            setSettingsModal(null);
+          }}
+        />
       )}
 
       {deleteTarget && (

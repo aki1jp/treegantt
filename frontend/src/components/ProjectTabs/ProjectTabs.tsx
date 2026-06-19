@@ -20,6 +20,7 @@ interface Props {
   onDelete: (project: Project) => void;
   onRename: (project: Project) => void;
   onUpdateColor?: (project: Project, color: string | null) => void;
+  onProjectSettings?: (project: Project) => void;
   taskCounts?: Record<string, number>;
 }
 
@@ -27,7 +28,7 @@ function estimateTabWidth(name: string): number {
   return Math.min(160, name.length * 8) + 48;
 }
 
-export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRename, onUpdateColor, taskCounts }: Props) {
+export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRename, onUpdateColor, onProjectSettings, taskCounts }: Props) {
   const [order, setOrder] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(LS_ORDER_KEY) ?? '[]'); }
     catch { return []; }
@@ -350,6 +351,20 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
                   />
                 </div>
               </div>
+            </>
+          )}
+
+          {onProjectSettings && (
+            <>
+              <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
+              <button
+                onClick={() => { onProjectSettings(tabMenu.project); setTabMenu(null); }}
+                style={{ ...BTN_BASE, color: 'var(--th-text)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                リソース設定
+              </button>
             </>
           )}
 
