@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.1.1** |
-| ドキュメント版 | 0.2.103 |
+| ドキュメント版 | 0.2.104 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -159,7 +159,12 @@ interface Task {
 }
 // API レスポンスは TaskWithSuccessors = Task & { successors: string[] }
 
-interface Project { id: string; name: string; color: string | null; createdAt: string; }
+interface Project {
+  id: string; name: string; color: string | null; createdAt: string;
+  // リソース設定のプロジェクト個別上書き（null=アプリ既定 app_settings を継承）
+  capacityMinutesPerDay: number | null;
+  workingDays: number[] | null;
+}
 ```
 
 ### 4.2 SQLite スキーマ
@@ -174,6 +179,8 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 | name | TEXT | NOT NULL |
 | color | TEXT | NULL 可（007 追加） |
 | next_seq | INTEGER | NOT NULL DEFAULT 1（008 追加。seq 採番カウンター） |
+| capacity_minutes_per_day | INTEGER | NULL 可（011 追加。null=アプリ既定を継承） |
+| working_days | TEXT | NULL 可（011 追加。JSON 配列。null=継承） |
 | created_at | TEXT | DEFAULT datetime('now') |
 
 **tasks**
@@ -244,7 +251,7 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 | GET | `/health` | 稼働確認。`{status, version, timestamp}` を返す |
 | GET | `/api/v1/projects` | プロジェクト一覧（created_at 降順） |
 | POST | `/api/v1/projects` | 作成（body: name 必須, color 任意） |
-| PATCH | `/api/v1/projects/:id` | 更新（name/color） |
+| PATCH | `/api/v1/projects/:id` | 更新（name/color/capacityMinutesPerDay/workingDays） |
 | DELETE | `/api/v1/projects/:id` | 削除（タスクは CASCADE） |
 | GET | `/api/v1/projects/:id/tasks` | タスク一覧（query: status/assignee/priority/limit/offset）。`{tasks,total}` |
 | POST | `/api/v1/projects/:id/tasks` | タスク作成 |
@@ -280,7 +287,7 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 
 - **GET `/api/v1/settings`** → `{ capacityMinutesPerDay, workingDays }`。行が無いキーは既定（480／`[1,2,3,4,5]`）で補完。
 - **PUT `/api/v1/settings`**（部分更新）：body は `{ capacityMinutesPerDay?: number(≥1), workingDays?: number[]（各 0–6） }`。指定キーのみ upsert し、更新後の全設定を返す。`workingDays` は重複除去・昇順・範囲外除外で正規化する。
-- プロジェクト個別の上書き（継承）は §（projects 拡張）で扱い、実効値 = プロジェクト値 ?? アプリ既定 ?? ハードコード既定。
+- **プロジェクト個別の上書き（継承）**：`projects.capacity_minutes_per_day` / `working_days`（nullable, `null`=継承）を `PATCH /api/v1/projects/:id` で更新（`number\|null` / `number[]\|null`）。**実効値 = プロジェクト値 ?? アプリ既定 ?? ハードコード既定**（フロントの解決ヘルパで算出）。`workingDays` の上書きはアプリ既定と同様に正規化（0–6・重複除去・昇順）。
 
 ---
 
@@ -675,5 +682,6 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.99 | 2026/6 | マイルストーン＝1点・不動を仕様の正に統一（§8.3・§9.4・§9.2）。ガントの菱形に残っていた移動ドラッグ入口（透明クリック矩形に覆われ実 UI では発火しないデッドコード）と、ドラッグ終了時の `endDate=startDate` 同期分岐を撤去し、マイルストーンは移動・リサイズ不可（クリックでモーダルのみ）に明示。WBS でもマイルストーン行の終了日を編集不可（淡色）にし、開始日編集時に終了日を同値へ追従させて常に1点を保つようにした。 |
 | 0.2.100 | 2026/6 | 製品バージョンを **1.1.1** に更新（ヘッダー・ステータス・構成図・§15）。0.2.97 で設計書・CHANGELOG を 1.1.0 に更新した際に `api`/`frontend` の `package.json`（`/health`・ハンバーガー表示の出典）のバンプが漏れていたため、これを 1.1.1 に揃えて解消。1.1.0 以降のマイルストーン関連の挙動修正（§8.2 ヘッダー強調のセル限定・§8.3 1点固定の徹底）を製品リリースとして `CHANGELOG.md` の `[1.1.1]` に記録。 |
 | 0.2.101 | 2026/6 | リソースビュー（担当者別負荷）を仕様の正として明文化（新 §8.9）。負荷を「同時進行タスク数」モデルに統一し、集計を共有 `calcWorkloadMatrix` に一本化（対象＝`assignee`あり・`done`除外・`startDate`/`endDate`両方あり）。土日は負荷非加算（キャパ0、淡背景は表示として残す）。ズーム時はセル期間内の同時進行数の**ピーク（最大）**で集計（平均不使用）。色凡例の表示とセル `title` への寄与タスク列挙を規定。工数ベースの稼働率モデルは `FEATURES.md` Step 2 として別途。 |
+| 0.2.104 | 2026/6 | リソース設定のプロジェクト個別上書き（継承）を追加（§4.1・§4.2・§5.2・§5.6）。`projects` に nullable 列 `capacity_minutes_per_day`／`working_days`（011 追加, `null`=アプリ既定を継承）を追加し、`PATCH /api/v1/projects/:id` で更新可能に。実効値＝プロジェクト値 ?? アプリ既定 ?? ハードコード既定。 |
 | 0.2.103 | 2026/6 | アプリ既定のリソース設定 `app_settings`（key-value, 010 追加）と API（`GET`/`PUT /api/v1/settings`）を追加（§4.2・§5.2・§5.6）。`capacityMinutesPerDay`（既定480=8:00）・`workingDays`（既定 月〜金=`[1,2,3,4,5]`）を全ユーザー共有で保持。リソースビュー稼働率モデルの土台。プロジェクト個別上書き（継承）は後続。 |
 | 0.2.102 | 2026/6 | 予定工数フィールド `estimateMinutes`（分単位の整数, null=未設定）をタスクに追加（§4.1・§4.2・§5.3）。SQLite 列 `estimate_minutes`（009 追加）、API ボディ（`number\|null`・負値不可）、Import/Export（データ形式 1.1・CSV 列追加・JSON は `...t` 展開で自動往復・旧データは null・版ガードなし）に反映。FEATURES.md Step 2 の基盤（工数ベース稼働率モデル）。 |
