@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.1.1** |
-| ドキュメント版 | 0.2.105 |
+| ドキュメント版 | 0.2.106 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -327,6 +327,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 - レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`。
 - 差分適用アクション：`upsertTask`/`removeTasks`/`applyOrders`（未変更タスクの参照を保ち `React.memo` 行の再描画を最小化）。
 - 永続化：`partialize` で UI 設定のみ `localStorage('treegantt-ui')` に保存（tasks は保存しない）。
+- リソース設定（capacity/workingDays のアプリ既定）は **localStorage に載せず**、別の非永続ストア `settingsStore`（zustand）に保持する。起動時に `GET /api/v1/settings` から取得（取得失敗時はハードコード既定 480／月〜金）。サーバが真実＝全ユーザー共有。プロジェクト個別の上書きは各 `Project` に同梱され、実効値は `duration.ts` の解決ヘルパで算出する（§9.8）。
 
 ### 7.2 コンポーネント責務
 
@@ -341,7 +342,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `DependencyArrow` | 依存矢印（bezier/elbow/straight） |
 | `LightningLine`/`TodayLine` | イナズマライン・今日ライン |
 | `ResourceView` | 担当者×日付の負荷ヒートマップ（同時進行タスク数モデル、§8.9） |
-| `TaskModal`/`MilestoneModal` | 作成/編集フォーム |
+| `TaskModal`/`MilestoneModal` | 作成/編集フォーム（`TaskModal` は予定工数 `estimateMinutes` 入力欄を持つ＝単位トークン/`HH:MM`、`?` 書式ヘルプ付き、§9.8） |
 | `GanttContextMenu`/`ContextMenu` | 右クリックメニュー |
 | `TaskTooltip` | バー hover ツールチップ（Markdown） |
 | `ConflictDialog` | 競合解決 UI |
@@ -692,6 +693,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.99 | 2026/6 | マイルストーン＝1点・不動を仕様の正に統一（§8.3・§9.4・§9.2）。ガントの菱形に残っていた移動ドラッグ入口（透明クリック矩形に覆われ実 UI では発火しないデッドコード）と、ドラッグ終了時の `endDate=startDate` 同期分岐を撤去し、マイルストーンは移動・リサイズ不可（クリックでモーダルのみ）に明示。WBS でもマイルストーン行の終了日を編集不可（淡色）にし、開始日編集時に終了日を同値へ追従させて常に1点を保つようにした。 |
 | 0.2.100 | 2026/6 | 製品バージョンを **1.1.1** に更新（ヘッダー・ステータス・構成図・§15）。0.2.97 で設計書・CHANGELOG を 1.1.0 に更新した際に `api`/`frontend` の `package.json`（`/health`・ハンバーガー表示の出典）のバンプが漏れていたため、これを 1.1.1 に揃えて解消。1.1.0 以降のマイルストーン関連の挙動修正（§8.2 ヘッダー強調のセル限定・§8.3 1点固定の徹底）を製品リリースとして `CHANGELOG.md` の `[1.1.1]` に記録。 |
 | 0.2.101 | 2026/6 | リソースビュー（担当者別負荷）を仕様の正として明文化（新 §8.9）。負荷を「同時進行タスク数」モデルに統一し、集計を共有 `calcWorkloadMatrix` に一本化（対象＝`assignee`あり・`done`除外・`startDate`/`endDate`両方あり）。土日は負荷非加算（キャパ0、淡背景は表示として残す）。ズーム時はセル期間内の同時進行数の**ピーク（最大）**で集計（平均不使用）。色凡例の表示とセル `title` への寄与タスク列挙を規定。工数ベースの稼働率モデルは `FEATURES.md` Step 2 として別途。 |
+| 0.2.106 | 2026/6 | フロントのリソース設定取得基盤と TaskModal 予定工数入力を追加（§7.1・§7.2）。非永続ストア `settingsStore` を起動時に `GET /settings` で満たし（失敗時ハードコード既定）、`TaskModal` に予定工数欄（単位トークン/`HH:MM` 入力・`?` 書式ヘルプ・保存時 `duration.parseDuration` で分へ・表示は `formatMinutes`）を追加。実効キャパは `duration.ts` の解決ヘルパで算出。 |
 | 0.2.105 | 2026/6 | 予定工数の入力書式と実効リソース設定の解決を `duration.ts` として明文化（§7.3・§9.8）。入力は単位トークン `Nd`/`Nh`/`Nm`/`Nw`＋`HH:MM`→分（`1d`=実効キャパ・`1w`=稼働日数×キャパ、入力時点で固定）、表示は `HH:MM`。実効値=プロジェクト値 ?? アプリ既定 ?? ハードコード既定。 |
 | 0.2.104 | 2026/6 | リソース設定のプロジェクト個別上書き（継承）を追加（§4.1・§4.2・§5.2・§5.6）。`projects` に nullable 列 `capacity_minutes_per_day`／`working_days`（011 追加, `null`=アプリ既定を継承）を追加し、`PATCH /api/v1/projects/:id` で更新可能に。実効値＝プロジェクト値 ?? アプリ既定 ?? ハードコード既定。 |
 | 0.2.103 | 2026/6 | アプリ既定のリソース設定 `app_settings`（key-value, 010 追加）と API（`GET`/`PUT /api/v1/settings`）を追加（§4.2・§5.2・§5.6）。`capacityMinutesPerDay`（既定480=8:00）・`workingDays`（既定 月〜金=`[1,2,3,4,5]`）を全ユーザー共有で保持。リソースビュー稼働率モデルの土台。プロジェクト個別上書き（継承）は後続。 |
