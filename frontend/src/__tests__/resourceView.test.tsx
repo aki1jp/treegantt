@@ -137,23 +137,25 @@ describe('ResourceView: タイトルヘッダー', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-describe('ResourceView: 負荷セル tooltip', () => {
-  it('担当期間内のセルに title 属性が付与される', () => {
-    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01' })]);
+describe('ResourceView: 稼働率セル tooltip', () => {
+  it('予定工数のあるセルに稼働率の title 属性が付与される', () => {
+    // 2026-06-01(月) は平日。estimate=480=8:00 → 稼働率100%
+    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 })]);
     const panel = screen.getByTestId('workload-panel');
     const cell = Array.from(panel.querySelectorAll('[title]'))
       .find(el => el.getAttribute('title')?.includes('Alice'));
     expect(cell).toBeTruthy();
+    expect(cell!.getAttribute('title')).toContain('稼働率');
   });
 
-  it('title 属性に件数が含まれる', () => {
+  it('過負荷（合計需要 > キャパ）の title に 200% の稼働率が出る', () => {
     renderChart([
-      makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01' }),
-      makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01' }),
+      makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 }),
+      makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 }),
     ]);
     const panel = screen.getByTestId('workload-panel');
     const cell = Array.from(panel.querySelectorAll('[title]'))
-      .find(el => el.getAttribute('title')?.includes('Alice') && el.getAttribute('title')?.includes('2'));
+      .find(el => el.getAttribute('title')?.includes('Alice') && el.getAttribute('title')?.includes('200%'));
     expect(cell).toBeTruthy();
   });
 });

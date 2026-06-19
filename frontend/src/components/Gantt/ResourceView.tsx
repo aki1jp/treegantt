@@ -1,17 +1,18 @@
 import dayjs from 'dayjs';
 import type { Task, ZoomLevel } from '../../types/task';
 import { ZOOM_CONFIG } from '../../utils/ganttCalc';
-import { calcWorkloadMatrix, workloadBuckets, workloadColor } from '../../utils/workloadCalc';
+import { calcUtilizationMatrix, workloadBuckets, utilizationColor } from '../../utils/workloadCalc';
+import { formatMinutes, HARDCODED_CAPACITY_MINUTES, HARDCODED_WORKING_DAYS } from '../../utils/duration';
 
 const HEADER_H  = 22;
 const LEGEND_H  = 18;
-const CELL_H    = 28;
+const CELL_H    = 30;
 
 const LEGEND_ITEMS = [
-  { n: '1', c: workloadColor(1) },
-  { n: '2', c: workloadColor(2) },
-  { n: '3', c: workloadColor(3) },
-  { n: '4+', c: workloadColor(4) },
+  { label: '〜80% 余裕',   c: utilizationColor(0.5) },
+  { label: '〜100% 適正',  c: utilizationColor(0.95) },
+  { label: '〜120% 注意',  c: utilizationColor(1.1) },
+  { label: '>120% 過負荷', c: utilizationColor(1.5) },
 ];
 
 export interface ResourceViewProps {
@@ -22,26 +23,30 @@ export interface ResourceViewProps {
   labelWidth: number;
   scrollRef: React.RefObject<HTMLDivElement>;
   onEditTask: (task: Task) => void;
+  /** 実効キャパシティ（分/稼働日）。1d 換算・稼働率の分母 */
+  capacityMinutesPerDay?: number;
+  /** 実効稼働日（0=日…6=土） */
+  workingDays?: number[];
 }
+
+const pct = (ratio: number): string => `${Math.round(ratio * 100)}%`;
 
 export function ResourceView({
   tasks, min, zoomLevel, totalWidth, labelWidth, scrollRef,
+  capacityMinutesPerDay = HARDCODED_CAPACITY_MINUTES,
+  workingDays = HARDCODED_WORKING_DAYS,
 }: ResourceViewProps) {
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
   const totalDays = Math.max(1, Math.round(totalWidth / dayWidth));
   const max = dayjs(min).add(totalDays - 1, 'day').toDate();
 
-  // 担当者×日付の負荷を共有ユーティリティで一本化（done除外・両日付必須・土日キャパ0）
-  const { assignees, days, matrix, dayTasks } = calcWorkloadMatrix(tasks, min, max);
+  const { assignees, days, utilization, demand, dayTasks, totalMinutes, peakUtil } =
+    calcUtilizationMatrix(tasks, min, max, { capacityMinutesPerDay, workingDays });
   if (assignees.length === 0) return null;
 
-  // ズームに応じた期間バケット（day=日, week=週, month=月）
   const buckets = workloadBuckets(days, zoomLevel);
-
-  const isWeekendDay = (idx: number): boolean => {
-    const dow = dayjs(days[idx]).day();
-    return dow === 0 || dow === 6;
-  };
+  const workingSet = new Set(workingDays);
+  const isNonWorking = (idx: number): boolean => !workingSet.has(dayjs(days[idx]).day());
 
   return (
     <div data-testid="workload-panel" style={{
@@ -49,7 +54,7 @@ export function ResourceView({
       borderTop: '2px solid var(--th-border-strong)',
       background: 'var(--th-bg)',
     }}>
-      {/* 左固定列: タイトル＋凡例＋担当者名 */}
+      {/* 左固定列: タイトル＋凡例＋担当者（サマリ付き） */}
       <div style={{
         flexShrink: 0, width: labelWidth,
         borderRight: '2px solid var(--th-border-strong)',
@@ -63,33 +68,36 @@ export function ResourceView({
         }}>
           リソースビュー（担当者別負荷）
         </div>
-        {/* 色凡例 */}
+        {/* 凡例 */}
         <div style={{
-          height: LEGEND_H, display: 'flex', alignItems: 'center', gap: 6,
-          padding: '0 8px', fontSize: 9, color: 'var(--th-text-muted)',
+          height: LEGEND_H, display: 'flex', alignItems: 'center', gap: 8,
+          padding: '0 8px', fontSize: 8, color: 'var(--th-text-muted)',
           background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
           flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
         }}>
           <span style={{ fontWeight: 700 }}>凡例</span>
           {LEGEND_ITEMS.map(l => (
-            <span key={l.n} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-              <span style={{
-                width: 10, height: 10, background: l.c,
-                border: '1px solid rgba(0,0,0,0.2)', display: 'inline-block',
-              }} />
-              {l.n}
+            <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <span style={{ width: 9, height: 9, background: l.c, border: '1px solid rgba(0,0,0,0.2)', display: 'inline-block' }} />
+              {l.label}
             </span>
           ))}
         </div>
         {assignees.map((a, ai) => (
           <div key={a} style={{
-            height: CELL_H, display: 'flex', alignItems: 'center',
-            padding: '0 8px', fontSize: 12, color: 'var(--th-text2)',
+            height: CELL_H, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+            padding: '0 8px',
             borderBottom: '1px solid var(--th-border)', flexShrink: 0,
             background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
-            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+            overflow: 'hidden',
           }}>
-            {a}
+            <div style={{
+              fontSize: 12, color: 'var(--th-text2)', lineHeight: 1.1,
+              whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
+            }}>{a}</div>
+            <div style={{ fontSize: 8, color: 'var(--th-text-muted)', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+              合計 {totalMinutes[ai] > 0 ? formatMinutes(totalMinutes[ai]) : '—'} / ピーク {pct(peakUtil[ai])}
+            </div>
           </div>
         ))}
       </div>
@@ -103,20 +111,16 @@ export function ResourceView({
             background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
           }}>
             {buckets.map((b, bi) => {
-              const weekend = b.span === 1 && isWeekendDay(b.startIdx);
-              const dow = dayjs(days[b.startIdx]).day();
+              const nonWork = b.span === 1 && isNonWorking(b.startIdx);
               const left = b.startIdx * dayWidth;
               const width = b.span * dayWidth;
               return (
                 <div key={bi} style={{
                   position: 'absolute', left, width, height: HEADER_H,
-                  background: weekend
-                    ? (dow === 6 ? 'rgba(59,130,246,0.18)' : 'rgba(239,68,68,0.18)')
-                    : 'transparent',
+                  background: nonWork ? 'rgba(120,120,120,0.12)' : 'transparent',
                   borderRight: '1px solid var(--th-border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 9,
-                  color: weekend ? (dow === 6 ? '#3b82f6' : '#ef4444') : 'var(--th-text-muted)',
+                  fontSize: 9, color: 'var(--th-text-muted)',
                   boxSizing: 'border-box', overflow: 'hidden',
                 }}>
                   {width >= 14 ? b.label : ''}
@@ -130,7 +134,7 @@ export function ResourceView({
             background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
           }} />
 
-          {/* 担当者ごとに 1 行: 各バケットに色＋ピーク負荷 */}
+          {/* 担当者ごとに 1 行: 各バケットに稼働率バンド色＋% */}
           {assignees.map((a, ai) => (
             <div key={a} style={{
               height: CELL_H, position: 'relative', flexShrink: 0,
@@ -138,16 +142,15 @@ export function ResourceView({
               borderBottom: '1px solid var(--th-border)',
             }}>
               {buckets.map((b, bi) => {
-                // バケット期間内の同時進行数のピーク（最大）
-                const peak = b.dayIdxs.reduce((m, i) => Math.max(m, matrix[ai][i]), 0);
+                // バケット期間内の稼働率ピーク（最大）
+                let peak = 0;
+                let peakDemand = 0;
+                for (const i of b.dayIdxs) {
+                  if (utilization[ai][i] > peak) { peak = utilization[ai][i]; peakDemand = demand[ai][i]; }
+                }
                 const titles = [...new Set(b.dayIdxs.flatMap(i => dayTasks[ai][i]))];
-                const weekend = b.span === 1 && isWeekendDay(b.startIdx);
-                const dow = dayjs(days[b.startIdx]).day();
-                const loadBg = workloadColor(peak);
-                const weekendBg = weekend
-                  ? (dow === 6 ? 'rgba(59,130,246,0.10)' : 'rgba(239,68,68,0.10)')
-                  : undefined;
-                const bg = peak > 0 ? loadBg : (weekendBg ?? 'transparent');
+                const nonWork = b.span === 1 && isNonWorking(b.startIdx);
+                const bg = peak > 0 ? utilizationColor(peak) : (nonWork ? 'rgba(120,120,120,0.06)' : 'transparent');
                 const left = b.startIdx * dayWidth;
                 const width = b.span * dayWidth;
                 return (
@@ -156,16 +159,15 @@ export function ResourceView({
                     background: bg,
                     borderRight: '1px solid rgba(0,0,0,0.06)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: Math.min(11, width - 4),
-                    fontWeight: 700,
-                    color: peak > 0 ? 'rgba(0,0,0,0.65)' : 'transparent',
+                    fontSize: Math.min(10, width - 2),
+                    fontWeight: 700, color: 'rgba(0,0,0,0.65)',
                     boxSizing: 'border-box',
                   }}
                     title={peak > 0
-                      ? `${a} ${b.label}: ${peak}件${titles.length ? `\n${titles.join('\n')}` : ''}`
+                      ? `${a} ${b.label}: 稼働率 ${pct(peak)}（需要 ${formatMinutes(Math.round(peakDemand))}）${titles.length ? `\n${titles.join('\n')}` : ''}`
                       : undefined}
                   >
-                    {width >= 10 && peak > 0 ? peak : ''}
+                    {width >= 18 && peak > 0 ? pct(peak) : ''}
                   </div>
                 );
               })}

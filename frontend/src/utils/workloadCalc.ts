@@ -123,6 +123,110 @@ export function workloadBuckets(days: string[], zoom: ZoomLevel): WorkloadBucket
   return buckets;
 }
 
+// ── 工数ベースの稼働率モデル（FEATURES.md Step 2 / §8.9） ─────────────────────
+
+export interface UtilizationOpts {
+  /** 1 稼働日あたりのキャパシティ（分） */
+  capacityMinutesPerDay: number;
+  /** 稼働日とみなす曜日（0=日…6=土） */
+  workingDays: number[];
+}
+
+export interface UtilizationMatrix {
+  assignees: string[];
+  days: string[];
+  /** demand[a][d] = その日の需要（分） */
+  demand: number[][];
+  /** utilization[a][d] = demand / capacity（非稼働日は 0） */
+  utilization: number[][];
+  /** dayTasks[a][d] = その日に需要を持つ寄与タスク名 */
+  dayTasks: string[][][];
+  /** totalMinutes[a] = 担当者の合計予定工数（分） */
+  totalMinutes: number[];
+  /** peakUtil[a] = 期間内の最大稼働率 */
+  peakUtil: number[];
+}
+
+/**
+ * 予定工数ベースの稼働率マトリクスを算出する。
+ * - 行（担当者）対象: assignee あり・done 除外・両日付あり・リーフのみ。
+ * - 需要: estimateMinutes!=null のタスクを「タスク期間の稼働日数」で均等配分し各稼働日へ積算。
+ * - 稼働率 = 需要 ÷ capacityMinutesPerDay。非稼働日（workingDays 外）は需要 0。
+ */
+export function calcUtilizationMatrix(
+  tasks: Task[], min: Date, max: Date, opts: UtilizationOpts,
+): UtilizationMatrix {
+  const minStr = toDateStr(min);
+  const maxStr = toDateStr(max);
+
+  const days: string[] = [];
+  let cur = minStr;
+  while (cur <= maxStr) { days.push(cur); cur = addDays(cur, 1); }
+
+  const workingSet = new Set(opts.workingDays);
+  const isWorking = (dateStr: string): boolean => workingSet.has(new Date(dateStr).getUTCDay());
+
+  // リーフ判定: 他タスクの parentId に現れない id
+  const parentIds = new Set(tasks.map(t => t.parentId).filter((p): p is string => p != null));
+  const isLeaf = (t: Task): boolean => !parentIds.has(t.id);
+
+  const rowTasks = tasks.filter(
+    t => t.assignee && t.status !== 'done' && t.startDate && t.endDate && isLeaf(t),
+  );
+
+  const assignees = [...new Set(rowTasks.map(t => t.assignee))].sort();
+  const empty: UtilizationMatrix = {
+    assignees: [], days: assignees.length === 0 ? [] : days,
+    demand: [], utilization: [], dayTasks: [], totalMinutes: [], peakUtil: [],
+  };
+  if (assignees.length === 0 || days.length === 0) return empty;
+
+  const aIdx = new Map(assignees.map((a, i) => [a, i]));
+  const dayIndex = new Map(days.map((d, i) => [d, i]));
+  const demand: number[][] = assignees.map(() => new Array(days.length).fill(0));
+  const dayTasks: string[][][] = assignees.map(() => days.map(() => [] as string[]));
+  const totalMinutes: number[] = assignees.map(() => 0);
+
+  for (const t of rowTasks) {
+    if (t.estimateMinutes == null) continue;
+    const ai = aIdx.get(t.assignee)!;
+    totalMinutes[ai] += t.estimateMinutes;
+
+    // タスク期間（全体）の稼働日を収集 → 均等配分の分母
+    const spanWorking: string[] = [];
+    let d = t.startDate!;
+    while (d <= t.endDate!) {
+      if (isWorking(d)) spanWorking.push(d);
+      d = addDays(d, 1);
+    }
+    if (spanWorking.length === 0) continue; // 配分先なし
+    const perDay = t.estimateMinutes / spanWorking.length;
+
+    for (const dd of spanWorking) {
+      const di = dayIndex.get(dd);
+      if (di !== undefined) {
+        demand[ai][di] += perDay;
+        dayTasks[ai][di].push(t.title);
+      }
+    }
+  }
+
+  const cap = opts.capacityMinutesPerDay > 0 ? opts.capacityMinutesPerDay : 1;
+  const utilization = demand.map(row => row.map(m => m / cap));
+  const peakUtil = utilization.map(row => row.reduce((mx, v) => Math.max(mx, v), 0));
+
+  return { assignees, days, demand, utilization, dayTasks, totalMinutes, peakUtil };
+}
+
+/** 稼働率（比率）→ バンド色。0=透明／〜80%淡緑（余裕）／〜100%緑（適正）／〜120%黄（注意）／>120%赤（過負荷） */
+export function utilizationColor(ratio: number): string {
+  if (ratio <= 0)   return 'transparent';
+  if (ratio <= 0.8) return 'rgba(34,197,94,0.35)';
+  if (ratio <= 1.0) return 'rgba(34,197,94,0.65)';
+  if (ratio <= 1.2) return 'rgba(234,179,8,0.8)';
+  return 'rgba(239,68,68,0.85)';
+}
+
 /** Map count to heat color */
 export function workloadColor(count: number): string {
   if (count === 0) return 'transparent';

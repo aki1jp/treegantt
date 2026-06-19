@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { calcWorkloadMatrix, workloadColor, workloadBuckets } from '../utils/workloadCalc';
+import {
+  calcWorkloadMatrix, workloadColor, workloadBuckets,
+  calcUtilizationMatrix, utilizationColor,
+} from '../utils/workloadCalc';
 import type { Task } from '../types/task';
 
 function makeTask(partial: Partial<Task>): Task {
@@ -188,5 +191,71 @@ describe('workloadBuckets（ズーム集計）', () => {
 
   it('空配列は空バケット', () => {
     expect(workloadBuckets([], 'week')).toEqual([]);
+  });
+});
+
+const UOPTS = { capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] };
+
+describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
+  it('予定工数を稼働日へ均等配分し稼働率を出す', () => {
+    const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-06', estimateMinutes: 720, status: 'todo' })];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'), UOPTS);
+    expect(r.assignees).toEqual(['Alice']);
+    expect(r.demand[0]).toEqual([240, 240, 240]);   // 720 / 3 稼働日
+    expect(r.utilization[0]).toEqual([0.5, 0.5, 0.5]);
+    expect(r.peakUtil[0]).toBeCloseTo(0.5);
+    expect(r.totalMinutes[0]).toBe(720);
+  });
+
+  it('土日は需要0（非稼働日）、稼働日のみへ配分', () => {
+    const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-04', estimateMinutes: 480, status: 'todo' })];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-04'), UOPTS);
+    // 金,土,日,月 → 稼働 金/月=2 → 240 ずつ
+    expect(r.demand[0]).toEqual([240, 0, 0, 240]);
+  });
+
+  it('estimateMinutes=null は需要0だが担当者行は表示される', () => {
+    const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: null, status: 'todo' })];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    expect(r.assignees).toEqual(['Alice']);
+    expect(r.demand[0]).toEqual([0]);
+    expect(r.totalMinutes[0]).toBe(0);
+  });
+
+  it('done は行にも需要にも含めない', () => {
+    const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'done' })];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    expect(r.assignees).toEqual([]);
+  });
+
+  it('親（非リーフ）は除外しリーフのみ集計', () => {
+    const tasks = [
+      makeTask({ id: 'p', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'todo' }),
+      makeTask({ id: 'c', parentId: 'p', assignee: 'Bob', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 480, status: 'todo' }),
+    ];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    expect(r.assignees).toEqual(['Bob']);          // 親 p は除外
+    expect(r.demand[0]).toEqual([480]);
+    expect(r.utilization[0]).toEqual([1]);
+  });
+
+  it('複数タスクの需要は合算（過負荷）', () => {
+    const tasks = [
+      makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'todo' }),
+      makeTask({ id: 't2', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 480, status: 'wip' }),
+    ];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    expect(r.demand[0]).toEqual([720]);
+    expect(r.utilization[0]).toEqual([1.5]);
+  });
+});
+
+describe('utilizationColor（バンド）', () => {
+  it('0=透明 / 〜80%・〜100%=緑 / 〜120%=黄 / >120%=赤', () => {
+    expect(utilizationColor(0)).toBe('transparent');
+    expect(utilizationColor(0.5)).toContain('34,197,94');
+    expect(utilizationColor(0.9)).toContain('34,197,94');
+    expect(utilizationColor(1.1)).toContain('234,179,8');
+    expect(utilizationColor(1.5)).toContain('239,68,68');
   });
 });

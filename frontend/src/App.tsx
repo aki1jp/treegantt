@@ -364,6 +364,8 @@ export default function App() {
               onAddSubMilestone={handleAddSubMilestone}
               onReorder={reorderTasks}
               onCopyInsert={handleCopyInsert}
+              capacityMinutesPerDay={effectiveCapacityMinutes}
+              workingDays={effectiveWorkingDays}
             />
           </div>
         </>
