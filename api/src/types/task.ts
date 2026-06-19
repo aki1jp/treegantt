@@ -32,5 +32,7 @@ export interface Project {
   id:        string;
   name:      string;
   color:     string | null;
+  capacityMinutesPerDay: number | null;
+  workingDays: number[] | null;
   createdAt: string;
 }

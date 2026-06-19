@@ -8,7 +8,7 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-const { listProjects, getProject, createProject, deleteProject } =
+const { listProjects, getProject, createProject, deleteProject, updateProject } =
   await import('../services/projectService.js');
 
 describe('projectService', () => {
@@ -87,6 +87,38 @@ describe('projectService', () => {
       deleteProject('proj');
       const row = testDb.prepare('SELECT 1 FROM tasks WHERE id = ?').get('t1');
       expect(row).toBeUndefined();
+    });
+  });
+
+  describe('リソース設定の個別上書き（継承）', () => {
+    it('新規プロジェクトは上書き値が null（＝アプリ既定を継承）', () => {
+      const p = createProject('P');
+      expect(p.capacityMinutesPerDay).toBeNull();
+      expect(p.workingDays).toBeNull();
+    });
+
+    it('updateProject で上書き値を設定・null 解除できる', () => {
+      const p = createProject('P');
+      const u = updateProject(p.id, { capacityMinutesPerDay: 465, workingDays: [1, 2, 3] });
+      expect(u?.capacityMinutesPerDay).toBe(465);
+      expect(u?.workingDays).toEqual([1, 2, 3]);
+
+      const cleared = updateProject(p.id, { capacityMinutesPerDay: null, workingDays: null });
+      expect(cleared?.capacityMinutesPerDay).toBeNull();
+      expect(cleared?.workingDays).toBeNull();
+    });
+
+    it('workingDays の上書きは正規化（重複除去・昇順・範囲外除外）', () => {
+      const p = createProject('P');
+      const u = updateProject(p.id, { workingDays: [5, 1, 1, 7, 3] });
+      expect(u?.workingDays).toEqual([1, 3, 5]);
+    });
+
+    it('listProjects/getProject も上書き値を返す', () => {
+      const p = createProject('P');
+      updateProject(p.id, { capacityMinutesPerDay: 300 });
+      expect(getProject(p.id)?.capacityMinutesPerDay).toBe(300);
+      expect(listProjects()[0].capacityMinutesPerDay).toBe(300);
     });
   });
 });

@@ -30,5 +30,7 @@ export function createTestDb(): Database.Database {
   db.exec(sql009);
   const sql010 = readFileSync(join(__dirname, '../db/migrations/010_app_settings.sql'), 'utf-8');
   db.exec(sql010);
+  const sql011 = readFileSync(join(__dirname, '../db/migrations/011_project_resource_overrides.sql'), 'utf-8');
+  db.exec(sql011);
   return db;
 }

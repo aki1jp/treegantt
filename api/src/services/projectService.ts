@@ -6,11 +6,32 @@ interface RawProject {
   id: string;
   name: string;
   color: string | null;
+  capacity_minutes_per_day: number | null;
+  working_days: string | null;
   created_at: string;
 }
 
+/** workingDays を 0–6・重複除去・昇順に正規化する */
+function normalizeWorkingDays(days: number[]): number[] {
+  return [...new Set(days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort((a, b) => a - b);
+}
+
 function rawToProject(row: RawProject): Project {
-  return { id: row.id, name: row.name, color: row.color ?? null, createdAt: row.created_at };
+  let workingDays: number[] | null = null;
+  if (row.working_days != null) {
+    try {
+      const parsed = JSON.parse(row.working_days);
+      if (Array.isArray(parsed)) workingDays = normalizeWorkingDays(parsed as number[]);
+    } catch { /* 壊れた値は継承(null)扱い */ }
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color ?? null,
+    capacityMinutesPerDay: row.capacity_minutes_per_day ?? null,
+    workingDays,
+    createdAt: row.created_at,
+  };
 }
 
 export function listProjects(): Project[] {
@@ -30,11 +51,26 @@ export function createProject(name: string, color?: string | null): Project {
   );
 }
 
-export function updateProject(id: string, patch: { name?: string; color?: string | null }): Project | null {
+export interface UpdateProjectInput {
+  name?: string;
+  color?: string | null;
+  capacityMinutesPerDay?: number | null;
+  workingDays?: number[] | null;
+}
+
+export function updateProject(id: string, patch: UpdateProjectInput): Project | null {
   const sets: string[] = [];
   const params: unknown[] = [];
   if (patch.name !== undefined) { sets.push('name = ?'); params.push(patch.name); }
   if ('color' in patch)         { sets.push('color = ?'); params.push(patch.color ?? null); }
+  if ('capacityMinutesPerDay' in patch) {
+    sets.push('capacity_minutes_per_day = ?');
+    params.push(patch.capacityMinutesPerDay ?? null);
+  }
+  if ('workingDays' in patch) {
+    sets.push('working_days = ?');
+    params.push(patch.workingDays == null ? null : JSON.stringify(normalizeWorkingDays(patch.workingDays)));
+  }
   if (sets.length === 0) {
     const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as RawProject | undefined;
     return row ? rawToProject(row) : null;
