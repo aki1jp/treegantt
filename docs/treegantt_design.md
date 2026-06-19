@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.1.1** |
-| ドキュメント版 | 0.2.101 |
+| ドキュメント版 | 0.2.102 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -153,6 +153,7 @@ interface Task {
   order: number;          // 並び順（ドラッグで変動。DB列は ord）
   titleColor: string | null;
   titleBgColor: string | null;
+  estimateMinutes: number | null; // 予定工数（分単位の整数）。null=未設定
   createdAt: string;
   updatedAt: string;
 }
@@ -193,6 +194,7 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 | ord | INTEGER | NOT NULL DEFAULT 0（並び順） |
 | seq | INTEGER | NOT NULL DEFAULT 0（作成順。004 追加） |
 | title_color / title_bg_color | TEXT | NULL 可（006 追加） |
+| estimate_minutes | INTEGER | NULL 可（009 追加。予定工数＝分。null=未設定） |
 | created_at / updated_at | TEXT | DEFAULT datetime('now') |
 
 - トリガー `update_tasks_updated_at`：UPDATE 後に `updated_at` を自動更新。
@@ -246,7 +248,7 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 | GET | `/api/v1/projects/:id/export/csv` | CSV エクスポート |
 
 ### 5.3 タスク作成/更新のボディスキーマ
-`title`（1–200）必須。`status`/`priority` は enum、`progress` は 0–100、`parentId`/`startDate`/`endDate`/`titleColor`/`titleBgColor` は `string|null`、`predecessors` は string[]。
+`title`（1–200）必須。`status`/`priority` は enum、`progress` は 0–100、`parentId`/`startDate`/`endDate`/`titleColor`/`titleBgColor` は `string|null`、`predecessors` は string[]、`estimateMinutes` は `number|null`（予定工数＝分。負値不可）。
 - 作成・更新時に `parentId` を指定した場合、同一プロジェクト・非マイルストーン・循環不可（`wouldCreateCycle`）を検証し、不正は 400（`INVALID_PARENT`/`CYCLE_DETECTED`/`MILESTONE_CANNOT_BE_PARENT`）。
 - `seq` は `projects.next_seq` から採番（カウンターを +1）。
 
@@ -442,9 +444,10 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 ## 10. Import / Export 仕様
 
-- **データ形式バージョン = `1.0`**（エクスポート JSON の `version` フィールド。**情報用メタデータであり、インポート時には検証・利用しない**。下記「設計判断」を参照）。
-- **JSON Export**：`{version:'1.0', exportedAt, project:{id,name}, tasks[]}`。
-- **CSV Export**：ヘッダ `id,parentId,title,...,predecessors`。`id`/`parentId`/`predecessors` は `seq` 番号で出力。カンマ/引用符/改行は CSV エスケープ（`"` 二重化）。
+- **データ形式バージョン = `1.1`**（エクスポート JSON の `version` フィールド。**情報用メタデータであり、インポート時には検証・利用しない**。下記「設計判断」を参照）。`1.1` で `estimateMinutes`（予定工数＝分）を追加。
+- **JSON Export**：`{version:'1.1', exportedAt, project:{id,name}, tasks[]}`。タスクは全フィールド（`estimateMinutes` 含む）をそのまま出力し、インポートは `...t` 展開で取り込む（追加フィールドは自動往復）。
+- **CSV Export**：ヘッダ `id,parentId,title,...,estimateMinutes,predecessors`。`id`/`parentId`/`predecessors` は `seq` 番号で出力。`estimateMinutes` は分の整数（未設定は空欄）。カンマ/引用符/改行は CSV エスケープ（`"` 二重化）。
+- **後方/前方互換**：`estimateMinutes` 追加は非破壊。旧データ（フィールド無し）は **null** として取り込み、未知フィールドは黙って破棄（寛容な取り込み）。版ガードは行わない（§10.1）。
 - **CSV Import**：CSV ファイルは**フロントエンド側で `papaparse` によりパース**し、`seq` 参照を解決してタスク配列へ変換した上で下記 Import API（JSON）を呼ぶ（API は JSON のみ受け付ける）。
 - **Import（API）**：`{tasks[], mode}`。`mode='restore'` は既存タスク全削除後に投入、それ以外は追記。全タスクに新 UUID を採番し、`parentId`/`predecessors` を旧→新 ID へリマップ（バッチ外参照は除外）。3 パス（全件 INSERT→親リマップ→依存挿入）で FK 順序問題を回避。完了後 `reload` を broadcast。
 - 文字列は許可リストで正規化（status/priority は不正値を既定へ、progress は 0–100 にクランプ）。
@@ -653,3 +656,4 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.99 | 2026/6 | マイルストーン＝1点・不動を仕様の正に統一（§8.3・§9.4・§9.2）。ガントの菱形に残っていた移動ドラッグ入口（透明クリック矩形に覆われ実 UI では発火しないデッドコード）と、ドラッグ終了時の `endDate=startDate` 同期分岐を撤去し、マイルストーンは移動・リサイズ不可（クリックでモーダルのみ）に明示。WBS でもマイルストーン行の終了日を編集不可（淡色）にし、開始日編集時に終了日を同値へ追従させて常に1点を保つようにした。 |
 | 0.2.100 | 2026/6 | 製品バージョンを **1.1.1** に更新（ヘッダー・ステータス・構成図・§15）。0.2.97 で設計書・CHANGELOG を 1.1.0 に更新した際に `api`/`frontend` の `package.json`（`/health`・ハンバーガー表示の出典）のバンプが漏れていたため、これを 1.1.1 に揃えて解消。1.1.0 以降のマイルストーン関連の挙動修正（§8.2 ヘッダー強調のセル限定・§8.3 1点固定の徹底）を製品リリースとして `CHANGELOG.md` の `[1.1.1]` に記録。 |
 | 0.2.101 | 2026/6 | リソースビュー（担当者別負荷）を仕様の正として明文化（新 §8.9）。負荷を「同時進行タスク数」モデルに統一し、集計を共有 `calcWorkloadMatrix` に一本化（対象＝`assignee`あり・`done`除外・`startDate`/`endDate`両方あり）。土日は負荷非加算（キャパ0、淡背景は表示として残す）。ズーム時はセル期間内の同時進行数の**ピーク（最大）**で集計（平均不使用）。色凡例の表示とセル `title` への寄与タスク列挙を規定。工数ベースの稼働率モデルは `FEATURES.md` Step 2 として別途。 |
+| 0.2.102 | 2026/6 | 予定工数フィールド `estimateMinutes`（分単位の整数, null=未設定）をタスクに追加（§4.1・§4.2・§5.3）。SQLite 列 `estimate_minutes`（009 追加）、API ボディ（`number\|null`・負値不可）、Import/Export（データ形式 1.1・CSV 列追加・JSON は `...t` 展開で自動往復・旧データは null・版ガードなし）に反映。FEATURES.md Step 2 の基盤（工数ベース稼働率モデル）。 |
