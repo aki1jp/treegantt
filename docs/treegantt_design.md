@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.1.1** |
-| ドキュメント版 | 0.2.102 |
+| ドキュメント版 | 0.2.103 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -208,6 +208,16 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 | successor_id | FK→tasks(id) ON DELETE CASCADE |
 | PRIMARY KEY | (predecessor_id, successor_id) |
 
+**app_settings**（リソース設定のアプリ既定。key-value, 010 追加）
+
+| 列 | 型 | 制約 |
+|----|----|------|
+| key | TEXT | PK |
+| value | TEXT | NOT NULL（JSON 文字列） |
+
+- 既定値: `capacityMinutesPerDay`=480（8:00）、`workingDays`=`[1,2,3,4,5]`（月〜金。0=日…6=土）。行が無いキーは既定値で補完する。
+- リソースビューの稼働率算出に使うアプリ全体の既定（全ユーザー共有）。プロジェクト個別の上書きは `projects` 側（後述）。
+
 **設計上の要点**
 - **親タスクの日付・進捗は DB に保存しない派生値**。子孫から都度フロントで算出する（親の start_date/end_date は API が書き換えない）。
 - `seq` は `projects.next_seq` 単調増加カウンターで採番し、削除済み番号は再利用しない（永久欠番）。
@@ -246,6 +256,8 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 | POST | `/api/v1/projects/:id/import` | Import（mode: append/restore） |
 | GET | `/api/v1/projects/:id/export/json` | JSON エクスポート |
 | GET | `/api/v1/projects/:id/export/csv` | CSV エクスポート |
+| GET | `/api/v1/settings` | アプリ既定のリソース設定（capacity/workingDays）を取得 |
+| PUT | `/api/v1/settings` | リソース設定を部分更新（指定キーのみ upsert） |
 
 ### 5.3 タスク作成/更新のボディスキーマ
 `title`（1–200）必須。`status`/`priority` は enum、`progress` は 0–100、`parentId`/`startDate`/`endDate`/`titleColor`/`titleBgColor` は `string|null`、`predecessors` は string[]、`estimateMinutes` は `number|null`（予定工数＝分。負値不可）。
@@ -262,6 +274,13 @@ interface Project { id: string; name: string; color: string | null; createdAt: s
 - `single`：直下の子を削除対象の親（祖父母）へ付替えてから本体のみ削除。付替えは WS `tasks_reordered`、本体削除は `tasks_deleted`。
 
 すべての全 SQL はパラメータ化（プレースホルダ）。
+
+### 5.6 アプリ設定（リソース設定）
+リソースビューの稼働率算出に使うアプリ全体の既定値。`app_settings`（key-value）に保存し、全ユーザーで共有する。
+
+- **GET `/api/v1/settings`** → `{ capacityMinutesPerDay, workingDays }`。行が無いキーは既定（480／`[1,2,3,4,5]`）で補完。
+- **PUT `/api/v1/settings`**（部分更新）：body は `{ capacityMinutesPerDay?: number(≥1), workingDays?: number[]（各 0–6） }`。指定キーのみ upsert し、更新後の全設定を返す。`workingDays` は重複除去・昇順・範囲外除外で正規化する。
+- プロジェクト個別の上書き（継承）は §（projects 拡張）で扱い、実効値 = プロジェクト値 ?? アプリ既定 ?? ハードコード既定。
 
 ---
 
@@ -656,4 +675,5 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.99 | 2026/6 | マイルストーン＝1点・不動を仕様の正に統一（§8.3・§9.4・§9.2）。ガントの菱形に残っていた移動ドラッグ入口（透明クリック矩形に覆われ実 UI では発火しないデッドコード）と、ドラッグ終了時の `endDate=startDate` 同期分岐を撤去し、マイルストーンは移動・リサイズ不可（クリックでモーダルのみ）に明示。WBS でもマイルストーン行の終了日を編集不可（淡色）にし、開始日編集時に終了日を同値へ追従させて常に1点を保つようにした。 |
 | 0.2.100 | 2026/6 | 製品バージョンを **1.1.1** に更新（ヘッダー・ステータス・構成図・§15）。0.2.97 で設計書・CHANGELOG を 1.1.0 に更新した際に `api`/`frontend` の `package.json`（`/health`・ハンバーガー表示の出典）のバンプが漏れていたため、これを 1.1.1 に揃えて解消。1.1.0 以降のマイルストーン関連の挙動修正（§8.2 ヘッダー強調のセル限定・§8.3 1点固定の徹底）を製品リリースとして `CHANGELOG.md` の `[1.1.1]` に記録。 |
 | 0.2.101 | 2026/6 | リソースビュー（担当者別負荷）を仕様の正として明文化（新 §8.9）。負荷を「同時進行タスク数」モデルに統一し、集計を共有 `calcWorkloadMatrix` に一本化（対象＝`assignee`あり・`done`除外・`startDate`/`endDate`両方あり）。土日は負荷非加算（キャパ0、淡背景は表示として残す）。ズーム時はセル期間内の同時進行数の**ピーク（最大）**で集計（平均不使用）。色凡例の表示とセル `title` への寄与タスク列挙を規定。工数ベースの稼働率モデルは `FEATURES.md` Step 2 として別途。 |
+| 0.2.103 | 2026/6 | アプリ既定のリソース設定 `app_settings`（key-value, 010 追加）と API（`GET`/`PUT /api/v1/settings`）を追加（§4.2・§5.2・§5.6）。`capacityMinutesPerDay`（既定480=8:00）・`workingDays`（既定 月〜金=`[1,2,3,4,5]`）を全ユーザー共有で保持。リソースビュー稼働率モデルの土台。プロジェクト個別上書き（継承）は後続。 |
 | 0.2.102 | 2026/6 | 予定工数フィールド `estimateMinutes`（分単位の整数, null=未設定）をタスクに追加（§4.1・§4.2・§5.3）。SQLite 列 `estimate_minutes`（009 追加）、API ボディ（`number\|null`・負値不可）、Import/Export（データ形式 1.1・CSV 列追加・JSON は `...t` 展開で自動往復・旧データは null・版ガードなし）に反映。FEATURES.md Step 2 の基盤（工数ベース稼働率モデル）。 |
