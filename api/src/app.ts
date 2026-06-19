@@ -9,6 +9,7 @@ import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { taskRoutes } from './routes/tasks.js';
 import { importExportRoutes } from './routes/importExport.js';
+import { settingsRoutes } from './routes/settings.js';
 
 const API_PREFIX = '/api/v1';
 
@@ -29,6 +30,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   await app.register(projectRoutes, { prefix: API_PREFIX });
   await app.register(taskRoutes, { prefix: API_PREFIX });
   await app.register(importExportRoutes, { prefix: API_PREFIX });
+  await app.register(settingsRoutes, { prefix: API_PREFIX });
 
   app.setErrorHandler((err: FastifyError, _req, reply) => {
     const statusCode = err.statusCode ?? 500;

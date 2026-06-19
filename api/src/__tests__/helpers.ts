@@ -28,5 +28,7 @@ export function createTestDb(): Database.Database {
   db.exec(sql008);
   const sql009 = readFileSync(join(__dirname, '../db/migrations/009_task_estimate.sql'), 'utf-8');
   db.exec(sql009);
+  const sql010 = readFileSync(join(__dirname, '../db/migrations/010_app_settings.sql'), 'utf-8');
+  db.exec(sql010);
   return db;
 }
