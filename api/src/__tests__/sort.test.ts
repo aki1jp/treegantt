@@ -24,7 +24,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     seq: 0,
     order: 0,
     titleColor: null,
-    titleBgColor: null,
+    titleBgColor: null, estimateMinutes: null,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     ...overrides,

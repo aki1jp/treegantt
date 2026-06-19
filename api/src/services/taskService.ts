@@ -20,6 +20,7 @@ interface RawTask {
   ord: number;
   title_color:    string | null;
   title_bg_color: string | null;
+  estimate_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +44,7 @@ function rawToTask(row: RawTask): Task {
     order:        row.ord,
     titleColor:   row.title_color   ?? null,
     titleBgColor: row.title_bg_color ?? null,
+    estimateMinutes: row.estimate_minutes ?? null,
     predecessors: [],
     createdAt:    row.created_at,
     updatedAt:    row.updated_at,
@@ -155,6 +157,7 @@ export interface CreateTaskInput {
   order?: number;
   titleColor?:   string | null;
   titleBgColor?: string | null;
+  estimateMinutes?: number | null;
 }
 
 export function createTask(input: CreateTaskInput): TaskWithSuccessors {
@@ -172,8 +175,8 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
     db.prepare('UPDATE projects SET next_seq = next_seq + 1 WHERE id = ?').run(input.projectId);
 
     db.prepare(
-      `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, estimate_minutes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       input.id,
       input.projectId,
@@ -189,7 +192,8 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
       input.endDate ?? null,
       input.isMilestone ? 1 : 0,
       input.order ?? maxOrd + 1,
-      seq
+      seq,
+      input.estimateMinutes ?? null
     );
 
     if (input.predecessors?.length) {
@@ -229,6 +233,7 @@ const COLUMN_MAP: ColEntry[] = [
   ['order',       'ord'],
   ['titleColor',   'title_color'],
   ['titleBgColor', 'title_bg_color'],
+  ['estimateMinutes', 'estimate_minutes'],
 ];
 
 export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccessors | null {
@@ -403,6 +408,7 @@ export interface BatchTaskInput {
   order?: number;
   titleColor?: string | null;
   titleBgColor?: string | null;
+  estimateMinutes?: number | null;
 }
 
 export function batchCreateTasks(
@@ -429,8 +435,8 @@ export function batchCreateTasks(
       db.prepare('UPDATE projects SET next_seq = next_seq + 1 WHERE id = ?').run(projectId);
 
       db.prepare(
-        `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, estimate_minutes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         ids[i],
         projectId,
@@ -447,6 +453,7 @@ export function batchCreateTasks(
         input.isMilestone ? 1 : 0,
         input.order ?? maxOrd + i + 1,
         seq,
+        input.estimateMinutes ?? null,
       );
       createdIds.push(ids[i]);
     }

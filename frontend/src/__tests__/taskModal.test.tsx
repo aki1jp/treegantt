@@ -17,7 +17,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     assignee: '', startDate: null, endDate: null,
     isMilestone: false, predecessors: [], seq: 1, order: 1,
     createdAt: '', updatedAt: '',
-    titleColor: null, titleBgColor: null,
+    titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
@@ -184,7 +184,7 @@ describe('TaskModal — 先行タスク・親タスクの # 番号は seq (不�
       status: 'todo', priority: 'medium', progress: 0,
       assignee: '', startDate: null, endDate: null,
       isMilestone: false, predecessors: [], seq, order,
-      titleColor: null, titleBgColor: null,
+      titleColor: null, titleBgColor: null, estimateMinutes: null,
       createdAt: '', updatedAt: '',
     };
   }

@@ -220,6 +220,7 @@ export default function App() {
         isMilestone:  task.isMilestone,
         titleColor:   task.titleColor,
         titleBgColor: task.titleBgColor,
+        estimateMinutes: task.estimateMinutes,
         order:        isRoot ? targetOrder : undefined,
       });
       sourceTasksFlat.push(task);

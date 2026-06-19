@@ -92,7 +92,7 @@ function makeTask(partial: Partial<Task> & { id: string }): Task {
     seq: 0,
     order: 0,
     titleColor: null,
-    titleBgColor: null,
+    titleBgColor: null, estimateMinutes: null,
     createdAt: '',
     updatedAt: '',
     ...partial,

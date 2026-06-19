@@ -42,7 +42,7 @@ function makeTask(partial: Partial<Task> & { id: string; order: number }): Task 
     predecessors: [],
     seq: partial.order,
     titleColor: null,
-    titleBgColor: null,
+    titleBgColor: null, estimateMinutes: null,
     createdAt: '',
     updatedAt: '',
     ...partial,

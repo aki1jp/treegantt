@@ -12,7 +12,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: 'todo', priority: 'medium', progress: 0,
     assignee: '', startDate: null, endDate: null, isMilestone: false,
     predecessors: [], seq: _seq, order: _seq, createdAt: '', updatedAt: '',
-    titleColor: null, titleBgColor: null,
+    titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
@@ -565,7 +565,7 @@ describe('getUniqueAssignees', () => {
       status: 'todo', priority: 'medium', progress: 0,
       assignee, startDate: null, endDate: null,
       isMilestone: false, predecessors: [], seq: 1, order: 1,
-      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null, estimateMinutes: null,
     };
   }
 
@@ -598,7 +598,7 @@ describe('buildCollapsedCriticalParents', () => {
       status: 'todo', priority: 'medium', progress: 0, assignee: '',
       startDate: '2026-06-10', endDate: '2026-06-20',
       isMilestone: false, predecessors: [], seq: 1, order: 1,
-      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null, estimateMinutes: null,
     };
   }
 
@@ -647,7 +647,7 @@ describe('isAncestorOf', () => {
       status: 'todo', priority: 'medium', progress: 0, assignee: '',
       startDate: null, endDate: null,
       isMilestone: false, predecessors: [], seq: 1, order: 1,
-      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null, estimateMinutes: null,
     };
   }
 
@@ -684,7 +684,7 @@ describe('isAncestorOrDescendant', () => {
       status: 'todo', priority: 'medium', progress: 0, assignee: '',
       startDate: null, endDate: null,
       isMilestone: false, predecessors: [], seq: 1, order: 1,
-      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+      createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null, estimateMinutes: null,
     };
   }
 

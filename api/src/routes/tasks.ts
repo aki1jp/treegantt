@@ -29,6 +29,7 @@ const TASK_BODY_PROPERTIES = {
   predecessors: { type: 'array', items: { type: 'string' } },
   titleColor:   { type: ['string', 'null'] },
   titleBgColor: { type: ['string', 'null'] },
+  estimateMinutes: { type: ['number', 'null'], minimum: 0 },
 } as const;
 
 export async function taskRoutes(fastify: FastifyInstance) {
@@ -80,6 +81,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           endDate:     req.body.endDate     as string | null | undefined,
           isMilestone: req.body.isMilestone as boolean | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
+          estimateMinutes: req.body.estimateMinutes as number | null | undefined,
         });
         notifyRoom(req.params.id, { type: 'task_created', projectId: req.params.id, task });
         reply.code(201).send({ task });
@@ -162,6 +164,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           order:        req.body.order        as number | undefined,
           titleColor:   req.body.titleColor   as string | null | undefined,
           titleBgColor: req.body.titleBgColor as string | null | undefined,
+          estimateMinutes: req.body.estimateMinutes as number | null | undefined,
         });
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
         notifyRoom(task.projectId, { type: 'task_updated', projectId: task.projectId, task });
@@ -239,6 +242,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
                   order:        { type: 'number' },
                   titleColor:   { type: ['string', 'null'] },
                   titleBgColor: { type: ['string', 'null'] },
+                  estimateMinutes: { type: ['number', 'null'], minimum: 0 },
                 },
               },
             },

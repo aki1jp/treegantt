@@ -10,7 +10,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: 'todo', priority: 'medium', progress: 0,
     assignee: '田中', startDate: '2026-05-01', endDate: '2026-05-10', isMilestone: false,
     predecessors: [], seq: 1, order: 1, createdAt: '2026-05-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z',
-    titleColor: null, titleBgColor: null,
+    titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
@@ -32,6 +32,19 @@ describe('exportToCsv', () => {
     // 子行の parentId は親の seq 値
     const { tasks } = importFromCsv(csv);
     expect(tasks[1].parentId).toBe('1');
+  });
+
+  it('estimateMinutes 列を出力し CSV ラウンドトリップで保持する', () => {
+    const csv = exportToCsv([makeTask({ estimateMinutes: 90 })]);
+    expect(csv).toContain('estimateMinutes');
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].estimateMinutes).toBe(90);
+  });
+
+  it('estimateMinutes 空欄は null として取り込む', () => {
+    const csv = exportToCsv([makeTask({ estimateMinutes: null })]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].estimateMinutes).toBeNull();
   });
 
   it('predecessorsをセミコロン区切りで出力する', () => {
@@ -108,6 +121,19 @@ describe('exportToJson / importFromJson', () => {
     expect(result.tasks).toHaveLength(2);
     expect(result.tasks[0].title).toBe('テストタスク');
     expect(result.project.name).toBe('テストプロジェクト');
+  });
+
+  it('データ形式バージョンは 1.1', () => {
+    const json = exportToJson({ id: 'p1', name: 'P' }, [makeTask()]);
+    expect(JSON.parse(json).version).toBe('1.1');
+  });
+
+  it('estimateMinutes（予定工数）がラウンドトリップで保持される', () => {
+    const project = { id: 'p1', name: 'P' };
+    const tasks = [makeTask({ estimateMinutes: 465 }), makeTask({ id: 't2', estimateMinutes: null })];
+    const result = importFromJson(exportToJson(project, tasks));
+    expect(result.tasks[0].estimateMinutes).toBe(465);
+    expect(result.tasks[1].estimateMinutes).toBeNull();
   });
 
   it('スラッシュ区切りの日付を ISO へ正規化する', () => {

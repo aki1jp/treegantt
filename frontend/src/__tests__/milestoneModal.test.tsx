@@ -17,7 +17,7 @@ function makeMilestone(overrides: Partial<Task> = {}): Task {
     assignee: '', startDate: '2026-06-01', endDate: '2026-06-01',
     isMilestone: true, predecessors: [], seq: 1, order: 1,
     createdAt: '', updatedAt: '',
-    titleColor: null, titleBgColor: null,
+    titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
