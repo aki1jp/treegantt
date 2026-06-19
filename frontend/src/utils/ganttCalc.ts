@@ -439,6 +439,12 @@ export function calcParentSpanMap(
 
 // マイルストーンヘッダー用レーン割り当て。
 // 推定テキスト幅でx方向の重なりを判定し、greedy に最初の空きレーンへ配置する。
+// マイルストーンのセル [x, x+dayWidth] が描画範囲 [0, totalWidth) と重なるか。
+// 開始日変更・表示期間で範囲外（見切れ）に外れた分はヘッダーのレーン割当・表示から除外する。
+export function isMilestoneXVisible(x: number, dayWidth: number, totalWidth: number): boolean {
+  return x + dayWidth > 0 && x < totalWidth;
+}
+
 export function assignMilestoneLanes<T extends { x: number; title: string }>(
   items: T[],
   fontSize: number,

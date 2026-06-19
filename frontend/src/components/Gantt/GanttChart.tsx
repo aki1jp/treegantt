@@ -6,7 +6,7 @@ import {
   calcGanttRange, calcLightningPoints,
   ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents, isAncestorOrDescendant,
   addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
-  calcParentSpanMap, assignMilestoneLanes,
+  calcParentSpanMap, assignMilestoneLanes, isMilestoneXVisible,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
@@ -310,9 +310,11 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         x: dateToX(t.startDate!, min, zoomLevel),
         title: t.title,
         color: milestoneColorOf(t.titleColor, milestoneHighlightColor),
-      })),
+      }))
+      // 開始日変更・表示期間で描画範囲外（見切れ）になったものは多段から除外する。
+      .filter(m => isMilestoneXVisible(m.x, dayWidth, totalWidth)),
     11,
-  ), [sorted, min, zoomLevel, showMilestones, milestoneHighlightColor]);
+  ), [sorted, min, zoomLevel, showMilestones, milestoneHighlightColor, dayWidth, totalWidth]);
   const milestoneXSet = useMemo(() => new Set(milestoneItems.map(m => m.x)), [milestoneItems]);
   // 日付セル強調用に x→色（個別優先）を引けるようにする。同一 x に複数ある場合は後勝ち。
   const milestoneColorByX = useMemo(
