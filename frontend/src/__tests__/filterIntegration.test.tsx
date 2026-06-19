@@ -50,7 +50,7 @@ function renderChart(tasks: Task[], filterOverrides: Partial<ReturnType<typeof u
   return render(
     <GanttChart
       onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
-      onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP}
+      onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
     />
   );
 }

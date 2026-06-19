@@ -305,7 +305,7 @@ describe('ProjectTabs — ドロップダウン収納', () => {
     globalThis.ResizeObserver = class {
       private cb: ResizeObserverCallback;
       constructor(cb: ResizeObserverCallback) { this.cb = cb; }
-      observe(el: Element) {
+      observe(_el: Element) {
         this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver);
       }
       disconnect() {}

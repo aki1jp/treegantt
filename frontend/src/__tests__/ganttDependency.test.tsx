@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/react';
@@ -6,7 +7,7 @@ import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
 const NOOP = vi.fn();
-let onInlineUpdate: ReturnType<typeof vi.fn>;
+let onInlineUpdate: Mock;
 
 let seq = 0;
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -59,7 +60,7 @@ function renderChart(tasks: Task[]) {
       onInlineUpdate={onInlineUpdate}
       onQuickAdd={NOOP}
       onAddSubTask={NOOP}
-      onReorder={NOOP}
+      onReorder={NOOP} onCopyInsert={NOOP}
     />
   );
 }

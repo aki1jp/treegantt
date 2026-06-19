@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen, act, createEvent } from '@testing-library/react';
@@ -43,8 +44,8 @@ afterEach(() => {
 });
 
 interface RenderOpts {
-  onReorder?: ReturnType<typeof vi.fn>;
-  onCopyInsert?: ReturnType<typeof vi.fn>;
+  onReorder?: Mock;
+  onCopyInsert?: Mock;
 }
 
 function renderChart(tasks: Task[], opts: RenderOpts = {}) {

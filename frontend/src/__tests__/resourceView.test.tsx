@@ -48,7 +48,7 @@ function renderChart(tasks: Task[]) {
   return render(
     <GanttChart
       onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
-      onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP}
+      onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
     />
   );
 }

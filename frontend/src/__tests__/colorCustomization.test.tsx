@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
@@ -5,7 +6,7 @@ import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
-let onInlineUpdate: ReturnType<typeof vi.fn>;
+let onInlineUpdate: Mock;
 const NOOP = vi.fn();
 
 let seq = 0;
@@ -49,7 +50,7 @@ function renderChart(tasks: Task[]) {
   return render(
     <GanttChart
       onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
-      onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP}
+      onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
     />
   );
 }

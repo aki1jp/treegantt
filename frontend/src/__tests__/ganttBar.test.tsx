@@ -268,7 +268,7 @@ describe('GanttBar 親タスク effectiveProgress（v2.30）', () => {
     const { container } = renderBarProgress(true, '2026-05-31', 0, 80);
     const rects = Array.from(container.querySelectorAll('rect'));
     // 進捗オーバーレイ（barColor 100% 不透明、pointerEvents:none）が存在する
-    const progressRect = rects.find(r => (r as HTMLElement).style.pointerEvents === 'none');
+    const progressRect = rects.find(r => (r as SVGElement).style.pointerEvents === 'none');
     expect(progressRect).toBeTruthy();
   });
 
@@ -285,7 +285,7 @@ describe('GanttBar 親タスク effectiveProgress（v2.30）', () => {
   it('effectiveProgress が未指定のとき task.progress にフォールバックする（progress=0→バーなし）', () => {
     const { container } = renderBarProgress(true, '2026-05-31', 0);
     const rects = Array.from(container.querySelectorAll('rect'));
-    const progressRect = rects.find(r => (r as HTMLElement).style.pointerEvents === 'none');
+    const progressRect = rects.find(r => (r as SVGElement).style.pointerEvents === 'none');
     expect(progressRect).toBeFalsy();
   });
 });
@@ -294,8 +294,6 @@ describe('GanttBar 親タスク effectiveProgress（v2.30）', () => {
 import { ZOOM_CONFIG, dateToX, calcNowX, calcVertexX, addDays, todayStr } from '../utils/ganttCalc';
 
 describe('GanttBar 親タスク displayStart/displayEnd（v2.37）', () => {
-  const DAY_WIDTH = ZOOM_CONFIG['month'].dayWidth;
-
   function renderParentBar(displayStart?: string | null, displayEnd?: string | null) {
     const task: Task = {
       ...BASE_TASK,
