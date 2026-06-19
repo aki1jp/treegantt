@@ -439,10 +439,10 @@ export function calcParentSpanMap(
 
 // マイルストーンヘッダー用レーン割り当て。
 // 推定テキスト幅でx方向の重なりを判定し、greedy に最初の空きレーンへ配置する。
-export function assignMilestoneLanes(
-  items: { x: number; title: string }[],
+export function assignMilestoneLanes<T extends { x: number; title: string }>(
+  items: T[],
   fontSize: number,
-): { x: number; title: string; lane: number }[] {
+): (T & { lane: number })[] {
   const iconW = fontSize + 4;
   const charW = fontSize * 0.65;
   const pad   = 4;

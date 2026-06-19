@@ -10,6 +10,7 @@ import {
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
+import { milestoneColorOf } from '../../utils/taskColors';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { calcVisibleRange } from '../../utils/virtualRange';
 import { GanttBar } from './GanttBar';
@@ -305,10 +306,19 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   const milestoneItems = useMemo(() => !showMilestones ? [] : assignMilestoneLanes(
     sorted
       .filter(t => t.isMilestone && !!t.startDate)
-      .map(t => ({ x: dateToX(t.startDate!, min, zoomLevel), title: t.title })),
+      .map(t => ({
+        x: dateToX(t.startDate!, min, zoomLevel),
+        title: t.title,
+        color: milestoneColorOf(t.titleColor, milestoneHighlightColor),
+      })),
     11,
-  ), [sorted, min, zoomLevel, showMilestones]);
+  ), [sorted, min, zoomLevel, showMilestones, milestoneHighlightColor]);
   const milestoneXSet = useMemo(() => new Set(milestoneItems.map(m => m.x)), [milestoneItems]);
+  // 日付セル強調用に x→色（個別優先）を引けるようにする。同一 x に複数ある場合は後勝ち。
+  const milestoneColorByX = useMemo(
+    () => new Map(milestoneItems.map(m => [m.x, m.color])),
+    [milestoneItems],
+  );
   const milestoneLaneH = 20;
   const milestoneLaneCount = milestoneItems.length > 0
     ? Math.max(...milestoneItems.map(m => m.lane)) + 1
@@ -1132,7 +1142,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                   const isMilestoneDate = (row.level === 'day' || row.level === 'dow')
                     && milestoneXSet.has(cell.x);
                   const bg = isMilestoneDate
-                    ? milestoneHighlightColor + '55'
+                    ? (milestoneColorByX.get(cell.x) ?? milestoneHighlightColor) + '55'
                     : isSat
                       ? 'rgba(59,130,246,0.18)'
                       : isSun
@@ -1175,7 +1185,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                   <div key={i} style={{
                     position: 'absolute', left: m.x + dayWidth / 2,
                     display: 'flex', alignItems: 'center', gap: 2,
-                    fontSize: 11, fontWeight: 600, color: milestoneHighlightColor,
+                    fontSize: 11, fontWeight: 600, color: m.color,
                     whiteSpace: 'nowrap',
                     top: m.lane * milestoneLaneH + 2,
                     height: milestoneLaneH - 2,
@@ -1243,7 +1253,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
             {/* マイルストーン列背景 */}
             {milestoneItems.map((m, i) => (
               <rect key={i} x={m.x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
-                fill={milestoneHighlightColor + '33'} />
+                fill={m.color + '33'} />
             ))}
 
             {/* タスクバー（仮想化: 可視範囲のみ・rowIndex は絶対インデックス） */}
@@ -1266,7 +1276,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                   effectiveProgress={isParent ? progressMap.get(task.id) : undefined}
                   displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
                   displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
-                  milestoneColor={task.isMilestone ? milestoneHighlightColor : undefined}
+                  milestoneColor={task.isMilestone ? milestoneColorOf(task.titleColor, milestoneHighlightColor) : undefined}
                   onMoveStart={handleBarMoveStart}
                   onResizeLeftStart={handleBarResizeLeftStart}
                   onResizeRightStart={handleBarResizeRightStart}
