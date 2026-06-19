@@ -1,4 +1,4 @@
-import type { Task } from '../types/task';
+import type { Task, AppSettings, Project } from '../types/task';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:4000`;
 
@@ -53,4 +53,24 @@ export async function fetchAllTasks(
     if (tasks.length >= total || page.tasks.length === 0) break;
   }
   return { tasks, total };
+}
+
+// ── リソース設定（アプリ既定） ───────────────────────────────────────────────
+export async function fetchSettings(): Promise<AppSettings> {
+  return (await apiFetch('/settings')) as AppSettings;
+}
+
+export async function updateAppSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
+  return (await apiFetch('/settings', { method: 'PUT', body: JSON.stringify(patch) })) as AppSettings;
+}
+
+// ── プロジェクトのリソース設定上書き（継承）─────────────────────────────────
+export async function updateProjectResource(
+  projectId: string,
+  patch: { capacityMinutesPerDay?: number | null; workingDays?: number[] | null },
+): Promise<Project> {
+  const data = (await apiFetch(`/projects/${projectId}`, {
+    method: 'PATCH', body: JSON.stringify(patch),
+  })) as { project: Project };
+  return data.project;
 }

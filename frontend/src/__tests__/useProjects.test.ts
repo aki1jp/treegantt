@@ -4,7 +4,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useProjects } from '../hooks/useProjects';
 
 function makeProject(id: string, name: string) {
-  return { id, name, color: null, createdAt: '2026-01-01' };
+  return { id, name, color: null, capacityMinutesPerDay: null, workingDays: null, createdAt: '2026-01-01' };
 }
 
 beforeEach(() => {

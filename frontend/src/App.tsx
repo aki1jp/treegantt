@@ -12,7 +12,9 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
-import { apiFetch, fetchAllTasks, fetchHealth } from './utils/api';
+import { apiFetch, fetchAllTasks, fetchHealth, fetchSettings } from './utils/api';
+import { useSettingsStore } from './store/settingsStore';
+import { resolveCapacityMinutes, resolveWorkingDays } from './utils/duration';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { computeInsertOrder } from './utils/ganttCalc';
@@ -44,6 +46,23 @@ export default function App() {
       .catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // リソース設定（アプリ既定）を初回ロード時に取得（失敗時はハードコード既定のまま）
+  const setAppSettings = useSettingsStore(s => s.setAppSettings);
+  const appSettings = useSettingsStore(s => s.appSettings);
+  useEffect(() => {
+    let alive = true;
+    fetchSettings()
+      .then(s => { if (alive) setAppSettings(s); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [setAppSettings]);
+
+  // 予定工数の 1d/1w 換算に使う実効値（プロジェクト上書き ?? アプリ既定 ?? ハードコード）
+  const effectiveCapacityMinutes = resolveCapacityMinutes(
+    currentProject?.capacityMinutesPerDay, appSettings.capacityMinutesPerDay);
+  const effectiveWorkingDays = resolveWorkingDays(
+    currentProject?.workingDays, appSettings.workingDays);
 
   // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
@@ -374,6 +393,8 @@ export default function App() {
             task={modalTask}
             allTasks={tasks}
             initialParentId={modalInitialParentId}
+            capacityMinutes={effectiveCapacityMinutes}
+            workingDaysPerWeek={effectiveWorkingDays.length}
             onSave={handleSaveTask}
             onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
           />

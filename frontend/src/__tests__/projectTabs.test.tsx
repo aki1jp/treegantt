@@ -10,7 +10,7 @@ import type { Project } from '../types/task';
 afterEach(() => { cleanup(); });
 
 function makeProject(id: string, name: string, color?: string | null): Project {
-  return { id, name, createdAt: '2026-01-01', color: color ?? null };
+  return { id, name, createdAt: '2026-01-01', color: color ?? null, capacityMinutesPerDay: null, workingDays: null };
 }
 
 const NOOP = vi.fn();

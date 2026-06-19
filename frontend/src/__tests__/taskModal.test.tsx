@@ -36,6 +36,40 @@ function renderModal(task: Task | null = null, description = '') {
   );
 }
 
+describe('TaskModal — 予定工数', () => {
+  it('予定工数欄（プレースホルダ）と書式ヘルプ(?)が表示される', () => {
+    render(<TaskModal task={null} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    const input = screen.getByPlaceholderText(/1d 4h/);
+    expect(input).toBeTruthy();
+    const help = screen.getByText('?');
+    expect(help.getAttribute('title')).toContain('3d');
+  });
+
+  it('既存の estimateMinutes は HH:MM で初期表示される', () => {
+    render(<TaskModal task={makeTask({ estimateMinutes: 465 })} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.getByDisplayValue('7:45')).toBeTruthy();
+  });
+
+  it('保存時に入力を分へパースして estimateMinutes を渡す（1d 4h = 720, capacity 480）', () => {
+    const onSave = vi.fn();
+    render(
+      <TaskModal task={makeTask()} allTasks={[]} onSave={onSave} onClose={NOOP}
+        capacityMinutes={480} workingDaysPerWeek={5} />
+    );
+    fireEvent.change(screen.getByPlaceholderText(/1d 4h/), { target: { value: '1d 4h' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ estimateMinutes: 720 }));
+  });
+
+  it('空入力は estimateMinutes=null で保存', () => {
+    const onSave = vi.fn();
+    render(<TaskModal task={makeTask({ estimateMinutes: 465 })} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getByDisplayValue('7:45'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ estimateMinutes: null }));
+  });
+});
+
 describe('TaskModal — 説明フィールドのタブ切り替え', () => {
   it('デフォルトでは「編集」タブがアクティブで textarea が表示される', () => {
     renderModal(makeTask({ description: '## 見出し' }));

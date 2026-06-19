@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MarkdownBody } from '../MarkdownBody/MarkdownBody';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 import { getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { parseDuration, formatMinutes, HARDCODED_CAPACITY_MINUTES } from '../../utils/duration';
 
 interface Props {
   task: Task | null;
@@ -9,7 +10,14 @@ interface Props {
   initialParentId?: string;
   onSave: (data: Partial<Task> & { title: string }) => void;
   onClose: () => void;
+  /** 予定工数の 1d/1w 換算に使う実効キャパ（分）。既定 480 */
+  capacityMinutes?: number;
+  /** 1週あたりの稼働日数。既定 5 */
+  workingDaysPerWeek?: number;
 }
+
+const ESTIMATE_HELP =
+  '予定工数の書式: 3d=3人日 / 4h=4時間 / 30m=30分 / 7:45=7時間45分 / 1d 4h=1人日+4時間 / 1w=1週。1人日=キャパシティ(既定8:00)';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機', pending: '保留',
@@ -25,7 +33,10 @@ const INPUT: React.CSSProperties = {
   background: 'var(--th-input-bg)', color: 'var(--th-text)',
 };
 
-export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: Props) {
+export function TaskModal({
+  task, allTasks, initialParentId, onSave, onClose,
+  capacityMinutes = HARDCODED_CAPACITY_MINUTES, workingDaysPerWeek = 5,
+}: Props) {
   const [shaking, setShaking] = useState(false);
   const [title, setTitle]             = useState(task?.title ?? '');
   const [summary, setSummary]         = useState(task?.summary ?? '');
@@ -35,6 +46,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
   const [priority, setPriority]       = useState<TaskPriority>(task?.priority ?? 'medium');
   const [progress, setProgress]       = useState(task?.progress ?? 0);
   const [assignee, setAssignee]       = useState(task?.assignee ?? '');
+  const [estimateText, setEstimateText] = useState(formatMinutes(task?.estimateMinutes ?? null));
   const [startDate, setStartDate]     = useState(task?.startDate ?? '');
   const [endDate, setEndDate]         = useState(task?.endDate ?? '');
   const [parentId, setParentId]       = useState<string>(task?.parentId ?? initialParentId ?? '');
@@ -55,6 +67,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     setPriority(task?.priority ?? 'medium');
     setProgress(task?.progress ?? 0);
     setAssignee(task?.assignee ?? '');
+    setEstimateText(formatMinutes(task?.estimateMinutes ?? null));
     setStartDate(task?.startDate ?? '');
     setEndDate(task?.endDate ?? '');
     setParentId(task?.parentId ?? initialParentId ?? '');
@@ -97,6 +110,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
       priority,
       progress,
       assignee,
+      estimateMinutes: parseDuration(estimateText, { capacityMinutes, workingDaysPerWeek }),
       startDate: sd,
       endDate: ed,
       isMilestone: false,
@@ -126,6 +140,7 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
     priority:     priority     !== (task?.priority     ?? 'medium'),
     progress:     progress     !== (task?.progress     ?? 0),
     assignee:     assignee     !== (task?.assignee     ?? ''),
+    estimateMinutes: parseDuration(estimateText, { capacityMinutes, workingDaysPerWeek }) !== (task?.estimateMinutes ?? null),
     startDate:    startDate    !== (task?.startDate    ?? ''),
     endDate:      endDate      !== (task?.endDate      ?? ''),
     parentId:     parentId     !== (task?.parentId ?? initialParentId ?? ''),
@@ -251,6 +266,21 @@ export function TaskModal({ task, allTasks, initialParentId, onSave, onClose }: 
             <datalist id="assignee-opts-modal">
               {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
             </datalist>
+          </div>
+
+          <div data-field="estimateMinutes" {...shakeProps(dirtyFields.estimateMinutes)}>
+            <label style={LABEL}>
+              予定工数
+              <span title={ESTIMATE_HELP} style={{
+                marginLeft: 6, cursor: 'help', fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 14, height: 14, borderRadius: 7, fontSize: 10,
+                border: '1px solid var(--th-text-muted)', color: 'var(--th-text-muted)',
+              }}>?</span>
+            </label>
+            <input style={INPUT} value={estimateText}
+              placeholder="例: 1d 4h, 7:45, 30m"
+              onChange={e => setEstimateText(e.target.value)} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>

@@ -17,7 +17,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-const project: Project = { id: 'p1', name: 'テストプロジェクト', color: null, createdAt: '' };
+const project: Project = { id: 'p1', name: 'テストプロジェクト', color: null, capacityMinutesPerDay: null, workingDays: null, createdAt: '' };
 
 // downloadFile で使われる URL API のモック
 let origCreateElement: typeof document.createElement;
