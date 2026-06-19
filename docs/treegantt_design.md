@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.1.1** |
-| ドキュメント版 | 0.2.104 |
+| ドキュメント版 | 0.2.105 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -350,7 +350,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 ### 7.3 hooks / utils
 - hooks：`useTasks`（楽観的 CRUD・batch）、`useProjects`、`useWebSocket`、`useImportExport`、`useTheme`。
-- utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`wbsLayout`、`copyDeps`/`copyTitle`、`menuPos`、`portConfig`、`theme`。
+- utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`、`menuPos`、`portConfig`、`theme`。
 
 ---
 
@@ -465,6 +465,16 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 - **初期選択**（`resolveInitialProject`）：URL（`findProjectByPathKey`）＞ localStorage 保存 ID ＞ 先頭。URL に key があり解決不能ならトップ挙動にフォールバックし `/` へ `replaceState`。有効な URL（名前/ID どちらでも）はそのまま残す。
 - **同期**：プロジェクト切替で `pushState(projectPath)`（localStorage 保存も継続）、戻る/進む（`popstate`）で URL から再解決（push しない）、改名で当該プロジェクトのアドレス表示中なら新しい `projectPath` へ `replaceState`。
 - **注意**：名前は一意制約が無いため、改名すると名前 URL は変わり、同名が増えると正準 URL は ID 形式になる。
+
+### 9.8 予定工数の入力書式と実効リソース設定（`duration.ts`）
+
+予定工数（`estimateMinutes`）は **DB・計算は分**、**入力/表示は人間向け**に変換する。境界で `duration.ts` の純関数を通す。
+
+- **入力 → 分（`parseDuration`）**：単位トークン `Nd`/`Nh`/`Nm`/`Nw`（空白区切りの複合 `1d 4h` 可）と `HH:MM`（`7:45`）を受理し分へ正規化。小数（`1.5h`）も可。
+  - 換算：`1h=60`、`1m=1`、`1d=capacityMinutesPerDay`（実効値）、`1w=稼働日数/週 × capacityMinutesPerDay`。**入力時点の実効キャパで分に固定**（後でキャパを変えても既存値は再換算しない＝見積もり凍結。MS Project/Jira と同挙動）。
+  - 空文字は `null`（未設定）、解釈不能は `null`。
+- **分 → 表示（`formatMinutes`）**：`HH:MM`（`465`→`7:45`、`null`→空）。
+- **実効リソース設定の解決**：`resolveCapacityMinutes(project値, アプリ既定)` ／ `resolveWorkingDays(...)` = `プロジェクト値 ?? アプリ既定 ?? ハードコード既定`（480／`[1,2,3,4,5]`）。`1d`/`1w` 換算とリソースビュー稼働率はこの実効値を使う。
 
 ---
 
@@ -682,6 +692,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.99 | 2026/6 | マイルストーン＝1点・不動を仕様の正に統一（§8.3・§9.4・§9.2）。ガントの菱形に残っていた移動ドラッグ入口（透明クリック矩形に覆われ実 UI では発火しないデッドコード）と、ドラッグ終了時の `endDate=startDate` 同期分岐を撤去し、マイルストーンは移動・リサイズ不可（クリックでモーダルのみ）に明示。WBS でもマイルストーン行の終了日を編集不可（淡色）にし、開始日編集時に終了日を同値へ追従させて常に1点を保つようにした。 |
 | 0.2.100 | 2026/6 | 製品バージョンを **1.1.1** に更新（ヘッダー・ステータス・構成図・§15）。0.2.97 で設計書・CHANGELOG を 1.1.0 に更新した際に `api`/`frontend` の `package.json`（`/health`・ハンバーガー表示の出典）のバンプが漏れていたため、これを 1.1.1 に揃えて解消。1.1.0 以降のマイルストーン関連の挙動修正（§8.2 ヘッダー強調のセル限定・§8.3 1点固定の徹底）を製品リリースとして `CHANGELOG.md` の `[1.1.1]` に記録。 |
 | 0.2.101 | 2026/6 | リソースビュー（担当者別負荷）を仕様の正として明文化（新 §8.9）。負荷を「同時進行タスク数」モデルに統一し、集計を共有 `calcWorkloadMatrix` に一本化（対象＝`assignee`あり・`done`除外・`startDate`/`endDate`両方あり）。土日は負荷非加算（キャパ0、淡背景は表示として残す）。ズーム時はセル期間内の同時進行数の**ピーク（最大）**で集計（平均不使用）。色凡例の表示とセル `title` への寄与タスク列挙を規定。工数ベースの稼働率モデルは `FEATURES.md` Step 2 として別途。 |
+| 0.2.105 | 2026/6 | 予定工数の入力書式と実効リソース設定の解決を `duration.ts` として明文化（§7.3・§9.8）。入力は単位トークン `Nd`/`Nh`/`Nm`/`Nw`＋`HH:MM`→分（`1d`=実効キャパ・`1w`=稼働日数×キャパ、入力時点で固定）、表示は `HH:MM`。実効値=プロジェクト値 ?? アプリ既定 ?? ハードコード既定。 |
 | 0.2.104 | 2026/6 | リソース設定のプロジェクト個別上書き（継承）を追加（§4.1・§4.2・§5.2・§5.6）。`projects` に nullable 列 `capacity_minutes_per_day`／`working_days`（011 追加, `null`=アプリ既定を継承）を追加し、`PATCH /api/v1/projects/:id` で更新可能に。実効値＝プロジェクト値 ?? アプリ既定 ?? ハードコード既定。 |
 | 0.2.103 | 2026/6 | アプリ既定のリソース設定 `app_settings`（key-value, 010 追加）と API（`GET`/`PUT /api/v1/settings`）を追加（§4.2・§5.2・§5.6）。`capacityMinutesPerDay`（既定480=8:00）・`workingDays`（既定 月〜金=`[1,2,3,4,5]`）を全ユーザー共有で保持。リソースビュー稼働率モデルの土台。プロジェクト個別上書き（継承）は後続。 |
 | 0.2.102 | 2026/6 | 予定工数フィールド `estimateMinutes`（分単位の整数, null=未設定）をタスクに追加（§4.1・§4.2・§5.3）。SQLite 列 `estimate_minutes`（009 追加）、API ボディ（`number\|null`・負値不可）、Import/Export（データ形式 1.1・CSV 列追加・JSON は `...t` 展開で自動往復・旧データは null・版ガードなし）に反映。FEATURES.md Step 2 の基盤（工数ベース稼働率モデル）。 |
