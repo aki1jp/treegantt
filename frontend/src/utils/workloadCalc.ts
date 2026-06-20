@@ -139,8 +139,8 @@ export interface UtilizationMatrix {
   demand: number[][];
   /** utilization[a][d] = demand / capacity（非稼働日は 0） */
   utilization: number[][];
-  /** dayTasks[a][d] = その日に需要を持つ寄与タスク名 */
-  dayTasks: string[][][];
+  /** dayTasks[a][d] = その日に需要を持つ寄与タスク（按分後の分つき） */
+  dayTasks: { title: string; minutes: number }[][][];
   /** totalMinutes[a] = 担当者の合計予定工数（分） */
   totalMinutes: number[];
   /** peakUtil[a] = 期間内の最大稼働率 */
@@ -184,7 +184,7 @@ export function calcUtilizationMatrix(
   const aIdx = new Map(assignees.map((a, i) => [a, i]));
   const dayIndex = new Map(days.map((d, i) => [d, i]));
   const demand: number[][] = assignees.map(() => new Array(days.length).fill(0));
-  const dayTasks: string[][][] = assignees.map(() => days.map(() => [] as string[]));
+  const dayTasks: { title: string; minutes: number }[][][] = assignees.map(() => days.map(() => [] as { title: string; minutes: number }[]));
   const totalMinutes: number[] = assignees.map(() => 0);
 
   for (const t of rowTasks) {
@@ -206,7 +206,7 @@ export function calcUtilizationMatrix(
       const di = dayIndex.get(dd);
       if (di !== undefined) {
         demand[ai][di] += perDay;
-        dayTasks[ai][di].push(t.title);
+        dayTasks[ai][di].push({ title: t.title, minutes: perDay });
       }
     }
   }

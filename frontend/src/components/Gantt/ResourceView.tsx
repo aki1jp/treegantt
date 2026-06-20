@@ -211,17 +211,27 @@ export function ResourceView({
                 borderBottom: '1px solid var(--th-border)', boxSizing: 'border-box',
               }}>
                 {buckets.map((b, bi) => {
-                  // バケット期間内の稼働率ピーク（最大）
+                  // バケット期間内の稼働率ピーク（最大）と、その「ピーク日」インデックス
                   let peak = 0;
-                  let peakDemand = 0;
+                  let peakIdx = b.startIdx;
                   for (const i of b.dayIdxs) {
-                    if (utilization[ai][i] > peak) { peak = utilization[ai][i]; peakDemand = demand[ai][i]; }
+                    if (utilization[ai][i] > peak) { peak = utilization[ai][i]; peakIdx = i; }
                   }
-                  const titles = [...new Set(b.dayIdxs.flatMap(i => dayTasks[ai][i]))];
                   const nonWork = b.span === 1 && isNonWorking(b.startIdx);
                   const bg = peak > 0 ? utilizationColor(peak) : (nonWork ? 'rgba(120,120,120,0.06)' : 'transparent');
                   const left = b.startIdx * dayWidth;
                   const width = b.span * dayWidth;
+                  // ピーク日基準のツールチップ内訳（各タスクの按分時間・合計需要・1日キャパ）
+                  let tip: string | undefined;
+                  if (peak > 0) {
+                    const dateLabel = dayjs(days[peakIdx]).format('M/D');
+                    const breakdown = dayTasks[ai][peakIdx]
+                      .map(t => `・${t.title} ${formatMinutes(Math.round(t.minutes))}`)
+                      .join('\n');
+                    tip = `${a}  ${dateLabel}${b.span > 1 ? '（ピーク日）' : ''}\n`
+                        + `稼働率 ${pct(peak)}   需要 ${formatMinutes(Math.round(demand[ai][peakIdx]))} ÷ キャパ ${formatMinutes(capacityMinutesPerDay)}`
+                        + (breakdown ? `\n${breakdown}` : '');
+                  }
                   return (
                     <div key={bi} style={{
                       position: 'absolute', left, width, height: CELL_H,
@@ -232,9 +242,7 @@ export function ResourceView({
                       fontWeight: 700, color: 'rgba(0,0,0,0.65)',
                       boxSizing: 'border-box',
                     }}
-                      title={peak > 0
-                        ? `${a} ${b.label}: 稼働率 ${pct(peak)}（需要 ${formatMinutes(Math.round(peakDemand))}）${titles.length ? `\n${titles.join('\n')}` : ''}`
-                        : undefined}
+                      title={tip}
                     >
                       {width >= 18 && peak > 0 ? pct(peak) : ''}
                     </div>

@@ -239,6 +239,14 @@ describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
     expect(r.utilization[0]).toEqual([1]);
   });
 
+  it('dayTasks は各タスクの按分時間 {title, minutes} を保持する', () => {
+    const tasks = [makeTask({ id: 't1', assignee: 'Alice', title: '設計', startDate: '2026-05-04', endDate: '2026-05-06', estimateMinutes: 720, status: 'todo' })];
+    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'), UOPTS);
+    // 720 を 3 稼働日 → 各日 {title:'設計', minutes:240}
+    expect(r.dayTasks[0][0]).toEqual([{ title: '設計', minutes: 240 }]);
+    expect(r.dayTasks[0][1]).toEqual([{ title: '設計', minutes: 240 }]);
+  });
+
   it('複数タスクの需要は合算（過負荷）', () => {
     const tasks = [
       makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'todo' }),

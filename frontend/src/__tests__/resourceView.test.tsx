@@ -208,24 +208,32 @@ describe('ResourceView: タイトルヘッダー', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('ResourceView: 稼働率セル tooltip', () => {
-  it('予定工数のあるセルに稼働率の title 属性が付与される', () => {
-    // 2026-06-01(月) は平日。estimate=480=8:00 → 稼働率100%
-    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 })]);
+  it('稼働率・合計需要・1日キャパを title に含む', () => {
+    // 2026-06-01(月) 平日。estimate=480=8:00 → 稼働率100%、需要8:00、キャパ8:00
+    renderChart([makeTask({ assignee: 'Alice', title: '設計', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 })]);
     const panel = screen.getByTestId('workload-panel');
     const cell = Array.from(panel.querySelectorAll('[title]'))
       .find(el => el.getAttribute('title')?.includes('Alice'));
     expect(cell).toBeTruthy();
-    expect(cell!.getAttribute('title')).toContain('稼働率');
+    const title = cell!.getAttribute('title')!;
+    expect(title).toContain('稼働率');
+    expect(title).toContain('100%');
+    expect(title).toContain('キャパ 8:00');
+    expect(title).toContain('設計 8:00'); // 各タスクの按分時間
   });
 
-  it('過負荷（合計需要 > キャパ）の title に 200% の稼働率が出る', () => {
+  it('過負荷セルは各タスクの按分時間・合計・200% を列挙する', () => {
     renderChart([
-      makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 }),
-      makeTask({ assignee: 'Alice', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 }),
+      makeTask({ assignee: 'Alice', title: '実装', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 }),
+      makeTask({ assignee: 'Alice', title: 'レビュー', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 240 }),
     ]);
     const panel = screen.getByTestId('workload-panel');
     const cell = Array.from(panel.querySelectorAll('[title]'))
-      .find(el => el.getAttribute('title')?.includes('Alice') && el.getAttribute('title')?.includes('200%'));
+      .find(el => el.getAttribute('title')?.includes('Alice') && el.getAttribute('title')?.includes('150%'));
     expect(cell).toBeTruthy();
+    const title = cell!.getAttribute('title')!;
+    expect(title).toContain('実装 8:00');
+    expect(title).toContain('レビュー 4:00');
+    expect(title).toContain('12:00'); // 合計需要 480+240=720=12:00
   });
 });
