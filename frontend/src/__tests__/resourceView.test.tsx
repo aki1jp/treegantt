@@ -87,6 +87,31 @@ describe('ResourceView: 表示条件', () => {
   });
 });
 
+describe('ResourceView: 高さ上限と縦スクロール', () => {
+  function manyAssignees(n: number) {
+    return Array.from({ length: n }, (_, i) =>
+      makeTask({ assignee: `User${String(i).padStart(2, '0')}`, startDate: '2026-06-10', endDate: '2026-06-12', estimateMinutes: 240 })
+    );
+  }
+
+  it('担当者が多いと行領域の高さが上限でキャップされ縦スクロール可能', () => {
+    renderChart(manyAssignees(20));
+    const body = screen.getByTestId('workload-rows');
+    // 上限（MAX_VISIBLE_ROWS 行）を超えない高さで、縦スクロール可
+    expect(body.style.overflowY).toBe('auto');
+    const h = parseInt(body.style.height || '0', 10);
+    expect(h).toBeGreaterThan(0);
+    expect(h).toBeLessThan(20 * 30); // 全20行ぶん(600px)より小さい＝キャップされている
+  });
+
+  it('担当者が少ないとキャップ未満（全行表示でスクロール不要な高さ）', () => {
+    renderChart(manyAssignees(2));
+    const body = screen.getByTestId('workload-rows');
+    const h = parseInt(body.style.height || '0', 10);
+    expect(h).toBe(2 * 30); // 2 行ぶん
+  });
+});
+
 describe('ResourceView: 色凡例', () => {
   it('負荷の色凡例がパネルに表示される', () => {
     renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15' })]);

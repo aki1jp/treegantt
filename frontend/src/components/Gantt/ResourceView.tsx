@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import dayjs from 'dayjs';
 import type { Task, ZoomLevel } from '../../types/task';
 import { ZOOM_CONFIG } from '../../utils/ganttCalc';
@@ -7,6 +8,8 @@ import { formatMinutes, HARDCODED_CAPACITY_MINUTES, HARDCODED_WORKING_DAYS } fro
 const HEADER_H  = 22;
 const LEGEND_H  = 18;
 const CELL_H    = 30;
+// 担当者が多くてもガント本体を覆わないよう、行表示領域はこの行数ぶんでキャップし縦スクロール。
+const MAX_VISIBLE_ROWS = 6;
 
 const LEGEND_ITEMS = [
   { label: '〜80% 余裕',   c: utilizationColor(0.5) },
@@ -36,6 +39,9 @@ export function ResourceView({
   capacityMinutesPerDay = HARDCODED_CAPACITY_MINUTES,
   workingDays = HARDCODED_WORKING_DAYS,
 }: ResourceViewProps) {
+  const leftBodyRef  = useRef<HTMLDivElement>(null);
+  const rightBodyRef = useRef<HTMLDivElement>(null);
+
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
   const totalDays = Math.max(1, Math.round(totalWidth / dayWidth));
   const max = dayjs(min).add(totalDays - 1, 'day').toDate();
@@ -48,13 +54,28 @@ export function ResourceView({
   const workingSet = new Set(workingDays);
   const isNonWorking = (idx: number): boolean => !workingSet.has(dayjs(days[idx]).day());
 
+  // 行表示領域の高さ（上限キャップ）。超過分は縦スクロール。
+  const bodyHeight = Math.min(assignees.length, MAX_VISIBLE_ROWS) * CELL_H;
+
+  // 左右の行領域の縦スクロールを同期する
+  const syncFromLeft = () => {
+    if (rightBodyRef.current && leftBodyRef.current) {
+      rightBodyRef.current.scrollTop = leftBodyRef.current.scrollTop;
+    }
+  };
+  const onRightWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (leftBodyRef.current) {
+      leftBodyRef.current.scrollTop += e.deltaY; // 左を動かすと onScroll で右も同期
+    }
+  };
+
   return (
     <div data-testid="workload-panel" style={{
       flexShrink: 0, display: 'flex',
       borderTop: '2px solid var(--th-border-strong)',
       background: 'var(--th-bg)',
     }}>
-      {/* 左固定列: タイトル＋凡例＋担当者（サマリ付き） */}
+      {/* 左固定列: タイトル＋凡例＋担当者（サマリ付き・縦スクロール） */}
       <div style={{
         flexShrink: 0, width: labelWidth,
         borderRight: '2px solid var(--th-border-strong)',
@@ -68,7 +89,7 @@ export function ResourceView({
         }}>
           リソースビュー（担当者別負荷）
         </div>
-        {/* 凡例 */}
+        {/* 色凡例 */}
         <div style={{
           height: LEGEND_H, display: 'flex', alignItems: 'center', gap: 8,
           padding: '0 8px', fontSize: 8, color: 'var(--th-text-muted)',
@@ -83,29 +104,34 @@ export function ResourceView({
             </span>
           ))}
         </div>
-        {assignees.map((a, ai) => (
-          <div key={a} style={{
-            height: CELL_H, display: 'flex', flexDirection: 'column', justifyContent: 'center',
-            padding: '0 8px',
-            borderBottom: '1px solid var(--th-border)', flexShrink: 0,
-            background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              fontSize: 12, color: 'var(--th-text2)', lineHeight: 1.1,
-              whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
-            }}>{a}</div>
-            <div style={{ fontSize: 8, color: 'var(--th-text-muted)', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-              合計 {totalMinutes[ai] > 0 ? formatMinutes(totalMinutes[ai]) : '—'} / ピーク {pct(peakUtil[ai])}
+        {/* 担当者ラベル（縦スクロール領域。可視スクロールバー） */}
+        <div data-testid="workload-rows" ref={leftBodyRef} onScroll={syncFromLeft} style={{
+          height: bodyHeight, overflowY: 'auto', overflowX: 'hidden', flexShrink: 0,
+        }}>
+          {assignees.map((a, ai) => (
+            <div key={a} style={{
+              height: CELL_H, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              padding: '0 8px',
+              borderBottom: '1px solid var(--th-border)',
+              background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
+              overflow: 'hidden', boxSizing: 'border-box',
+            }}>
+              <div style={{
+                fontSize: 12, color: 'var(--th-text2)', lineHeight: 1.1,
+                whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
+              }}>{a}</div>
+              <div style={{ fontSize: 8, color: 'var(--th-text-muted)', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                合計 {totalMinutes[ai] > 0 ? formatMinutes(totalMinutes[ai]) : '—'} / ピーク {pct(peakUtil[ai])}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* 右スクロール領域 */}
+      {/* 右スクロール領域（横はガント同期） */}
       <div ref={scrollRef} style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden' }}>
         <div style={{ width: totalWidth, display: 'flex', flexDirection: 'column' }}>
-          {/* 日付ヘッダー（バケット単位） */}
+          {/* 日付ヘッダー（バケット単位・固定） */}
           <div style={{
             height: HEADER_H, position: 'relative', flexShrink: 0,
             background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
@@ -128,51 +154,55 @@ export function ResourceView({
               );
             })}
           </div>
-          {/* 凡例行ぶんのスペーサ（左列と高さを揃える） */}
+          {/* 凡例行ぶんのスペーサ（左列と高さを揃える・固定） */}
           <div style={{
             height: LEGEND_H, flexShrink: 0,
             background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
           }} />
 
-          {/* 担当者ごとに 1 行: 各バケットに稼働率バンド色＋% */}
-          {assignees.map((a, ai) => (
-            <div key={a} style={{
-              height: CELL_H, position: 'relative', flexShrink: 0,
-              background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
-              borderBottom: '1px solid var(--th-border)',
-            }}>
-              {buckets.map((b, bi) => {
-                // バケット期間内の稼働率ピーク（最大）
-                let peak = 0;
-                let peakDemand = 0;
-                for (const i of b.dayIdxs) {
-                  if (utilization[ai][i] > peak) { peak = utilization[ai][i]; peakDemand = demand[ai][i]; }
-                }
-                const titles = [...new Set(b.dayIdxs.flatMap(i => dayTasks[ai][i]))];
-                const nonWork = b.span === 1 && isNonWorking(b.startIdx);
-                const bg = peak > 0 ? utilizationColor(peak) : (nonWork ? 'rgba(120,120,120,0.06)' : 'transparent');
-                const left = b.startIdx * dayWidth;
-                const width = b.span * dayWidth;
-                return (
-                  <div key={bi} style={{
-                    position: 'absolute', left, width, height: CELL_H,
-                    background: bg,
-                    borderRight: '1px solid rgba(0,0,0,0.06)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: Math.min(10, width - 2),
-                    fontWeight: 700, color: 'rgba(0,0,0,0.65)',
-                    boxSizing: 'border-box',
-                  }}
-                    title={peak > 0
-                      ? `${a} ${b.label}: 稼働率 ${pct(peak)}（需要 ${formatMinutes(Math.round(peakDemand))}）${titles.length ? `\n${titles.join('\n')}` : ''}`
-                      : undefined}
-                  >
-                    {width >= 18 && peak > 0 ? pct(peak) : ''}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+          {/* セル行（縦スクロール領域。左と同期、ホイールで操作） */}
+          <div ref={rightBodyRef} onWheel={onRightWheel} style={{
+            height: bodyHeight, overflowY: 'hidden', flexShrink: 0,
+          }}>
+            {assignees.map((a, ai) => (
+              <div key={a} style={{
+                height: CELL_H, position: 'relative',
+                background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
+                borderBottom: '1px solid var(--th-border)', boxSizing: 'border-box',
+              }}>
+                {buckets.map((b, bi) => {
+                  // バケット期間内の稼働率ピーク（最大）
+                  let peak = 0;
+                  let peakDemand = 0;
+                  for (const i of b.dayIdxs) {
+                    if (utilization[ai][i] > peak) { peak = utilization[ai][i]; peakDemand = demand[ai][i]; }
+                  }
+                  const titles = [...new Set(b.dayIdxs.flatMap(i => dayTasks[ai][i]))];
+                  const nonWork = b.span === 1 && isNonWorking(b.startIdx);
+                  const bg = peak > 0 ? utilizationColor(peak) : (nonWork ? 'rgba(120,120,120,0.06)' : 'transparent');
+                  const left = b.startIdx * dayWidth;
+                  const width = b.span * dayWidth;
+                  return (
+                    <div key={bi} style={{
+                      position: 'absolute', left, width, height: CELL_H,
+                      background: bg,
+                      borderRight: '1px solid rgba(0,0,0,0.06)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: Math.min(10, width - 2),
+                      fontWeight: 700, color: 'rgba(0,0,0,0.65)',
+                      boxSizing: 'border-box',
+                    }}
+                      title={peak > 0
+                        ? `${a} ${b.label}: 稼働率 ${pct(peak)}（需要 ${formatMinutes(Math.round(peakDemand))}）${titles.length ? `\n${titles.join('\n')}` : ''}`
+                        : undefined}
+                    >
+                      {width >= 18 && peak > 0 ? pct(peak) : ''}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
