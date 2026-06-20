@@ -12,7 +12,10 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
-import { apiFetch, fetchAllTasks, fetchHealth } from './utils/api';
+import { apiFetch, fetchAllTasks, fetchHealth, fetchSettings, updateAppSettings } from './utils/api';
+import { useSettingsStore } from './store/settingsStore';
+import { resolveCapacityMinutes, resolveWorkingDays } from './utils/duration';
+import { ResourceSettingsModal } from './components/ResourceSettingsModal/ResourceSettingsModal';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { computeInsertOrder } from './utils/ganttCalc';
@@ -24,10 +27,12 @@ export default function App() {
 
   const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
+  // リソース設定モーダル: 'app'=アプリ既定 / Project=そのプロジェクト上書き / null=非表示
+  const [settingsModal, setSettingsModal] = useState<'app' | Project | null>(null);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
   const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
-  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, deleteProject } = useProjects();
+  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject } = useProjects();
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);
@@ -44,6 +49,23 @@ export default function App() {
       .catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // リソース設定（アプリ既定）を初回ロード時に取得（失敗時はハードコード既定のまま）
+  const setAppSettings = useSettingsStore(s => s.setAppSettings);
+  const appSettings = useSettingsStore(s => s.appSettings);
+  useEffect(() => {
+    let alive = true;
+    fetchSettings()
+      .then(s => { if (alive) setAppSettings(s); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [setAppSettings]);
+
+  // 予定工数の 1d/1w 換算に使う実効値（プロジェクト上書き ?? アプリ既定 ?? ハードコード）
+  const effectiveCapacityMinutes = resolveCapacityMinutes(
+    currentProject?.capacityMinutesPerDay, appSettings.capacityMinutesPerDay);
+  const effectiveWorkingDays = resolveWorkingDays(
+    currentProject?.workingDays, appSettings.workingDays);
 
   // プロジェクト切り替え時: タスクを REST から即時取得
   useEffect(() => {
@@ -220,6 +242,7 @@ export default function App() {
         isMilestone:  task.isMilestone,
         titleColor:   task.titleColor,
         titleBgColor: task.titleBgColor,
+        estimateMinutes: task.estimateMinutes,
         order:        isRoot ? targetOrder : undefined,
       });
       sourceTasksFlat.push(task);
@@ -287,6 +310,7 @@ export default function App() {
             onDelete={handleDeleteProject}
             onRename={handleRenameProject}
             onUpdateColor={(project, color) => updateProjectColor(project, color)}
+            onProjectSettings={(project) => setSettingsModal(project)}
             taskCounts={taskCounts}
           />
           <button onClick={handleCreateProject} style={{
@@ -331,6 +355,7 @@ export default function App() {
             onRestore={() => handleImportClick('restore')}
             onExportJson={handleExportJson}
             onExportCsv={handleExportCsv}
+            onOpenResourceSettings={() => setSettingsModal('app')}
             backendVersion={backendVersion ?? undefined}
           />
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -344,6 +369,8 @@ export default function App() {
               onAddSubMilestone={handleAddSubMilestone}
               onReorder={reorderTasks}
               onCopyInsert={handleCopyInsert}
+              capacityMinutesPerDay={effectiveCapacityMinutes}
+              workingDays={effectiveWorkingDays}
             />
           </div>
         </>
@@ -373,10 +400,51 @@ export default function App() {
             task={modalTask}
             allTasks={tasks}
             initialParentId={modalInitialParentId}
+            capacityMinutes={effectiveCapacityMinutes}
+            workingDaysPerWeek={effectiveWorkingDays.length}
             onSave={handleSaveTask}
             onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
           />
         )
+      )}
+
+      {settingsModal === 'app' && (
+        <ResourceSettingsModal
+          title="リソース設定（アプリ既定）"
+          initialCapacityMinutes={appSettings.capacityMinutesPerDay}
+          initialWorkingDays={appSettings.workingDays}
+          fallbackCapacityMinutes={appSettings.capacityMinutesPerDay}
+          fallbackWorkingDays={appSettings.workingDays}
+          onClose={() => setSettingsModal(null)}
+          onSave={async (patch) => {
+            try {
+              const updated = await updateAppSettings({
+                capacityMinutesPerDay: patch.capacityMinutesPerDay ?? undefined,
+                workingDays: patch.workingDays ?? undefined,
+              });
+              setAppSettings(updated);
+            } catch (err) { alert('保存に失敗しました: ' + (err as Error).message); }
+            setSettingsModal(null);
+          }}
+        />
+      )}
+
+      {settingsModal && settingsModal !== 'app' && (
+        <ResourceSettingsModal
+          title={`プロジェクト設定: ${settingsModal.name}`}
+          inheritable
+          initialCapacityMinutes={settingsModal.capacityMinutesPerDay}
+          initialWorkingDays={settingsModal.workingDays}
+          fallbackCapacityMinutes={appSettings.capacityMinutesPerDay}
+          fallbackWorkingDays={appSettings.workingDays}
+          onClose={() => setSettingsModal(null)}
+          onSave={async (patch) => {
+            try {
+              await updateProjectResource(settingsModal, patch);
+            } catch (err) { alert('保存に失敗しました: ' + (err as Error).message); }
+            setSettingsModal(null);
+          }}
+        />
       )}
 
       {deleteTarget && (

@@ -39,3 +39,6 @@ runMigration('005_pending_status', readFileSync(join(migrationsDir, '005_pending
 runMigration('006_task_colors',    readFileSync(join(migrationsDir, '006_task_colors.sql'),    'utf-8'));
 runMigration('007_project_color', readFileSync(join(migrationsDir, '007_project_color.sql'), 'utf-8'));
 runMigration('008_next_seq',      readFileSync(join(migrationsDir, '008_next_seq.sql'),      'utf-8'));
+runMigration('009_task_estimate', readFileSync(join(migrationsDir, '009_task_estimate.sql'), 'utf-8'));
+runMigration('010_app_settings',  readFileSync(join(migrationsDir, '010_app_settings.sql'),  'utf-8'));
+runMigration('011_project_resource_overrides', readFileSync(join(migrationsDir, '011_project_resource_overrides.sql'), 'utf-8'));

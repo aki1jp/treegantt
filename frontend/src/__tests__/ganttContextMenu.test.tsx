@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
@@ -5,11 +6,11 @@ import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
-let onEditTask: ReturnType<typeof vi.fn>;
-let onDeleteTask: ReturnType<typeof vi.fn>;
-let onInlineUpdate: ReturnType<typeof vi.fn>;
-let onAddSubTask: ReturnType<typeof vi.fn>;
-let onAddSubMilestone: ReturnType<typeof vi.fn>;
+let onEditTask: Mock;
+let onDeleteTask: Mock;
+let onInlineUpdate: Mock;
+let onAddSubTask: Mock;
+let onAddSubMilestone: Mock;
 const NOOP = vi.fn();
 
 let seq = 0;
@@ -21,7 +22,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: 'todo', priority: 'medium', progress: 0, assignee: '',
     startDate: '2026-06-10', endDate: '2026-06-15',
     isMilestone: false, predecessors: [], seq, order: seq,
-    createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+    createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
@@ -62,7 +63,7 @@ function renderChart(tasks: Task[]) {
       onQuickAdd={NOOP}
       onAddSubTask={onAddSubTask}
       onAddSubMilestone={onAddSubMilestone}
-      onReorder={NOOP}
+      onReorder={NOOP} onCopyInsert={NOOP}
     />
   );
 }

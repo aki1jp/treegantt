@@ -145,6 +145,21 @@ describe('Projects API', () => {
     expect(patchRes.json().project.id).toBe(project.id);
   });
 
+  it('PATCH /api/v1/projects/:id でリソース設定の上書きを保存できる', async () => {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/v1/projects', payload: { name: 'Res' },
+    });
+    const { project } = createRes.json();
+
+    const patchRes = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${project.id}`,
+      payload: { capacityMinutesPerDay: 465, workingDays: [1, 2, 3, 4] },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    expect(patchRes.json().project.capacityMinutesPerDay).toBe(465);
+    expect(patchRes.json().project.workingDays).toEqual([1, 2, 3, 4]);
+  });
+
   it('PATCH /api/v1/projects/:id returns 404 for unknown id', async () => {
     const res = await app.inject({
       method: 'PATCH', url: '/api/v1/projects/no-such-id',

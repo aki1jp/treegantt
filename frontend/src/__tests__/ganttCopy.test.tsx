@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen, act, createEvent } from '@testing-library/react';
@@ -16,7 +17,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: 'todo', priority: 'medium', progress: 0, assignee: '',
     startDate: '2026-06-10', endDate: '2026-06-15',
     isMilestone: false, predecessors: [], seq, order: seq,
-    createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+    createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
@@ -43,8 +44,8 @@ afterEach(() => {
 });
 
 interface RenderOpts {
-  onReorder?: ReturnType<typeof vi.fn>;
-  onCopyInsert?: ReturnType<typeof vi.fn>;
+  onReorder?: Mock;
+  onCopyInsert?: Mock;
 }
 
 function renderChart(tasks: Task[], opts: RenderOpts = {}) {

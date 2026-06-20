@@ -10,7 +10,7 @@ import type { Project } from '../types/task';
 afterEach(() => { cleanup(); });
 
 function makeProject(id: string, name: string, color?: string | null): Project {
-  return { id, name, createdAt: '2026-01-01', color: color ?? null };
+  return { id, name, createdAt: '2026-01-01', color: color ?? null, capacityMinutesPerDay: null, workingDays: null };
 }
 
 const NOOP = vi.fn();
@@ -305,7 +305,7 @@ describe('ProjectTabs — ドロップダウン収納', () => {
     globalThis.ResizeObserver = class {
       private cb: ResizeObserverCallback;
       constructor(cb: ResizeObserverCallback) { this.cb = cb; }
-      observe(el: Element) {
+      observe(_el: Element) {
         this.cb([{ contentRect: { width } } as ResizeObserverEntry], this as unknown as ResizeObserver);
       }
       disconnect() {}

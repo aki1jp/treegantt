@@ -26,5 +26,11 @@ export function createTestDb(): Database.Database {
   db.exec(sql007);
   const sql008 = readFileSync(join(__dirname, '../db/migrations/008_next_seq.sql'), 'utf-8');
   db.exec(sql008);
+  const sql009 = readFileSync(join(__dirname, '../db/migrations/009_task_estimate.sql'), 'utf-8');
+  db.exec(sql009);
+  const sql010 = readFileSync(join(__dirname, '../db/migrations/010_app_settings.sql'), 'utf-8');
+  db.exec(sql010);
+  const sql011 = readFileSync(join(__dirname, '../db/migrations/011_project_resource_overrides.sql'), 'utf-8');
+  db.exec(sql011);
   return db;
 }

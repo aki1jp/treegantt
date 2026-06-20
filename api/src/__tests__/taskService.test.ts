@@ -60,6 +60,21 @@ describe('taskService', () => {
       expect(task.endDate).toBe('2026-01-31');
     });
 
+    it('estimateMinutes（予定工数）: 既定は null、作成時に保持される', () => {
+      const def = createTask({ id: 'est-default', projectId: PROJECT_ID, title: 'no estimate' });
+      expect(def.estimateMinutes).toBeNull();
+
+      const task = createTask({ id: 'est-set', projectId: PROJECT_ID, title: 'with estimate', estimateMinutes: 465 });
+      expect(task.estimateMinutes).toBe(465);
+      expect(getTask('est-set')?.estimateMinutes).toBe(465);
+    });
+
+    it('estimateMinutes は更新で変更・null クリアできる', () => {
+      createTask({ id: 'est-upd', projectId: PROJECT_ID, title: 'E', estimateMinutes: 60 });
+      expect(updateTask('est-upd', { estimateMinutes: 120 })?.estimateMinutes).toBe(120);
+      expect(updateTask('est-upd', { estimateMinutes: null })?.estimateMinutes).toBeNull();
+    });
+
     it('assigns auto-incrementing order', () => {
       const t1 = createTask({ id: 't1', projectId: PROJECT_ID, title: 'T1' });
       const t2 = createTask({ id: 't2', projectId: PROJECT_ID, title: 'T2' });

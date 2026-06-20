@@ -22,13 +22,21 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   });
 
-  fastify.patch<{ Params: { id: string }; Body: { name?: string; color?: string | null } }>('/projects/:id', {
+  fastify.patch<{
+    Params: { id: string };
+    Body: { name?: string; color?: string | null; capacityMinutesPerDay?: number | null; workingDays?: number[] | null };
+  }>('/projects/:id', {
     schema: {
       body: {
         type: 'object',
         properties: {
           name:  { type: 'string', minLength: 1, maxLength: 200 },
           color: { type: ['string', 'null'] },
+          capacityMinutesPerDay: { type: ['number', 'null'], minimum: 1 },
+          workingDays: {
+            type: ['array', 'null'],
+            items: { type: 'integer', minimum: 0, maximum: 6 },
+          },
         },
       },
     },

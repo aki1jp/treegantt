@@ -8,7 +8,7 @@ import {
 } from '../utils/projectUrl';
 
 function makeProject(id: string, name: string): Project {
-  return { id, name, color: null, createdAt: '2026-01-01' };
+  return { id, name, color: null, capacityMinutesPerDay: null, workingDays: null, createdAt: '2026-01-01' };
 }
 
 describe('parseProjectPath', () => {

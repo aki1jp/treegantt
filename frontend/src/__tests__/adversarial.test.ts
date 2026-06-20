@@ -30,7 +30,7 @@ function makeTask(override: Partial<Task> = {}): Task {
     assignee: '', startDate: '2025-01-01', endDate: '2025-01-10',
     isMilestone: false,
     predecessors: [], seq: 0, order: 0, createdAt: '', updatedAt: '',
-    titleColor: null, titleBgColor: null,
+    titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...override,
   };
 }

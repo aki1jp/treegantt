@@ -21,6 +21,7 @@ export interface Task {
   order:        number;
   titleColor:   string | null;
   titleBgColor: string | null;
+  estimateMinutes: number | null;
   createdAt:    string;
   updatedAt:    string;
 }
@@ -31,5 +32,7 @@ export interface Project {
   id:        string;
   name:      string;
   color:     string | null;
+  capacityMinutesPerDay: number | null;
+  workingDays: number[] | null;
   createdAt: string;
 }

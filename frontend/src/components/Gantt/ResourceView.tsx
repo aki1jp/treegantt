@@ -1,10 +1,24 @@
+import { useRef } from 'react';
 import dayjs from 'dayjs';
 import type { Task, ZoomLevel } from '../../types/task';
 import { ZOOM_CONFIG } from '../../utils/ganttCalc';
-import { workloadColor } from '../../utils/workloadCalc';
+import { calcUtilizationMatrix, workloadBuckets, utilizationColor } from '../../utils/workloadCalc';
+import { formatMinutes, HARDCODED_CAPACITY_MINUTES, HARDCODED_WORKING_DAYS } from '../../utils/duration';
 
 const HEADER_H  = 22;
-const CELL_H    = 28;
+const LEGEND_H  = 18;
+const CELL_H    = 30;
+const HANDLE_H  = 6;
+const MIN_HEIGHT = HEADER_H + LEGEND_H + CELL_H; // 1 行ぶん
+const MIN_GANTT  = 120; // リサイズ時にガント本体へ残す最低高
+const DEFAULT_HEIGHT = 220;
+
+const LEGEND_ITEMS = [
+  { label: '〜80% 余裕',   c: utilizationColor(0.5) },
+  { label: '〜100% 適正',  c: utilizationColor(0.95) },
+  { label: '〜120% 注意',  c: utilizationColor(1.1) },
+  { label: '>120% 過負荷', c: utilizationColor(1.5) },
+];
 
 export interface ResourceViewProps {
   tasks: Task[];
@@ -14,37 +28,94 @@ export interface ResourceViewProps {
   labelWidth: number;
   scrollRef: React.RefObject<HTMLDivElement>;
   onEditTask: (task: Task) => void;
+  /** 実効キャパシティ（分/稼働日）。1d 換算・稼働率の分母 */
+  capacityMinutesPerDay?: number;
+  /** 実効稼働日（0=日…6=土） */
+  workingDays?: number[];
+  /** パネル総高（px）。境界線ドラッグで増減 */
+  height?: number;
+  onHeightChange?: (height: number) => void;
 }
+
+const pct = (ratio: number): string => `${Math.round(ratio * 100)}%`;
 
 export function ResourceView({
   tasks, min, zoomLevel, totalWidth, labelWidth, scrollRef,
+  capacityMinutesPerDay = HARDCODED_CAPACITY_MINUTES,
+  workingDays = HARDCODED_WORKING_DAYS,
+  height = DEFAULT_HEIGHT, onHeightChange,
 }: ResourceViewProps) {
+  const panelRef     = useRef<HTMLDivElement>(null);
+  const leftBodyRef  = useRef<HTMLDivElement>(null);
+  const rightBodyRef = useRef<HTMLDivElement>(null);
+
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];
-  const totalDays = Math.round(totalWidth / dayWidth);
+  const totalDays = Math.max(1, Math.round(totalWidth / dayWidth));
+  const max = dayjs(min).add(totalDays - 1, 'day').toDate();
 
-  // 担当者ごとにタスクをグループ化
-  const assigneeGroups = new Map<string, Task[]>();
-  for (const t of tasks) {
-    if (!t.assignee || !t.startDate) continue;
-    if (!assigneeGroups.has(t.assignee)) assigneeGroups.set(t.assignee, []);
-    assigneeGroups.get(t.assignee)!.push(t);
-  }
-  const assignees = [...assigneeGroups.keys()].sort();
-
+  const { assignees, days, utilization, demand, dayTasks, totalMinutes, peakUtil } =
+    calcUtilizationMatrix(tasks, min, max, { capacityMinutesPerDay, workingDays });
   if (assignees.length === 0) return null;
 
-  // 各日の文字列（YYYY-MM-DD）
-  const dayStrings = Array.from({ length: totalDays }, (_, i) =>
-    dayjs(min).add(i, 'day').format('YYYY-MM-DD')
-  );
+  const buckets = workloadBuckets(days, zoomLevel);
+  const workingSet = new Set(workingDays);
+  const isNonWorking = (idx: number): boolean => !workingSet.has(dayjs(days[idx]).day());
+
+  // 行表示領域の高さ = 設定高(上限) と 内容高 の小さい方。
+  // 行が少なければ内容にフィット、多ければ設定高を上限に縦スクロール。
+  const cap = Math.max(MIN_HEIGHT, height) - HEADER_H - LEGEND_H;
+  const bodyHeight = Math.min(cap, assignees.length * CELL_H);
+
+  // 境界線ドラッグでパネル総高を増減する
+  const onResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = height;
+    const parentH = panelRef.current?.parentElement?.clientHeight ?? 0;
+    const maxHeight = parentH > MIN_GANTT + MIN_HEIGHT ? parentH - MIN_GANTT : 600;
+    document.body.style.userSelect = 'none';
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.max(MIN_HEIGHT, Math.min(maxHeight, startHeight + (startY - ev.clientY)));
+      onHeightChange?.(next);
+    };
+    const onUp = () => {
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // 左右の行領域の縦スクロールを同期する
+  const syncFromLeft = () => {
+    if (rightBodyRef.current && leftBodyRef.current) {
+      rightBodyRef.current.scrollTop = leftBodyRef.current.scrollTop;
+    }
+  };
+  const onRightWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (leftBodyRef.current) {
+      leftBodyRef.current.scrollTop += e.deltaY; // 左を動かすと onScroll で右も同期
+    }
+  };
 
   return (
-    <div data-testid="workload-panel" style={{
-      flexShrink: 0, display: 'flex',
+    <div ref={panelRef} data-testid="workload-panel" style={{
+      flexShrink: 0, display: 'flex', position: 'relative',
       borderTop: '2px solid var(--th-border-strong)',
       background: 'var(--th-bg)',
     }}>
-      {/* 左固定列: 担当者名 */}
+      {/* 上端の境界線リサイズハンドル */}
+      <div
+        data-testid="workload-resize"
+        onMouseDown={onResizeMouseDown}
+        title="ドラッグで高さを変更"
+        style={{
+          position: 'absolute', top: -3, left: 0, right: 0, height: HANDLE_H,
+          cursor: 'ns-resize', zIndex: 5,
+        }}
+      />
+      {/* 左固定列: タイトル＋凡例＋担当者（サマリ付き・縦スクロール） */}
       <div style={{
         flexShrink: 0, width: labelWidth,
         borderRight: '2px solid var(--th-border-strong)',
@@ -56,92 +127,130 @@ export function ResourceView({
           color: 'var(--th-text-muted)', background: 'var(--th-bg2)',
           borderBottom: '1px solid var(--th-border)', flexShrink: 0,
         }}>
-          リソースビュー（担当者別負荷）
+          リソースビュー（担当者別 工数負荷）
         </div>
-        {assignees.map((a, ai) => (
-          <div key={a} style={{
-            height: CELL_H, display: 'flex', alignItems: 'center',
-            padding: '0 8px', fontSize: 12, color: 'var(--th-text2)',
-            borderBottom: '1px solid var(--th-border)', flexShrink: 0,
-            background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
-            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-          }}>
-            {a}
-          </div>
-        ))}
+        {/* 色凡例 */}
+        <div style={{
+          height: LEGEND_H, display: 'flex', alignItems: 'center', gap: 8,
+          padding: '0 8px', fontSize: 8, color: 'var(--th-text-muted)',
+          background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
+          flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
+        }}>
+          <span style={{ fontWeight: 700 }}>凡例</span>
+          {LEGEND_ITEMS.map(l => (
+            <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+              <span style={{ width: 9, height: 9, background: l.c, border: '1px solid rgba(0,0,0,0.2)', display: 'inline-block' }} />
+              {l.label}
+            </span>
+          ))}
+        </div>
+        {/* 担当者ラベル（縦スクロール領域。可視スクロールバー） */}
+        <div data-testid="workload-rows" ref={leftBodyRef} onScroll={syncFromLeft} style={{
+          height: bodyHeight, overflowY: 'auto', overflowX: 'hidden', flexShrink: 0,
+        }}>
+          {assignees.map((a, ai) => (
+            <div key={a} style={{
+              height: CELL_H, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              padding: '0 8px',
+              borderBottom: '1px solid var(--th-border)',
+              background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
+              overflow: 'hidden', boxSizing: 'border-box',
+            }}>
+              <div style={{
+                fontSize: 12, color: 'var(--th-text2)', lineHeight: 1.1,
+                whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
+              }}>{a}</div>
+              <div style={{ fontSize: 8, color: 'var(--th-text-muted)', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                合計 {totalMinutes[ai] > 0 ? formatMinutes(totalMinutes[ai]) : '—'} / ピーク {pct(peakUtil[ai])}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* 右スクロール領域 */}
+      {/* 右スクロール領域（横はガント同期） */}
       <div ref={scrollRef} style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden' }}>
         <div style={{ width: totalWidth, display: 'flex', flexDirection: 'column' }}>
-          {/* 日付ヘッダー */}
+          {/* 日付ヘッダー（バケット単位・固定） */}
           <div style={{
             height: HEADER_H, position: 'relative', flexShrink: 0,
             background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
           }}>
-            {dayStrings.map((_, i) => {
-              const d = dayjs(min).add(i, 'day');
-              const dow = d.day();
-              const isSat = dow === 6;
-              const isSun = dow === 0;
+            {buckets.map((b, bi) => {
+              const nonWork = b.span === 1 && isNonWorking(b.startIdx);
+              const left = b.startIdx * dayWidth;
+              const width = b.span * dayWidth;
               return (
-                <div key={i} style={{
-                  position: 'absolute', left: i * dayWidth, width: dayWidth, height: HEADER_H,
-                  background: isSat ? 'rgba(59,130,246,0.18)' : isSun ? 'rgba(239,68,68,0.18)' : 'transparent',
+                <div key={bi} style={{
+                  position: 'absolute', left, width, height: HEADER_H,
+                  background: nonWork ? 'rgba(120,120,120,0.12)' : 'transparent',
                   borderRight: '1px solid var(--th-border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 9,
-                  color: isSat ? '#3b82f6' : isSun ? '#ef4444' : 'var(--th-text-muted)',
+                  fontSize: 9, color: 'var(--th-text-muted)',
                   boxSizing: 'border-box', overflow: 'hidden',
                 }}>
-                  {dayWidth >= 14 ? d.date() : ''}
+                  {width >= 14 ? b.label : ''}
                 </div>
               );
             })}
           </div>
+          {/* 凡例行ぶんのスペーサ（左列と高さを揃える・固定） */}
+          <div style={{
+            height: LEGEND_H, flexShrink: 0,
+            background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
+          }} />
 
-          {/* 担当者ごとに 1 行: 各日セルに色＋タスク数 */}
-          {assignees.map((a, ai) => {
-            const rowTasks = assigneeGroups.get(a) ?? [];
-            return (
+          {/* セル行（縦スクロール領域。左と同期、ホイールで操作） */}
+          <div ref={rightBodyRef} onWheel={onRightWheel} style={{
+            height: bodyHeight, overflowY: 'hidden', flexShrink: 0,
+          }}>
+            {assignees.map((a, ai) => (
               <div key={a} style={{
-                height: CELL_H, position: 'relative', flexShrink: 0,
+                height: CELL_H, position: 'relative',
                 background: ai % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)',
-                borderBottom: '1px solid var(--th-border)',
+                borderBottom: '1px solid var(--th-border)', boxSizing: 'border-box',
               }}>
-                {dayStrings.map((dayStr, di) => {
-                  const dow = dayjs(min).add(di, 'day').day();
-                  const isSat = dow === 6;
-                  const isSun = dow === 0;
-                  const count = rowTasks.filter(t =>
-                    t.startDate! <= dayStr && (t.endDate ?? t.startDate!) >= dayStr
-                  ).length;
-                  const loadBg = workloadColor(count);
-                  const weekendBg = isSat
-                    ? 'rgba(59,130,246,0.10)'
-                    : isSun ? 'rgba(239,68,68,0.10)' : undefined;
-                  // 負荷色が透明でない場合は負荷色優先、ない場合は土日薄色
-                  const bg = count > 0 ? loadBg : (weekendBg ?? 'transparent');
+                {buckets.map((b, bi) => {
+                  // バケット期間内の稼働率ピーク（最大）と、その「ピーク日」インデックス
+                  let peak = 0;
+                  let peakIdx = b.startIdx;
+                  for (const i of b.dayIdxs) {
+                    if (utilization[ai][i] > peak) { peak = utilization[ai][i]; peakIdx = i; }
+                  }
+                  const nonWork = b.span === 1 && isNonWorking(b.startIdx);
+                  const bg = peak > 0 ? utilizationColor(peak) : (nonWork ? 'rgba(120,120,120,0.06)' : 'transparent');
+                  const left = b.startIdx * dayWidth;
+                  const width = b.span * dayWidth;
+                  // ピーク日基準のツールチップ内訳（各タスクの按分時間・合計需要・1日キャパ）
+                  let tip: string | undefined;
+                  if (peak > 0) {
+                    const dateLabel = dayjs(days[peakIdx]).format('M/D');
+                    const breakdown = dayTasks[ai][peakIdx]
+                      .map(t => `・${t.title} ${formatMinutes(Math.round(t.minutes))}`)
+                      .join('\n');
+                    tip = `${a}  ${dateLabel}${b.span > 1 ? '（ピーク日）' : ''}\n`
+                        + `稼働率 ${pct(peak)}   需要 ${formatMinutes(Math.round(demand[ai][peakIdx]))} ÷ キャパ ${formatMinutes(capacityMinutesPerDay)}`
+                        + (breakdown ? `\n${breakdown}` : '');
+                  }
                   return (
-                    <div key={di} style={{
-                      position: 'absolute', left: di * dayWidth, width: dayWidth, height: CELL_H,
+                    <div key={bi} style={{
+                      position: 'absolute', left, width, height: CELL_H,
                       background: bg,
                       borderRight: '1px solid rgba(0,0,0,0.06)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: Math.min(11, dayWidth - 4),
-                      fontWeight: 700,
-                      color: count > 0 ? 'rgba(0,0,0,0.65)' : 'transparent',
+                      fontSize: Math.min(10, width - 2),
+                      fontWeight: 700, color: 'rgba(0,0,0,0.65)',
                       boxSizing: 'border-box',
                     }}
-                      title={count > 0 ? `${a} ${dayStr}: ${count}件` : undefined}
+                      title={tip}
                     >
-                      {dayWidth >= 10 && count > 0 ? count : ''}
+                      {width >= 18 && peak > 0 ? pct(peak) : ''}
                     </div>
                   );
                 })}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
     </div>

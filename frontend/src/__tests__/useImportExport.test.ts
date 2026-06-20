@@ -12,12 +12,12 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     startDate: null, endDate: null, isMilestone: false,
     predecessors: [], seq: 1, order: 1,
     createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
-    titleColor: null, titleBgColor: null,
+    titleColor: null, titleBgColor: null, estimateMinutes: null,
     ...overrides,
   };
 }
 
-const project: Project = { id: 'p1', name: 'テストプロジェクト', createdAt: '' };
+const project: Project = { id: 'p1', name: 'テストプロジェクト', color: null, capacityMinutesPerDay: null, workingDays: null, createdAt: '' };
 
 // downloadFile で使われる URL API のモック
 let origCreateElement: typeof document.createElement;

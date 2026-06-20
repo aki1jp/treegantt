@@ -57,7 +57,7 @@ export function genLargeTasks(n: number, seed = 1): Task[] {
       seq: i + 1,
       order: i + 1,
       titleColor: null,
-      titleBgColor: null,
+      titleBgColor: null, estimateMinutes: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     };

@@ -165,14 +165,19 @@ interface Props {
   onAddSubMilestone?: (parentId: string) => void;
   onReorder: (orders: { id: string; order: number; parentId?: string | null }[]) => Promise<void>;
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
+  /** リソースビュー稼働率の実効キャパ（分/稼働日） */
+  capacityMinutesPerDay?: number;
+  /** リソースビュー稼働率の実効稼働日（0=日…6=土） */
+  workingDays?: number[];
 }
 
-export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert }: Props) {
+export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert, capacityMinutesPerDay, workingDays }: Props) {
   const {
     tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
+    resourceViewHeight, setResourceViewHeight,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
@@ -915,7 +920,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     }}>
 
     {/* ── メインエリア（WBS + ガント）── */}
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 120 }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
       <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
@@ -1523,6 +1528,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         labelWidth={LEFT_TOTAL}
         scrollRef={workloadScrollRef}
         onEditTask={onEditTask}
+        capacityMinutesPerDay={capacityMinutesPerDay}
+        workingDays={workingDays}
+        height={resourceViewHeight}
+        onHeightChange={setResourceViewHeight}
       />
     )}
     </div>
