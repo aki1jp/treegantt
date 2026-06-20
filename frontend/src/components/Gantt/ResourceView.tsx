@@ -127,7 +127,7 @@ export function ResourceView({
           color: 'var(--th-text-muted)', background: 'var(--th-bg2)',
           borderBottom: '1px solid var(--th-border)', flexShrink: 0,
         }}>
-          リソースビュー（担当者別負荷）
+          リソースビュー（担当者別 工数負荷）
         </div>
         {/* 色凡例 */}
         <div style={{

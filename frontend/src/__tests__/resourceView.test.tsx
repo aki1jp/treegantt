@@ -200,9 +200,9 @@ describe('ResourceView: 担当者表示', () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('ResourceView: タイトルヘッダー', () => {
-  it('"リソースビュー（担当者別負荷）" のラベルが表示される', () => {
+  it('"リソースビュー（担当者別 工数負荷）" のラベルが表示される', () => {
     renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15' })]);
-    expect(screen.getByTestId('workload-panel').textContent).toContain('リソースビュー（担当者別負荷）');
+    expect(screen.getByTestId('workload-panel').textContent).toContain('リソースビュー（担当者別 工数負荷）');
   });
 });
 
