@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup, screen } from '@testing-library/react';
+import { createRef } from 'react';
+import { render, cleanup, screen, fireEvent } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
+import { ResourceView } from '../components/Gantt/ResourceView';
 import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
@@ -109,6 +111,49 @@ describe('ResourceView: 高さ上限と縦スクロール', () => {
     const body = screen.getByTestId('workload-rows');
     const h = parseInt(body.style.height || '0', 10);
     expect(h).toBe(2 * 30); // 2 行ぶん
+  });
+});
+
+describe('ResourceView: 高さリサイズ（境界線ドラッグ）', () => {
+  function makeTask2(overrides: Partial<Task> = {}): Task {
+    return {
+      id: 'rt1', projectId: 'p1', parentId: null, title: 'T', summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: 'Alice',
+      startDate: '2026-06-10', endDate: '2026-06-12', isMilestone: false, predecessors: [],
+      seq: 1, order: 1, createdAt: '', updatedAt: '', titleColor: null, titleBgColor: null,
+      estimateMinutes: 240, ...overrides,
+    };
+  }
+
+  function renderView(height: number, onHeightChange = vi.fn()) {
+    const scrollRef = createRef<HTMLDivElement>();
+    render(
+      <ResourceView
+        tasks={[makeTask2()]} min={new Date('2026-06-01')} zoomLevel="week"
+        totalWidth={400} labelWidth={200} scrollRef={scrollRef} onEditTask={NOOP}
+        height={height} onHeightChange={onHeightChange}
+        capacityMinutesPerDay={480} workingDays={[1, 2, 3, 4, 5]}
+      />
+    );
+    return onHeightChange;
+  }
+
+  it('リサイズハンドルが存在し ns-resize カーソル', () => {
+    renderView(220);
+    const handle = screen.getByTestId('workload-resize');
+    expect(handle).toBeTruthy();
+    expect(handle.style.cursor).toBe('ns-resize');
+  });
+
+  it('上ドラッグで高さが増加して onHeightChange が呼ばれる', () => {
+    const onHeightChange = renderView(220);
+    const handle = screen.getByTestId('workload-resize');
+    fireEvent.mouseDown(handle, { clientY: 200 });
+    fireEvent.mouseMove(window, { clientY: 150 }); // 上へ 50px
+    fireEvent.mouseUp(window);
+    expect(onHeightChange).toHaveBeenCalled();
+    const last = onHeightChange.mock.calls.at(-1)![0] as number;
+    expect(last).toBeGreaterThan(220);
   });
 });
 

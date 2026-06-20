@@ -25,6 +25,7 @@ interface TaskStore {
   milestoneHighlightColor: string;
   uiFontSize:         number;
   uiRowHeight:        number;
+  resourceViewHeight: number;
   ganttHeaderLevels:  GanttHeaderLevels;
   theme:              ThemeMode;
   ganttBarOpen:       boolean;
@@ -48,6 +49,7 @@ interface TaskStore {
   setMilestoneHighlightColor:  (color: string) => void;
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
+  setResourceViewHeight:  (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
   setTheme:               (theme: ThemeMode) => void;
   setGanttBarOpen:        (open: boolean) => void;
@@ -70,6 +72,7 @@ const uiInitialState = {
   milestoneHighlightColor: '#8b5cf6',
   uiFontSize:        13,
   uiRowHeight:       36,
+  resourceViewHeight: 220,
   ganttHeaderLevels: { year: false, month: true, week: false, day: true } as GanttHeaderLevels,
   depArrowStyle:     'bezier' as DepArrowStyle,
 };
@@ -132,6 +135,7 @@ export const useTaskStore = create<TaskStore>()(
       setMilestoneHighlightColor:  (milestoneHighlightColor) => set({ milestoneHighlightColor }),
       setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
       setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
+      setResourceViewHeight:  (resourceViewHeight) => set({ resourceViewHeight }),
       setGanttHeaderLevels:   (levels) => set((s) => ({
         ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
       })),
@@ -158,6 +162,7 @@ export const useTaskStore = create<TaskStore>()(
         milestoneHighlightColor: s.milestoneHighlightColor,
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,
+        resourceViewHeight: s.resourceViewHeight,
         ganttHeaderLevels: s.ganttHeaderLevels,
         ganttBarOpen:      s.ganttBarOpen,
         wbsPanelOpen:      s.wbsPanelOpen,

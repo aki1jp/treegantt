@@ -177,6 +177,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
+    resourceViewHeight, setResourceViewHeight,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
@@ -919,7 +920,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     }}>
 
     {/* ── メインエリア（WBS + ガント）── */}
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 120 }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
       <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
@@ -1529,6 +1530,8 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         onEditTask={onEditTask}
         capacityMinutesPerDay={capacityMinutesPerDay}
         workingDays={workingDays}
+        height={resourceViewHeight}
+        onHeightChange={setResourceViewHeight}
       />
     )}
     </div>

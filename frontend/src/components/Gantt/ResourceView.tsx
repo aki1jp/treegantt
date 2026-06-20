@@ -8,8 +8,10 @@ import { formatMinutes, HARDCODED_CAPACITY_MINUTES, HARDCODED_WORKING_DAYS } fro
 const HEADER_H  = 22;
 const LEGEND_H  = 18;
 const CELL_H    = 30;
-// 担当者が多くてもガント本体を覆わないよう、行表示領域はこの行数ぶんでキャップし縦スクロール。
-const MAX_VISIBLE_ROWS = 6;
+const HANDLE_H  = 6;
+const MIN_HEIGHT = HEADER_H + LEGEND_H + CELL_H; // 1 行ぶん
+const MIN_GANTT  = 120; // リサイズ時にガント本体へ残す最低高
+const DEFAULT_HEIGHT = 220;
 
 const LEGEND_ITEMS = [
   { label: '〜80% 余裕',   c: utilizationColor(0.5) },
@@ -30,6 +32,9 @@ export interface ResourceViewProps {
   capacityMinutesPerDay?: number;
   /** 実効稼働日（0=日…6=土） */
   workingDays?: number[];
+  /** パネル総高（px）。境界線ドラッグで増減 */
+  height?: number;
+  onHeightChange?: (height: number) => void;
 }
 
 const pct = (ratio: number): string => `${Math.round(ratio * 100)}%`;
@@ -38,7 +43,9 @@ export function ResourceView({
   tasks, min, zoomLevel, totalWidth, labelWidth, scrollRef,
   capacityMinutesPerDay = HARDCODED_CAPACITY_MINUTES,
   workingDays = HARDCODED_WORKING_DAYS,
+  height = DEFAULT_HEIGHT, onHeightChange,
 }: ResourceViewProps) {
+  const panelRef     = useRef<HTMLDivElement>(null);
   const leftBodyRef  = useRef<HTMLDivElement>(null);
   const rightBodyRef = useRef<HTMLDivElement>(null);
 
@@ -54,8 +61,31 @@ export function ResourceView({
   const workingSet = new Set(workingDays);
   const isNonWorking = (idx: number): boolean => !workingSet.has(dayjs(days[idx]).day());
 
-  // 行表示領域の高さ（上限キャップ）。超過分は縦スクロール。
-  const bodyHeight = Math.min(assignees.length, MAX_VISIBLE_ROWS) * CELL_H;
+  // 行表示領域の高さ = 設定高(上限) と 内容高 の小さい方。
+  // 行が少なければ内容にフィット、多ければ設定高を上限に縦スクロール。
+  const cap = Math.max(MIN_HEIGHT, height) - HEADER_H - LEGEND_H;
+  const bodyHeight = Math.min(cap, assignees.length * CELL_H);
+
+  // 境界線ドラッグでパネル総高を増減する
+  const onResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = height;
+    const parentH = panelRef.current?.parentElement?.clientHeight ?? 0;
+    const maxHeight = parentH > MIN_GANTT + MIN_HEIGHT ? parentH - MIN_GANTT : 600;
+    document.body.style.userSelect = 'none';
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.max(MIN_HEIGHT, Math.min(maxHeight, startHeight + (startY - ev.clientY)));
+      onHeightChange?.(next);
+    };
+    const onUp = () => {
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   // 左右の行領域の縦スクロールを同期する
   const syncFromLeft = () => {
@@ -70,11 +100,21 @@ export function ResourceView({
   };
 
   return (
-    <div data-testid="workload-panel" style={{
-      flexShrink: 0, display: 'flex',
+    <div ref={panelRef} data-testid="workload-panel" style={{
+      flexShrink: 0, display: 'flex', position: 'relative',
       borderTop: '2px solid var(--th-border-strong)',
       background: 'var(--th-bg)',
     }}>
+      {/* 上端の境界線リサイズハンドル */}
+      <div
+        data-testid="workload-resize"
+        onMouseDown={onResizeMouseDown}
+        title="ドラッグで高さを変更"
+        style={{
+          position: 'absolute', top: -3, left: 0, right: 0, height: HANDLE_H,
+          cursor: 'ns-resize', zIndex: 5,
+        }}
+      />
       {/* 左固定列: タイトル＋凡例＋担当者（サマリ付き・縦スクロール） */}
       <div style={{
         flexShrink: 0, width: labelWidth,
