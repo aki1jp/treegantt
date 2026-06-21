@@ -439,21 +439,34 @@ export function calcParentSpanMap(
 
 // マイルストーンヘッダー用レーン割り当て。
 // 推定テキスト幅でx方向の重なりを判定し、greedy に最初の空きレーンへ配置する。
-export function assignMilestoneLanes(
-  items: { x: number; title: string }[],
+// マイルストーンのセル [x, x+dayWidth] が描画範囲 [0, totalWidth) と重なるか。
+// 開始日変更・表示期間で範囲外（見切れ）に外れた分はヘッダーのレーン割当・表示から除外する。
+export function isMilestoneXVisible(x: number, dayWidth: number, totalWidth: number): boolean {
+  return x + dayWidth > 0 && x < totalWidth;
+}
+
+export function assignMilestoneLanes<T extends { x: number; title: string }>(
+  items: T[],
   fontSize: number,
-): { x: number; title: string; lane: number }[] {
+): (T & { lane: number })[] {
   const iconW = fontSize + 4;
   const charW = fontSize * 0.65;
   const pad   = 4;
   const laneEnds: number[] = [];
-  return items.map(item => {
+  // x 昇順の first-fit で詰める（左から空いた最上段へ各ラベル箱を入れる）。
+  // 入力順（WBS 並び＝x 非昇順）のまま詰めると重なっていなくても不要に段が増えるため、
+  // レーン計算は x 昇順で行い、結果は元の入力順を保って返す。
+  const order = items.map((_, i) => i).sort((a, b) => items[a].x - items[b].x);
+  const laneOf = new Array<number>(items.length);
+  for (const i of order) {
+    const item = items[i];
     const width = iconW + item.title.length * charW + pad;
     let lane = laneEnds.findIndex(end => end <= item.x);
     if (lane === -1) lane = laneEnds.length;
     laneEnds[lane] = item.x + width;
-    return { ...item, lane };
-  });
+    laneOf[i] = lane;
+  }
+  return items.map((item, i) => ({ ...item, lane: laneOf[i] }));
 }
 
 export function computeInsertOrder(
