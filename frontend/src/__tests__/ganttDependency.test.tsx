@@ -117,6 +117,22 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       hoverRow(container, 0);
       expect(getConnectorDot(container)).toBeNull();
     });
+
+    it('バーを移動ドラッグ中はコネクタドットが非表示になる', () => {
+      const task = makeTask({ startDate: '2026-06-10', endDate: '2026-06-15' });
+      const { container } = renderChart([task]);
+
+      hoverRow(container, 0);
+      expect(getConnectorDot(container)).toBeTruthy();
+
+      const moveZone = Array.from(container.querySelectorAll<SVGRectElement>('rect')).find(
+        r => r.style.cursor === 'move'
+      );
+      expect(moveZone).toBeTruthy();
+      fireEvent.mouseDown(moveZone!, { button: 0, clientX: 100 });
+
+      expect(getConnectorDot(container)).toBeNull();
+    });
   });
 
   describe('ドラッグ・ツー・リンク（依存追加）', () => {

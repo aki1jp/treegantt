@@ -925,6 +925,8 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     boxSizing: 'border-box', padding: '0 4px',
   };
 
+  const canStartLink = !!hoveredBarId && !linkDragState && !dragState;
+
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
@@ -1291,7 +1293,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
             {dependencyArrows}
 
             {/* ホバー中バーの右端コネクタドット（リンクドラッグ開始点） */}
-            {hoveredBarId && !linkDragState && (() => {
+            {canStartLink && (() => {
               const hTask = taskById.get(hoveredBarId);
               const hEnd = hTask ? effEndDate(hTask) : null;
               if (!hTask || hTask.isMilestone || !hEnd) return null;
