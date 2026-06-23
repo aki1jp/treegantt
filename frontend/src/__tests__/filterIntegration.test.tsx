@@ -189,6 +189,34 @@ describe('GanttChart フィルタ統合: 担当者', () => {
     // 不一致かつ祖先も不一致の兄弟は非表示
     expect(titles).not.toContain('ChildCarol');
   });
+
+  it('[再現] 親が空白・子の一部が一致するとき、不一致の兄弟は非表示になる（2段）', () => {
+    const parent = makeTask({ title: 'ParentEmpty', assignee: '' });
+    const tasks = [
+      parent,
+      makeTask({ title: 'ChildAlice', assignee: 'Alice', parentId: parent.id }),
+      makeTask({ title: 'ChildEmpty', assignee: '',       parentId: parent.id }),
+    ];
+    renderChart(tasks, { filterAssignee: 'Alice' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('ChildAlice');
+    expect(titles).toContain('ParentEmpty'); // 構造として表示
+    expect(titles).not.toContain('ChildEmpty'); // 兄弟は非表示
+  });
+
+  it('[再現] 親が別担当者・子の一部が一致するとき、空白の兄弟は非表示になる（2段）', () => {
+    const parent = makeTask({ title: 'BobParent2', assignee: 'Bob' });
+    const tasks = [
+      parent,
+      makeTask({ title: 'ChildAlice2', assignee: 'Alice', parentId: parent.id }),
+      makeTask({ title: 'ChildEmpty2', assignee: '',       parentId: parent.id }),
+    ];
+    renderChart(tasks, { filterAssignee: 'Alice' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('ChildAlice2');
+    expect(titles).toContain('BobParent2'); // 構造として表示
+    expect(titles).not.toContain('ChildEmpty2'); // 空白の兄弟は非表示
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
