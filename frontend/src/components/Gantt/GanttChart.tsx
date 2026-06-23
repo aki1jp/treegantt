@@ -1251,13 +1251,13 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
             {/* 土日背景 */}
             {weekendXs.map((x, i) => (
               <rect key={i} x={x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
-                fill="rgba(148,163,184,0.18)" />
+                fill="rgba(148,163,184,0.18)" pointerEvents="none" />
             ))}
 
             {/* マイルストーン列背景 */}
             {milestoneItems.map((m, i) => (
               <rect key={i} x={m.x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
-                fill={m.color + '33'} />
+                fill={m.color + '33'} pointerEvents="none" />
             ))}
 
             {/* タスクバー（仮想化: 可視範囲のみ・rowIndex は絶対インデックス） */}
