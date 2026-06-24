@@ -445,13 +445,23 @@ export function isMilestoneXVisible(x: number, dayWidth: number, totalWidth: num
   return x + dayWidth > 0 && x < totalWidth;
 }
 
+// Canvas による実測テキスト幅（◆アイコン + タイトル + パディングの合計）。
+// jsdom 等 canvas 非対応環境では fontSize * 0.65 の推定値にフォールバックする。
+let _measureCtx: CanvasRenderingContext2D | null | undefined;
+export function measureMilestoneLabel(title: string, fontSize: number): number {
+  if (_measureCtx === undefined)
+    _measureCtx = document.createElement('canvas').getContext('2d');
+  const iconW = fontSize + 4;
+  const pad = 4;
+  if (!_measureCtx) return iconW + title.length * (fontSize * 0.65) + pad;
+  _measureCtx.font = `600 ${fontSize}px sans-serif`;
+  return iconW + _measureCtx.measureText(title).width + pad;
+}
+
 export function assignMilestoneLanes<T extends { x: number; title: string }>(
   items: T[],
-  fontSize: number,
+  getLabelWidth: (title: string) => number,
 ): (T & { lane: number })[] {
-  const iconW = fontSize + 4;
-  const charW = fontSize * 0.65;
-  const pad   = 4;
   const laneEnds: number[] = [];
   // x 昇順の first-fit で詰める（左から空いた最上段へ各ラベル箱を入れる）。
   // 入力順（WBS 並び＝x 非昇順）のまま詰めると重なっていなくても不要に段が増えるため、
@@ -460,7 +470,7 @@ export function assignMilestoneLanes<T extends { x: number; title: string }>(
   const laneOf = new Array<number>(items.length);
   for (const i of order) {
     const item = items[i];
-    const width = iconW + item.title.length * charW + pad;
+    const width = getLabelWidth(item.title);
     let lane = laneEnds.findIndex(end => end <= item.x);
     if (lane === -1) lane = laneEnds.length;
     laneEnds[lane] = item.x + width;
