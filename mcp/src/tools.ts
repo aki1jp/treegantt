@@ -48,7 +48,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       if (assignee) params.set('assignee', assignee);
       if (priority) params.set('priority', priority);
       const qs = params.toString();
-      const path = `/projects/${projectId}/tasks${qs ? `?${qs}` : ''}`;
+      const path = `/projects/${encodeURIComponent(projectId)}/tasks${qs ? `?${qs}` : ''}`;
       return textResult(await apiFetch(path));
     },
   },
@@ -58,7 +58,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: { taskId: z.string() },
     handler: async (args) => {
       const { taskId } = args as { taskId: string };
-      return textResult(await apiFetch(`/tasks/${taskId}`));
+      return textResult(await apiFetch(`/tasks/${encodeURIComponent(taskId)}`));
     },
   },
   {
@@ -68,7 +68,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: { projectId: z.string() },
     handler: async (args) => {
       const { projectId } = args as { projectId: string };
-      return textResult(await apiFetch(`/projects/${projectId}/export/json`));
+      return textResult(await apiFetch(`/projects/${encodeURIComponent(projectId)}/export/json`));
     },
   },
   {
