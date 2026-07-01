@@ -137,6 +137,24 @@ PORT=5000 WS_PORT=5001 FRONTEND_PORT=3005 bash start.sh
 
 ---
 
+## 🤖 AI連携（MCP）
+
+AI（Claude Code / Claude Desktop 等）から TreeGantt を**読み取り専用**で参照できる MCP サーバーを
+`mcp/` に同梱している。TreeGantt本体（`api`/`frontend`）はこれを一切知らず、既存の REST API を
+外部から叩くだけ。方針の詳細は [`docs/ai_integration_policy.md`](docs/ai_integration_policy.md)、
+使い方は [`mcp/README.md`](mcp/README.md) を参照。
+
+| 環境 | やること |
+|------|---------|
+| 開発 | `bash start.sh`（`mcp/` の依存関係もここで自動インストールされる） |
+| AIクライアント登録 | `.mcp.json` に1回だけ設定を追加（`mcp/README.md` にスニペットあり） |
+
+`mcp/` はビルド不要（`tsx` で直接実行）で、`api`/`frontend` のような常時稼働サーバーではないため
+Docker イメージ化はしていない。本番の TreeGantt を参照したい場合も `mcp/` はローカルで動かし、
+`API_BASE_URL` に本番サーバーの URL を指定するだけでよい（`mcp/README.md` の「開発環境と本番環境」参照）。
+
+---
+
 ## 🧰 運用 Tips（よくある操作）
 
 | やりたいこと | 方法 |
@@ -211,6 +229,7 @@ cd e2e      && npx playwright test  # E2E（実ブラウザ・クロスオリジ
 - 📘 [`docs/treegantt_design.md`](docs/treegantt_design.md) — **完全仕様書**（これ一冊で再実装できることを目標）
 - 📋 [`docs/FEATURES.md`](docs/FEATURES.md) — 機能仕様
 - ⚙️ [`docs/performance_plan.md`](docs/performance_plan.md) — 1000件パフォーマンス改善の記録
+- 🤖 [`docs/ai_integration_policy.md`](docs/ai_integration_policy.md) — AI連携（MCPサーバー）の方針・経緯
 
 ---
 
