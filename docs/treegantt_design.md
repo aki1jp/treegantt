@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.2.2** |
-| ドキュメント版 | 0.2.121 |
+| ドキュメント版 | 0.2.122 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年6月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -699,9 +699,11 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 
 `api`/`frontend` と並ぶ独立パッケージ。Claude Code / Claude Desktop など MCP 対応クライアントから **stdio** で起動される。
 
-- `mcp/src/client.ts`：`API_BASE_URL`（環境変数、既定 `http://localhost:4000`）への `fetch` ラッパー。`api` 内部の `services/*` は直接importしない（HTTP経由のみ）。
-- `mcp/src/tools.ts`：読み取り専用ツール5件（下表）。
+- `mcp/src/client.ts`：`API_BASE_URL`（環境変数、既定 `http://localhost:4000`）への `fetch` ラッパー。読み取り専用の `apiFetch`（GETのみ）と書き込み用の `apiMutate`（POST/PATCH/DELETE）を分離。`api` 内部の `services/*` は直接importしない（HTTP経由のみ）。
+- `mcp/src/tools.ts`：読み取り専用ツール5件＋書き込みツール3件（段階1、下表）。
 - `mcp/src/index.ts`：`McpServer` 起動・ツール登録・stdio transport 接続。
+
+**読み取り専用**
 
 | ツール名 | 対応エンドポイント | 用途 |
 |---------|-------------------|------|
@@ -711,10 +713,21 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | `export_project` | `GET /api/v1/projects/:id/export/json` | 依存関係・担当者・進捗を含む全件コンテキスト取得（アドバイス・分析用） |
 | `get_settings` | `GET /api/v1/settings` | 稼働キャパシティ・稼働日（負荷分析用） |
 
-### 18.3 スコープ外（v1時点）
+**書き込み（段階1）**
 
-- **書き込み系ツール**（`create_task`/`update_task`/`delete_task` 等）は未実装。将来追加する場合もTreeGantt側に確認UIは作らず、MCPクライアント側の「未許可ツール実行前の確認プロンプト」を人間の承認ゲートとする方針（`ai_integration_policy.md` §4.2）。
-- **認証**：v1では未導入（localhost限定のため）。導入条件は `ai_integration_policy.md` §4.3 を参照。
+| ツール名 | 対応エンドポイント | 用途 |
+|---------|-------------------|------|
+| `create_task` | `POST /api/v1/projects/:id/tasks` | タスク新規作成（`title`必須） |
+| `update_task` | `PATCH /api/v1/tasks/:id` | タスク部分更新 |
+| `delete_task` | `DELETE /api/v1/tasks/:id`（`mode=subtree\|single`） | タスク削除 |
+
+書き込みツールの入力スキーマ（zod）は `api` の `TASK_BODY_PROPERTIES`（`api/src/routes/tasks.ts`）と同じ制約（`status`/`priority` enum・`progress` 0–100・`title` 1–200文字）を持つ。`titleColor`/`titleBgColor`/`order`（装飾・手動並び順）はツール入力に含めない。詳細な設計判断は `docs/ai_integration_policy.md` §4.2 を参照。
+
+### 18.3 スコープ外（現時点）
+
+- **並び替えツール**（`reorder_tasks`）は段階2として未着手（`ai_integration_policy.md` §4.2）。
+- **一括作成ツール**（`tasks/batch`対応）は対象外。単発の作成・編集・削除で当初の要望を満たせるため。
+- **変更元の記録（source記録）・認証**：書き込みツール導入後も見送りを継続。導入条件は `ai_integration_policy.md` §4.3 を参照。
 - **AIの助言表示**：TreeGantt側にUI・保存APIを新設せず、AIクライアントとのチャット会話内で完結させる（`ai_integration_policy.md` §4.4）。
 
 ---
@@ -775,3 +788,4 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.119 | 2026/6 | バーのドラッグ中はコネクタドットを非表示にした（§9.4）。`canStartLink`（`hoveredBarId && !linkDragState && !dragState`）として表示可否を一か所で判定するよう整理。 |
 | 0.2.120 | 2026/6 | 製品バージョンを **1.2.2** に更新（ヘッダー・ステータス・構成図）。マイルストーンヘッダーのレーン割当を Canvas `measureText` 実測幅に変更し、日本語タイトルの重なりを解消（§8.2）。一連を `CHANGELOG.md` の `[1.2.2]` に記録。 |
 | 0.2.121 | 2026/7 | AI連携（新 §18）を追加。TreeGantt本体はAI非依存を維持し、AIは独立パッケージ `mcp/`（TreeGantt専用MCPサーバー、読み取り専用5ツール、stdio、認証なし）から外部参照する方針を明文化。§3 ディレクトリ構成図に `mcp/` を追記。方針の背景・代替案・将来の拡張条件は `docs/ai_integration_policy.md` に詳細を記録。 |
+| 0.2.122 | 2026/7 | `mcp/` に書き込みツール（段階1: `create_task`/`update_task`/`delete_task`）を追加（§18.2）。入力スキーマ（zod）に `api` と同じドメイン制約（status/priority enum・progress 0–100・title文字数）を持たせる方針を明記。並び替え（`reorder_tasks`）は段階2として§18.3にスコープ外を明記。承認ゲート・source記録・認証の方針は変更なし（`docs/ai_integration_policy.md` §4.2/§4.3）。 |
