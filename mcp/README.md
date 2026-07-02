@@ -1,16 +1,21 @@
 # treegantt-mcp
 
-TreeGantt を外部から**読み取り専用**で参照するための MCP (Model Context Protocol) サーバー。
+TreeGantt を外部から参照・編集するための MCP (Model Context Protocol) サーバー。
 
 TreeGantt本体（`api`/`frontend`）はこのサーバーの存在を一切知らない。ここは既存の
 TreeGantt REST API（`/api/v1/*`）を叩くだけの薄いクライアントであり、`api` 内部の
 `services/*` は直接importしない。方針の背景・代替案・将来の拡張条件は
 [`docs/ai_integration_policy.md`](../docs/ai_integration_policy.md) を参照。
 
-## v1 の範囲
+## 提供するツール
 
-- **読み取り専用**。`list_projects` / `list_tasks` / `get_task` / `export_project` /
-  `get_settings` の5ツールのみ。タスクの作成・編集・削除は行わない。
+**読み取り専用**: `list_projects` / `list_tasks` / `get_task` / `export_project` / `get_settings`
+
+**書き込み（段階1）**: `create_task` / `update_task` / `delete_task`
+（並び替え `reorder_tasks` は段階2として未実装）
+
+- 書き込みツールに対する確認UIはTreeGantt側に**無い**。Claude Code / Claude Desktop など
+  MCPクライアントの「未許可ツール実行前の確認プロンプト」が人間の承認ゲートとなる。
 - **認証なし**。TreeGantt API を直接叩く前提（既定 `http://localhost:4000`。詳細は下記「本番環境」節）。
 
 ## セットアップ（開発・本番共通）

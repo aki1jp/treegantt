@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const apiFetchMock = vi.fn();
-vi.mock('../client.js', () => ({ apiFetch: apiFetchMock }));
+const apiMutateMock = vi.fn();
+vi.mock('../client.js', () => ({ apiFetch: apiFetchMock, apiMutate: apiMutateMock }));
 
 const { TOOL_DEFINITIONS } = await import('../tools.js');
 
@@ -14,15 +15,19 @@ function findTool(name: string) {
 describe('TOOL_DEFINITIONS', () => {
   beforeEach(() => {
     apiFetchMock.mockReset();
+    apiMutateMock.mockReset();
   });
 
-  it('読み取り専用ツールをちょうど5件公開する（書き込み系ツールを含まない）', () => {
+  it('読み取り専用5件＋書き込み(段階1)3件のちょうど8件を公開する', () => {
     expect(TOOL_DEFINITIONS.map((t) => t.name).sort()).toEqual([
+      'create_task',
+      'delete_task',
       'export_project',
       'get_settings',
       'get_task',
       'list_projects',
       'list_tasks',
+      'update_task',
     ]);
   });
 
@@ -143,5 +148,141 @@ describe('TOOL_DEFINITIONS', () => {
     const result = await findTool('get_task').handler({ taskId: 't1' });
 
     expect(JSON.parse(result.content[0].text)).toEqual(tricky);
+  });
+
+  describe('書き込みツール（段階1）', () => {
+    it('create_task は POST /projects/:id/tasks を呼び、projectIdをボディに含めない', async () => {
+      apiMutateMock.mockResolvedValue({ task: { id: 't1', title: '新規タスク' } });
+
+      const result = await findTool('create_task').handler({
+        projectId: 'p1',
+        title: '新規タスク',
+        status: 'todo',
+      });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('POST', '/projects/p1/tasks', {
+        title: '新規タスク',
+        status: 'todo',
+      });
+      expect(result.content[0].text).toContain('新規タスク');
+    });
+
+    it('create_task: projectId に特殊文字が含まれてもエンコードされる', async () => {
+      apiMutateMock.mockResolvedValue({ task: {} });
+
+      await findTool('create_task').handler({ projectId: 'a/b', title: 'x' });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('POST', `/projects/${encodeURIComponent('a/b')}/tasks`, {
+        title: 'x',
+      });
+    });
+
+    it('update_task は PATCH /tasks/:id を呼び、taskIdをボディに含めない', async () => {
+      apiMutateMock.mockResolvedValue({ task: { id: 't1', progress: 50 } });
+
+      const result = await findTool('update_task').handler({ taskId: 't1', progress: 50 });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('PATCH', '/tasks/t1', { progress: 50 });
+      expect(result.content[0].text).toContain('50');
+    });
+
+    it('update_task: taskId に "/" が含まれてもエンコードされる', async () => {
+      apiMutateMock.mockResolvedValue({ task: {} });
+
+      await findTool('update_task').handler({ taskId: 'a/b', progress: 10 });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('PATCH', `/tasks/${encodeURIComponent('a/b')}`, {
+        progress: 10,
+      });
+    });
+
+    it('delete_task はmode省略時 DELETE /tasks/:id をクエリ無しで呼ぶ', async () => {
+      apiMutateMock.mockResolvedValue(null);
+
+      const result = await findTool('delete_task').handler({ taskId: 't1' });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('DELETE', '/tasks/t1');
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        deleted: true,
+        taskId: 't1',
+        mode: 'subtree',
+      });
+    });
+
+    it('delete_task はmode="single"指定時にクエリを付与する', async () => {
+      apiMutateMock.mockResolvedValue(null);
+
+      await findTool('delete_task').handler({ taskId: 't1', mode: 'single' });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('DELETE', '/tasks/t1?mode=single');
+    });
+
+    it('delete_task: taskId に特殊文字が含まれてもエンコードされる', async () => {
+      apiMutateMock.mockResolvedValue(null);
+
+      await findTool('delete_task').handler({ taskId: 'x?y=1' });
+
+      expect(apiMutateMock).toHaveBeenCalledWith('DELETE', `/tasks/${encodeURIComponent('x?y=1')}`);
+    });
+
+    it('apiMutateが失敗したら、書き込みツールも黙って握りつぶさずエラーを伝播する', async () => {
+      apiMutateMock.mockRejectedValue(new Error('write failed'));
+
+      await expect(findTool('create_task').handler({ projectId: 'p1', title: 'x' })).rejects.toThrow(
+        'write failed',
+      );
+    });
+
+    it('書き込みツールは apiFetch を一切呼ばない（読み取り経路と混同しない）', async () => {
+      apiMutateMock.mockResolvedValue({ task: {} });
+
+      await findTool('create_task').handler({ projectId: 'p1', title: 'x' });
+      await findTool('update_task').handler({ taskId: 't1' });
+      apiMutateMock.mockResolvedValue(null);
+      await findTool('delete_task').handler({ taskId: 't1' });
+
+      expect(apiFetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('書き込みツールのスキーマがドメインルールを守らせる', () => {
+    it('create_task: title は1〜200文字（空文字は拒否）', () => {
+      const schema = findTool('create_task').inputSchema.title;
+      expect(schema.safeParse('').success).toBe(false);
+      expect(schema.safeParse('a'.repeat(201)).success).toBe(false);
+      expect(schema.safeParse('OK').success).toBe(true);
+    });
+
+    it('update_task: title は省略可能（部分更新のため必須にしない）', () => {
+      const schema = findTool('update_task').inputSchema.title;
+      expect(schema.safeParse(undefined).success).toBe(true);
+    });
+
+    it('create_task: status は既定の5値以外を拒否する', () => {
+      const schema = findTool('create_task').inputSchema.status;
+      expect(schema.safeParse('bogus').success).toBe(false);
+      expect(schema.safeParse('wip').success).toBe(true);
+    });
+
+    it('create_task: progress は0〜100の範囲外を拒否する', () => {
+      const schema = findTool('create_task').inputSchema.progress;
+      expect(schema.safeParse(-1).success).toBe(false);
+      expect(schema.safeParse(101).success).toBe(false);
+      expect(schema.safeParse(50).success).toBe(true);
+    });
+
+    it('delete_task: mode は "subtree"/"single" 以外を拒否する', () => {
+      const schema = findTool('delete_task').inputSchema.mode;
+      expect(schema.safeParse('bogus').success).toBe(false);
+      expect(schema.safeParse('single').success).toBe(true);
+    });
+
+    it('create_task/update_task の入力スキーマに titleColor・titleBgColor・order を含まない（スコープ外）', () => {
+      expect(findTool('create_task').inputSchema.titleColor).toBeUndefined();
+      expect(findTool('create_task').inputSchema.titleBgColor).toBeUndefined();
+      expect(findTool('create_task').inputSchema.order).toBeUndefined();
+      expect(findTool('update_task').inputSchema.titleColor).toBeUndefined();
+      expect(findTool('update_task').inputSchema.order).toBeUndefined();
+    });
   });
 });

@@ -29,7 +29,7 @@ describe('createServer', () => {
     );
   });
 
-  it('TOOL_DEFINITIONS の全ツールを（書き込み系を増やさず）ちょうど1回ずつ登録する', () => {
+  it('TOOL_DEFINITIONS の全ツール（読み取り5件＋書き込み3件）をちょうど1回ずつ登録する', () => {
     createServer();
 
     expect(registerToolMock).toHaveBeenCalledTimes(TOOL_DEFINITIONS.length);

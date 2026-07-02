@@ -139,9 +139,11 @@ PORT=5000 WS_PORT=5001 FRONTEND_PORT=3005 bash start.sh
 
 ## 🤖 AI連携（MCP）
 
-AI（Claude Code / Claude Desktop 等）から TreeGantt を**読み取り専用**で参照できる MCP サーバーを
+AI（Claude Code / Claude Desktop 等）から TreeGantt を参照・編集できる MCP サーバーを
 `mcp/` に同梱している。TreeGantt本体（`api`/`frontend`）はこれを一切知らず、既存の REST API を
-外部から叩くだけ。方針の詳細は [`docs/ai_integration_policy.md`](docs/ai_integration_policy.md)、
+外部から叩くだけ。読み取り5ツールに加え、タスクの作成・更新・削除ツール（段階1）も提供する
+（承認はMCPクライアント側の確認プロンプトに委ねる方針。並び替えは段階2で未実装）。
+方針の詳細は [`docs/ai_integration_policy.md`](docs/ai_integration_policy.md)、
 使い方は [`mcp/README.md`](mcp/README.md) を参照。
 
 | 環境 | やること |
