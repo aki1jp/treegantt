@@ -240,10 +240,11 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   }, [colResize, handleColMouseMove, handleColMouseUp]);
 
   const [collapsed, setCollapsed] = useState(new Set<string>());
-  const { roots, childCount } = useMemo(
-    () => buildTree(includeAncestors(sorted, tasks)),
-    [sorted, tasks],
-  );
+  // フィルタ一致タスク＋ツリー構造保持のための表示専用祖先（§9.3）。折りたたみ状態には依存しない
+  // 「概念上のツリー全ノード」であり、resolveVisibleId の親チェーン遡り（§8.5）は折りたたみで
+  // 隠れているノードも辿る必要があるため、taskById もここから構築する（flatRows からは作らない）。
+  const treeTasks = useMemo(() => includeAncestors(sorted, tasks), [sorted, tasks]);
+  const { roots, childCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
   const flatRows = useMemo(() => flattenTree(roots, collapsed), [roots, collapsed]);
 
   const collapseAll    = () => setCollapsed(new Set(childCount.keys()));
@@ -280,7 +281,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   );
 
   const taskIndex = useMemo(() => new Map(flatRows.map(({ task }, i) => [task.id, i])), [flatRows]);
-  const taskById  = useMemo(() => new Map(sorted.map(t => [t.id, t])), [sorted]);
+  // sorted（フィルタ結果）だけから作ると、フィルタで一致しないがツリー構造保持のため表示される
+  // 祖先（includeAncestors）が抜け落ち、resolveVisibleId が解決した ID がここに存在しない事態に
+  // なる（§8.5）。treeTasks は折りたたみに依存しないため、折りたたみで隠れた祖先チェーンの遡りにも使える。
+  const taskById  = useMemo(() => new Map(treeTasks.map(t => [t.id, t])), [treeTasks]);
   const totalHeight = (flatRows.length + 1) * uiRowHeight;
 
   const { dayWidth } = ZOOM_CONFIG[zoomLevel];

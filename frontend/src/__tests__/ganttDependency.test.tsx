@@ -530,6 +530,29 @@ describe('ガントチャート — 先行・後続タスク設定', () => {
       // x1 = dateToX('2026-06-15') + dayWidth = 112 + 8 = 120（DB値07-01なら248でズレる）
       expect(path!.getAttribute('d')!.startsWith('M120,')).toBe(true);
     });
+
+    it('担当者フィルタで表示専用祖先（構造保持のため一致せず表示された親）が依存の端点でも、折りたたみ操作で白画面にならない', () => {
+      // tP: 担当者不一致（Bob）だが子 tC が一致するため includeAncestors で表示専用祖先として残る
+      // tX: tP を先行タスクとする → 依存矢印の起点が「表示専用祖先」tP になる
+      const tasks = [
+        makeTask({ id: 'tP', assignee: 'Bob', startDate: '2026-06-10', endDate: '2026-06-20' }),
+        makeTask({ id: 'tC', parentId: 'tP', assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15' }),
+        makeTask({ id: 'tX', assignee: 'Alice', startDate: '2026-08-01', endDate: '2026-08-10', predecessors: ['tP'] }),
+      ];
+      useTaskStore.setState({ filterAssignee: 'Alice' });
+
+      let container!: HTMLElement;
+      expect(() => {
+        ({ container } = renderChart(tasks));
+        collapse(container); // tP を折りたたむ（行位置がずれ、矢印が可視範囲に入る）
+      }).not.toThrow();
+
+      // 白画面（root 配下が空）になっていないこと
+      expect(container.querySelector('[data-testid="wbs-panel"]')).toBeTruthy();
+      // 表示専用祖先 tP を起点とする矢印が正しく描画されること
+      const path = container.querySelector<SVGPathElement>('path[data-dep-from="tP"]');
+      expect(path).toBeTruthy();
+    });
   });
 
   describe('コネクタドットが親の表示スパンに一致（v2.73）', () => {
