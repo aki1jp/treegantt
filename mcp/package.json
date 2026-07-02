@@ -1,0 +1,23 @@
+{
+  "name": "treegantt-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TreeGantt を外部から参照するための読み取り専用 MCP サーバー（api/frontendとは独立。詳細は docs/ai_integration_policy.md）",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.7"
+  }
+}

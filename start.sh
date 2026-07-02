@@ -48,6 +48,12 @@ if [ ! -d "frontend/node_modules" ]; then
   echo "[FE]  パッケージインストール中..."
   (cd frontend && npm install --silent)
 fi
+# mcp/ は start.sh では起動しない（MCPクライアントがstdioで都度起動する。詳細は mcp/README.md）。
+# ここでは AI クライアント側の設定がすぐ使えるよう依存関係だけ準備しておく。
+if [ ! -d "mcp/node_modules" ]; then
+  echo "[MCP] パッケージインストール中..."
+  (cd mcp && npm install --silent)
+fi
 
 _API_PORT="${PORT:-4000}"
 _WS_PORT="${WS_PORT:-4001}"
