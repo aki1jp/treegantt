@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { pathToFileURL } from 'node:url';
 import { TOOL_DEFINITIONS } from './tools.js';
 
 export function createServer(): McpServer {
@@ -21,8 +22,16 @@ export async function main(): Promise<void> {
   await server.connect(new StdioServerTransport());
 }
 
-const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
+// `file://${argv1}` のような素朴な文字列結合は、Windows の `C:\Users\...`
+// パス（バックスラッシュ・ドライブレター）で import.meta.url と一致しなくなり、
+// main() が実行されないまま stdio ハンドシェイクをしないプロセスが起動してしまう。
+// pathToFileURL はOSごとのパス形式を正しくfile URLへ変換する。
+export function isEntryPoint(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  return moduleUrl === pathToFileURL(argv1).href;
+}
+
+if (isEntryPoint(process.argv[1], import.meta.url)) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);

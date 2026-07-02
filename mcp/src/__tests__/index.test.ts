@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { pathToFileURL } from 'node:url';
 import { TOOL_DEFINITIONS } from '../tools.js';
 
 const registerToolMock = vi.fn();
@@ -13,7 +14,7 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
   StdioServerTransport: StdioServerTransportMock,
 }));
 
-const { createServer, main } = await import('../index.js');
+const { createServer, main, isEntryPoint } = await import('../index.js');
 
 describe('createServer', () => {
   beforeEach(() => {
@@ -72,5 +73,26 @@ describe('main', () => {
     connectMock.mockRejectedValueOnce(new Error('stdio pipe closed'));
 
     await expect(main()).rejects.toThrow('stdio pipe closed');
+  });
+});
+
+describe('isEntryPoint（Windowsパス対応の意地悪テスト）', () => {
+  it('argv1が無ければfalse', () => {
+    expect(isEntryPoint(undefined, import.meta.url)).toBe(false);
+  });
+
+  it('パスにエンコードが必要な文字（スペース）が含まれても正しく一致判定する', () => {
+    // file://${argv1} のような素朴な文字列結合は、Node が生成する URL
+    // （スペースを %20 にエンコードする）と一致しない。Windows のバックスラッシュ
+    // パスも同じ理由で一致しなくなる（file://C:\... は不正なURL）。
+    // pathToFileURL を使えば両方のケースで正しく一致する。
+    const argv1 = '/workspace/my project/mcp/src/index.ts';
+    const moduleUrl = pathToFileURL(argv1).href;
+
+    expect(isEntryPoint(argv1, moduleUrl)).toBe(true);
+  });
+
+  it('一致しないパスならfalse', () => {
+    expect(isEntryPoint('/some/other/path.ts', import.meta.url)).toBe(false);
   });
 });
