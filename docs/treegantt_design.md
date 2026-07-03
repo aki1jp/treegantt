@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.3.0** |
-| ドキュメント版 | 0.2.124 |
+| ドキュメント版 | 0.2.125 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -295,6 +295,15 @@ interface Project {
 - **GET `/api/v1/settings`** → `{ capacityMinutesPerDay, workingDays }`。行が無いキーは既定（480／`[1,2,3,4,5]`）で補完。
 - **PUT `/api/v1/settings`**（部分更新）：body は `{ capacityMinutesPerDay?: number(≥1), workingDays?: number[]（各 0–6） }`。指定キーのみ upsert し、更新後の全設定を返す。`workingDays` は重複除去・昇順・範囲外除外で正規化する。
 - **プロジェクト個別の上書き（継承）**：`projects.capacity_minutes_per_day` / `working_days`（nullable, `null`=継承）を `PATCH /api/v1/projects/:id` で更新（`number\|null` / `number[]\|null`）。**実効値 = プロジェクト値 ?? アプリ既定 ?? ハードコード既定**（フロントの解決ヘルパで算出）。`workingDays` の上書きはアプリ既定と同様に正規化（0–6・重複除去・昇順）。
+
+### 5.7 OpenAPI (Swagger) ドキュメント
+`@fastify/swagger` + `@fastify/swagger-ui` により、各ルートの Fastify JSON スキーマ（`schema.body`/`schema.querystring` と、付与した `tags`/`summary`）から OpenAPI 3 定義を実行時に自動生成する。手書きの YAML/JSON 定義は持たず、実装（ルートスキーマ）を単一の出典とすることでドキュメントと実装の乖離を防ぐ。
+
+- **`GET /docs`**：Swagger UI（対話的な API 仕様閲覧・試行）。`/health` と同様 `/api/v1` prefix 外。
+- **`GET /docs/json`** / **`GET /docs/yaml`**：生成された OpenAPI 定義（`info.version` は `package.json` の `version` を実行時読込。`/health` の `API_VERSION` と同じ方式で単一の出典を維持）。
+- `response` スキーマは定義しない（Fastify の `response` スキーマは出力のシリアライズ/フィルタに使われるため、ドキュメント化目的で正確な検証をせずに追加すると意図しないフィールド欠落を招くリスクがある）。ドキュメントはリクエスト形状と概要文（`summary`）で表現する。
+- タグは `Health` / `Projects` / `Tasks` / `ImportExport` / `Settings`（ルートモジュール単位）。
+- **WebSocket（§6）は対象外**。OpenAPI は HTTP のみを扱うため、リアルタイム同期のメッセージ仕様は引き続き §6 を参照する。
 
 ---
 
@@ -797,3 +806,4 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 | 0.2.122 | 2026/7 | `mcp/` に書き込みツール（段階1: `create_task`/`update_task`/`delete_task`）を追加（§18.2）。入力スキーマ（zod）に `api` と同じドメイン制約（status/priority enum・progress 0–100・title文字数）を持たせる方針を明記。並び替え（`reorder_tasks`）は段階2として§18.3にスコープ外を明記。承認ゲート・source記録・認証の方針は変更なし（`docs/ai_integration_policy.md` §4.2/§4.3）。 |
 | 0.2.123 | 2026/7 | フィルタ後ツリーの祖先再表示（`includeAncestors`、構造保持のための表示専用祖先）を担当者フィルタの親子継承とは別メカニズムとして明記（§9.3）。依存矢印の可視祖先解決（`resolveVisibleId`）はこの表示専用祖先も、折りたたみで隠れているタスクも扱う旨、およびタスク実体引き当ては行位置索引（可視行のみ）ではなく折りたたみに依存しない「概念上のツリー全ノード」から構築するという不変条件を明記（§8.5）。全体を捕捉する `ErrorBoundary` を新設し、想定外の描画エラー時に白画面ではなくフォールバック UI（再読み込み案内）を表示する方針を追加（新設§7.4、§7.2 コンポーネント表）。 |
 | 0.2.124 | 2026/7 | 製品バージョンを **1.3.0** に更新（ヘッダー・ステータス・構成図・§15）。担当者フィルタ＋ツリー折りたたみでの白画面バグ修正、および全体を捕捉する `ErrorBoundary` の追加（0.2.123 で明記した設計）を製品リリースとして `CHANGELOG.md` の `[1.3.0]` に記録。 |
+| 0.2.125 | 2026/7 | API に OpenAPI (Swagger) ドキュメントを追加（新設§5.7）。`@fastify/swagger`＋`@fastify/swagger-ui` により各ルートの Fastify JSON スキーマから `/docs`（Swagger UI）・`/docs/json`・`/docs/yaml` を自動生成する方針を明記。`response` スキーマは追加しない方針、および WebSocket（§6）は対象外である旨も明文化。 |
