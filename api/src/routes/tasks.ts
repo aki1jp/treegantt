@@ -36,7 +36,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Params: { id: string };
     Querystring: { status?: string; assignee?: string; priority?: string; limit?: string; offset?: string };
-  }>('/projects/:id/tasks', async (req) => {
+  }>('/projects/:id/tasks', { schema: { tags: ['Tasks'], summary: 'プロジェクト配下のタスク一覧' } }, async (req) => {
     const { status, assignee, priority, limit, offset } = req.query;
     return listTasks(req.params.id, {
       status,
@@ -51,6 +51,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
     '/projects/:id/tasks',
     {
       schema: {
+        tags: ['Tasks'],
+        summary: 'タスク作成',
         body: {
           type: 'object',
           required: ['title'],
@@ -93,6 +95,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
     '/projects/:id/tasks/reorder',
     {
       schema: {
+        tags: ['Tasks'],
+        summary: 'タスク並び替え',
         body: {
           type: 'object',
           required: ['orders'],
@@ -120,7 +124,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.get<{ Params: { id: string } }>('/tasks/:id', async (req, reply) => {
+  fastify.get<{ Params: { id: string } }>('/tasks/:id', { schema: { tags: ['Tasks'], summary: 'タスク単一取得' } }, async (req, reply) => {
     const task = getTask(req.params.id);
     if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
     return { task };
@@ -130,6 +134,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
     '/tasks/:id',
     {
       schema: {
+        tags: ['Tasks'],
+        summary: 'タスク更新',
         body: {
           type: 'object',
           properties: { ...TASK_BODY_PROPERTIES, order: { type: 'number' } },
@@ -177,6 +183,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
     '/tasks/:id',
     {
       schema: {
+        tags: ['Tasks'],
+        summary: 'タスク削除（subtree=子孫ごと／single=子は祖父母へ付替え）',
         querystring: {
           type: 'object',
           properties: { mode: { type: 'string', enum: ['subtree', 'single'] } },
@@ -216,6 +224,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
     '/projects/:id/tasks/batch',
     {
       schema: {
+        tags: ['Tasks'],
+        summary: 'サブツリー一括作成（parentRef で配列内の親子関係を指定）',
         body: {
           type: 'object',
           required: ['tasks'],

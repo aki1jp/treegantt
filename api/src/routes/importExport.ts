@@ -39,6 +39,7 @@ function toNullableStr(v: unknown): string | null {
 export async function importExportRoutes(fastify: FastifyInstance) {
   fastify.post<{ Params: { id: string }; Body: unknown }>(
     '/projects/:id/import',
+    { schema: { tags: ['ImportExport'], summary: 'タスク一括インポート（mode: append/restore）' } },
     async (req, reply) => {
       const body = req.body as { tasks?: unknown; mode?: unknown };
       if (!body || !Array.isArray(body.tasks)) {
@@ -139,6 +140,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
   fastify.get<{ Params: { id: string } }>(
     '/projects/:id/export/json',
+    { schema: { tags: ['ImportExport'], summary: 'JSON 形式でエクスポート' } },
     async (req, reply) => {
       const project = getProject(req.params.id);
 
@@ -162,6 +164,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
   fastify.get<{ Params: { id: string } }>(
     '/projects/:id/export/csv',
+    { schema: { tags: ['ImportExport'], summary: 'CSV 形式でエクスポート' } },
     async (req, reply) => {
       const project = getProject(req.params.id);
 

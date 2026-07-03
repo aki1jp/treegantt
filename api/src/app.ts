@@ -5,6 +5,7 @@ import { corsOptions } from './plugins/cors.js';
 import { registerJsonBodyParser } from './plugins/jsonParser.js';
 import { registerCompression } from './plugins/compression.js';
 import { authPlugin } from './plugins/auth.js';
+import { registerSwagger } from './plugins/swagger.js';
 import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { taskRoutes } from './routes/tasks.js';
@@ -25,6 +26,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   registerJsonBodyParser(app);
   await registerCompression(app);
   await app.register(authPlugin);
+  await registerSwagger(app);
 
   await app.register(healthRoutes);
   await app.register(projectRoutes, { prefix: API_PREFIX });

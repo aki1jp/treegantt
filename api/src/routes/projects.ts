@@ -2,12 +2,14 @@ import type { FastifyInstance } from 'fastify';
 import { listProjects, createProject, updateProject, deleteProject } from '../services/projectService.js';
 
 export async function projectRoutes(fastify: FastifyInstance) {
-  fastify.get('/projects', async () => {
+  fastify.get('/projects', { schema: { tags: ['Projects'], summary: 'プロジェクト一覧' } }, async () => {
     return { projects: listProjects() };
   });
 
   fastify.post<{ Body: { name: string; color?: string | null } }>('/projects', {
     schema: {
+      tags: ['Projects'],
+      summary: 'プロジェクト作成',
       body: {
         type: 'object',
         required: ['name'],
@@ -27,6 +29,8 @@ export async function projectRoutes(fastify: FastifyInstance) {
     Body: { name?: string; color?: string | null; capacityMinutesPerDay?: number | null; workingDays?: number[] | null };
   }>('/projects/:id', {
     schema: {
+      tags: ['Projects'],
+      summary: 'プロジェクト更新',
       body: {
         type: 'object',
         properties: {
@@ -47,7 +51,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
     },
   });
 
-  fastify.delete<{ Params: { id: string } }>('/projects/:id', async (req, reply) => {
+  fastify.delete<{ Params: { id: string } }>('/projects/:id', { schema: { tags: ['Projects'], summary: 'プロジェクト削除' } }, async (req, reply) => {
     if (!deleteProject(req.params.id)) {
       return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
     }

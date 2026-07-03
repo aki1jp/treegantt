@@ -2,12 +2,14 @@ import type { FastifyInstance } from 'fastify';
 import { getSettings, updateSettings } from '../services/settingsService.js';
 
 export async function settingsRoutes(fastify: FastifyInstance) {
-  fastify.get('/settings', async () => getSettings());
+  fastify.get('/settings', { schema: { tags: ['Settings'], summary: 'アプリ既定のリソース設定を取得' } }, async () => getSettings());
 
   fastify.put<{ Body: { capacityMinutesPerDay?: number; workingDays?: number[] } }>(
     '/settings',
     {
       schema: {
+        tags: ['Settings'],
+        summary: 'アプリ既定のリソース設定を部分更新',
         body: {
           type: 'object',
           properties: {

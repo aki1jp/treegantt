@@ -12,7 +12,7 @@ try {
 } catch { /* package.json 未配置時はフォールバック値を維持 */ }
 
 export async function healthRoutes(fastify: FastifyInstance) {
-  fastify.get('/health', async () => {
+  fastify.get('/health', { schema: { tags: ['Health'], summary: '稼働確認' } }, async () => {
     db.prepare('SELECT 1').get();
     return { status: 'ok', version: API_VERSION, timestamp: new Date().toISOString() };
   });
