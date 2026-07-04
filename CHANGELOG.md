@@ -5,6 +5,23 @@
 
 設計の変更点・要点は設計書 `docs/treegantt_design.md` の「改訂履歴」に記録します（役割分担: 製品リリース=本ファイル / 設計=設計書）。
 
+## [1.3.2] - 2026-07-04
+
+### 追加
+- **CI（GitHub Actions）**: push/PR で `api`/`frontend` の typecheck・lint・test を自動実行するワークフローを追加。
+- **ESLint（flat config）**: `api`/`frontend` に ESLint を導入（frontend は `eslint-plugin-react-hooks` を含む）。`typecheck`/`lint` の npm scripts を追加。
+- **Docker ヘルスチェック**: `docker-compose` の `api` に `/health` を用いたヘルスチェックを追加し、`frontend` は `depends_on: service_healthy` で起動を待ち合わせるようにした。
+
+### 修正
+- **Import/Export でのタスク属性消失**: import/restore・CSV の往復（export→import→再export）およびタスク新規作成時に `titleColor`/`titleBgColor`/`estimateMinutes` が失われることがあった問題を修正。
+- **並び替え（reorder）の循環・境界検証**: 並び替えで循環参照が発生しうる問題（一括指定の組み合わせを含む）と、プロジェクト境界を跨いだ並び替えを許容していた問題を修正し、検証を追加。
+- **バッチ作成の検証強化**: タスクの一括作成（batch）で単一作成と同等のバリデーション（`status`/`priority`/`progress`・`parentId` 等）が効いていなかった問題を修正。
+- **タスク一覧 `limit` の範囲検証**: `GET` タスク一覧の `limit` クエリが負値・巨大値・非整数を無検証で受け付けていた問題を修正し、範囲検証を追加。
+- **設計書の誤記修正**: §2.1 の WebSocket プロセス構成に関する誤記（REST とは別プロセスと記載していた）を修正。
+
+### 変更
+- **フロントエンドの Vite 設定を一本化**: 重複していた `vite.config.js` を削除し、`vite.config.ts` に統一。
+
 ## [1.3.1] - 2026-07-04
 
 ### 追加
