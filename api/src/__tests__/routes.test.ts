@@ -617,6 +617,63 @@ describe('Tasks API — reorder のバリデーション', () => {
     expect(parentAfter.parentId).toBeNull();
   });
 
+  it('reorder: 2件スワップ（A→B, B→A を同時指定）で循環が完成する場合 400', async () => {
+    // A・B とも現在ルート。個別には循環しないが、一括適用後に A↔B の循環が完成する
+    const a = await createTask(projectId, { title: 'A' });
+    const b = await createTask(projectId, { title: 'B' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [
+        { id: a.id, order: 1, parentId: b.id },
+        { id: b.id, order: 2, parentId: a.id },
+      ]},
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('CYCLE_DETECTED');
+
+    // 一切適用されていないこと
+    const aAfter = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${a.id}` })).json().task;
+    const bAfter = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${b.id}` })).json().task;
+    expect(aAfter.parentId).toBeNull();
+    expect(bAfter.parentId).toBeNull();
+  });
+
+  it('reorder: 3件リング（A→B→C→A）でも 400', async () => {
+    const a = await createTask(projectId, { title: 'A' });
+    const b = await createTask(projectId, { title: 'B' });
+    const c = await createTask(projectId, { title: 'C' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [
+        { id: a.id, order: 1, parentId: b.id },
+        { id: b.id, order: 2, parentId: c.id },
+        { id: c.id, order: 3, parentId: a.id },
+      ]},
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('CYCLE_DETECTED');
+  });
+
+  it('reorder: 別の親への正当な付け替えを含む一括指定は 200（オーバーレイ検証の正常系）', async () => {
+    // 親P1配下の子C1と親P2配下の子C2を同時に入れ替える（循環なし）
+    const p1 = await createTask(projectId, { title: 'P1' });
+    const p2 = await createTask(projectId, { title: 'P2' });
+    const c1 = await createTask(projectId, { title: 'C1', parentId: p1.id });
+    const c2 = await createTask(projectId, { title: 'C2', parentId: p2.id });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [
+        { id: c1.id, order: 1, parentId: p2.id },
+        { id: c2.id, order: 2, parentId: p1.id },
+      ]},
+    });
+    expect(res.statusCode).toBe(200);
+    const c1After = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${c1.id}` })).json().task;
+    const c2After = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${c2.id}` })).json().task;
+    expect(c1After.parentId).toBe(p2.id);
+    expect(c2After.parentId).toBe(p1.id);
+  });
+
   it('reorder: 循環が無ければ 200（正常系の回帰確認）', async () => {
     const parent = await createTask(projectId, { title: '親' });
     const child  = await createTask(projectId, { title: '子' });

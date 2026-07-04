@@ -137,15 +137,36 @@ export async function taskRoutes(fastify: FastifyInstance) {
       async handler(req, reply) {
         const { orders } = req.body;
 
+        // orders 内の parentId 指定を現在の親関係にオーバーレイした「適用後の親マップ」。
+        // reorderTasks は全 orders を一括適用するため、DB の現状に対する個別の
+        // wouldCreateCycle では「A→B と B→A を同時指定」のような組み合わせ循環を
+        // 検出できない。適用後の姿で検証する。
+        const overlayParent = new Map<string, string | null>();
+
         for (const order of orders) {
           const task = getTask(order.id);
           if (!task || task.projectId !== req.params.id) {
             return reply.code(400).send({ error: 'Task not found in project', code: 'INVALID_PROJECT' });
           }
-          if (order.parentId !== undefined && order.parentId !== null) {
-            if (order.parentId === order.id || wouldCreateCycle(order.id, order.parentId)) {
+          if (order.parentId !== undefined) {
+            overlayParent.set(order.id, order.parentId ?? null);
+          }
+        }
+
+        // 適用後の親マップ上で、親付け替え対象の各タスクから親を辿り循環を検出する
+        const parentAfter = (id: string): string | null =>
+          overlayParent.has(id) ? overlayParent.get(id)! : (getTask(id)?.parentId ?? null);
+
+        for (const startId of overlayParent.keys()) {
+          const visited = new Set<string>();
+          let current = parentAfter(startId);
+          while (current) {
+            if (current === startId) {
               return reply.code(400).send({ error: 'Circular parentId detected', code: 'CYCLE_DETECTED' });
             }
+            if (visited.has(current)) break;
+            visited.add(current);
+            current = parentAfter(current);
           }
         }
 
