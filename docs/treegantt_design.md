@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.3.1** |
-| ドキュメント版 | 0.2.128 |
+| ドキュメント版 | 0.2.129 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -511,10 +511,10 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 - **データ形式バージョン = `1.1`**（エクスポート JSON の `version` フィールド。**情報用メタデータであり、インポート時には検証・利用しない**。下記「設計判断」を参照）。`1.1` で `estimateMinutes`（予定工数＝分）を追加。
 - **JSON Export**：`{version:'1.1', exportedAt, project:{id,name}, tasks[]}`。タスクは全フィールド（`estimateMinutes` 含む）をそのまま出力し、インポートは `...t` 展開で取り込む（追加フィールドは自動往復）。
-- **CSV Export**：ヘッダ `id,parentId,title,...,estimateMinutes,predecessors`。`id`/`parentId`/`predecessors` は `seq` 番号で出力。`estimateMinutes` は分の整数（未設定は空欄）。カンマ/引用符/改行は CSV エスケープ（`"` 二重化）。
+- **CSV Export**：ヘッダ `id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,titleColor,titleBgColor,estimateMinutes,predecessors`。`id`/`parentId`/`predecessors` は `seq` 番号で出力。`titleColor`/`titleBgColor` は未設定なら空欄。`estimateMinutes` は分の整数（未設定は空欄）。カンマ/引用符/改行は CSV エスケープ（`"` 二重化）。
 - **後方/前方互換**：`estimateMinutes` 追加は非破壊。旧データ（フィールド無し）は **null** として取り込み、未知フィールドは黙って破棄（寛容な取り込み）。版ガードは行わない（§10.1）。
 - **CSV Import**：CSV ファイルは**フロントエンド側で `papaparse` によりパース**し、`seq` 参照を解決してタスク配列へ変換した上で下記 Import API（JSON）を呼ぶ（API は JSON のみ受け付ける）。
-- **Import（API）**：`{tasks[], mode}`。`mode='restore'` は既存タスク全削除後に投入、それ以外は追記。全タスクに新 UUID を採番し、`parentId`/`predecessors` を旧→新 ID へリマップ（バッチ外参照は除外）。3 パス（全件 INSERT→親リマップ→依存挿入）で FK 順序問題を回避。完了後 `reload` を broadcast。
+- **Import（API）**：`{tasks[], mode}`。`mode='restore'` は既存タスク全削除後に投入、それ以外は追記。全タスクに新 UUID を採番し、`parentId`/`predecessors` を旧→新 ID へリマップ（バッチ外参照は除外）。3 パス（全件 INSERT→親リマップ→依存挿入）で FK 順序問題を回避。`titleColor`/`titleBgColor`/`estimateMinutes` も含めて投入し、`export→import(restore)→再export` で値が失われない（round-trip）。完了後 `reload` を broadcast。
 - 文字列は許可リストで正規化（status/priority は不正値を既定へ、progress は 0–100 にクランプ）。
 
 ### 10.1 設計判断：バージョン互換チェックは導入しない
@@ -819,3 +819,4 @@ CI・ESLint・`typecheck` npm script は **導入済み**（16.5 参照）。残
 | 0.2.126 | 2026/7 | ハンバーガーメニュー（§7.2 `Toolbar`、§9.3）に API 仕様書（Swagger UI）への新規タブリンクを追加する方針を明記。URL は既存 `utils/api.ts` の `API_BASE`（`VITE_API_URL` 優先、未設定時 `hostname:4000` フォールバック）を再利用し、新規のポート固定値は導入しない。 |
 | 0.2.127 | 2026/7 | 製品バージョンを **1.3.1** に更新（ヘッダー・ステータス・構成図）。API の OpenAPI (Swagger) ドキュメント追加（§5.7）とハンバーガーメニューへの API 仕様書リンク追加（§7.2/§9.3）を製品リリースとして `CHANGELOG.md` の `[1.3.1]` に記録。 |
 | 0.2.128 | 2026/7 | §2.1 の誤記を修正（WebSocket は REST とは別プロセスではなく、同一 Node プロセス内で別ポート待受と明記。「3 つのプロセス」という記述も「2 つの OS プロセス」に訂正）。自動ゲート（CI・ESLint・`typecheck`）を導入し、新設§16.5 に現状を明記。§17.1 は導入済み項目を反映し、残課題（Prettier・カバレッジ閾値・CI への E2E/`npm audit` 組み込み）のみに整理。§13.2 に `api` の Docker healthcheck（`/health` 利用）と `frontend` の `depends_on: service_healthy` を追記。 |
+| 0.2.129 | 2026/7 | CSV Export のヘッダに `titleColor`/`titleBgColor` を追加（§10）。従来 CSV には無く JSON Export のみが持っていた列で、Import(API) の `restore` 経路でも同 2 列と `estimateMinutes` が新規タスクへ引き継がれることを明記し、`export→import(restore)→再export` の round-trip でタスク色・予定工数が失われない仕様であることを明文化。 |
