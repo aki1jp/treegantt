@@ -47,6 +47,28 @@ describe('exportToCsv', () => {
     expect(tasks[0].estimateMinutes).toBeNull();
   });
 
+  it('titleColor/titleBgColor 列を出力し CSV ラウンドトリップで保持する', () => {
+    const csv = exportToCsv([makeTask({ titleColor: '#ff0000', titleBgColor: '#00ff00' })]);
+    expect(csv).toContain('titleColor');
+    expect(csv).toContain('titleBgColor');
+    // 列位置は API 側 CSV_HEADERS に合わせる（isMilestone の後・estimateMinutes の前）
+    const headers = csv.split('\n')[0].split(',');
+    expect(headers.indexOf('titleColor')).toBe(headers.indexOf('isMilestone') + 1);
+    expect(headers.indexOf('titleBgColor')).toBe(headers.indexOf('titleColor') + 1);
+    expect(headers.indexOf('estimateMinutes')).toBe(headers.indexOf('titleBgColor') + 1);
+
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].titleColor).toBe('#ff0000');
+    expect(tasks[0].titleBgColor).toBe('#00ff00');
+  });
+
+  it('titleColor/titleBgColor 空欄は null として取り込む', () => {
+    const csv = exportToCsv([makeTask({ titleColor: null, titleBgColor: null })]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].titleColor).toBeNull();
+    expect(tasks[0].titleBgColor).toBeNull();
+  });
+
   it('predecessorsをセミコロン区切りで出力する', () => {
     const taskA = makeTask({ id: 'a', seq: 1, order: 1 });
     const taskB = makeTask({ id: 'b', seq: 2, order: 2 });

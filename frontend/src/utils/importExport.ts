@@ -46,6 +46,8 @@ export function exportToCsv(tasks: Task[]): string {
     startDate: t.startDate ?? '',
     endDate: t.endDate ?? '',
     isMilestone: t.isMilestone ? '1' : '0',
+    titleColor: t.titleColor ?? '',
+    titleBgColor: t.titleBgColor ?? '',
     estimateMinutes: t.estimateMinutes ?? '',
     predecessors: t.predecessors.map(p => seqMap.get(p)).filter(v => v != null).join(';'),
   }));
@@ -67,6 +69,8 @@ export function importFromCsv(csvStr: string): { tasks: Partial<Task>[] } {
     startDate:    row.startDate ? normalizeDateStr(row.startDate) : null,
     endDate:      row.endDate ? normalizeDateStr(row.endDate) : null,
     isMilestone:  row.isMilestone === '1',
+    titleColor:   row.titleColor || null,
+    titleBgColor: row.titleBgColor || null,
     estimateMinutes: row.estimateMinutes ? Number(row.estimateMinutes) : null,
     predecessors: row.predecessors ? row.predecessors.split(';').filter(Boolean) : [],
   }));
