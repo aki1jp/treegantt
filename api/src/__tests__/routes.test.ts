@@ -369,6 +369,30 @@ describe('Tasks API', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('GET /api/v1/projects/:id/tasks: limit が上限（100000）を超えると 400', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/tasks?limit=100001`,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('GET /api/v1/projects/:id/tasks: limit が負値だと 400', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/tasks?limit=-1`,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('GET /api/v1/projects/:id/tasks: limit が上限ちょうど（100000）は許可される', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${projectId}/tasks?limit=100000`,
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
   it('GET /api/v1/projects/:id/tasks supports offset parameter', async () => {
     // 3件作成して offset=1 で2件が返ることを確認
     await createTask({ title: 'Task A' });

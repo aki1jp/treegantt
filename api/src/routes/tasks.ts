@@ -35,15 +35,31 @@ const TASK_BODY_PROPERTIES = {
 export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get<{
     Params: { id: string };
-    Querystring: { status?: string; assignee?: string; priority?: string; limit?: string; offset?: string };
-  }>('/projects/:id/tasks', { schema: { tags: ['Tasks'], summary: 'プロジェクト配下のタスク一覧' } }, async (req) => {
+    Querystring: { status?: string; assignee?: string; priority?: string; limit?: number; offset?: number };
+  }>('/projects/:id/tasks', {
+    schema: {
+      tags: ['Tasks'],
+      summary: 'プロジェクト配下のタスク一覧',
+      querystring: {
+        type: 'object',
+        properties: {
+          status:   { type: 'string' },
+          assignee: { type: 'string' },
+          priority: { type: 'string' },
+          // 上限は Export（§10）・パフォーマンステストが使う limit=100000 を下回らない値
+          limit:    { type: 'integer', minimum: 0, maximum: 100000 },
+          offset:   { type: 'integer', minimum: 0 },
+        },
+      },
+    },
+  }, async (req) => {
     const { status, assignee, priority, limit, offset } = req.query;
     return listTasks(req.params.id, {
       status,
       assignee,
       priority,
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
+      limit,
+      offset,
     });
   });
 
