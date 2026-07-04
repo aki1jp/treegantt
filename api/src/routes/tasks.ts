@@ -256,9 +256,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
                   title:        { type: 'string', minLength: 1, maxLength: 200 },
                   summary:      { type: 'string' },
                   description:  { type: 'string' },
-                  status:       { type: 'string' },
-                  priority:     { type: 'string' },
-                  progress:     { type: 'number' },
+                  status:       { type: 'string', enum: ['todo', 'wip', 'done', 'wait', 'pending'] },
+                  priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
+                  progress:     { type: 'number', minimum: 0, maximum: 100 },
                   assignee:     { type: 'string' },
                   startDate:    { type: ['string', 'null'] },
                   endDate:      { type: ['string', 'null'] },
@@ -277,6 +277,15 @@ export async function taskRoutes(fastify: FastifyInstance) {
     async (req, reply) => {
       const { id: projectId } = req.params;
       const { parentId = null, tasks: inputs } = req.body;
+
+      // root の接続先 parentId は single 作成と同等に検証する
+      if (parentId) {
+        const parent = getTask(parentId);
+        if (!parent || parent.projectId !== projectId)
+          return reply.code(400).send({ error: 'Invalid parentId', code: 'INVALID_PARENT' });
+        if (parent.isMilestone)
+          return reply.code(400).send({ error: 'Milestone cannot be a parent', code: 'MILESTONE_CANNOT_BE_PARENT' });
+      }
 
       // parentRef の範囲チェック
       for (let i = 0; i < inputs.length; i++) {

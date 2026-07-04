@@ -1559,4 +1559,98 @@ describe('Tasks Batch API — POST /projects/:id/tasks/batch', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  // ── parentId（root の接続先）検証 — single 作成と同等に揃える ──────
+  it('存在しない parentId を指定すると 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: 'non-existent-uuid', tasks: [{ parentRef: null, title: 'Child' }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PARENT');
+  });
+
+  it('別プロジェクトのタスクを parentId に指定すると 400', async () => {
+    const otherProjectId = (await app.inject({
+      method: 'POST', url: '/api/v1/projects', payload: { name: 'Other' },
+    })).json().project.id;
+    const otherTask = (await app.inject({
+      method: 'POST', url: `/api/v1/projects/${otherProjectId}/tasks`, payload: { title: '他P親' },
+    })).json().task;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: otherTask.id, tasks: [{ parentRef: null, title: 'Child' }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PARENT');
+  });
+
+  it('マイルストーンを parentId に指定すると 400', async () => {
+    const ms = (await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'MS', isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' },
+    })).json().task;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: ms.id, tasks: [{ parentRef: null, title: 'Child' }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('MILESTONE_CANNOT_BE_PARENT');
+  });
+
+  it('同プロジェクト内の通常タスクを parentId に指定できる（正常系）', async () => {
+    const parent = (await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '親' },
+    })).json().task;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: parent.id, tasks: [{ parentRef: null, title: 'Child' }] },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().tasks[0].parentId).toBe(parent.id);
+  });
+
+  // ── タイトル長・enum を single と同等に ─────────────────────────
+  it('不正な status（enum 外）を指定すると 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: null, tasks: [{ parentRef: null, title: 'T', status: 'invalid_status' }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('不正な priority（enum 外）を指定すると 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: null, tasks: [{ parentRef: null, title: 'T', priority: 'invalid_priority' }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('progress が範囲外（101）だと 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: null, tasks: [{ parentRef: null, title: 'T', progress: 101 }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('title が201文字（上限超過）だと 400', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: null, tasks: [{ parentRef: null, title: 'x'.repeat(201) }] },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });
