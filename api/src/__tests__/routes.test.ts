@@ -1181,6 +1181,67 @@ describe('Import/Export API', () => {
     expect(dep.predecessors).toContain(child.id);
   });
 
+  it('export→import(restore)→再export で titleColor/titleBgColor/estimateMinutes が失われない（round-trip）', async () => {
+    const created = (await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'Colorful', estimateMinutes: 90 },
+    })).json().task;
+    // titleColor/titleBgColor は現状 PATCH でのみ設定可能（WBS 右クリックの「文字色」相当）
+    await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${created.id}`,
+      payload: { titleColor: '#ff0000', titleBgColor: '#00ff00' },
+    });
+
+    const exported1 = (await app.inject({
+      method: 'GET', url: `/api/v1/projects/${projectId}/export/json`,
+    })).json();
+    expect(exported1.tasks).toHaveLength(1);
+    expect(exported1.tasks[0].titleColor).toBe('#ff0000');
+    expect(exported1.tasks[0].titleBgColor).toBe('#00ff00');
+    expect(exported1.tasks[0].estimateMinutes).toBe(90);
+
+    const importRes = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/import`,
+      payload: { mode: 'restore', tasks: exported1.tasks },
+    });
+    expect(importRes.json().imported).toBe(1);
+
+    const exported2 = (await app.inject({
+      method: 'GET', url: `/api/v1/projects/${projectId}/export/json`,
+    })).json();
+    expect(exported2.tasks).toHaveLength(1);
+    expect(exported2.tasks[0].titleColor).toBe('#ff0000');
+    expect(exported2.tasks[0].titleBgColor).toBe('#00ff00');
+    expect(exported2.tasks[0].estimateMinutes).toBe(90);
+  });
+
+  it('GET /api/v1/projects/:id/export/csv のヘッダーと値に titleColor/titleBgColor/estimateMinutes が含まれる', async () => {
+    const created = (await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'CSV Colorful', estimateMinutes: 120 },
+    })).json().task;
+    // titleColor/titleBgColor は現状 PATCH でのみ設定可能（WBS 右クリックの「文字色」相当）
+    await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${created.id}`,
+      payload: { titleColor: '#123456', titleBgColor: '#abcdef' },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/export/csv` });
+    expect(res.statusCode).toBe(200);
+
+    const [headerLine, ...dataLines] = res.payload.split('\n');
+    const headers = headerLine.split(',');
+    expect(headers).toContain('titleColor');
+    expect(headers).toContain('titleBgColor');
+    expect(headers).toContain('estimateMinutes');
+
+    const taskLine = dataLines.find((l: string) => l.includes('CSV Colorful'));
+    expect(taskLine).toBeDefined();
+    const cols = taskLine!.split(',');
+    expect(cols[headers.indexOf('titleColor')]).toBe('#123456');
+    expect(cols[headers.indexOf('titleBgColor')]).toBe('#abcdef');
+    expect(cols[headers.indexOf('estimateMinutes')]).toBe('120');
+  });
+
   it('mode=restore で空タスク配列を渡すと全タスクが削除される', async () => {
     await app.inject({ method: 'POST', url: `/api/v1/projects/${projectId}/tasks`, payload: { title: '消えるタスク' } });
 

@@ -5,7 +5,7 @@ import { listTasks } from '../services/taskService.js';
 import { getProject } from '../services/projectService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
-const CSV_HEADERS = 'id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,predecessors';
+const CSV_HEADERS = 'id,parentId,title,summary,description,status,priority,progress,assignee,startDate,endDate,isMilestone,titleColor,titleBgColor,estimateMinutes,predecessors';
 
 function escapeCsv(val: string): string {
   if (val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -34,6 +34,11 @@ function toStr(v: unknown): string {
 }
 function toNullableStr(v: unknown): string | null {
   return v == null || v === '' ? null : String(v);
+}
+function toNullableNum(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return isNaN(n) ? null : n;
 }
 
 export async function importExportRoutes(fastify: FastifyInstance) {
@@ -84,8 +89,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         const insertTask = db.prepare(`
           INSERT INTO tasks
             (id, project_id, parent_id, title, summary, description,
-             status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq)
-          VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq,
+             title_color, title_bg_color, estimate_minutes)
+          VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         inputTasks.forEach((task, i) => {
           insertTask.run(
@@ -103,6 +109,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
             task.isMilestone ? 1 : 0,
             maxOrd + i + 1,
             nextSeq + i,
+            toNullableStr(task.titleColor),
+            toNullableStr(task.titleBgColor),
+            toNullableNum(task.estimateMinutes),
           );
         });
         db.prepare('UPDATE projects SET next_seq = ? WHERE id = ?')
@@ -189,6 +198,9 @@ export async function importExportRoutes(fastify: FastifyInstance) {
           t.startDate ?? '',
           t.endDate ?? '',
           t.isMilestone ? '1' : '0',
+          t.titleColor ?? '',
+          t.titleBgColor ?? '',
+          t.estimateMinutes != null ? String(t.estimateMinutes) : '',
           t.predecessors.map(p => seqMap.get(p)).filter(v => v != null).join(';'),
         ]
           .map(escapeCsv)
