@@ -116,9 +116,23 @@ export async function taskRoutes(fastify: FastifyInstance) {
           },
         },
       },
-      async handler(req) {
-        reorderTasks(req.body.orders);
-        notifyRoom(req.params.id, { type: 'tasks_reordered', projectId: req.params.id, orders: req.body.orders });
+      async handler(req, reply) {
+        const { orders } = req.body;
+
+        for (const order of orders) {
+          const task = getTask(order.id);
+          if (!task || task.projectId !== req.params.id) {
+            return reply.code(400).send({ error: 'Task not found in project', code: 'INVALID_PROJECT' });
+          }
+          if (order.parentId !== undefined && order.parentId !== null) {
+            if (order.parentId === order.id || wouldCreateCycle(order.id, order.parentId)) {
+              return reply.code(400).send({ error: 'Circular parentId detected', code: 'CYCLE_DETECTED' });
+            }
+          }
+        }
+
+        reorderTasks(orders);
+        notifyRoom(req.params.id, { type: 'tasks_reordered', projectId: req.params.id, orders });
         return { ok: true };
       },
     }

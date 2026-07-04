@@ -536,6 +536,88 @@ describe('Tasks API', () => {
   });
 });
 
+describe('Tasks API — reorder のバリデーション', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let projectId: string;
+  let otherProjectId: string;
+
+  beforeEach(async () => {
+    testDb = createTestDb();
+    app = await buildApp();
+    projectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P1' } })).json().project.id;
+    otherProjectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
+  });
+  afterEach(async () => { await app.close(); testDb.close(); });
+
+  async function createTask(pid: string, overrides = {}) {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${pid}/tasks`,
+      payload: { title: 'Test Task', ...overrides },
+    });
+    return res.json().task;
+  }
+
+  it('reorder: 自分自身を parentId に指定すると 400（循環）', async () => {
+    const task = await createTask(projectId, { title: 'T' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: task.id, order: 1, parentId: task.id }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('CYCLE_DETECTED');
+  });
+
+  it('reorder: 子を親の parentId に指定すると 400（循環）', async () => {
+    const parent = await createTask(projectId, { title: '親' });
+    const child  = await createTask(projectId, { title: '子', parentId: parent.id });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: parent.id, order: 1, parentId: child.id }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('CYCLE_DETECTED');
+
+    // 循環が拒否された場合、親の parentId は変更されていないこと
+    const parentAfter = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${parent.id}` })).json().task;
+    expect(parentAfter.parentId).toBeNull();
+  });
+
+  it('reorder: 循環が無ければ 200（正常系の回帰確認）', async () => {
+    const parent = await createTask(projectId, { title: '親' });
+    const child  = await createTask(projectId, { title: '子' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: child.id, order: 1, parentId: parent.id }] },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('reorder: 別プロジェクトのタスクIDを含むと 400（プロジェクト境界）', async () => {
+    const myTask    = await createTask(projectId, { title: '自分' });
+    const otherTask = await createTask(otherProjectId, { title: '他P' });
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: myTask.id, order: 1 }, { id: otherTask.id, order: 2 }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PROJECT');
+
+    // 拒否された場合、他プロジェクトのタスクの order は変更されていないこと
+    const otherAfter = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${otherTask.id}` })).json().task;
+    expect(otherAfter.order).not.toBe(2);
+  });
+
+  it('reorder: 存在しないタスクIDを含むと 400', async () => {
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/projects/${projectId}/tasks/reorder`,
+      payload: { orders: [{ id: 'non-existent-uuid', order: 1 }] },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PROJECT');
+  });
+});
+
 describe('Tasks API — parentId バリデーション', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let projectId: string;

@@ -346,12 +346,13 @@ describe('API 悪意テスト — フィルタ・並び替えの悪用', () => {
     expect(res.statusCode).toBe(200);
   });
 
-  it('reorder に存在しない ID を渡してもサイレント無視で正常終了', async () => {
+  it('reorder に存在しない ID を渡すと 400（プロジェクト境界の検証で弾かれる）', async () => {
     const res = await app.inject({
       method: 'PATCH', url: `/api/v1/projects/${pid}/tasks/reorder`,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ orders: [{ id: 'ghost', order: 99 }] }),
     });
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe('INVALID_PROJECT');
   });
 });
