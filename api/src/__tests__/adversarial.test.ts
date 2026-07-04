@@ -136,12 +136,10 @@ describe('API 悪意テスト — 入力バリデーション', () => {
 
 describe('API 悪意テスト — 存在しないリソース', () => {
   let app: App;
-  let pid: string;
 
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    pid = await mkProject(app);
   });
 
   it('存在しないプロジェクトへのタスク作成は FK 制約でエラー', async () => {
