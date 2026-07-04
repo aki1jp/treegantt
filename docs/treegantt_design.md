@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.3.1** |
-| ドキュメント版 | 0.2.129 |
+| ドキュメント版 | 0.2.130 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -279,9 +279,9 @@ interface Project {
 - `seq` は `projects.next_seq` から採番（カウンターを +1）。
 
 ### 5.4 一覧取得・並び替え・バッチ
-- 一覧：`WHERE project_id=? [AND status/assignee LIKE/priority]`、`ORDER BY ord ASC LIMIT ? OFFSET ?`（既定 limit=500）。`attachDeps` で predecessors/successors を 2 クエリ一括付与。
-- 並び替え：`orders[] = {id, order, parentId?}` を単一トランザクションで `ord`/`parent_id` 更新。
-- バッチ作成：`tasks[]` の各要素は `parentRef`（配列内インデックス、範囲外は 400）で親子を解決。単一トランザクションで作成し、WS `tasks_created` 1 通を broadcast。
+- 一覧：`WHERE project_id=? [AND status/assignee LIKE/priority]`、`ORDER BY ord ASC LIMIT ? OFFSET ?`（既定 limit=500）。`limit` クエリは Fastify JSON スキーマで `integer, minimum:0, maximum:100000`（範囲外・非整数は 400）。上限はサーバー内部の Export（§10）・パフォーマンステストが使う `limit=100000` を下回らない値として設定。`attachDeps` で predecessors/successors を 2 クエリ一括付与。
+- 並び替え：`orders[] = {id, order, parentId?}` を単一トランザクションで `ord`/`parent_id` 更新。適用前に全件検証し、`orders` 内の各タスクが URL の `projectId` に属すること（不一致・存在しないIDは 400 `INVALID_PROJECT`）、`parentId` 指定時は自己参照・循環でないこと（`wouldCreateCycle`、400 `CYCLE_DETECTED`）を検証してから一括適用する（検証NGなら一切適用しない）。
+- バッチ作成：`tasks[]` の各要素は `parentRef`（配列内インデックス、範囲外は 400）で親子を解決。root の接続先 `parentId` は単一作成と同じ検証（存在・同一プロジェクト・非マイルストーン、400 `INVALID_PARENT`/`MILESTONE_CANNOT_BE_PARENT`）を行い、`tasks[].status`/`priority`/`progress` も単一作成と同じ enum・範囲検証を適用する。単一トランザクションで作成し、WS `tasks_created` 1 通を broadcast。
 
 ### 5.5 削除のセマンティクス
 - `subtree`（既定）：再帰 CTE で子孫 ID を収集し、500 件チャンクで一括 DELETE。WS `tasks_deleted`（ids[]）1 通。
@@ -820,3 +820,4 @@ CI・ESLint・`typecheck` npm script は **導入済み**（16.5 参照）。残
 | 0.2.127 | 2026/7 | 製品バージョンを **1.3.1** に更新（ヘッダー・ステータス・構成図）。API の OpenAPI (Swagger) ドキュメント追加（§5.7）とハンバーガーメニューへの API 仕様書リンク追加（§7.2/§9.3）を製品リリースとして `CHANGELOG.md` の `[1.3.1]` に記録。 |
 | 0.2.128 | 2026/7 | §2.1 の誤記を修正（WebSocket は REST とは別プロセスではなく、同一 Node プロセス内で別ポート待受と明記。「3 つのプロセス」という記述も「2 つの OS プロセス」に訂正）。自動ゲート（CI・ESLint・`typecheck`）を導入し、新設§16.5 に現状を明記。§17.1 は導入済み項目を反映し、残課題（Prettier・カバレッジ閾値・CI への E2E/`npm audit` 組み込み）のみに整理。§13.2 に `api` の Docker healthcheck（`/health` 利用）と `frontend` の `depends_on: service_healthy` を追記。 |
 | 0.2.129 | 2026/7 | CSV Export のヘッダに `titleColor`/`titleBgColor` を追加（§10）。従来 CSV には無く JSON Export のみが持っていた列で、Import(API) の `restore` 経路でも同 2 列と `estimateMinutes` が新規タスクへ引き継がれることを明記し、`export→import(restore)→再export` の round-trip でタスク色・予定工数が失われない仕様であることを明文化。 |
+| 0.2.130 | 2026/7 | §5.4 のタスク一覧 `limit` クエリに上限（`maximum:100000`）を設定する方針を追加（未検証の負値/巨大値/非整数の受け入れを廃止）。あわせて §5.4 の記述を実装に同期し、並び替え（`orders`）のプロジェクト境界検証・循環検証、バッチ作成の root `parentId` 検証と `status`/`priority`/`progress` の単一作成同等の検証を明記（直近のバグ修正をドキュメントへ反映）。 |
