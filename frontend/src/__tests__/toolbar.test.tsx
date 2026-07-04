@@ -387,3 +387,14 @@ describe('バージョン表示（ハンバーガーメニュー）', () => {
     expect(screen.getByTestId('app-version').textContent).toContain('Backend v—');
   });
 });
+
+describe('API仕様書リンク（ハンバーガーメニュー）', () => {
+  it('メニューを開くと Swagger UI への新規タブリンクが表示される', () => {
+    renderToolbar();
+    fireEvent.click(screen.getByTitle('メニュー'));
+    const link = screen.getByRole('link', { name: /API仕様書/ }) as HTMLAnchorElement;
+    expect(link.href).toBe('http://localhost:4000/docs');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toContain('noopener');
+  });
+});

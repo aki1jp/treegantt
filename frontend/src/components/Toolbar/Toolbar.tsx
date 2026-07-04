@@ -4,6 +4,7 @@ import type { GanttPeriod } from '../../utils/ganttCalc';
 import { todayStr, getUniqueAssignees } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 import { FRONTEND_VERSION } from '../../version';
+import { API_DOCS_URL } from '../../utils/api';
 
 interface Props {
   onAddTask: () => void;
@@ -61,18 +62,25 @@ const PERIOD_OPTIONS: { value: GanttPeriod; label: string }[] = [
   { value: '24m', label: '24ヶ月' },
 ];
 
-function MenuItem({ label, indent, onClick }: { label: string; indent?: boolean; onClick: () => void }) {
+function MenuItem({ label, indent, href, onClick }: { label: string; indent?: boolean; href?: string; onClick: () => void }) {
+  const style: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left', border: 'none',
+    padding: indent ? '8px 16px 8px 28px' : '10px 16px',
+    background: 'none', fontSize: 13, cursor: 'pointer', color: 'var(--th-text2)',
+  };
+  const hoverHandlers = {
+    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'var(--th-bg2)'),
+    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'none'),
+  };
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} style={{ ...style, textDecoration: 'none' }} {...hoverHandlers}>
+        {label}
+      </a>
+    );
+  }
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'block', width: '100%', textAlign: 'left', border: 'none',
-        padding: indent ? '8px 16px 8px 28px' : '10px 16px',
-        background: 'none', fontSize: 13, cursor: 'pointer', color: 'var(--th-text2)',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-bg2)')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-    >
+    <button onClick={onClick} style={style} {...hoverHandlers}>
       {label}
     </button>
   );
@@ -226,6 +234,13 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                     <MenuItem label="リソース設定" indent onClick={() => { onOpenResourceSettings(); setMenuOpen(false); }} />
                   </>
                 )}
+
+                <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
+
+                <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
+                  📄 ドキュメント
+                </div>
+                <MenuItem label="API仕様書 (Swagger)" indent href={API_DOCS_URL} onClick={() => setMenuOpen(false)} />
 
                 <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 

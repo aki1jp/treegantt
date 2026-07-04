@@ -2,6 +2,8 @@ import type { Task, AppSettings, Project } from '../types/task';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:4000`;
 
+export const API_DOCS_URL = `${API_BASE}/docs`;
+
 export async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}/api/v1${path}`, {
     ...init,
