@@ -175,8 +175,8 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
     db.prepare('UPDATE projects SET next_seq = next_seq + 1 WHERE id = ?').run(input.projectId);
 
     db.prepare(
-      `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, estimate_minutes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, title_color, title_bg_color, estimate_minutes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       input.id,
       input.projectId,
@@ -193,6 +193,8 @@ export function createTask(input: CreateTaskInput): TaskWithSuccessors {
       input.isMilestone ? 1 : 0,
       input.order ?? maxOrd + 1,
       seq,
+      input.titleColor ?? null,
+      input.titleBgColor ?? null,
       input.estimateMinutes ?? null
     );
 
@@ -435,8 +437,8 @@ export function batchCreateTasks(
       db.prepare('UPDATE projects SET next_seq = next_seq + 1 WHERE id = ?').run(projectId);
 
       db.prepare(
-        `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, estimate_minutes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO tasks (id, project_id, parent_id, title, summary, description, status, priority, progress, assignee, start_date, end_date, is_milestone, ord, seq, title_color, title_bg_color, estimate_minutes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         ids[i],
         projectId,
@@ -453,6 +455,8 @@ export function batchCreateTasks(
         input.isMilestone ? 1 : 0,
         input.order ?? maxOrd + i + 1,
         seq,
+        input.titleColor ?? null,
+        input.titleBgColor ?? null,
         input.estimateMinutes ?? null,
       );
       createdIds.push(ids[i]);

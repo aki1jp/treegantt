@@ -99,6 +99,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
           endDate:     req.body.endDate     as string | null | undefined,
           isMilestone: req.body.isMilestone as boolean | undefined,
           predecessors: req.body.predecessors as string[] | undefined,
+          titleColor:   req.body.titleColor   as string | null | undefined,
+          titleBgColor: req.body.titleBgColor as string | null | undefined,
           estimateMinutes: req.body.estimateMinutes as number | null | undefined,
         });
         notifyRoom(req.params.id, { type: 'task_created', projectId: req.params.id, task });

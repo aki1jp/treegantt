@@ -358,6 +358,17 @@ describe('Tasks API', () => {
     expect(r2.json().task.titleBgColor).toBeNull();
   });
 
+  it('POST /api/v1/projects/:id/tasks: 作成時に titleColor/titleBgColor が永続化される', async () => {
+    const task = await createTask({ title: 'Color At Create', titleColor: '#3b82f6', titleBgColor: '#eff6ff' });
+    expect(task.titleColor).toBe('#3b82f6');
+    expect(task.titleBgColor).toBe('#eff6ff');
+
+    // レスポンスだけでなく GET でも（=DBに保存されていることを）確認
+    const fetched = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${task.id}` })).json().task;
+    expect(fetched.titleColor).toBe('#3b82f6');
+    expect(fetched.titleBgColor).toBe('#eff6ff');
+  });
+
   it('PATCH /api/v1/tasks/:id with valid parentId on non-existent task returns 404 (parentId validation passes, updateTask returns null)', async () => {
     const parent = await createTask({ title: 'Parent' });
     const res = await app.inject({
@@ -1288,14 +1299,9 @@ describe('Import/Export API', () => {
   });
 
   it('export→import(restore)→再export で titleColor/titleBgColor/estimateMinutes が失われない（round-trip）', async () => {
-    const created = (await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-      payload: { title: 'Colorful', estimateMinutes: 90 },
-    })).json().task;
-    // titleColor/titleBgColor は現状 PATCH でのみ設定可能（WBS 右クリックの「文字色」相当）
     await app.inject({
-      method: 'PATCH', url: `/api/v1/tasks/${created.id}`,
-      payload: { titleColor: '#ff0000', titleBgColor: '#00ff00' },
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'Colorful', titleColor: '#ff0000', titleBgColor: '#00ff00', estimateMinutes: 90 },
     });
 
     const exported1 = (await app.inject({
@@ -1322,14 +1328,9 @@ describe('Import/Export API', () => {
   });
 
   it('GET /api/v1/projects/:id/export/csv のヘッダーと値に titleColor/titleBgColor/estimateMinutes が含まれる', async () => {
-    const created = (await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-      payload: { title: 'CSV Colorful', estimateMinutes: 120 },
-    })).json().task;
-    // titleColor/titleBgColor は現状 PATCH でのみ設定可能（WBS 右クリックの「文字色」相当）
     await app.inject({
-      method: 'PATCH', url: `/api/v1/tasks/${created.id}`,
-      payload: { titleColor: '#123456', titleBgColor: '#abcdef' },
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'CSV Colorful', titleColor: '#123456', titleBgColor: '#abcdef', estimateMinutes: 120 },
     });
     const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/export/csv` });
     expect(res.statusCode).toBe(200);
@@ -1582,6 +1583,31 @@ describe('Tasks Batch API — POST /projects/:id/tasks/batch', () => {
       },
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it('batch 作成時に titleColor/titleBgColor が永続化される', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: {
+        parentId: null,
+        tasks: [
+          { parentRef: null, title: 'Colored Root', titleColor: '#ff0000', titleBgColor: '#00ff00' },
+          { parentRef: 0,    title: 'Colored Child', titleColor: '#0000ff' },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const { tasks } = res.json() as { tasks: { id: string; titleColor: string | null; titleBgColor: string | null }[] };
+    expect(tasks[0].titleColor).toBe('#ff0000');
+    expect(tasks[0].titleBgColor).toBe('#00ff00');
+    expect(tasks[1].titleColor).toBe('#0000ff');
+    expect(tasks[1].titleBgColor).toBeNull();
+
+    // GET でも（=DBに保存されていることを）確認
+    const fetched = (await app.inject({ method: 'GET', url: `/api/v1/tasks/${tasks[0].id}` })).json().task;
+    expect(fetched.titleColor).toBe('#ff0000');
+    expect(fetched.titleBgColor).toBe('#00ff00');
   });
 
   // ── parentId（root の接続先）検証 — single 作成と同等に揃える ──────
