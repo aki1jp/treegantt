@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.3.2** |
-| ドキュメント版 | 0.2.138 |
+| ドキュメント版 | 0.2.139 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -358,7 +358,11 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `App` | 全体オーケストレーション。プロジェクト/タスク取得、WS 接続、モーダル制御、`/health` 取得（バック版） |
 | `Toolbar` | 操作系（追加/Import/Export）・フィルタ・ガント表示設定・テーマ・ハンバーガーメニュー（バージョン表示・API仕様書リンク） |
 | `ProjectTabs` | プロジェクトのタブ切替・作成・改名・色・削除 |
-| `GanttChart` | WBS 左パネル＋右タイムライン SVG の統合。ツリー・折りたたみ・行仮想化・ドラッグ・依存・派生計算 |
+| `GanttChart` | WBS 左パネル（`WbsPanel`）＋右タイムライン SVG の統合。フィルタ適用・ツリー構築・行仮想化・派生計算（進捗/スパン/CPM/イナズマ）を担う「本体」。バー移動/リサイズ/作成ドラッグ（`useBarDrag`）・依存リンクドラッグ（`useLinkDrag`）・WBS 行 D&D（`useRowDnd`）は専用フックへ、右クリックメニュー群（`TaskContextMenus`）と WBS 左パネル（`WbsPanel`）は専用コンポーネントへそれぞれ委譲する |
+| `WbsPanel` | WBS 左パネル（ヘッダー・列リサイズ・展開/折りたたみクラスタ・行仮想化・行 D&D・列表示設定ポップアップ・`QuickAddRow`） |
+| `QuickAddRow` | WBS 最終行のクイック追加インライン入力（`WbsPanel` から利用） |
+| `TaskContextMenus` | バー/行/依存矢印/タイトル列見出しの右クリックメニュー群（編集・色パレット・コピー＆挿入・削除・依存解除・展開折りたたみ一括操作） |
+| `ExpandCollapseButtons` | 展開/折りたたみ操作ボタン群（⊟/1/2/3/⊞）。`WbsPanel` のタイトル列見出しと `TaskContextMenus` のタイトル列見出しメニューで共通利用（旧: 重複定義） |
 | `GanttLeftRow` | WBS 1 行（インライン編集・進捗バー・折りたたみトグル） |
 | `GanttBar` | 1 タスクの SVG バー（通常/親サマリー/マイルストーン） |
 | `DependencyArrow` | 依存矢印（bezier/elbow/straight） |
@@ -375,8 +379,8 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `ErrorBoundary` | `App` 全体を包む描画エラーの捕捉（§7.4） |
 
 ### 7.3 hooks / utils
-- hooks：`useTasks`（楽観的 CRUD・batch）、`useProjects`、`useWebSocket`、`useImportExport`、`useTheme`。
-- utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`、`menuPos`、`portConfig`、`theme`。
+- hooks：`useTasks`（楽観的 CRUD・batch）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
+- utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`/`copyBatch`（サブツリーコピーの batch API 入力構築・挿入順計算, `handleCopyInsert` から抽出）、`menuPos`、`portConfig`、`theme`。
 
 ### 7.4 エラー処理（`ErrorBoundary`）
 `main.tsx` は `<App />` をクラスコンポーネント `ErrorBoundary`（`getDerivedStateFromError`/`componentDidCatch`）で包む。子孫のレンダー中に想定外の例外が発生した場合、React はデフォルトでは DOM ツリー全体をアンマウントする（本アプリには他に `window.onerror` 等のグローバルハンドラは無い）ため、これを捕捉しないと画面が空の `<div id="root">` のみになる「白画面」に陥る。`ErrorBoundary` は例外を捕捉した場合、白画面の代わりに簡潔なメッセージと再読み込みボタン（`window.location.reload()`）を表示するフォールバック UI に切り替える。個々の描画ロジックの防御的なガード（例：ID 解決の不変条件、§8.5）を代替するものではなく、最終防衛線として位置づける。
@@ -863,3 +867,4 @@ CI・ESLint・`typecheck` npm script は **導入済み**（16.5 参照）。残
 | 0.2.136 | 2026/7 | エラー通知をトースト化する方針を追加（新設§9.9・§7.1・§7.2）。`alert()` によるブロッキング通知と `App.tsx`/`useProjects` の無言 `.catch(() => {})` を、非モーダルのトースト通知（`toastStore` + `Toast`/`ToastContainer`、右下固定・種別ごとの自動消滅・`aria-live="polite"`）に置き換える設計を明記。プロジェクト一覧・タスク初回取得の失敗は、トーストに加えて再試行ボタン付きの可視エラー表示にする方針も追加。`confirm()`/`prompt()` は今回スコープ外として明記。§17.2 の該当項目を導入済みに更新。 |
 | 0.2.137 | 2026/7 | §9.9 のトースト対象一覧に `useImportExport` の Import 失敗（従来 `alert()`）を追記。0.2.136 で洗い出した `alert()` 撤去対象の見落としを反映（App.tsx 以外にも Import 失敗の `alert()` があったため）。 |
 | 0.2.138 | 2026/7 | アクセシビリティの基本方針を追加（新設§9.10）。記号・絵文字のみのアイコンボタン（`GanttChart`/`GanttLeftRow`/`Toolbar`/`ProjectTabs` の開閉トグル・展開折りたたみ・色パレット・フィルタクリア等）への `aria-label` 必須化と、`Toolbar` のフィルタ用 `<input>`/`<select>` への `aria-label` 付与を明記。D&D のキーボード代替・フォーカストラップ・コントラスト監査は今回スコープ外として§17.2 の将来課題に整理。 |
+| 0.2.139 | 2026/7 | `GanttChart.tsx`（約1560行）の責務分割を明記（§7.2・§7.3）。挙動不変のリファクタとして、バー移動/リサイズ/作成ドラッグを `useBarDrag`、依存リンクドラッグを `useLinkDrag`、WBS 行 D&D を `useRowDnd` の各フックへ、WBS 左パネルを `WbsPanel`（＋ `QuickAddRow`）、右クリックメニュー群を `TaskContextMenus` の各コンポーネントへ抽出する方針を追加。展開/折りたたみボタン（⊟/1/2/3/⊞）の重複定義は共通コンポーネント `ExpandCollapseButtons` に統合。`useProjectTasks`/`copyBatch`（D1/D2 で追加済みだったが構成記述への反映が漏れていた）も§7.3 に追記。 |
