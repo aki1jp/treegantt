@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.4.1** |
-| ドキュメント版 | 0.2.145 |
+| ドキュメント版 | 0.2.146 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -660,7 +660,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 ## 14. テスト構成
 
 - 単体/結合：Vitest。`cd api && npm test`（サービス・ルート inject・WS・圧縮・敵対的入力）、`cd frontend && npm test -- --run`（ガント計算・描画・ストア・hooks・コンポーネント）。
-- E2E：`e2e/`（Playwright、フロント:3001 → API:4000 の**クロスオリジン**実構成）。プロジェクト/タスク CRUD・モーダル・ガント描画・**ガントバーのドラッグ（日付変更=PATCH）**。実ブラウザ×実サーバのため CORS など結合不具合を最終的に捕捉する（CORS プリフライトは E2E が定期実行されていれば検出できた）。
+- E2E：`e2e/`（Playwright、フロント:3001 → API:4000 の**クロスオリジン**実構成）。プロジェクト/タスク CRUD・モーダル・ガント描画・**ガントバーのドラッグ（日付変更=PATCH）**。実ブラウザ×実サーバのため CORS など結合不具合を最終的に捕捉する（CORS プリフライトは E2E が定期実行されていれば検出できた）。CI（`.github/workflows/ci.yml` の `e2e` ジョブ、§16.5）で push/PR ごとに自動実行する。
 - 依存ガード：`api/src/__tests__/security.test.ts`（既知脆弱依存の混入防止・fastify/cors/compress/uuid の major 下限）。
 - **バックアップ**：`api/src/__tests__/backup.test.ts`（§13.4）。実際に `.backup()` を実行して開ける有効な SQLite ファイルが生成されること、世代管理（`BACKUP_RETENTION` 超過分の削除）、`BACKUP_INTERVAL_HOURS=0` で以降のスケジュール実行が発生しないこと、バックアップ失敗（DB 例外）が呼び出し元に伝播しないことを検証する。
 - **本番配線テスト**：`api/src/app.ts` の `buildApp()`（cors/compress/auth/全ルート/エラーハンドラを登録）を `app.test.ts` で inject 検証する（`/health` の version 返却、エラーハンドラ形、CORS プリフライトが PATCH/DELETE を許可）。`index.ts` は `buildApp()` + `listen()` のみ。WSサーバ `wsRoom` のブロードキャストは `ws.test.ts` で実ソケット検証。
@@ -714,9 +714,11 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 
 - **`typecheck` npm script**：`api`/`frontend` それぞれに `"typecheck": "tsc --noEmit"` を追加。
 - **ESLint（flat config）**：`api`/`frontend` それぞれに `eslint.config.js`（`typescript-eslint` ベース）を追加し、`"lint": "eslint ."` npm script を追加。frontend は `eslint-plugin-react-hooks` も有効化し、`react-hooks/exhaustive-deps`（stale closure 検出）を含む。
-- **GitHub Actions CI**（`.github/workflows/ci.yml`）：push/PR で `api`・`frontend` それぞれ `npm ci` → `npm run typecheck` → `npm run lint` → `npm test` → **`npm audit`**（依存脆弱性チェック、HIGH 以上で失敗）を実行。E2E（Playwright）は対象外（別途手動/将来検討）。
+- **GitHub Actions CI**（`.github/workflows/ci.yml`）：push/PR で `api`・`frontend` それぞれ `npm ci` → `npm run typecheck` → `npm run lint` → `npm test` → **`npm audit`**（依存脆弱性チェック、HIGH 以上で失敗）を実行。
   - **`npm audit` の対象範囲**：`api` は全依存（`npm audit --audit-level=high`）。`frontend` は **`--omit=dev`**（`npm audit --omit=dev --audit-level=high`、本番依存のみ）とする。frontend は vite/esbuild/undici 等 dev 専用依存に、メジャー更新なしには解消できない既知の脆弱性が残っており（§16.4）、全依存を対象にすると常に CI が失敗してしまうため、実際にビルド成果物へ同梱される本番依存のみを厳格にゲートする。
-- 既知の残課題（未着手）：Prettier 導入、カバレッジ閾値のゲート化、CI への E2E(Playwright) 組み込みは 17.1 に残す。
+- **E2E（Playwright）の CI 組み込み**：`e2e` ジョブを追加。`api`/`frontend`/`e2e` それぞれ `npm ci` → `npx playwright install --with-deps chromium` → `npx playwright test` を実行する。DB は `DB_PATH` に CI 一時ディレクトリ（`${{ runner.temp }}`）配下の専用ファイルを指定し、開発用DBと分離してテスト間の汚染を避ける。§13.4 の起動時バックアップは `BACKUP_INTERVAL_HOURS=0` で明示的に無効化し、CI の一時領域に不要なファイルを残さないようにする（既定値のままでも E2E 実行そのものへの支障がないことは確認済み）。失敗時は `e2e/test-results/`（トレース・スクリーンショット）を `actions/upload-artifact@v4` でアップロードする（`if: failure()`）。
+  - **`playwright.config.ts` のポータビリティ修正**：`webServer` の起動コマンドが `cd /workspace/api`/`cd /workspace/frontend` とチェックアウト先の絶対パスをハードコードしており、GitHub Actions（チェックアウト先が `/home/runner/work/...` 等、`/workspace` と異なる）では起動に失敗する不具合があったため、設定ファイル自身のディレクトリ（`__dirname`）からの相対パスでリポジトリルートを解決するよう修正した。
+- 既知の残課題（未着手）：Prettier 導入、カバレッジ閾値のゲート化は 17.1 に残す。
 
 ---
 
@@ -725,10 +727,9 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 > 以下は**未着手の検討候補**。品質向上と UI/UX 改善を目的とする。優先度の目安を付す（実施時に本書へ反映する）。
 
 ### 17.1 自動ゲート（最優先・再発防止）
-CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック）は **導入済み**（16.5 参照）。残る検討候補は以下。
+CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック）・CI への E2E(Playwright) 組み込みは **導入済み**（16.5 参照）。残る検討候補は以下。
 - **Prettier 導入**：フォーマットの自動統一（`format` npm script）。
 - **カバレッジ閾値**：istanbul で正確化済み（16章/14章）なので最低ラインを設定し、黙って下がるのを防ぐ。`App.tsx` はユニットテスト追加済み（約50%、§16.4）だが、全体への閾値設定自体は未着手。
-- **CI への E2E(Playwright) 組み込み**：現状 CI は API/フロントの単体テストのみ。E2E は手動実行のまま。
 - **`no-floating-promises` 等の追加 ESLint ルール**：未処理 async 検出などの強化。
 
 ### 17.2 UI/UX 改善
@@ -898,3 +899,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.143 | 2026/7 | 依存セキュリティの記述を実態に合わせて是正（§11・§16.4・§16.5・§17.1）。`api` の `ws`（HIGH: メモリ枯渇DoS GHSA-96hv-2xvq-fx4p）を 8.21.0 以上へ更新する方針を明記。`frontend` の dev 専用依存の既知脆弱性の件数を実態（high 2/moderate 1/low 1）に更新。CI（`.github/workflows/ci.yml`）に `npm audit` ゲートを追加する方針を明記（`api` は全依存、`frontend` は本番ビルドに同梱されない dev 専用脆弱性で CI が落ちないよう `--omit=dev` で本番依存のみを対象）し、§17.1 の残課題から「CI での `npm audit`」を導入済みへ移動。`App.tsx` のユニットテスト（`app.test.tsx`）追加とカバレッジ約50%への到達を反映。コード変更なし。 |
 | 0.2.144 | 2026/7 | 製品バージョンを **1.4.1** に更新（ヘッダー・ステータス・構成図）。`api` の `ws` HIGH脆弱性（メモリ枯渇DoS）修正と、CI（GitHub Actions）への `npm audit` 自動ゲート追加（0.2.143 で明記した設計）を、セキュリティ対応の製品リリースとして `CHANGELOG.md` の `[1.4.1]` に記録。§15「現行リリース」の表記（1.4）はパッチ更新のため変更なし。 |
 | 0.2.145 | 2026/7 | SQLite バックアップ運用を追加（新設§13.4、§13.1 環境変数・§3 構成図・§14 テスト構成を更新）。`api` プロセス内で `better-sqlite3` の `db.backup()` を用い、起動時＋`BACKUP_INTERVAL_HOURS`（既定24、0で無効）ごとに `BACKUP_DIR`（既定: DBと同じディレクトリ配下の `backups/`）へスナップショットを保存し、`BACKUP_RETENTION`（既定7）世代を超えた分を削除する方針を明記。開発（`start.sh`）・本番（Docker `./api/data` ボリューム）とも既定パスのままで両対応でき、`docker-compose.yml` の変更が不要であることを明文化。手動リストア手順（API停止→バックアップをDB_PATHへコピー→WAL/SHM除去→起動）も明記。 |
+| 0.2.146 | 2026/7 | CI（GitHub Actions）に E2E(Playwright) ジョブを追加（§16.5・§14）。`api`/`frontend`/`e2e` の `npm ci` → `npx playwright install --with-deps chromium` → `npx playwright test` を実行し、DB は CI 一時ディレクトリ配下の専用パス（`DB_PATH`）を用いてテスト間の汚染を避ける方針を明記。§13.4 の起動時バックアップは `BACKUP_INTERVAL_HOURS=0` でCI実行時のみ無効化する。失敗時は `e2e/test-results/`（トレース・スクリーンショット）を `actions/upload-artifact` でアップロードする。あわせて、`playwright.config.ts` の `webServer` 起動コマンドがチェックアウト先の絶対パス（`/workspace/...`）をハードコードしておりCI環境では起動できない不具合を、設定ファイルからの相対パス解決に修正したことを明記。§17.1 の残課題から「CI への E2E(Playwright) 組み込み」を導入済みへ移動。 |
