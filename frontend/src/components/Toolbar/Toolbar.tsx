@@ -172,6 +172,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           <input
             type="search"
             placeholder="タスク検索..."
+            aria-label="タスク検索"
             value={filterSearch}
             onChange={e => setFilter({ filterSearch: e.target.value })}
             style={{
@@ -194,6 +195,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           <div style={{ position: 'relative' }} ref={menuRef}>
             <button
               title="メニュー"
+              aria-label="メニュー"
               onClick={openMenu}
               style={{
                 ...BTN,
@@ -278,7 +280,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* フィルタ（インライン直列） */}
           <div style={FILTER_GROUP}>
             <span style={LABEL}>ステータス</span>
-            <select style={SELECT} value={filterStatus}
+            <select style={SELECT} value={filterStatus} aria-label="ステータスで絞り込み"
               onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
               {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -286,7 +288,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={FILTER_GROUP}>
             <span style={LABEL}>優先度</span>
-            <select style={SELECT} value={filterPriority}
+            <select style={SELECT} value={filterPriority} aria-label="優先度で絞り込み"
               onChange={e => setFilter({ filterPriority: e.target.value })}>
               {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -299,6 +301,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 type="text"
                 list="assignee-datalist"
                 placeholder="すべて"
+                aria-label="担当者で絞り込み"
                 value={filterAssignee}
                 onChange={e => setFilter({ filterAssignee: e.target.value })}
                 style={{ ...SELECT, width: 100, paddingRight: filterAssignee ? 22 : undefined }}
@@ -315,6 +318,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                   }}
                   onClick={() => setFilter({ filterAssignee: '' })}
                   title="担当者フィルターをクリア"
+                  aria-label="担当者フィルターをクリア"
                 >✕</button>
               )}
             </div>
@@ -335,7 +339,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* ズーム */}
           <div style={FILTER_GROUP}>
             <span style={LABEL}>ズーム</span>
-            <select title="ズームレベルを選択" style={SELECT} value={zoomLevel}
+            <select title="ズームレベルを選択" aria-label="ズームレベル" style={SELECT} value={zoomLevel}
               onChange={e => setZoomLevel(e.target.value as ZoomLevel)}>
               <option value="day">日</option>
               <option value="week">週</option>
@@ -348,12 +352,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* 開始日 + 期間 */}
           <div style={FILTER_GROUP}>
             <span style={LABEL}>開始日</span>
-            <input type="date" style={{ ...SELECT, fontSize: 11 }}
+            <input type="date" style={{ ...SELECT, fontSize: 11 }} aria-label="開始日"
               value={ganttStartDate}
               onChange={e => setGanttRange(e.target.value, ganttPeriod)} />
             {ganttStartDate ? (
               <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
-                onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）">✕</button>
+                onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）" aria-label="開始日をリセット（自動）">✕</button>
             ) : (
               <button style={{ ...BTN, padding: '3px 7px', fontSize: 11 }}
                 onClick={() => setGanttRange(today, ganttPeriod)} title="今日から表示">今日</button>
@@ -362,7 +366,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={FILTER_GROUP}>
             <span style={LABEL}>期間</span>
-            <select style={SELECT} value={ganttPeriod}
+            <select style={SELECT} value={ganttPeriod} aria-label="表示期間"
               onChange={e => setGanttRange(ganttStartDate, e.target.value as GanttPeriod)}>
               {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -442,6 +446,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 <button
                   key={size}
                   title={['小', '中', '大'][i]}
+                  aria-label={`文字サイズ: ${['小', '中', '大'][i]}`}
                   onClick={() => setUiFontSize(size)}
                   style={{
                     ...BTN,

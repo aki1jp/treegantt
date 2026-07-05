@@ -331,6 +331,7 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
                     <button
                       key={c}
                       title={c}
+                      aria-label={c}
                       onClick={() => { onUpdateColor(tabMenu.project, c); setTabMenu(null); }}
                       style={{
                         width: 18, height: 18, borderRadius: '50%',
@@ -341,6 +342,7 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
                   ))}
                   <button
                     title="なし"
+                    aria-label="なし"
                     onClick={() => { onUpdateColor(tabMenu.project, null); setTabMenu(null); }}
                     style={{
                       width: 18, height: 18, borderRadius: '50%',

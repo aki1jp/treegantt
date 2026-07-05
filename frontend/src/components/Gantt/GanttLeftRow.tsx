@@ -174,7 +174,9 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       {wbsPanelOpen && <div style={{ ...CELL, width: titleWidth, paddingLeft: indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
-            <button onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
+            <button
+              aria-label={isCollapsed ? '展開' : '折りたたむ'}
+              onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
               width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',

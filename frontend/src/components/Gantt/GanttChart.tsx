@@ -957,6 +957,8 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
           {!wbsPanelOpen && (
             <div
               title="WBSを表示"
+              role="button"
+              aria-label="WBSを表示"
               onClick={() => setWbsPanelOpen(true)}
               style={{ ...TH, width: 36, cursor: 'pointer', alignSelf: 'stretch', height: 'auto', justifyContent: 'center' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e0e7ff'; (e.currentTarget as HTMLElement).style.color = '#4f46e5'; }}
@@ -990,7 +992,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                       { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
                       { label: '⊞', title: '全て展開',        action: expandAll },
                     ] as const).map(({ label, title, action }) => (
-                      <button key={label} title={title}
+                      <button key={label} title={title} aria-label={title}
                         onClick={e => { e.stopPropagation(); action(); }}
                         style={{ border: 'none', background: 'none', cursor: 'pointer',
                           fontSize: 11, color: 'var(--th-text-dim)', padding: '1px 3px', borderRadius: 2,
@@ -1041,6 +1043,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
               </button>
               <button
                 title="WBSを隠す"
+                aria-label="WBSを隠す"
                 onClick={() => setWbsPanelOpen(false)}
                 style={{
                   border: 'none', background: 'none', cursor: 'pointer',
@@ -1399,6 +1402,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                       <button
                         key={ci}
                         title={c ?? 'リセット'}
+                        aria-label={c ?? 'リセット'}
                         onClick={() => { onInlineUpdate(task.id, { [field]: c }); close(); }}
                         style={{
                           width: 18, height: 18, borderRadius: '50%', border: '1px solid #9ca3af',
@@ -1477,7 +1481,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                 { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
                 { label: '⊞', title: '全て展開',        action: expandAll },
               ] as const).map(({ label, title, action }) => (
-                <button key={label} title={title}
+                <button key={label} title={title} aria-label={title}
                   onClick={() => { action(); setTitleHeaderCtxMenu(null); }}
                   style={{
                     flex: 1, padding: '4px 0', border: '1px solid var(--th-border)',
