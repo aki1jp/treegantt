@@ -896,6 +896,21 @@ describe('Import/Export API', () => {
     expect(res.payload).toContain("'@evil");
   });
 
+  it('GET /api/v1/projects/:id/export/csv 先頭が = かつカンマ/引用符を含むセルは中和とCSVエスケープが正しく合成される', async () => {
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: {
+        title: '=SUM(A1,B1)', // カンマ含み → ' 付与後にダブルクォートで囲まれる
+        summary: '=A1&"x"',   // 引用符含み → ' 付与後に " が二重化される
+      },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/export/csv` });
+    expect(res.statusCode).toBe(200);
+    // 中和（' 付与）→ CSVエスケープ の順で適用される
+    expect(res.payload).toContain('"\'=SUM(A1,B1)"');
+    expect(res.payload).toContain('"\'=A1&""x"""');
+  });
+
   // ── 基本インポート ───────────────────────────────────
   it('1件インポートできる', async () => {
     const res = await app.inject({

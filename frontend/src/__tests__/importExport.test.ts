@@ -95,6 +95,17 @@ describe('exportToCsv', () => {
     expect(csv).toContain("'-1+1");
     expect(csv).toContain("'@evil");
   });
+
+  it('先頭が = かつカンマ/引用符を含むセルは中和とCSVクォートが正しく合成される', () => {
+    const task = makeTask({
+      title: '=SUM(A1,B1)', // カンマ含み → ' 付与後にダブルクォートで囲まれる
+      summary: '=A1&"x"',   // 引用符含み → ' 付与後に " が二重化される
+    });
+    const csv = exportToCsv([task]);
+    // 中和（' 付与）→ CSVクォート（papaparse）の順で適用される
+    expect(csv).toContain('"\'=SUM(A1,B1)"');
+    expect(csv).toContain('"\'=A1&""x"""');
+  });
 });
 
 describe('importFromCsv', () => {
@@ -160,6 +171,17 @@ describe('importFromCsv', () => {
     expect(tasks[0].summary).toBe('+cmd|/c calc');
     expect(tasks[0].description).toBe('-1+1');
     expect(tasks[0].assignee).toBe('@evil');
+  });
+
+  it('カンマ/引用符含みの中和セルも export→import の往復で元の値に戻る（round-trip）', () => {
+    const task = makeTask({
+      title: '=SUM(A1,B1)',
+      summary: '=A1&"x"',
+    });
+    const csv = exportToCsv([task]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].title).toBe('=SUM(A1,B1)');
+    expect(tasks[0].summary).toBe('=A1&"x"');
   });
 
   it('中和対象外の先頭文字（数字・通常文字）はシングルクォートを付与しない', () => {

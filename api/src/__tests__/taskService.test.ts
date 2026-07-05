@@ -308,6 +308,30 @@ describe('taskService', () => {
     it('存在しないタスクは空配列を返す', () => {
       expect(deleteTaskSubtree('no-id')).toEqual([]);
     });
+
+    it('先行タスク削除時に生存する後続側の依存が CASCADE で消える', () => {
+      // deleteTaskSubtree は tasks のみ DELETE し task_deps には触れない。
+      // task_deps の掃除は migrations/001_init.sql の ON DELETE CASCADE のみに依存するため、
+      // CASCADE が無効なら（foreign_keys=ON のもとで）DELETE 自体が FK 違反で失敗し、
+      // このテストは自明には通らない。
+      createTask({ id: 'pred_root', projectId: PROJECT_ID, title: '先行の親' });
+      createTask({ id: 'pred_leaf', projectId: PROJECT_ID, title: '先行', parentId: 'pred_root' });
+      createTask({ id: 'survivor', projectId: PROJECT_ID, title: '後続（生存）', predecessors: ['pred_leaf'] });
+
+      const depsBefore = (testDb.prepare('SELECT COUNT(*) c FROM task_deps').get() as { c: number }).c;
+      expect(depsBefore).toBe(1);
+
+      // 先行タスクを含むサブツリーを削除（survivor はサブツリー外なので生存する）
+      const deleted = deleteTaskSubtree('pred_root');
+      expect(new Set(deleted)).toEqual(new Set(['pred_root', 'pred_leaf']));
+
+      // 後続は生存し、task_deps の該当行は CASCADE で消えている
+      const survivor = getTask('survivor');
+      expect(survivor).not.toBeNull();
+      expect(survivor?.predecessors).toEqual([]);
+      const depsAfter = (testDb.prepare('SELECT COUNT(*) c FROM task_deps').get() as { c: number }).c;
+      expect(depsAfter).toBe(0);
+    });
   });
 
   describe('deleteTaskKeepChildren', () => {
