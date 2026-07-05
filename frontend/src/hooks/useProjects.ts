@@ -94,47 +94,44 @@ export function useProjects() {
     setCurrentProject(data.project);
   }
 
-  async function renameProject(project: Project, name: string): Promise<void> {
+  // PATCH → 一覧の差し替え → currentProject の追従、の3連反復を共通化する。
+  // 更新後の Project と（renameProject の URL 追従用に）新しい一覧を返す。
+  async function patchProject(
+    project: Project,
+    body: Record<string, unknown>,
+  ): Promise<{ updated: Project; next: Project[] }> {
     const data = await apiFetch(`/projects/${project.id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(body),
     });
-    const next = projectsRef.current.map(p => p.id === project.id ? data.project : p);
+    const updated = data.project as Project;
+    const next = projectsRef.current.map(p => p.id === project.id ? updated : p);
     setProjects(next);
     projectsRef.current = next;
+    if (currentProject?.id === project.id) setCurrentProjectState(updated);
+    return { updated, next };
+  }
+
+  async function renameProject(project: Project, name: string): Promise<void> {
+    const { updated, next } = await patchProject(project, { name });
     if (currentProject?.id === project.id) {
-      setCurrentProjectState(data.project);
       // いまこのプロジェクトのアドレスを表示中なら、新しい名前/IDのアドレスへ追従する
       const urlKey = parseProjectPath(window.location.pathname);
       if (urlKey !== null && findProjectByPathKey(next, urlKey)?.id === project.id) {
-        window.history.replaceState({}, '', projectPath(data.project, next));
+        window.history.replaceState({}, '', projectPath(updated, next));
       }
     }
   }
 
   async function updateProjectColor(project: Project, color: string | null): Promise<void> {
-    const data = await apiFetch(`/projects/${project.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ color }),
-    });
-    const next = projectsRef.current.map(p => p.id === project.id ? data.project : p);
-    setProjects(next);
-    projectsRef.current = next;
-    if (currentProject?.id === project.id) setCurrentProjectState(data.project);
+    await patchProject(project, { color });
   }
 
   async function updateProjectResource(
     project: Project,
     patch: { capacityMinutesPerDay?: number | null; workingDays?: number[] | null },
   ): Promise<void> {
-    const data = await apiFetch(`/projects/${project.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    });
-    const next = projectsRef.current.map(p => p.id === project.id ? data.project : p);
-    setProjects(next);
-    projectsRef.current = next;
-    if (currentProject?.id === project.id) setCurrentProjectState(data.project);
+    await patchProject(project, patch);
   }
 
   async function deleteProject(project: Project): Promise<void> {

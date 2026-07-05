@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
 import { todayStr, getUniqueAssignees } from '../../utils/ganttCalc';
@@ -143,6 +143,9 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     filterPriority !== '',
     filterAssignee !== '',
   ].filter(Boolean).length;
+
+  // 担当者 datalist の候補。毎レンダーの再計算（tasks 全走査）を避ける
+  const assigneeOptions = useMemo(() => getUniqueAssignees(tasks), [tasks]);
 
   const today = todayStr();
 
@@ -307,7 +310,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 style={{ ...SELECT, width: 100, paddingRight: filterAssignee ? 22 : undefined }}
               />
               <datalist id="assignee-datalist">
-                {getUniqueAssignees(tasks).map(a => <option key={a} value={a} />)}
+                {assigneeOptions.map(a => <option key={a} value={a} />)}
               </datalist>
               {filterAssignee && (
                 <button
