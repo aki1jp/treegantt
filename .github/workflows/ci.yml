@@ -75,8 +75,8 @@ jobs:
         env:
           # テスト間の汚染を避けるため、開発用DBとは別の専用パスを使う。
           DB_PATH: ${{ runner.temp }}/treegantt-e2e.db
-          # 起動時バックアップ（api/src/db/backup.ts）はE2E実行に支障はないが、
-          # CIの一時領域に不要なファイルを残さないよう明示的に無効化する。
+          # 定期バックアップ（api/src/db/backup.ts）を止める。起動時の1回分の
+          # バックアップは runner.temp に残るが、ジョブ終了で破棄されるため実害なし。
           BACKUP_INTERVAL_HOURS: '0'
       - name: Upload Playwright traces/screenshots on failure
         if: failure()
