@@ -72,7 +72,9 @@ test.describe('タスクCRUD', () => {
     await expect(parentText).toBeVisible();
 
     await parentText.click({ button: 'right' });
-    await page.getByRole('button', { name: /子タスクを追加/ }).click();
+    // 「＋ 子追加」にホバーするとフライアウトが開き「タスク」「マイルストーン」を選べる
+    await page.getByRole('button', { name: '＋ 子追加' }).hover();
+    await page.getByRole('button', { name: 'タスク', exact: true }).click();
 
     await expect(page.getByText('タスク作成')).toBeVisible();
     await page.locator('[data-field="title"] input').fill('E2E-child');
