@@ -31,18 +31,31 @@ export function importFromJson(jsonStr: string): { tasks: Task[]; project: Pick<
   return { tasks, project: data.project };
 }
 
+// CSV 式インジェクション対策（OWASP推奨）: Excel等はセル先頭が =+-@ のとき数式として解釈する。
+// ユーザー入力由来の文字列列（title/summary/description/assignee）にのみ適用し、
+// 該当セルの先頭にシングルクォートを付与して無害化する。importFromCsv で往復復元する。
+const RISKY_CSV_PREFIX = /^[=+\-@]/;
+function neutralizeCsvFormula(val: string): string {
+  return RISKY_CSV_PREFIX.test(val) ? `'${val}` : val;
+}
+// neutralizeCsvFormula で付与した先頭 ' を除去して元の値へ復元する（round-trip）。
+// ' で始まっていても直後が =+-@ でなければ通常の値としてそのまま扱う。
+function denormalizeCsvFormula(val: string): string {
+  return val.length >= 2 && val[0] === "'" && RISKY_CSV_PREFIX.test(val[1]) ? val.slice(1) : val;
+}
+
 export function exportToCsv(tasks: Task[]): string {
   const seqMap = new Map(tasks.map(t => [t.id, t.seq]));
   const rows = tasks.map(t => ({
     id: t.seq,
     parentId: t.parentId != null ? (seqMap.get(t.parentId) ?? '') : '',
-    title: t.title,
-    summary: t.summary,
-    description: t.description,
+    title: neutralizeCsvFormula(t.title),
+    summary: neutralizeCsvFormula(t.summary),
+    description: neutralizeCsvFormula(t.description),
     status: t.status,
     priority: t.priority,
     progress: t.progress,
-    assignee: t.assignee,
+    assignee: neutralizeCsvFormula(t.assignee),
     startDate: t.startDate ?? '',
     endDate: t.endDate ?? '',
     isMilestone: t.isMilestone ? '1' : '0',
@@ -59,13 +72,13 @@ export function importFromCsv(csvStr: string): { tasks: Partial<Task>[] } {
   const tasks = result.data.map(row => ({
     id:           row.id || undefined,
     parentId:     row.parentId || null,
-    title:        row.title ?? '',
-    summary:      row.summary ?? '',
-    description:  row.description ?? '',
+    title:        denormalizeCsvFormula(row.title ?? ''),
+    summary:      denormalizeCsvFormula(row.summary ?? ''),
+    description:  denormalizeCsvFormula(row.description ?? ''),
     status:       (row.status as Task['status']) || 'todo',
     priority:     (row.priority as Task['priority']) || 'medium',
     progress:     Number(row.progress) || 0,
-    assignee:     row.assignee ?? '',
+    assignee:     denormalizeCsvFormula(row.assignee ?? ''),
     startDate:    row.startDate ? normalizeDateStr(row.startDate) : null,
     endDate:      row.endDate ? normalizeDateStr(row.endDate) : null,
     isMilestone:  row.isMilestone === '1',

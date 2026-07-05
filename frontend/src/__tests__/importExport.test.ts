@@ -81,6 +81,20 @@ describe('exportToCsv', () => {
     const csv = exportToCsv([]);
     expect(csv).toBe('');
   });
+
+  it('先頭が =+-@ のセルはシングルクォートで中和される（CSV式インジェクション対策）', () => {
+    const task = makeTask({
+      title: '=SUM(A1:A10)',
+      summary: '+cmd|/c calc',
+      description: '-1+1',
+      assignee: '@evil',
+    });
+    const csv = exportToCsv([task]);
+    expect(csv).toContain("'=SUM(A1:A10)");
+    expect(csv).toContain("'+cmd|/c calc");
+    expect(csv).toContain("'-1+1");
+    expect(csv).toContain("'@evil");
+  });
 });
 
 describe('importFromCsv', () => {
@@ -131,6 +145,30 @@ describe('importFromCsv', () => {
     const { tasks } = importFromCsv(csv);
     expect(tasks[0].startDate).toBe('2026-01-10');
     expect(tasks[0].endDate).toBe('2026-01-20');
+  });
+
+  it('CSV式インジェクション中和セルは export→import の往復で元の値に戻る（round-trip）', () => {
+    const task = makeTask({
+      title: '=SUM(A1:A10)',
+      summary: '+cmd|/c calc',
+      description: '-1+1',
+      assignee: '@evil',
+    });
+    const csv = exportToCsv([task]);
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].title).toBe('=SUM(A1:A10)');
+    expect(tasks[0].summary).toBe('+cmd|/c calc');
+    expect(tasks[0].description).toBe('-1+1');
+    expect(tasks[0].assignee).toBe('@evil');
+  });
+
+  it('中和対象外の先頭文字（数字・通常文字）はシングルクォートを付与しない', () => {
+    const task = makeTask({ title: '通常タスク', assignee: '田中' });
+    const csv = exportToCsv([task]);
+    expect(csv).not.toContain("'通常タスク");
+    const { tasks } = importFromCsv(csv);
+    expect(tasks[0].title).toBe('通常タスク');
+    expect(tasks[0].assignee).toBe('田中');
   });
 });
 

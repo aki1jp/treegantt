@@ -878,6 +878,24 @@ describe('Import/Export API', () => {
     expect(res.payload).toContain('"Task, with ""quotes"""');
   });
 
+  it('GET /api/v1/projects/:id/export/csv 先頭が =+-@ のセルはシングルクォートで中和される（CSV式インジェクション対策）', async () => {
+    await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: {
+        title: '=SUM(A1:A10)',
+        summary: '+cmd|/c calc',
+        description: '-1+1',
+        assignee: '@evil',
+      },
+    });
+    const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/export/csv` });
+    expect(res.statusCode).toBe(200);
+    expect(res.payload).toContain("'=SUM(A1:A10)");
+    expect(res.payload).toContain("'+cmd|/c calc");
+    expect(res.payload).toContain("'-1+1");
+    expect(res.payload).toContain("'@evil");
+  });
+
   // ── 基本インポート ───────────────────────────────────
   it('1件インポートできる', async () => {
     const res = await app.inject({

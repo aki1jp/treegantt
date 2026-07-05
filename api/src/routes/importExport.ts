@@ -14,6 +14,14 @@ function escapeCsv(val: string): string {
   return val;
 }
 
+// CSV 式インジェクション対策（OWASP推奨）: Excel等はセル先頭が =+-@ のとき数式として解釈する。
+// ユーザー入力由来の文字列列（title/summary/description/assignee）にのみ適用し、
+// 該当セルの先頭にシングルクォートを付与して無害化する。CSV Import 側で往復復元する。
+const RISKY_CSV_PREFIX = /^[=+\-@]/;
+function neutralizeCsvFormula(val: string): string {
+  return RISKY_CSV_PREFIX.test(val) ? `'${val}` : val;
+}
+
 const VALID_STATUSES   = new Set(['todo', 'wip', 'done', 'wait', 'pending']);
 const VALID_PRIORITIES = new Set(['critical', 'high', 'medium', 'low']);
 
@@ -188,13 +196,13 @@ export async function importExportRoutes(fastify: FastifyInstance) {
         [
           String(t.seq),
           t.parentId != null ? String(seqMap.get(t.parentId) ?? '') : '',
-          t.title,
-          t.summary,
-          t.description,
+          neutralizeCsvFormula(t.title),
+          neutralizeCsvFormula(t.summary),
+          neutralizeCsvFormula(t.description),
           t.status,
           t.priority,
           String(t.progress),
-          t.assignee,
+          neutralizeCsvFormula(t.assignee),
           t.startDate ?? '',
           t.endDate ?? '',
           t.isMilestone ? '1' : '0',
