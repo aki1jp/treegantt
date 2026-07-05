@@ -19,6 +19,7 @@ import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
 import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
+import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 
 const HEADER_ROW_H = 26;
 
@@ -984,26 +985,13 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
                 onContextMenu={isTitleCol ? e => { e.preventDefault(); setTitleHeaderCtxMenu({ x: e.clientX, y: e.clientY }); } : undefined}
               >
                 {isTitleCol && childCount.size > 0 && (
-                  <div style={{ display: 'flex', gap: 1, paddingRight: 4 }}>
-                    {([
-                      { label: '⊟', title: '全て折りたたむ', action: collapseAll },
-                      { label: '1',  title: '1段目まで展開',  action: () => expandToDepth(1) },
-                      { label: '2',  title: '2段目まで展開',  action: () => expandToDepth(2) },
-                      { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
-                      { label: '⊞', title: '全て展開',        action: expandAll },
-                    ] as const).map(({ label, title, action }) => (
-                      <button key={label} title={title} aria-label={title}
-                        onClick={e => { e.stopPropagation(); action(); }}
-                        style={{ border: 'none', background: 'none', cursor: 'pointer',
-                          fontSize: 11, color: 'var(--th-text-dim)', padding: '1px 3px', borderRadius: 2,
-                          lineHeight: 1, fontWeight: 600, fontFamily: 'monospace' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <ExpandCollapseButtons
+                    variant="compact"
+                    collapseAll={collapseAll}
+                    expandToDepth={expandToDepth}
+                    expandAll={expandAll}
+                    onSelect={(action, e) => { e.stopPropagation(); action(); }}
+                  />
                 )}
                 {col.label}
                 {resizable && (
@@ -1419,7 +1407,6 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
               ))}
             </div>
             <div style={{ height: 1, background: 'var(--th-border)' }} />
-            <div style={{ height: 1, background: 'var(--th-border)' }} />
             <button onClick={() => { setCopiedTask(task); close(); }}
               style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
               コピー
@@ -1473,28 +1460,13 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         >
           <div style={{ padding: '6px 10px' }}>
             <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>展開 / 折りたたみ</div>
-            <div style={{ display: 'flex', gap: 2 }}>
-              {([
-                { label: '⊟', title: '全て折りたたむ', action: collapseAll },
-                { label: '1',  title: '1段目まで展開',  action: () => expandToDepth(1) },
-                { label: '2',  title: '2段目まで展開',  action: () => expandToDepth(2) },
-                { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
-                { label: '⊞', title: '全て展開',        action: expandAll },
-              ] as const).map(({ label, title, action }) => (
-                <button key={label} title={title} aria-label={title}
-                  onClick={() => { action(); setTitleHeaderCtxMenu(null); }}
-                  style={{
-                    flex: 1, padding: '4px 0', border: '1px solid var(--th-border)',
-                    background: 'var(--th-bg2)', cursor: 'pointer', fontSize: 12,
-                    color: 'var(--th-text2)', borderRadius: 3, fontFamily: 'monospace', fontWeight: 600,
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; e.currentTarget.style.borderColor = '#a5b4fc'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--th-bg2)'; e.currentTarget.style.color = 'var(--th-text2)'; e.currentTarget.style.borderColor = 'var(--th-border)'; }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <ExpandCollapseButtons
+              variant="boxed"
+              collapseAll={collapseAll}
+              expandToDepth={expandToDepth}
+              expandAll={expandAll}
+              onSelect={(action) => { action(); setTitleHeaderCtxMenu(null); }}
+            />
           </div>
           <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
           <button
