@@ -173,6 +173,14 @@ export default function App() {
     }
   }
 
+  async function handleReorder(orders: { id: string; order: number; parentId?: string | null }[]) {
+    try {
+      await reorderTasks(orders);
+    } catch (err) {
+      showToast('並び替えに失敗しました: ' + (err as Error).message, 'error');
+    }
+  }
+
   async function handleQuickAdd(title: string) {
     if (!currentProject) return;
     try {
@@ -333,7 +341,7 @@ export default function App() {
                 onQuickAdd={handleQuickAdd}
                 onAddSubTask={handleAddSubTask}
                 onAddSubMilestone={handleAddSubMilestone}
-                onReorder={reorderTasks}
+                onReorder={handleReorder}
                 onCopyInsert={handleCopyInsert}
                 capacityMinutesPerDay={effectiveCapacityMinutes}
                 workingDays={effectiveWorkingDays}

@@ -75,6 +75,7 @@ interface RouterState {
   projects: Project[];
   tasksByProject: Record<string, Task[]>;
   failPatch?: boolean;
+  failReorder?: boolean;
   requests: { url: string; method: string; body?: unknown }[];
 }
 
@@ -107,14 +108,15 @@ function makeFetchMock(state: RouterState) {
       return jsonResponse({ tasks: newTasks });
     }
 
+    if (url.includes('/tasks/reorder') && method === 'PATCH') {
+      if (state.failReorder) return jsonResponse({ error: 'reorder failed' }, false, 500);
+      return jsonResponse({});
+    }
+
     if (url.match(/\/tasks\/[^/?]+\/?$/) && method === 'PATCH') {
       if (state.failPatch) return jsonResponse({ error: 'update failed' }, false, 500);
       const idMatch = url.match(/\/tasks\/([^/?]+)/)!;
       return jsonResponse({ task: makeTask({ id: idMatch[1], ...body }) });
-    }
-
-    if (url.includes('/tasks/reorder') && method === 'PATCH') {
-      return jsonResponse({});
     }
 
     if (url.match(/\/tasks\/[^/?]+/) && method === 'DELETE') {
@@ -265,5 +267,23 @@ describe('App — エラー経路（D1: トースト表示）', () => {
     });
     // 楽観的更新がロールバックされ、元のタイトルに戻る
     expect(useTaskStore.getState().tasks[0].title).toBe(originalTitle);
+  });
+
+  it('行D&Dの並び替えが失敗するとロールバックしてエラートーストを表示する', async () => {
+    routerState.failReorder = true;
+    render(<App />);
+    await waitFor(() => expect(useTaskStore.getState().tasks).toHaveLength(1));
+    const originalOrder = useTaskStore.getState().tasks[0].order;
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('reorder'));
+    });
+
+    await waitFor(() => {
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.type === 'error' && t.message.includes('並び替えに失敗しました'))).toBe(true);
+    });
+    // 楽観的並び替えがロールバックされ、元の order に戻る
+    expect(useTaskStore.getState().tasks[0].order).toBe(originalOrder);
   });
 });
