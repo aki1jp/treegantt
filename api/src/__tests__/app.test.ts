@@ -66,4 +66,22 @@ describe('buildApp（本番配線）', () => {
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  it('500系エラーは内部メッセージを返さず汎用文言にマスキングする', async () => {
+    // ルートハンドラが例外を投げるケースを独自ルートで再現する（本文に機密情報を含む想定）
+    const throwingApp = await buildApp();
+    throwingApp.get('/__boom', async () => {
+      throw new Error('DB_PATH=/app/data/treegantt.db 接続に失敗しました（スタック由来の内部情報）');
+    });
+    await throwingApp.ready();
+
+    const res = await throwingApp.inject({ method: 'GET', url: '/__boom' });
+    expect(res.statusCode).toBe(500);
+    const body = res.json();
+    expect(body.error).toBe('Internal Server Error');
+    expect(body.error).not.toContain('DB_PATH');
+    expect(body).toHaveProperty('code');
+
+    await throwingApp.close();
+  });
 });

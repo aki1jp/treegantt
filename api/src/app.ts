@@ -34,8 +34,18 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   await app.register(importExportRoutes, { prefix: API_PREFIX });
   await app.register(settingsRoutes, { prefix: API_PREFIX });
 
-  app.setErrorHandler((err: FastifyError, _req, reply) => {
+  app.setErrorHandler((err: FastifyError, req, reply) => {
     const statusCode = err.statusCode ?? 500;
+    // 5xx は内部詳細（スタック由来のメッセージ等）を返さず汎用文言にマスキングする。
+    // 詳細は logger にのみ出力する。4xx はバリデーション等でメッセージをそのまま使う。
+    if (statusCode >= 500) {
+      req.log.error(err);
+      reply.code(statusCode).send({
+        error: 'Internal Server Error',
+        code: err.code ?? 'INTERNAL_ERROR',
+      });
+      return;
+    }
     reply.code(statusCode).send({
       error: err.message,
       code: err.code ?? 'INTERNAL_ERROR',
