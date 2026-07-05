@@ -14,6 +14,12 @@ function major(range: string | undefined): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
+// "^8.21.0" / "8.21.0" などから minor 番号を取り出す（major.minor の2つ目の数値）
+function minor(range: string | undefined): number {
+  const m = (range ?? '').match(/(\d+)\.(\d+)/);
+  return m ? parseInt(m[2], 10) : 0;
+}
+
 describe('依存パッケージのセキュリティガード', () => {
   // fast-jwt@<=6.2.3 は CRITICAL（空HMACシークレットによる JWT 認証バイパス
   // GHSA-gmvf-9v4p-v8jc 他）。未使用のため削除済み。再混入を防ぐ。
@@ -38,5 +44,13 @@ describe('依存パッケージのセキュリティガード', () => {
   // uuid <11.1.1 は MODERATE（buf 提供時のバッファ境界チェック欠如 GHSA-w5hq-g745-h8pq）。
   it('uuid は major 11 以上（脆弱性修正版）', () => {
     expect(major(allDeps['uuid'])).toBeGreaterThanOrEqual(11);
+  });
+
+  // ws 8.0.0-8.20.1 は HIGH（tiny fragments/data chunks によるメモリ枯渇 DoS
+  // GHSA-96hv-2xvq-fx4p）。8.21.0 で解消。巻き戻り防止のため major.minor を強制する。
+  it('ws は 8.21.0 以上（HIGH: メモリ枯渇 DoS の修正版）', () => {
+    const range = allDeps['ws'];
+    const isFixed = major(range) > 8 || (major(range) === 8 && minor(range) >= 21);
+    expect(isFixed).toBe(true);
   });
 });
