@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import { join } from 'path';
+
+// リポジトリルート（e2e/ の一つ上）。チェックアウト先の絶対パスは環境（ローカル /workspace・
+// GitHub Actions の /home/runner/work/... 等）で異なるため、ハードコードせずここから解決する。
+// e2e/ には "type": "module" が無く CommonJS として読み込まれるため、素の __dirname を使える
+// （import.meta.url は playwright の設定ローダーと衝突するため使わない）。
+const REPO_ROOT = join(__dirname, '..');
 
 const FRONTEND_PORT = process.env.FRONTEND_PORT ?? '3001';
 const BASE_URL = `http://127.0.0.1:${FRONTEND_PORT}`;
@@ -37,13 +44,13 @@ export default defineConfig({
 
   webServer: [
     {
-      command: `cd /workspace/api && PORT=${API_PORT} npm run dev`,
+      command: `cd ${join(REPO_ROOT, 'api')} && PORT=${API_PORT} npm run dev`,
       port: Number(API_PORT),
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
-      command: `cd /workspace/frontend && FRONTEND_PORT=${FRONTEND_PORT} npm run dev`,
+      command: `cd ${join(REPO_ROOT, 'frontend')} && FRONTEND_PORT=${FRONTEND_PORT} npm run dev`,
       url: BASE_URL,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

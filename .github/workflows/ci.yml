@@ -43,3 +43,46 @@ jobs:
       - run: npm run lint
       - run: npm test -- --run
       - run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            api/package-lock.json
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Install api dependencies
+        working-directory: api
+        run: npm ci
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright tests
+        working-directory: e2e
+        run: npx playwright test
+        env:
+          # テスト間の汚染を避けるため、開発用DBとは別の専用パスを使う。
+          DB_PATH: ${{ runner.temp }}/treegantt-e2e.db
+          # 起動時バックアップ（api/src/db/backup.ts）はE2E実行に支障はないが、
+          # CIの一時領域に不要なファイルを残さないよう明示的に無効化する。
+          BACKUP_INTERVAL_HOURS: '0'
+      - name: Upload Playwright traces/screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
