@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useImportExport } from '../hooks/useImportExport';
+import { useToastStore } from '../store/toastStore';
 import type { Task, Project } from '../types/task';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -34,6 +35,7 @@ beforeEach(() => {
     return origCreateElement(tag);
   });
   vi.spyOn(window, 'alert').mockImplementation(() => {});
+  useToastStore.setState({ toasts: [] });
 });
 
 afterEach(() => {
@@ -174,7 +176,7 @@ describe('useImportExport — handleFileChange (JSON)', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('API エラー時は alert を表示する', async () => {
+  it('API エラー時はエラートーストを表示する（alert は使わない）', async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false, status: 400,
       json: async () => ({ error: 'Invalid format' }),
@@ -189,10 +191,12 @@ describe('useImportExport — handleFileChange (JSON)', () => {
       await result.current.handleFileChange(event);
     });
 
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('インポートに失敗しました'));
+    expect(window.alert).not.toHaveBeenCalled();
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts.some(t => t.type === 'error' && t.message.includes('インポートに失敗しました'))).toBe(true);
   });
 
-  it('不正な JSON は alert を表示する', async () => {
+  it('不正な JSON はエラートーストを表示する（alert は使わない）', async () => {
     const { result } = renderHook(() => useImportExport(project, [], vi.fn()));
 
     const file = new File(['{invalid json'], 'export.json', { type: 'application/json' });
@@ -202,7 +206,9 @@ describe('useImportExport — handleFileChange (JSON)', () => {
       await result.current.handleFileChange(event);
     });
 
-    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('インポートに失敗しました'));
+    expect(window.alert).not.toHaveBeenCalled();
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts.some(t => t.type === 'error' && t.message.includes('インポートに失敗しました'))).toBe(true);
     expect(fetch).not.toHaveBeenCalled();
   });
 

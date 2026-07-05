@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useProjects } from '../hooks/useProjects';
+import { useToastStore } from '../store/toastStore';
 
 function makeProject(id: string, name: string) {
   return { id, name, color: null, capacityMinutesPerDay: null, workingDays: null, createdAt: '2026-01-01' };
@@ -11,6 +12,7 @@ beforeEach(() => {
   localStorage.clear();
   window.history.pushState({}, '', '/'); // URL をトップにリセット
   vi.stubGlobal('fetch', vi.fn());
+  useToastStore.setState({ toasts: [] });
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -246,5 +248,40 @@ describe('useProjects — URL（アドレス）連携', () => {
     await act(async () => {});
     expect(result.current.currentProject?.id).toBe('p1');
     expect(window.location.pathname).toBe('/');
+  });
+});
+
+describe('useProjects — 初回ロード失敗（D1: トースト + 再試行）', () => {
+  it('初回ロード失敗時に error が設定され、loading は false になる', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('network down'));
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeTruthy();
+  });
+
+  it('初回ロード失敗時にエラートーストが追加される', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('network down'));
+
+    renderHook(() => useProjects());
+    await act(async () => {});
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts.some(t => t.type === 'error')).toBe(true);
+  });
+
+  it('retry を呼ぶと再取得し、成功すれば error が消える', async () => {
+    const p1 = makeProject('p1', 'Alpha');
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(result.current.error).toBeTruthy();
+
+    await act(async () => { result.current.retry(); });
+    expect(result.current.error).toBeNull();
+    expect(result.current.projects).toHaveLength(1);
   });
 });

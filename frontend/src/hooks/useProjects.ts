@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Project } from '../types/task';
 import { apiFetch } from '../utils/api';
+import { showToast } from '../store/toastStore';
 import {
   parseProjectPath,
   projectPath,
@@ -14,6 +15,8 @@ export function useProjects() {
   const [projects, setProjects]                   = useState<Project[]>([]);
   const [currentProject, setCurrentProjectState]  = useState<Project | null>(null);
   const [loading, setLoading]                     = useState(true);
+  const [error, setError]                         = useState<string | null>(null);
+  const [retryTick, setRetryTick]                 = useState(0);
   // popstate / 改名などで最新の projects を参照するため ref に保持する
   const projectsRef = useRef<Project[]>([]);
   useEffect(() => { projectsRef.current = projects; }, [projects]);
@@ -35,9 +38,11 @@ export function useProjects() {
   }
 
   useEffect(() => {
+    setLoading(true);
     apiFetch('/projects')
       .then(d => {
         const list = d.projects as Project[];
+        setError(null);
         setProjects(list);
         projectsRef.current = list;
         if (list.length > 0) {
@@ -54,8 +59,12 @@ export function useProjects() {
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch((err: Error) => {
+        setError('プロジェクト一覧の取得に失敗しました');
+        showToast('プロジェクト一覧の取得に失敗しました: ' + err.message, 'error');
+        setLoading(false);
+      });
+  }, [retryTick]);
 
   // 戻る/進む（popstate）でアドレスからプロジェクトを再解決する（pushState しない）
   useEffect(() => {
@@ -136,5 +145,9 @@ export function useProjects() {
     setCurrentProject(remaining.length > 0 ? remaining[0] : null);
   }
 
-  return { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject };
+  return {
+    projects, currentProject, setCurrentProject, loading, error,
+    retry: () => setRetryTick(t => t + 1),
+    createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject,
+  };
 }

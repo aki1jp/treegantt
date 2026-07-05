@@ -12,13 +12,16 @@ import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
 import { DeleteTaskDialog, type DeleteMode } from './components/DeleteTaskDialog/DeleteTaskDialog';
 import type { Task, Project } from './types/task';
-import { apiFetch, fetchAllTasks, fetchHealth, fetchSettings, updateAppSettings } from './utils/api';
+import { apiFetch, fetchHealth, fetchSettings, updateAppSettings } from './utils/api';
 import { useSettingsStore } from './store/settingsStore';
 import { resolveCapacityMinutes, resolveWorkingDays } from './utils/duration';
 import { ResourceSettingsModal } from './components/ResourceSettingsModal/ResourceSettingsModal';
 import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { computeInsertOrder } from './utils/ganttCalc';
+import { useProjectTasks } from './hooks/useProjectTasks';
+import { showToast } from './store/toastStore';
+import { ToastContainer } from './components/Toast/Toast';
 
 export default function App() {
   const [modalTask, setModalTask]           = useState<Task | null | undefined>(undefined);
@@ -31,8 +34,11 @@ export default function App() {
   const [settingsModal, setSettingsModal] = useState<'app' | Project | null>(null);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
-  const { tasks, setTasks, needsReload, setNeedsReload, theme, setTheme } = useTaskStore();
-  const { projects, currentProject, setCurrentProject, loading, createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject } = useProjects();
+  const { tasks, setTasks, theme, setTheme } = useTaskStore();
+  const {
+    projects, currentProject, setCurrentProject, loading, error: projectsError, retry: retryProjects,
+    createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject,
+  } = useProjects();
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);
@@ -41,23 +47,23 @@ export default function App() {
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
     useImportExport(currentProject, tasks, setTasks);
 
-  // バックエンドのバージョンを初回ロード時に取得（ハンバーガーメニュー表示用）
+  // バックエンドのバージョンを初回ロード時に取得（ハンバーガーメニュー表示用。失敗は付加情報のためトーストのみ）
   useEffect(() => {
     let alive = true;
     fetchHealth()
       .then(h => { if (alive) setBackendVersion(h.version ?? null); })
-      .catch(() => {});
+      .catch((err: Error) => showToast('バージョン情報の取得に失敗しました: ' + err.message, 'error'));
     return () => { alive = false; };
   }, []);
 
-  // リソース設定（アプリ既定）を初回ロード時に取得（失敗時はハードコード既定のまま）
+  // リソース設定（アプリ既定）を初回ロード時に取得（失敗時はハードコード既定のまま。トーストで可視化）
   const setAppSettings = useSettingsStore(s => s.setAppSettings);
   const appSettings = useSettingsStore(s => s.appSettings);
   useEffect(() => {
     let alive = true;
     fetchSettings()
       .then(s => { if (alive) setAppSettings(s); })
-      .catch(() => {});
+      .catch((err: Error) => showToast('リソース設定の取得に失敗しました: ' + err.message, 'error'));
     return () => { alive = false; };
   }, [setAppSettings]);
 
@@ -67,39 +73,26 @@ export default function App() {
   const effectiveWorkingDays = resolveWorkingDays(
     currentProject?.workingDays, appSettings.workingDays);
 
-  // プロジェクト切り替え時: タスクを REST から即時取得
-  useEffect(() => {
-    if (!currentProject) return;
-    fetchAllTasks(currentProject.id)
-      .then(d => {
-        setTasks(d.tasks);
-        setTaskCounts(prev => ({ ...prev, [currentProject.id]: d.total }));
-      })
-      .catch(() => {});
-  }, [currentProject?.id]);
+  // プロジェクト切り替え時・reload イベント受信時のタスク取得（失敗時トースト＋再試行, §9.9）
+  const { error: tasksError, retry: retryTasks } = useProjectTasks(currentProject?.id, (total) => {
+    if (currentProject) setTaskCounts(prev => ({ ...prev, [currentProject.id]: total }));
+  });
 
-  // 全プロジェクトのタスク件数を初回ロード時に並列取得
+  // 全プロジェクトのタスク件数を初回ロード時に並列取得（1件でも失敗したら集約トースト）
   useEffect(() => {
     if (projects.length === 0) return;
+    let anyFailed = false;
     Promise.all(
       projects.map(p =>
         apiFetch(`/projects/${p.id}/tasks?limit=1`)
           .then(d => ({ id: p.id, total: d.total as number }))
-          .catch(() => ({ id: p.id, total: 0 }))
+          .catch(() => { anyFailed = true; return { id: p.id, total: 0 }; })
       )
     ).then(results => {
       setTaskCounts(Object.fromEntries(results.map(r => [r.id, r.total])));
+      if (anyFailed) showToast('一部プロジェクトのタスク件数取得に失敗しました', 'error');
     });
   }, [projects.map(p => p.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // reload イベント受信時（import 後など）: タスクを再フェッチ
-  useEffect(() => {
-    if (!needsReload || !currentProject) return;
-    setNeedsReload(false);
-    fetchAllTasks(currentProject.id)
-      .then(d => setTasks(d.tasks))
-      .catch(() => {});
-  }, [needsReload]);
 
   async function handleCreateProject() {
     const name = prompt('プロジェクト名を入力してください');
@@ -113,7 +106,7 @@ export default function App() {
     try {
       await renameProject(project, name);
     } catch (err) {
-      alert('名前の変更に失敗しました: ' + (err as Error).message);
+      showToast('名前の変更に失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
@@ -122,7 +115,7 @@ export default function App() {
     try {
       await deleteProject(project);
     } catch (err) {
-      alert('削除に失敗しました: ' + (err as Error).message);
+      showToast('削除に失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
@@ -137,7 +130,7 @@ export default function App() {
       setModalTask(undefined);
       setModalInitialParentId(undefined);
     } catch (err) {
-      alert('保存に失敗しました: ' + (err as Error).message);
+      showToast('保存に失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
@@ -145,7 +138,7 @@ export default function App() {
     try {
       await updateTask(id, patch);
     } catch (err) {
-      alert('更新に失敗しました: ' + (err as Error).message);
+      showToast('更新に失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
@@ -164,7 +157,7 @@ export default function App() {
       try {
         await deleteTask(id);
       } catch (err) {
-        alert('削除に失敗しました: ' + (err as Error).message);
+        showToast('削除に失敗しました: ' + (err as Error).message, 'error');
       }
       return;
     }
@@ -177,7 +170,7 @@ export default function App() {
     try {
       await deleteTask(deleteTarget.id, mode);
     } catch (err) {
-      alert('削除に失敗しました: ' + (err as Error).message);
+      showToast('削除に失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
@@ -186,7 +179,7 @@ export default function App() {
     try {
       await createTask({ title, projectId: currentProject.id });
     } catch (err) {
-      alert('追加に失敗しました: ' + (err as Error).message);
+      showToast('追加に失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
@@ -288,11 +281,35 @@ export default function App() {
 
       await reorderTasks(ordered.map((t, i) => ({ id: t.id, order: i + 1, parentId })));
     } catch (err) {
-      alert('コピーに失敗しました: ' + (err as Error).message);
+      showToast('コピーに失敗しました: ' + (err as Error).message, 'error');
     }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>読み込み中...</div>;
+  if (loading) return (
+    <>
+      <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>読み込み中...</div>
+      <ToastContainer />
+    </>
+  );
+
+  // プロジェクト一覧の初回取得に失敗（無言で握りつぶさず、再試行ボタン付きで可視化, §9.9）
+  if (projectsError) return (
+    <>
+      <div style={{
+        height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 16, background: 'var(--th-bg)', color: 'var(--th-text)',
+      }}>
+        <p>{projectsError}</p>
+        <button onClick={retryProjects} style={{
+          padding: '10px 24px', background: '#4f46e5', color: '#fff',
+          border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,
+        }}>
+          再試行
+        </button>
+      </div>
+      <ToastContainer />
+    </>
+  );
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--th-bg)', color: 'var(--th-text)' }}>
@@ -347,33 +364,45 @@ export default function App() {
       </div>
 
       {currentProject ? (
-        <>
-          <Toolbar
-            onAddTask={() => { setModalIsMilestone(false); setModalTask(null); }}
-            onAddMilestone={() => { setModalIsMilestone(true); setModalTask(null); }}
-            onImport={() => handleImportClick('append')}
-            onRestore={() => handleImportClick('restore')}
-            onExportJson={handleExportJson}
-            onExportCsv={handleExportCsv}
-            onOpenResourceSettings={() => setSettingsModal('app')}
-            backendVersion={backendVersion ?? undefined}
-          />
-          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <GanttChart
-              projectId={currentProject.id}
-              onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
-              onDeleteTask={handleDeleteTask}
-              onInlineUpdate={handleInlineUpdate}
-              onQuickAdd={handleQuickAdd}
-              onAddSubTask={handleAddSubTask}
-              onAddSubMilestone={handleAddSubMilestone}
-              onReorder={reorderTasks}
-              onCopyInsert={handleCopyInsert}
-              capacityMinutesPerDay={effectiveCapacityMinutes}
-              workingDays={effectiveWorkingDays}
-            />
+        tasksError ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+            <p style={{ color: 'var(--th-text-muted)' }}>{tasksError}</p>
+            <button onClick={retryTasks} style={{
+              padding: '10px 24px', background: '#4f46e5', color: '#fff',
+              border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,
+            }}>
+              再試行
+            </button>
           </div>
-        </>
+        ) : (
+          <>
+            <Toolbar
+              onAddTask={() => { setModalIsMilestone(false); setModalTask(null); }}
+              onAddMilestone={() => { setModalIsMilestone(true); setModalTask(null); }}
+              onImport={() => handleImportClick('append')}
+              onRestore={() => handleImportClick('restore')}
+              onExportJson={handleExportJson}
+              onExportCsv={handleExportCsv}
+              onOpenResourceSettings={() => setSettingsModal('app')}
+              backendVersion={backendVersion ?? undefined}
+            />
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <GanttChart
+                projectId={currentProject.id}
+                onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
+                onDeleteTask={handleDeleteTask}
+                onInlineUpdate={handleInlineUpdate}
+                onQuickAdd={handleQuickAdd}
+                onAddSubTask={handleAddSubTask}
+                onAddSubMilestone={handleAddSubMilestone}
+                onReorder={reorderTasks}
+                onCopyInsert={handleCopyInsert}
+                capacityMinutesPerDay={effectiveCapacityMinutes}
+                workingDays={effectiveWorkingDays}
+              />
+            </div>
+          </>
+        )
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
           <p style={{ color: 'var(--th-text-muted)' }}>プロジェクトがありません</p>
@@ -423,7 +452,7 @@ export default function App() {
                 workingDays: patch.workingDays ?? undefined,
               });
               setAppSettings(updated);
-            } catch (err) { alert('保存に失敗しました: ' + (err as Error).message); }
+            } catch (err) { showToast('保存に失敗しました: ' + (err as Error).message, 'error'); }
             setSettingsModal(null);
           }}
         />
@@ -441,7 +470,7 @@ export default function App() {
           onSave={async (patch) => {
             try {
               await updateProjectResource(settingsModal, patch);
-            } catch (err) { alert('保存に失敗しました: ' + (err as Error).message); }
+            } catch (err) { showToast('保存に失敗しました: ' + (err as Error).message, 'error'); }
             setSettingsModal(null);
           }}
         />
@@ -458,6 +487,8 @@ export default function App() {
 
       <input ref={fileInputRef} type="file" accept=".json,.csv" style={{ display: 'none' }}
         onChange={handleFileChange} />
+
+      <ToastContainer />
     </div>
   );
 }

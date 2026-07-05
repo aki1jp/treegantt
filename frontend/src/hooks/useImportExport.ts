@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import type { Task, Project } from '../types/task';
 import { apiFetch } from '../utils/api';
+import { showToast } from '../store/toastStore';
 import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from '../utils/importExport';
 
 function exportFileName(project: Project, ext: string): string {
@@ -55,7 +56,7 @@ export function useImportExport(
       const data = await apiFetch(`/projects/${currentProject.id}/tasks`);
       setTasks(data.tasks as Task[]);
     } catch (err) {
-      alert('インポートに失敗しました: ' + (err as Error).message);
+      showToast('インポートに失敗しました: ' + (err as Error).message, 'error');
     }
     e.target.value = '';
   }
