@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.3.2** |
-| ドキュメント版 | 0.2.139 |
+| ドキュメント版 | 0.2.140 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -358,9 +358,11 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `App` | 全体オーケストレーション。プロジェクト/タスク取得、WS 接続、モーダル制御、`/health` 取得（バック版） |
 | `Toolbar` | 操作系（追加/Import/Export）・フィルタ・ガント表示設定・テーマ・ハンバーガーメニュー（バージョン表示・API仕様書リンク） |
 | `ProjectTabs` | プロジェクトのタブ切替・作成・改名・色・削除 |
-| `GanttChart` | WBS 左パネル（`WbsPanel`）＋右タイムライン SVG の統合。フィルタ適用・ツリー構築・行仮想化・派生計算（進捗/スパン/CPM/イナズマ）を担う「本体」。バー移動/リサイズ/作成ドラッグ（`useBarDrag`）・依存リンクドラッグ（`useLinkDrag`）・WBS 行 D&D（`useRowDnd`）は専用フックへ、右クリックメニュー群（`TaskContextMenus`）と WBS 左パネル（`WbsPanel`）は専用コンポーネントへそれぞれ委譲する |
+| `GanttChart` | WBS 左パネル（`WbsPanel`）＋右タイムライン SVG の統合。フィルタ適用・ツリー構築・行仮想化・派生計算（進捗/スパン/CPM/イナズマ）を担う「本体」。バー移動/リサイズ/作成ドラッグ（`useBarDrag`）・依存リンクドラッグ（`useLinkDrag`）・WBS 行 D&D（`useRowDnd`）は専用フックへ、右クリックメニュー群（`TaskContextMenus`）・WBS 左パネル（`WbsPanel`）・ガントヘッダー（`GanttTimelineHeader`）・SVG 本体（`GanttSvgBody`）は専用コンポーネントへそれぞれ委譲する |
 | `WbsPanel` | WBS 左パネル（ヘッダー・列リサイズ・展開/折りたたみクラスタ・行仮想化・行 D&D・列表示設定ポップアップ・`QuickAddRow`） |
 | `QuickAddRow` | WBS 最終行のクイック追加インライン入力（`WbsPanel` から利用） |
+| `GanttTimelineHeader` | ガント右パネルのマルチレベル日付ヘッダー（sticky・土日/マイルストーン強調セル・マイルストーン◆マーカー多段レーン行） |
+| `GanttSvgBody` | ガント右パネルの SVG 本体（縞背景・土日/マイルストーン列・タスクバー・依存矢印・コネクタドット・リンクドラッグプレビュー・今日ライン・イナズマライン） |
 | `TaskContextMenus` | バー/行/依存矢印/タイトル列見出しの右クリックメニュー群（編集・色パレット・コピー＆挿入・削除・依存解除・展開折りたたみ一括操作） |
 | `ExpandCollapseButtons` | 展開/折りたたみ操作ボタン群（⊟/1/2/3/⊞）。`WbsPanel` のタイトル列見出しと `TaskContextMenus` のタイトル列見出しメニューで共通利用（旧: 重複定義） |
 | `GanttLeftRow` | WBS 1 行（インライン編集・進捗バー・折りたたみトグル） |
@@ -868,3 +870,4 @@ CI・ESLint・`typecheck` npm script は **導入済み**（16.5 参照）。残
 | 0.2.137 | 2026/7 | §9.9 のトースト対象一覧に `useImportExport` の Import 失敗（従来 `alert()`）を追記。0.2.136 で洗い出した `alert()` 撤去対象の見落としを反映（App.tsx 以外にも Import 失敗の `alert()` があったため）。 |
 | 0.2.138 | 2026/7 | アクセシビリティの基本方針を追加（新設§9.10）。記号・絵文字のみのアイコンボタン（`GanttChart`/`GanttLeftRow`/`Toolbar`/`ProjectTabs` の開閉トグル・展開折りたたみ・色パレット・フィルタクリア等）への `aria-label` 必須化と、`Toolbar` のフィルタ用 `<input>`/`<select>` への `aria-label` 付与を明記。D&D のキーボード代替・フォーカストラップ・コントラスト監査は今回スコープ外として§17.2 の将来課題に整理。 |
 | 0.2.139 | 2026/7 | `GanttChart.tsx`（約1560行）の責務分割を明記（§7.2・§7.3）。挙動不変のリファクタとして、バー移動/リサイズ/作成ドラッグを `useBarDrag`、依存リンクドラッグを `useLinkDrag`、WBS 行 D&D を `useRowDnd` の各フックへ、WBS 左パネルを `WbsPanel`（＋ `QuickAddRow`）、右クリックメニュー群を `TaskContextMenus` の各コンポーネントへ抽出する方針を追加。展開/折りたたみボタン（⊟/1/2/3/⊞）の重複定義は共通コンポーネント `ExpandCollapseButtons` に統合。`useProjectTasks`/`copyBatch`（D1/D2 で追加済みだったが構成記述への反映が漏れていた）も§7.3 に追記。 |
+| 0.2.140 | 2026/7 | `GanttChart.tsx` の責務分割（0.2.139）の対象に、ガントヘッダー（`GanttTimelineHeader`＝マルチレベル日付ヘッダー・◆マーカー多段レーン行）と SVG 本体（`GanttSvgBody`＝縞背景・タスクバー・依存矢印・コネクタドット・ライン類）の抽出を追加（§7.2）。`GanttChart` 本体はフィルタ/ツリー/仮想化/派生計算のオーケストレーションに縮小。 |
