@@ -16,8 +16,7 @@ import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
-import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
-import { ExpandCollapseButtons } from './ExpandCollapseButtons';
+import { TaskContextMenus, type DepCtxMenu } from './TaskContextMenus';
 import { useRowDnd } from './useRowDnd';
 import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
@@ -43,7 +42,6 @@ const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 // CREATE_DRAG_THRESHOLD_PX は既存の import 元（テスト等）互換のためここから再エクスポートする。
 export { CREATE_DRAG_THRESHOLD_PX } from './useBarDrag';
 
-interface DepCtxMenu { x: number; y: number; fromTaskId: string; toTaskId: string; }
 
 // ── 階層展開ヘルパー ──────────────────────────────────
 function collectCollapsedByDepth(nodes: TreeNode[], targetDepth: number, acc: Set<string>): void {
@@ -52,22 +50,6 @@ function collectCollapsedByDepth(nodes: TreeNode[], targetDepth: number, acc: Se
     collectCollapsedByDepth(node.children, targetDepth, acc);
   }
 }
-
-// ── 色パレット ───────────────────────────────────────
-const COLOR_PALETTE: (string | null)[] = [
-  null,
-  '#000000', '#6b7280', '#ffffff',
-  '#ef4444', '#f97316', '#eab308',
-  '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899',
-];
-
-// ── コンテキストメニュー共通スタイル ─────────────────
-const MENU_BTN: React.CSSProperties = {
-  display: 'block', width: '100%', padding: '8px 14px', border: 'none',
-  background: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--th-text2)',
-};
-const onMenuEnter = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'var(--th-bg2)'; };
-const onMenuLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'none'; };
 
 // ── メインコンポーネント ──────────────────────────────
 interface Props {
@@ -813,137 +795,30 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         </div>
       </div>
 
-      {/* コンテキストメニュー（position: fixed なのでどこに置いても動作する） */}
-      {[
-        barCtxMenu && { menu: barCtxMenu, close: () => setBarCtxMenu(null) },
-        rowCtxMenu && { menu: rowCtxMenu, close: () => setRowCtxMenu(null) },
-      ].map((entry, i) => {
-        if (!entry) return null;
-        const { menu, close } = entry;
-        const task = taskById.get(menu.taskId);
-        if (!task) return null;
-        return (
-          <ContextMenu key={i} x={menu.x} y={menu.y}
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => e.stopPropagation()}
-          >
-            {!task.isMilestone && (
-              <>
-                <AddChildMenuItem
-                  onAddTask={() => { onAddSubTask(task.id); close(); }}
-                  onAddMilestone={() => { onAddSubMilestone?.(task.id); close(); }}
-                />
-                <div style={{ height: 1, background: 'var(--th-border)' }} />
-              </>
-            )}
-            <button onClick={() => { onEditTask(task); close(); }}
-              style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-              編集（詳細）
-            </button>
-            <div style={{ height: 1, background: 'var(--th-border)' }} />
-            {/* 色パレット */}
-            <div style={{ padding: '6px 10px' }}>
-              {([
-                { label: '文字色', field: 'titleColor' as const },
-                { label: '背景色', field: 'titleBgColor' as const },
-              ] as { label: string; field: 'titleColor' | 'titleBgColor' }[]).map(({ label, field }) => (
-                <div key={field} style={{ marginBottom: 4 }}>
-                  <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 3 }}>{label}</div>
-                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                    {COLOR_PALETTE.map((c, ci) => (
-                      <button
-                        key={ci}
-                        title={c ?? 'リセット'}
-                        aria-label={c ?? 'リセット'}
-                        onClick={() => { onInlineUpdate(task.id, { [field]: c }); close(); }}
-                        style={{
-                          width: 18, height: 18, borderRadius: '50%', border: '1px solid #9ca3af',
-                          background: c ?? '#ffffff', cursor: 'pointer', padding: 0, flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 10, color: '#9ca3af', lineHeight: 1,
-                        }}
-                      >
-                        {c === null ? '✕' : ''}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ height: 1, background: 'var(--th-border)' }} />
-            <button onClick={() => { setCopiedTask(task); close(); }}
-              style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-              コピー
-            </button>
-            {copiedTask && (
-              <button onClick={() => { onCopyInsert(copiedTask, task.parentId, null, task.id); close(); }}
-                style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-                上に挿入
-              </button>
-            )}
-            <div style={{ height: 1, background: 'var(--th-border)' }} />
-            <button onClick={() => { onDeleteTask(task.id); close(); }}
-              style={{ ...MENU_BTN, color: '#ef4444' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
-              onMouseLeave={onMenuLeave}>
-              削除
-            </button>
-          </ContextMenu>
-        );
-      })}
-
-      {/* 依存矢印右クリック: 依存を解除 */}
-      {depCtxMenu && (
-        <ContextMenu x={depCtxMenu.x} y={depCtxMenu.y}
-          onMouseDown={e => e.stopPropagation()}
-          onClick={e => e.stopPropagation()}
-        >
-          <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--th-text-muted)' }}>依存関係</div>
-          <button
-            onClick={() => {
-              const target = taskById.get(depCtxMenu.toTaskId);
-              if (target) {
-                onInlineUpdate(depCtxMenu.toTaskId, { predecessors: target.predecessors.filter(p => p !== depCtxMenu.fromTaskId) });
-              }
-              setDepCtxMenu(null);
-            }}
-            style={{ ...MENU_BTN, color: '#ef4444' }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
-            onMouseLeave={onMenuLeave}
-          >
-            依存を解除
-          </button>
-        </ContextMenu>
-      )}
-
-      {/* タイトル列ヘッダー右クリック: 全タスク色一括リセット */}
-      {titleHeaderCtxMenu && (
-        <ContextMenu x={titleHeaderCtxMenu.x} y={titleHeaderCtxMenu.y}
-          onMouseDown={e => e.stopPropagation()}
-          onClick={e => e.stopPropagation()}
-        >
-          <div style={{ padding: '6px 10px' }}>
-            <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>展開 / 折りたたみ</div>
-            <ExpandCollapseButtons
-              variant="boxed"
-              collapseAll={collapseAll}
-              expandToDepth={expandToDepth}
-              expandAll={expandAll}
-              onSelect={(action) => { action(); setTitleHeaderCtxMenu(null); }}
-            />
-          </div>
-          <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
-          <button
-            onClick={async () => {
-              const colored = tasks.filter(t => t.titleColor !== null || t.titleBgColor !== null);
-              await Promise.all(colored.map(t => onInlineUpdate(t.id, { titleColor: null, titleBgColor: null })));
-              setTitleHeaderCtxMenu(null);
-            }}
-            style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-            全タスクの色をリセット
-          </button>
-        </ContextMenu>
-      )}
+      {/* 右クリックメニュー群（バー/行/依存矢印/タイトル列見出し） */}
+      <TaskContextMenus
+        barCtxMenu={barCtxMenu}
+        rowCtxMenu={rowCtxMenu}
+        depCtxMenu={depCtxMenu}
+        titleHeaderCtxMenu={titleHeaderCtxMenu}
+        closeBarCtxMenu={() => setBarCtxMenu(null)}
+        closeRowCtxMenu={() => setRowCtxMenu(null)}
+        closeDepCtxMenu={() => setDepCtxMenu(null)}
+        closeTitleHeaderCtxMenu={() => setTitleHeaderCtxMenu(null)}
+        taskById={taskById}
+        tasks={tasks}
+        copiedTask={copiedTask}
+        setCopiedTask={setCopiedTask}
+        onEditTask={onEditTask}
+        onDeleteTask={onDeleteTask}
+        onInlineUpdate={onInlineUpdate}
+        onAddSubTask={onAddSubTask}
+        onAddSubMilestone={onAddSubMilestone}
+        onCopyInsert={onCopyInsert}
+        collapseAll={collapseAll}
+        expandToDepth={expandToDepth}
+        expandAll={expandAll}
+      />
 
     </div>{/* メインエリア終了 */}
 
