@@ -12,12 +12,11 @@ import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, res
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { calcVisibleRange } from '../../utils/virtualRange';
-import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
-import { LightningLine, TodayLine } from './LightningLine';
 import { TaskContextMenus, type DepCtxMenu } from './TaskContextMenus';
 import { GanttTimelineHeader } from './GanttTimelineHeader';
+import { GanttSvgBody } from './GanttSvgBody';
 import { useRowDnd } from './useRowDnd';
 import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
@@ -582,154 +581,47 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
           />
 
           {/* ガント SVG */}
-          <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block' }}
-            onMouseMove={e => {
-              if (dragState || linkDragState) return;
-              const svgRect = svgRef.current?.getBoundingClientRect();
-              if (!svgRect) return;
-              const rowIdx = Math.floor((e.clientY - svgRect.top) / uiRowHeight);
-              setHoveredBarId(flatRows[rowIdx]?.task.id ?? null);
-            }}
-            onMouseLeave={() => setHoveredBarId(null)}
-          >
-            <defs>
-              <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
-                <path d="M0,0 L6,3 L0,6 Z" fill="#378ADD" />
-              </marker>
-              <marker id="arrowhead-critical" markerWidth="7" markerHeight="7" refX="7" refY="3.5" orient="auto">
-                <path d="M0,0 L7,3.5 L0,7 Z" fill="#6366f1" />
-              </marker>
-              <filter id="critical-glow" x="-20%" y="-50%" width="140%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#6366f1" floodOpacity="0.65" />
-              </filter>
-            </defs>
-
-            {/* 縞背景（仮想化: 可視範囲のみ・Y座標は絶対インデックス） */}
-            {flatRows.slice(vStart, vEnd).map(({ task, depth }, sliceIdx) => {
-              const i = vStart + sliceIdx;
-              const isParent    = (childCount.get(task.id) ?? 0) > 0;
-              const isRootParent = depth === 0 && isParent;
-              const canCreate   = !task.startDate && !isParent && !task.isMilestone;
-              return (
-                <rect key={task.id} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
-                  style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')), cursor: canCreate ? 'crosshair' : undefined }}
-                  onMouseDown={canCreate ? (e) => startCreateDrag(e, task.id) : undefined}
-                />
-              );
-            })}
-
-            {/* QuickAddRow に対応する背景（WBSとの視覚的整合） */}
-            <rect
-              x={0}
-              y={flatRows.length * uiRowHeight}
-              width={totalWidth}
-              height={uiRowHeight}
-              style={{ fill: 'var(--th-bg2)' }}
-            />
-
-            {/* 土日背景 */}
-            {weekendXs.map((x, i) => (
-              <rect key={i} x={x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
-                fill="rgba(148,163,184,0.18)" pointerEvents="none" />
-            ))}
-
-            {/* マイルストーン列背景 */}
-            {milestoneItems.map((m, i) => (
-              <rect key={i} x={m.x} y={0} width={dayWidth} height={Math.max(totalHeight, 1)}
-                fill={m.color + '33'} pointerEvents="none" />
-            ))}
-
-            {/* タスクバー（仮想化: 可視範囲のみ・rowIndex は絶対インデックス） */}
-            {flatRows.slice(vStart, vEnd).map(({ task }, sliceIdx) => {
-              const i = vStart + sliceIdx;
-              const preview = dragPreview?.taskId === task.id ? dragPreview : null;
-              const isParent = (childCount.get(task.id) ?? 0) > 0;
-              return (
-                <GanttBar
-                  key={task.id}
-                  task={task}
-                  minDate={min}
-                  zoom={zoomLevel}
-                  rowIndex={i}
-                  isCritical={criticalSet.has(task.id) || collapsedCriticalParents.has(task.id)}
-                  dragPreview={preview}
-                  rowHeight={uiRowHeight}
-                  isParent={isParent}
-                  isCollapsed={collapsed.has(task.id)}
-                  effectiveProgress={isParent ? progressMap.get(task.id) : undefined}
-                  displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
-                  displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
-                  milestoneColor={task.isMilestone ? milestoneColorOf(task.titleColor, milestoneHighlightColor) : undefined}
-                  onMoveStart={handleBarMoveStart}
-                  onResizeLeftStart={handleBarResizeLeftStart}
-                  onResizeRightStart={handleBarResizeRightStart}
-                  onClick={handleBarClick}
-                />
-              );
-            })}
-
-            {/* 依存関係矢印（折りたたみ時は可視祖先へリダイレクト） */}
-            {dependencyArrows}
-
-            {/* ホバー中バーの右端コネクタドット（リンクドラッグ開始点） */}
-            {canStartLink && (() => {
-              const hTask = taskById.get(hoveredBarId);
-              const hEnd = hTask ? effEndDate(hTask) : null;
-              if (!hTask || hTask.isMilestone || !hEnd) return null;
-              const cx = dateToX(hEnd, min, zoomLevel) + dayWidth + 6;
-              const cy = (taskIndex.get(hTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
-              return (
-                <circle
-                  data-connector-dot
-                  cx={cx} cy={cy} r={6}
-                  fill="#378ADD" stroke="white" strokeWidth={1.5}
-                  style={{ cursor: 'crosshair' }}
-                  onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); startLinkDrag(e, hoveredBarId); }}
-                />
-              );
-            })()}
-
-            {/* リンクドラッグ中：ターゲットバー左端ドット */}
-            {linkDragState?.targetTaskId && (() => {
-              const tgt = taskById.get(linkDragState.targetTaskId!);
-              const tgtStart = tgt ? effStartDate(tgt) : null;
-              if (!tgt || !tgtStart) return null;
-              const cx = dateToX(tgtStart, min, zoomLevel) - 6;
-              const cy = (taskIndex.get(tgt.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
-              return <circle data-link-target-dot cx={cx} cy={cy} r={6} fill="#378ADD" stroke="white" strokeWidth={1.5} pointerEvents="none" />;
-            })()}
-
-            {/* リンクドラッグ中のプレビュー破線（fromTask の右端 → マウス位置） */}
-            {linkDragState && (() => {
-              const fromTask = taskById.get(linkDragState.fromTaskId);
-              const fromEnd = fromTask ? effEndDate(fromTask) : null;
-              if (!fromTask || !fromEnd) return null;
-              const x1 = dateToX(fromEnd, min, zoomLevel) + dayWidth + 6;
-              const y1 = (taskIndex.get(fromTask.id) ?? 0) * uiRowHeight + uiRowHeight / 2;
-              return (
-                <line
-                  x1={x1} y1={y1}
-                  x2={linkDragState.currentX} y2={linkDragState.currentY}
-                  stroke="#378ADD" strokeWidth={2} strokeDasharray="5,3"
-                  pointerEvents="none"
-                />
-              );
-            })()}
-
-            {/* 今日ライン */}
-            {showTodayLine && (
-              <TodayLine
-                min={min}
-                zoomLevel={zoomLevel}
-                height={Math.max(totalHeight, 1)}
-              />
-            )}
-
-            {/* イナズマライン */}
-            {showLightningLine && lightningPoints && (
-              <LightningLine points={lightningPoints} color="#7c3aed" />
-            )}
-          </svg>
+          <GanttSvgBody
+            svgRef={svgRef}
+            totalWidth={totalWidth}
+            totalHeight={totalHeight}
+            uiRowHeight={uiRowHeight}
+            min={min}
+            zoomLevel={zoomLevel}
+            dayWidth={dayWidth}
+            flatRows={flatRows}
+            vStart={vStart}
+            vEnd={vEnd}
+            childCount={childCount}
+            collapsed={collapsed}
+            progressMap={progressMap}
+            parentSpanMap={parentSpanMap}
+            taskById={taskById}
+            taskIndex={taskIndex}
+            effStartDate={effStartDate}
+            effEndDate={effEndDate}
+            criticalSet={criticalSet}
+            collapsedCriticalParents={collapsedCriticalParents}
+            weekendXs={weekendXs}
+            milestoneItems={milestoneItems}
+            milestoneHighlightColor={milestoneHighlightColor}
+            showTodayLine={showTodayLine}
+            showLightningLine={showLightningLine}
+            lightningPoints={lightningPoints}
+            dependencyArrows={dependencyArrows}
+            dragState={dragState}
+            dragPreview={dragPreview}
+            linkDragState={linkDragState}
+            canStartLink={canStartLink}
+            hoveredBarId={hoveredBarId}
+            setHoveredBarId={setHoveredBarId}
+            startCreateDrag={startCreateDrag}
+            startLinkDrag={startLinkDrag}
+            handleBarMoveStart={handleBarMoveStart}
+            handleBarResizeLeftStart={handleBarResizeLeftStart}
+            handleBarResizeRightStart={handleBarResizeRightStart}
+            handleBarClick={handleBarClick}
+          />
         </div>
       </div>
 
