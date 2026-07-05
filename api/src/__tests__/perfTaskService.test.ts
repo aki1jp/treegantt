@@ -9,7 +9,7 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-const { createTask, deleteTaskSubtree, getAncestorTasks, listTasks } =
+const { createTask, deleteTaskSubtree, listTasks } =
   await import('../services/taskService.js');
 
 const PROJECT_ID = 'proj-perf-1';
@@ -125,26 +125,6 @@ describe('taskService バッチ化（v2.65）', () => {
       createTask({ id: 's1', projectId: PROJECT_ID, title: 's1', predecessors: ['p1', 'ghost-x', 'ghost-y'] });
       const s1 = listTasks(PROJECT_ID, { limit: 100 }).tasks.find(t => t.id === 's1')!;
       expect(s1.predecessors).toEqual(['p1']);
-    });
-  });
-
-  describe('getAncestorTasks', () => {
-    it('深い階層でもクエリ数が 深さ+定数 に収まる（getTask ループ廃止）', () => {
-      createTask({ id: 'a0', projectId: PROJECT_ID, title: 'a0' });
-      for (let i = 1; i <= 50; i++) {
-        createTask({ id: `a${i}`, projectId: PROJECT_ID, parentId: `a${i - 1}`, title: `a${i}` });
-      }
-
-      spyStatements();
-      const ancestors = getAncestorTasks('a50');
-      restoreSpy?.();
-
-      // 旧実装は深さ×2回の get（親辿り + getTask）。改善後は親辿りの 深さ+1 回のみ
-      expect(counters.get).toBeLessThanOrEqual(52);
-
-      expect(ancestors.map(a => a.id)).toEqual(
-        Array.from({ length: 50 }, (_, i) => `a${49 - i}`), // 近い親から順
-      );
     });
   });
 });

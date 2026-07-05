@@ -264,41 +264,6 @@ export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccesso
 }
 
 
-export function getAncestorTasks(taskId: string): TaskWithSuccessors[] {
-  // 親IDだけを軽量クエリで辿って収集し、本体＋依存は最後に一括取得する
-  // （従来は1階層ごとに getTask（依存取得2クエリ付き）を呼んでいた）
-  const getParent = db.prepare('SELECT parent_id FROM tasks WHERE id = ?');
-  const ancestorIds: string[] = [];
-  let current = taskId;
-  const visited = new Set<string>();
-  while (true) {
-    if (visited.has(current)) break;
-    visited.add(current);
-    const row = getParent.get(current) as { parent_id: string | null } | undefined;
-    if (!row?.parent_id) break;
-    ancestorIds.push(row.parent_id);
-    current = row.parent_id;
-  }
-  if (ancestorIds.length === 0) return [];
-
-  const placeholders = ancestorIds.map(() => '?').join(',');
-  const rows = db
-    .prepare(`SELECT * FROM tasks WHERE id IN (${placeholders})`)
-    .all(...ancestorIds) as RawTask[];
-  const byId = new Map(rows.map(r => [r.id, r]));
-  // 近い親から順（収集順）を維持
-  const ordered = ancestorIds
-    .map(id => byId.get(id))
-    .filter((r): r is RawTask => r !== undefined)
-    .map(rawToTask);
-  return attachDeps(ordered);
-}
-
-export function deleteTask(id: string): boolean {
-  const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
-  return result.changes > 0;
-}
-
 /** タスクと全子孫をトランザクションで削除し、削除したID一覧を返す */
 export function deleteTaskSubtree(id: string): string[] {
   const exists = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
@@ -366,24 +331,9 @@ export function wouldCreateCycle(taskId: string, newParentId: string): boolean {
   return false;
 }
 
-export function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): Set<string> {
+export function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): void {
   const updateOrd    = db.prepare('UPDATE tasks SET ord = ? WHERE id = ?');
   const updateParent = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');
-  const getParentId  = db.prepare<[string], { parent_id: string | null }>('SELECT parent_id FROM tasks WHERE id = ?');
-
-  // parentId が変わるタスクの旧親を記録
-  const oldParentIds = new Set<string>();
-  const newParentIds = new Set<string>();
-  for (const { id, parentId } of orders) {
-    if (parentId !== undefined) {
-      const row = getParentId.get(id);
-      const oldParentId = row?.parent_id ?? null;
-      if (oldParentId !== (parentId ?? null)) {
-        if (oldParentId) oldParentIds.add(oldParentId);
-        if (parentId)    newParentIds.add(parentId);
-      }
-    }
-  }
 
   db.transaction(() => {
     for (const { id, order, parentId } of orders) {
@@ -391,8 +341,6 @@ export function reorderTasks(orders: { id: string; order: number; parentId?: str
       if (parentId !== undefined) updateParent.run(parentId ?? null, id);
     }
   })();
-
-  return new Set<string>();
 }
 
 export interface BatchTaskInput {

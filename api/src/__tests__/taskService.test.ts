@@ -9,7 +9,7 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-const { createTask, getTask, listTasks, updateTask, deleteTask, deleteTaskSubtree, deleteTaskKeepChildren, reorderTasks } =
+const { createTask, getTask, listTasks, updateTask, deleteTaskSubtree, deleteTaskKeepChildren, reorderTasks } =
   await import('../services/taskService.js');
 
 const PROJECT_ID = 'proj-test-1';
@@ -111,8 +111,8 @@ describe('taskService', () => {
     it('全タスク削除後の最初のタスクは #1 から始まる', () => {
       const t1 = createTask({ id: 'tmp1', projectId: PROJECT_ID, title: 'T1' });
       const t2 = createTask({ id: 'tmp2', projectId: PROJECT_ID, title: 'T2' });
-      deleteTask(t1.id);
-      deleteTask(t2.id);
+      deleteTaskSubtree(t1.id);
+      deleteTaskSubtree(t2.id);
       const fresh = createTask({ id: 'fresh', projectId: PROJECT_ID, title: 'Fresh' });
       expect(fresh.order).toBe(1);
     });
@@ -150,7 +150,7 @@ describe('taskService', () => {
       const t3 = createTask({ id: 's3', projectId: PROJECT_ID, title: 'S3' }); // seq 3
       expect(t3.seq).toBe(3);
 
-      deleteTask('s3');
+      deleteTaskSubtree('s3');
       const t4 = createTask({ id: 's4', projectId: PROJECT_ID, title: 'S4' });
       expect(t4.seq).toBe(4); // 3 は永久欠番
     });
@@ -166,9 +166,9 @@ describe('taskService', () => {
 
     it('全削除→再作成を繰り返しても番号は単調増加する', () => {
       const a = createTask({ id: 'a', projectId: PROJECT_ID, title: 'A' });
-      deleteTask('a');
+      deleteTaskSubtree('a');
       const b = createTask({ id: 'b', projectId: PROJECT_ID, title: 'B' });
-      deleteTask('b');
+      deleteTaskSubtree('b');
       const c = createTask({ id: 'c', projectId: PROJECT_ID, title: 'C' });
       expect(a.seq).toBe(1);
       expect(b.seq).toBe(2);
@@ -259,7 +259,7 @@ describe('taskService', () => {
       createTask({ id: 'g1', projectId: PROJECT_ID, title: 'G1' });
       createTask({ id: 'g2', projectId: PROJECT_ID, title: 'G2' });
       createTask({ id: 'g3', projectId: PROJECT_ID, title: 'G3', predecessors: ['g1', 'g2'] });
-      deleteTask('g1');
+      deleteTaskSubtree('g1');
 
       // フロントの楽観的更新が遅れて g1 を含む predecessors を送ってきた状況
       const updated = updateTask('g3', { predecessors: ['g1', 'g2'] });
@@ -281,27 +281,6 @@ describe('taskService', () => {
       const task = createTask({ id: 'default-color', projectId: PROJECT_ID, title: 'Default' });
       expect(task.titleColor).toBeNull();
       expect(task.titleBgColor).toBeNull();
-    });
-  });
-
-  describe('deleteTask', () => {
-    it('returns false for non-existent task', () => {
-      expect(deleteTask('no-id')).toBe(false);
-    });
-
-    it('deletes a task and its deps', () => {
-      createTask({ id: 'del', projectId: PROJECT_ID, title: 'To Delete' });
-      expect(deleteTask('del')).toBe(true);
-      expect(getTask('del')).toBeNull();
-    });
-
-    it('CASCADE removes deps when predecessor is deleted', () => {
-      createTask({ id: 'pred', projectId: PROJECT_ID, title: 'Pred' });
-      createTask({ id: 'succ', projectId: PROJECT_ID, title: 'Succ', predecessors: ['pred'] });
-
-      deleteTask('pred');
-      const succ = getTask('succ');
-      expect(succ?.predecessors).toEqual([]);
     });
   });
 
