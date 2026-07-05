@@ -11,20 +11,18 @@ import {
 import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
-import { textStartX } from '../../utils/wbsLayout';
 import { calcVisibleRange } from '../../utils/virtualRange';
 import { GanttBar } from './GanttBar';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { LightningLine, TodayLine } from './LightningLine';
 import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
-import { GanttLeftRow } from './GanttLeftRow';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 import { useRowDnd } from './useRowDnd';
 import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
-
-const HEADER_ROW_H = 26;
+import { WbsPanel } from './WbsPanel';
+import { HEADER_ROW_H } from './ganttChartConstants';
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
@@ -39,17 +37,6 @@ const LEFT_COLS = [
   { key: 'duration',  label: '日数',     width: 50  },
 ] as const;
 
-const HIDEABLE_COLS = [
-  { key: 'status',    label: 'ステータス' },
-  { key: 'priority',  label: '優先度'    },
-  { key: 'progress',  label: '進捗率'    },
-  { key: 'assignee',  label: '担当者'    },
-  { key: 'startDate', label: '開始日'    },
-  { key: 'endDate',   label: '終了日'    },
-  { key: 'duration',  label: '日数'      },
-] as const;
-
-const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
 // バー移動/リサイズ/作成ドラッグ・依存リンクドラッグの状態は useBarDrag/useLinkDrag に分離（D4）。
@@ -57,59 +44,6 @@ const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 export { CREATE_DRAG_THRESHOLD_PX } from './useBarDrag';
 
 interface DepCtxMenu { x: number; y: number; fromTaskId: string; toTaskId: string; }
-
-// ── クイック追加行 ──────────────────────────────────
-function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number; dateColWidth: number }) {
-  const { uiRowHeight, uiFontSize } = useTaskStore();
-  const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing && inputRef.current) inputRef.current.focus();
-  }, [editing]);
-
-  async function submit() {
-    const t = title.trim();
-    if (t) { await onAdd(t); setTitle(''); }
-    setEditing(false);
-  }
-
-  const CELL: React.CSSProperties = {
-    height: uiRowHeight, display: 'flex', alignItems: 'center',
-    padding: '0 6px', fontSize: uiFontSize, overflow: 'hidden', boxSizing: 'border-box',
-  };
-
-  return (
-    <div style={{
-      display: 'flex', background: 'var(--th-bg2)',
-      height: uiRowHeight, boxSizing: 'border-box',
-      borderTop: '1px dashed var(--th-border)',
-    }}>
-      <div style={{ ...CELL, width: 36 }} />
-      <div style={{ ...CELL, width: titleWidth }}>
-        {editing ? (
-          <input ref={inputRef}
-            style={{ width: '100%', padding: '2px 4px', border: '1px solid #4f46e5', borderRadius: 3, fontSize: uiFontSize, outline: 'none' }}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            onBlur={submit}
-            onKeyDown={e => {
-              if (e.key === 'Enter') submit();
-              if (e.key === 'Escape') { setTitle(''); setEditing(false); }
-            }}
-          />
-        ) : (
-          <span onClick={() => setEditing(true)}
-            style={{ color: 'var(--th-text-dim)', cursor: 'text', fontSize: uiFontSize, userSelect: 'none' }}>
-            ＋ タスクを追加…
-          </span>
-        )}
-      </div>
-      {[66, 56, 76, assigneeWidth, dateColWidth, dateColWidth, 50].map((w, i) => <div key={i} style={{ ...CELL, width: w }} />)}
-    </div>
-  );
-}
 
 // ── 階層展開ヘルパー ──────────────────────────────────
 function collectCollapsedByDepth(nodes: TreeNode[], targetDepth: number, acc: Set<string>): void {
@@ -359,7 +293,6 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [titleHeaderCtxMenu, setTitleHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [depCtxMenu, setDepCtxMenu] = useState<DepCtxMenu | null>(null);
-  const [wbsColMenuPos, setWbsColMenuPos] = useState<{ x: number; y: number } | null>(null);
 
   // ── 行 D&D（ソートなし時の並び替え） ─────────────────
   const {
@@ -571,13 +504,6 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     return () => window.removeEventListener('mousedown', close);
   }, [titleHeaderCtxMenu]);
 
-  useEffect(() => {
-    if (!wbsColMenuPos) return;
-    const close = () => setWbsColMenuPos(null);
-    window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
-  }, [wbsColMenuPos]);
-
   // Escape キーでバー移動/リサイズ・リンクドラッグ双方をキャンセル（各フックの cancel* に委譲）
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -598,13 +524,6 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     });
   }, []);
 
-  const TH: React.CSSProperties = {
-    height: HEADER_ROW_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 11, fontWeight: 700, color: 'var(--th-text-muted)',
-    borderRight: '1px solid var(--th-border)', cursor: 'default', userSelect: 'none',
-    boxSizing: 'border-box', padding: '0 4px',
-  };
-
   const canStartLink = !!hoveredBarId && !linkDragState && !dragState;
 
   return (
@@ -617,179 +536,49 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 120 }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
-      <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
-        flexShrink: 0, width: LEFT_TOTAL, display: 'flex', flexDirection: 'column',
-        overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
-        transition: 'width 0.15s ease',
-      }}>
-        {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
-        <div data-testid="wbs-header" style={{
-          flexShrink: 0, height: ganttHeaderH || totalHeaderH,
-          minHeight: 26,
-          display: 'flex', alignItems: 'flex-end', background: 'var(--th-bg2)', borderBottom: '2px solid var(--th-border)',
-          position: 'relative',
-        }}>
-          {/* WBS 閉じているとき: # セル全体が ▷ ボタン */}
-          {!wbsPanelOpen && (
-            <div
-              title="WBSを表示"
-              role="button"
-              aria-label="WBSを表示"
-              onClick={() => setWbsPanelOpen(true)}
-              style={{ ...TH, width: 36, cursor: 'pointer', alignSelf: 'stretch', height: 'auto', justifyContent: 'center' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e0e7ff'; (e.currentTarget as HTMLElement).style.color = '#4f46e5'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--th-text-muted)'; }}
-            >
-              ▷
-            </div>
-          )}
-
-          {/* WBS 開いているとき: 各列ヘッダーを描画 */}
-          {wbsPanelOpen && visibleLeftCols.map(col => {
-            const w = (col.key === 'startDate' || col.key === 'endDate')
-              ? dateColWidth
-              : (colWidths[col.key as keyof typeof colWidths] ?? col.width);
-            const resizable = RESIZABLE_COL_KEYS.has(col.key);
-            const isTitleCol = col.key === 'title';
-            return (
-              <div
-                key={col.key}
-                style={{ ...TH, width: w,
-                  position: resizable ? 'relative' : undefined,
-                  justifyContent: isTitleCol ? 'flex-start' : 'center', gap: 2 }}
-                onContextMenu={isTitleCol ? e => { e.preventDefault(); setTitleHeaderCtxMenu({ x: e.clientX, y: e.clientY }); } : undefined}
-              >
-                {isTitleCol && childCount.size > 0 && (
-                  <ExpandCollapseButtons
-                    variant="compact"
-                    collapseAll={collapseAll}
-                    expandToDepth={expandToDepth}
-                    expandAll={expandAll}
-                    onSelect={(action, e) => { e.stopPropagation(); action(); }}
-                  />
-                )}
-                {col.label}
-                {resizable && (
-                  <div
-                    style={{ position: 'absolute', right: 0, top: 4, bottom: 4, width: 4,
-                      cursor: 'col-resize', background: '#c7d2fe', borderRadius: 2, zIndex: 1 }}
-                    onMouseDown={e => {
-                      e.preventDefault(); e.stopPropagation();
-                      setColResize({ key: col.key, startX: e.clientX, startWidth: w });
-                    }}
-                    onClick={e => e.stopPropagation()}
-                  />
-                )}
-              </div>
-            );
-          })}
-
-          {/* WBS 開いているとき: 右端に列設定・閉じるボタン群（絶対配置・上下全体） */}
-          {wbsPanelOpen && (
-            <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex' }}>
-              <button
-                title="WBS列の表示設定"
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setWbsColMenuPos(wbsColMenuPos ? null : { x: r.left, y: r.bottom + 2 });
-                }}
-                style={{
-                  border: 'none', background: 'none', cursor: 'pointer',
-                  fontSize: 11, color: 'var(--th-text-dim)', padding: '0 6px',
-                  borderRadius: 0, lineHeight: 1, display: 'flex', alignItems: 'center',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
-              >
-                列
-              </button>
-              <button
-                title="WBSを隠す"
-                aria-label="WBSを隠す"
-                onClick={() => setWbsPanelOpen(false)}
-                style={{
-                  border: 'none', background: 'none', cursor: 'pointer',
-                  fontSize: 12, color: 'var(--th-text-dim)', padding: '0 6px',
-                  borderRadius: 0, lineHeight: 1, display: 'flex', alignItems: 'center',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
-              >
-                ◁
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* WBS ボディ（垂直スクロールはガントパネルと同期） */}
-        <div ref={wbsBodyRef} style={{ flex: 1, overflowY: 'hidden' }}>
-          {/* 仮想化: 可視範囲外は上下スペーサで高さのみ確保（スクロール同期を維持） */}
-          <div style={{ height: vStart * uiRowHeight, flexShrink: 0 }} />
-          {(() => {
-            const dragIdx = rowDragId ? flatRows.findIndex(r => r.task.id === rowDragId) : -1;
-            return flatRows.slice(vStart, vEnd).map(({ task, depth }, sliceIdx) => {
-              const idx = vStart + sliceIdx; // D&D は絶対インデックスで処理する
-              const isNoOp = dragIdx !== -1 && (rowDropIdx === dragIdx || rowDropIdx === dragIdx + 1);
-              const showDropLine = rowDropIdx === idx && !!rowDragId && !isNoOp;
-              return (
-                <div
-                  key={task.id}
-                  draggable
-                  onDragStart={(e) => handleRowDragStart(e, task.id)}
-                  onDragOver={(e) => handleRowDragOver(e, idx)}
-                  onDrop={(e) => handleRowDrop(e, idx)}
-                  onDragEnd={clearDrop}
-                  style={{
-                    opacity: rowDragId === task.id ? 0.4 : 1,
-                    cursor: 'grab',
-                    position: 'relative',
-                    outline: rowDropTarget === task.id ? '2px solid #4f46e5' : undefined,
-                    outlineOffset: '-1px',
-                    zIndex: rowDropTarget === task.id ? 1 : undefined,
-                  }}
-                >
-                  {showDropLine && (
-                    <div data-drop-line style={{
-                      position: 'absolute',
-                      left: textStartX(rowDropDepth ?? 0),
-                      right: 0, top: -2,
-                      height: 3, background: '#4f46e5',
-                      borderRadius: 2, boxShadow: '0 0 6px rgba(79,70,229,0.5)',
-                      pointerEvents: 'none', zIndex: 5,
-                    }} />
-                  )}
-                  <GanttLeftRow
-                    task={task}
-                    depth={depth}
-                    hasChildren={(childCount.get(task.id) ?? 0) > 0}
-                    isCollapsed={collapsed.has(task.id)}
-                    effectiveProgress={progressMap.get(task.id) ?? task.progress}
-                    fontSize={uiFontSize}
-                    rowHeight={uiRowHeight}
-                    titleWidth={colWidths.title}
-                    assigneeWidth={colWidths.assignee}
-                    dateColWidth={dateColWidth}
-                    isDragging={rowDragId !== null}
-                    hiddenCols={wbsHiddenCols}
-                    wbsPanelOpen={wbsPanelOpen}
-                    assigneeOptions={assigneeOptions}
-                    displayStart={(childCount.get(task.id) ?? 0) > 0 ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
-                    displayEnd={(childCount.get(task.id) ?? 0) > 0   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
-                    onToggleCollapse={toggleCollapse}
-                    onInlineUpdate={handleInlineUpdate}
-                    onRowContextMenu={handleRowContextMenu}
-                  />
-                </div>
-              );
-            });
-          })()}
-          <div style={{ height: (flatRows.length - vEnd) * uiRowHeight, flexShrink: 0 }} />
-          <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
-          {/* 横スクロールバー分の高さを補完してガントとのスクロール同期ズレを防止 */}
-          <div style={{ height: hScrollbarH, flexShrink: 0 }} />
-        </div>
-      </div>
+      <WbsPanel
+        wbsPanelOpen={wbsPanelOpen}
+        setWbsPanelOpen={setWbsPanelOpen}
+        leftTotal={LEFT_TOTAL}
+        visibleLeftCols={visibleLeftCols}
+        colWidths={colWidths}
+        setColResize={setColResize}
+        dateColWidth={dateColWidth}
+        ganttHeaderH={ganttHeaderH}
+        totalHeaderH={totalHeaderH}
+        wbsHiddenCols={wbsHiddenCols}
+        setWbsHiddenCols={setWbsHiddenCols}
+        childCount={childCount}
+        collapseAll={collapseAll}
+        expandToDepth={expandToDepth}
+        expandAll={expandAll}
+        setTitleHeaderCtxMenu={setTitleHeaderCtxMenu}
+        handleWbsWheel={handleWbsWheel}
+        wbsPanelRef={wbsPanelRef}
+        wbsBodyRef={wbsBodyRef}
+        vStart={vStart}
+        vEnd={vEnd}
+        uiRowHeight={uiRowHeight}
+        uiFontSize={uiFontSize}
+        flatRows={flatRows}
+        collapsed={collapsed}
+        progressMap={progressMap}
+        parentSpanMap={parentSpanMap}
+        assigneeOptions={assigneeOptions}
+        toggleCollapse={toggleCollapse}
+        handleInlineUpdate={handleInlineUpdate}
+        handleRowContextMenu={handleRowContextMenu}
+        rowDragId={rowDragId}
+        rowDropIdx={rowDropIdx}
+        rowDropDepth={rowDropDepth}
+        rowDropTarget={rowDropTarget}
+        handleRowDragStart={handleRowDragStart}
+        handleRowDragOver={handleRowDragOver}
+        handleRowDrop={handleRowDrop}
+        clearDrop={clearDrop}
+        onQuickAdd={onQuickAdd}
+        hScrollbarH={hScrollbarH}
+      />
 
       {/* ── ガント右パネル（横スクロールバーあり） ── */}
       <div data-testid="gantt-panel" ref={ganttPanelRef} style={{ flex: 1, overflow: 'auto' }} onScroll={handleScroll}>
@@ -1156,35 +945,6 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         </ContextMenu>
       )}
 
-      {/* WBS列表示設定ポップアップ */}
-      {wbsColMenuPos && (
-        <div
-          onMouseDown={e => e.stopPropagation()}
-          style={{
-            position: 'fixed', left: wbsColMenuPos.x, top: wbsColMenuPos.y,
-            background: 'var(--th-bg)', border: '1px solid var(--th-border)',
-            borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            padding: '8px 12px', zIndex: 9999,
-            display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12,
-          }}
-        >
-          {HIDEABLE_COLS.map(col => (
-            <label key={col.key} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', color: 'var(--th-text2)' }}>
-              <input
-                type="checkbox"
-                checked={!wbsHiddenCols.includes(col.key)}
-                onChange={e => setWbsHiddenCols(
-                  e.target.checked
-                    ? wbsHiddenCols.filter(k => k !== col.key)
-                    : [...wbsHiddenCols, col.key]
-                )}
-                style={{ accentColor: '#4f46e5', cursor: 'pointer' }}
-              />
-              {col.label}
-            </label>
-          ))}
-        </div>
-      )}
     </div>{/* メインエリア終了 */}
 
     {/* ── 担当者別スイムレーン（リソースビュー）── */}
