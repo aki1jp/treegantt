@@ -48,6 +48,11 @@ describe('resolveBackupIntervalHours', () => {
     vi.stubEnv('BACKUP_INTERVAL_HOURS', 'invalid');
     expect(resolveBackupIntervalHours()).toBe(24);
   });
+
+  it('負数のときデフォルト 24 にフォールバックする', () => {
+    vi.stubEnv('BACKUP_INTERVAL_HOURS', '-1');
+    expect(resolveBackupIntervalHours()).toBe(24);
+  });
 });
 
 describe('resolveBackupRetention', () => {
@@ -63,6 +68,11 @@ describe('resolveBackupRetention', () => {
 
   it('0 以下のときデフォルト 7 にフォールバックする', () => {
     vi.stubEnv('BACKUP_RETENTION', '0');
+    expect(resolveBackupRetention()).toBe(7);
+  });
+
+  it('負数のときデフォルト 7 にフォールバックする', () => {
+    vi.stubEnv('BACKUP_RETENTION', '-3');
     expect(resolveBackupRetention()).toBe(7);
   });
 });
@@ -169,6 +179,19 @@ describe('pruneOldBackups', () => {
     for (const n of names) writeFileSync(join(backupDir, n), 'dummy');
 
     pruneOldBackups(backupDir, 5);
+
+    expect(readdirSync(backupDir).sort()).toEqual(names);
+  });
+
+  it('ファイル数がちょうど retention と同数のときは何も削除しない（境界）', () => {
+    const names = [
+      'treegantt-20260101T000000.db',
+      'treegantt-20260102T000000.db',
+      'treegantt-20260103T000000.db',
+    ];
+    for (const n of names) writeFileSync(join(backupDir, n), 'dummy');
+
+    pruneOldBackups(backupDir, 3);
 
     expect(readdirSync(backupDir).sort()).toEqual(names);
   });
