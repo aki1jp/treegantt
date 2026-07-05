@@ -5,9 +5,16 @@ import path from 'path';
 // ツリー数階層・依存数本・進捗まちまち・マイルストーン1つ程度の見栄えの良いシードデータを
 // API 経由で投入し、ガントチャートの全体像を1枚のスクリーンショットとして保存する。
 // gantt-drag-gif.spec.ts と同様に、専用の一時プロジェクトを作成しテスト後に削除する。
+//
+// リポジトリ管理下の docs/images/overview.png を上書きするため、通常の `npx playwright test`
+// ではスキップされる（作業ツリーを汚さない・CI で無駄に実行しない）。
+// 再生成: HERO_SCREENSHOT=1 npx playwright test tests/hero-screenshot.spec.ts
 test.use({ viewport: { width: 1440, height: 860 } });
 
 test('ヒーロー画像用: 見栄えの良いシードデータでガント全体像を撮影', async ({ page, request }) => {
+  test.skip(process.env.HERO_SCREENSHOT !== '1',
+    'docs/images/overview.png を上書きするため HERO_SCREENSHOT=1 の明示指定時のみ実行');
+
   const projectRes = await request.post('/api/v1/projects', { data: { name: 'ECサイトリニューアル' } });
   expect(projectRes.ok()).toBeTruthy();
   const { project } = await projectRes.json();

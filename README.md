@@ -122,7 +122,7 @@ PORT=5000 WS_PORT=5001 FRONTEND_PORT=3005 bash start.sh
 | `WS_PORT` | `4001` | WebSocket ポート |
 | `VITE_API_URL` | `http://localhost:4000` | **ブラウザからの API 接続先** |
 | `VITE_WS_URL` | `ws://localhost:4001` | **ブラウザからの WebSocket 接続先** |
-| `DB_PATH` | `/app/data/treegantt.db` | SQLite ファイル（Docker） |
+| `DB_PATH` | `api/data/treegantt.db`（Docker では `/app/data/treegantt.db`） | SQLite ファイルのパス |
 | `CORS_ORIGIN` | `*` | CORS 許可オリジン |
 | `BACKUP_DIR` | DB と同じディレクトリ配下の `backups/` | 定期バックアップの保存先 |
 | `BACKUP_INTERVAL_HOURS` | `24` | バックアップ間隔（時間）。`0` で定期実行を無効化（起動時の1回は実行される） |
