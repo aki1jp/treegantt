@@ -4,8 +4,8 @@ import { useTaskStore } from '../../store/taskStore';
 import { filterTasks } from '../../utils/sort';
 import {
   calcGanttRange, calcLightningPoints,
-  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents, isAncestorOrDescendant,
-  addDays, buildMultiLevelHeaders, xToDateStr, wouldCreateDepCycle, dateToX, getUniqueAssignees,
+  ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, buildCollapsedCriticalParents,
+  buildMultiLevelHeaders, dateToX, getUniqueAssignees,
   calcParentSpanMap, assignMilestoneLanes, isMilestoneXVisible, measureMilestoneLabel,
 } from '../../utils/ganttCalc';
 import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
@@ -21,6 +21,8 @@ import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
 import { GanttLeftRow } from './GanttLeftRow';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 import { useRowDnd } from './useRowDnd';
+import { useBarDrag } from './useBarDrag';
+import { useLinkDrag } from './useLinkDrag';
 
 const HEADER_ROW_H = 26;
 
@@ -50,33 +52,10 @@ const HIDEABLE_COLS = [
 const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
-// ── ドラッグ状態 ────────────────────────────────────
-// 作成ドラッグの開始閾値（px）。mousedown 位置からこの距離以上動いて初めて
-// 作成対象になる。クリックの手ぶれによる日付の誤作成を防ぐ（§9.4）。
-export const CREATE_DRAG_THRESHOLD_PX = 4;
+// バー移動/リサイズ/作成ドラッグ・依存リンクドラッグの状態は useBarDrag/useLinkDrag に分離（D4）。
+// CREATE_DRAG_THRESHOLD_PX は既存の import 元（テスト等）互換のためここから再エクスポートする。
+export { CREATE_DRAG_THRESHOLD_PX } from './useBarDrag';
 
-type DragType = 'move' | 'resize-left' | 'resize-right' | 'create';
-interface DragState {
-  taskId: string;
-  type: DragType;
-  startClientX: number;
-  origStart: string;
-  origEnd: string;
-  anchorRelX?: number;  // create ドラッグ用：クリック時の絶対 relX
-}
-interface DragPreview {
-  taskId: string;
-  startDate: string;
-  endDate: string;
-}
-
-// ── リンクドラッグ状態（先行・後続タスク設定） ──────
-interface LinkDragState {
-  fromTaskId: string;
-  startSvgX: number; startSvgY: number;
-  currentX: number;  currentY: number;
-  targetTaskId: string | null;
-}
 interface DepCtxMenu { x: number; y: number; fromTaskId: string; toTaskId: string; }
 
 // ── クイック追加行 ──────────────────────────────────
@@ -375,22 +354,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   );
 
 
-  // ── ドラッグ状態（バー移動・リサイズ） ──────────────
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
-  const dragPreviewRef = useRef<DragPreview | null>(null);
-  const dragStateRef  = useRef<DragState | null>(null);
-  // 作成ドラッグが開始閾値（CREATE_DRAG_THRESHOLD_PX）を超えたか。超えるまでプレビューを作らない。
-  const createArmedRef = useRef(false);
+  // バー移動/リサイズ/作成ドラッグ・依存リンクドラッグの状態は useBarDrag/useLinkDrag に分離（下記）。
   const [barCtxMenu, setBarCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [rowCtxMenu, setRowCtxMenu] = useState<{ x: number; y: number; taskId: string } | null>(null);
   const [titleHeaderCtxMenu, setTitleHeaderCtxMenu] = useState<{ x: number; y: number } | null>(null);
-
-  // ── リンクドラッグ状態 ─────────────────────────────
-  const [linkDragState, setLinkDragState] = useState<LinkDragState | null>(null);
-  const linkDragStateRef = useRef<LinkDragState | null>(null);
-  useEffect(() => { linkDragStateRef.current = linkDragState; }, [linkDragState]);
-  const [hoveredBarId, setHoveredBarId] = useState<string | null>(null);
   const [depCtxMenu, setDepCtxMenu] = useState<DepCtxMenu | null>(null);
   const [wbsColMenuPos, setWbsColMenuPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -417,6 +384,19 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   useEffect(() => { childCountRef.current   = childCount;   }, [childCount]);
   useEffect(() => { parentSpanMapRef.current = parentSpanMap; }, [parentSpanMap]);
 
+  // ── 依存リンクドラッグ（コネクタドット→別バーへドロップ） ──
+  const {
+    linkDragState, linkDragStateRef, hoveredBarId, setHoveredBarId,
+    startLinkDrag, cancelLinkDrag,
+  } = useLinkDrag({ svgRef, uiRowHeight, flatRowsRef, taskByIdRef, childCountRef, parentSpanMapRef, onInlineUpdate });
+
+  // ── バー移動・左右リサイズ・作成ドラッグ ──
+  const {
+    dragState, dragPreview, dragStateRef,
+    handleBarMoveStart, handleBarResizeLeftStart, handleBarResizeRightStart,
+    startCreateDrag, cancelDrag,
+  } = useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef });
+
   // App から渡るコールバックは再レンダリングごとに再生成されるため、
   // 最新値 ref + 安定 useCallback に変換して React.memo 行コンポーネントへ渡す
   const onEditTaskRef     = useRef(onEditTask);
@@ -435,7 +415,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   }, []);
   const handleBarClick = useCallback((task: Task) => {
     if (!dragStateRef.current && !linkDragStateRef.current) onEditTaskRef.current(task);
-  }, []);
+  }, [dragStateRef, linkDragStateRef]);
 
   // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
   const [hScrollbarH, setHScrollbarH] = useState(0);
@@ -598,187 +578,17 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     return () => window.removeEventListener('mousedown', close);
   }, [wbsColMenuPos]);
 
-  useEffect(() => { dragPreviewRef.current = dragPreview; }, [dragPreview]);
-  useEffect(() => { dragStateRef.current  = dragState;   }, [dragState]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!dragState) return;
-    const delta = Math.round((e.clientX - dragState.startClientX) / dayWidth);
-    let newStart = dragState.origStart;
-    let newEnd   = dragState.origEnd;
-
-    if (dragState.type === 'move') {
-      newStart = addDays(dragState.origStart, delta);
-      newEnd   = addDays(dragState.origEnd,   delta);
-    } else if (dragState.type === 'resize-right') {
-      newEnd = addDays(dragState.origEnd, delta);
-      if (newEnd < newStart) newEnd = newStart;
-    } else if (dragState.type === 'resize-left') {
-      newStart = addDays(dragState.origStart, delta);
-      if (newStart > newEnd) newStart = newEnd;
-    } else if (dragState.type === 'create') {
-      // 開始閾値を超えるまではプレビューを作らない（クリックの手ぶれによる誤作成防止）。
-      // 一度超えたら以降は閾値内に戻っても追従する（スティッキー）。
-      if (!createArmedRef.current && Math.abs(e.clientX - dragState.startClientX) < CREATE_DRAG_THRESHOLD_PX) return;
-      createArmedRef.current = true;
-      const cursorRelX = Math.max(0, (dragState.anchorRelX ?? 0) + (e.clientX - dragState.startClientX));
-      const currentDate = xToDateStr(cursorRelX, min, dayWidth);
-      newStart = currentDate <= dragState.origStart ? currentDate : dragState.origStart;
-      newEnd   = currentDate >= dragState.origStart ? currentDate : dragState.origStart;
-    }
-
-    setDragPreview({ taskId: dragState.taskId, startDate: newStart, endDate: newEnd });
-  }, [dragState, dayWidth]);
-
-  const handleMouseUp = useCallback(() => {
-    const preview = dragPreviewRef.current;
-    if (dragState) {
-      if (dragState.type === 'create') {
-        if (preview) {
-          onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
-        }
-      } else if (preview && (preview.startDate !== dragState.origStart || preview.endDate !== dragState.origEnd)) {
-        // 移動・リサイズ（通常バーのみ。マイルストーン/親はドラッグ入口を持たない）
-        onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
-      }
-    }
-    createArmedRef.current = false;
-    setDragState(null);
-    setDragPreview(null);
-  }, [dragState, onInlineUpdate]);
-
-  useEffect(() => {
-    if (!dragState) return;
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [dragState, handleMouseMove, handleMouseUp]);
-
+  // Escape キーでバー移動/リサイズ・リンクドラッグ双方をキャンセル（各フックの cancel* に委譲）
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        if (dragStateRef.current) {
-          dragStateRef.current = null;
-          createArmedRef.current = false;
-          setDragState(null);
-          setDragPreview(null);
-        }
-        if (linkDragStateRef.current) {
-          linkDragStateRef.current = null;
-          setLinkDragState(null);
-        }
+        cancelDrag();
+        cancelLinkDrag();
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-
-  const startDrag = useCallback((e: React.MouseEvent, taskId: string, type: DragType) => {
-    if (e.button !== 0) return;
-    if (linkDragStateRef.current) return; // リンクドラッグ中は move/resize を無効化
-    if ((childCountRef.current.get(taskId) ?? 0) > 0) return; // 親バーは移動・リサイズ不可
-    e.preventDefault();
-    const task = taskByIdRef.current.get(taskId);
-    if (!task?.startDate) return;
-    setDragState({
-      taskId, type,
-      startClientX: e.clientX,
-      origStart: task.startDate,
-      origEnd: task.endDate ?? task.startDate,
-    });
-  }, []);
-  const handleBarMoveStart        = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'move'),         [startDrag]);
-  const handleBarResizeLeftStart  = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-left'),  [startDrag]);
-  const handleBarResizeRightStart = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-right'), [startDrag]);
-
-  function startLinkDrag(e: React.MouseEvent, taskId: string) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const svgEl = svgRef.current;
-    if (!svgEl) return;
-    const svgRect = svgEl.getBoundingClientRect();
-    const svgX = e.clientX - svgRect.left;
-    const svgY = e.clientY - svgRect.top;
-    setLinkDragState({ fromTaskId: taskId, startSvgX: svgX, startSvgY: svgY, currentX: svgX, currentY: svgY, targetTaskId: null });
-  }
-
-  const handleLinkMouseMove = useCallback((e: MouseEvent) => {
-    if (!linkDragStateRef.current) return;
-    const svgEl = svgRef.current;
-    if (!svgEl) return;
-    const svgRect = svgEl.getBoundingClientRect();
-    const svgX = e.clientX - svgRect.left;
-    const svgY = e.clientY - svgRect.top;
-    const rowIdx = Math.floor(svgY / uiRowHeight);
-    const candidate = flatRowsRef.current[rowIdx];
-    const fromId = linkDragStateRef.current.fromTaskId;
-    let targetTaskId: string | null = null;
-    if (candidate && candidate.task.id !== fromId) {
-      const tgt = candidate.task;
-      const tbr = taskByIdRef.current;
-      // 親タスクは表示スパンの開始日を実効開始日とみなす（DB 日付未設定でも接続可）
-      const tgtStart = (childCountRef.current.get(tgt.id) ?? 0) > 0
-        ? (parentSpanMapRef.current.get(tgt.id)?.startDate ?? tgt.startDate)
-        : tgt.startDate;
-      // マイルストーンは後続（終点）にのみ接続可。先行（始点＝コネクタドット）にはなれない（§9.4）
-      if (
-        tgtStart &&
-        !tgt.predecessors.includes(fromId) &&
-        !isAncestorOrDescendant(fromId, tgt.id, tbr) &&
-        !wouldCreateDepCycle(fromId, tgt.id, tbr)
-      ) {
-        targetTaskId = tgt.id;
-      }
-    }
-    setLinkDragState(prev => prev ? { ...prev, currentX: svgX, currentY: svgY, targetTaskId } : null);
-  }, [uiRowHeight]);
-
-  const handleLinkMouseUp = useCallback(() => {
-    const ld = linkDragStateRef.current;
-    if (ld?.targetTaskId && ld.targetTaskId !== ld.fromTaskId) {
-      // fromTaskId = 先行タスク（右端ドットからドラッグ開始）、targetTaskId = 後続タスク（ドロップ先）
-      // 親子階層チェック + 循環チェック
-      if (
-        !isAncestorOrDescendant(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current) &&
-        !wouldCreateDepCycle(ld.fromTaskId, ld.targetTaskId, taskByIdRef.current)
-      ) {
-        const target = taskByIdRef.current.get(ld.targetTaskId);
-        if (target && !target.predecessors.includes(ld.fromTaskId)) {
-          onInlineUpdate(ld.targetTaskId, { predecessors: [...target.predecessors, ld.fromTaskId] });
-        }
-      }
-    }
-    setLinkDragState(null);
-    setHoveredBarId(null);
-  }, [onInlineUpdate]);
-
-  const isLinkDragging = linkDragState !== null;
-  useEffect(() => {
-    if (!isLinkDragging) return;
-    window.addEventListener('mousemove', handleLinkMouseMove);
-    window.addEventListener('mouseup', handleLinkMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleLinkMouseMove);
-      window.removeEventListener('mouseup', handleLinkMouseUp);
-    };
-  }, [isLinkDragging, handleLinkMouseMove, handleLinkMouseUp]);
-
-  function startCreateDrag(e: React.MouseEvent, taskId: string) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const scrollLeft = ganttPanelRef.current?.scrollLeft ?? 0;
-    const panelRect  = ganttPanelRef.current?.getBoundingClientRect();
-    if (!panelRect) return;
-    const relX = e.clientX - panelRect.left + scrollLeft;
-    const anchorDate = xToDateStr(relX, min, dayWidth);
-    createArmedRef.current = false; // 閾値判定をリセット
-    setDragState({ taskId, type: 'create', startClientX: e.clientX, anchorRelX: relX, origStart: anchorDate, origEnd: anchorDate });
-  }
+  }, [cancelDrag, cancelLinkDrag]);
 
   const toggleCollapse = useCallback((id: string) => {
     setCollapsed(prev => {
