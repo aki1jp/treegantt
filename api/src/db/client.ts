@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DB_PATH ?? join(__dirname, '../../data/treegantt.db');
+export const dbPath = process.env.DB_PATH ?? join(__dirname, '../../data/treegantt.db');
 
 mkdirSync(dirname(dbPath), { recursive: true });
 
