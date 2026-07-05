@@ -23,6 +23,8 @@ services:
       - PORT=${PORT:-4000}
       - WS_PORT=${WS_PORT:-4001}
       - LDAP_ENABLED=false
+      # 既定は '*'（社内LAN運用の互換維持）。インターネット公開する本番では
+      # .env で CORS_ORIGIN=https://your-domain.example のように具体オリジンを設定する
       - CORS_ORIGIN=${CORS_ORIGIN:-*}
     healthcheck:
       # node:20-slim には curl が同梱されていないため、Node組み込みの fetch で /health を叩く
