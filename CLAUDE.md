@@ -81,5 +81,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
    - **ドキュメント版を +1**、改訂履歴テーブル**末尾（昇順）**に1行（製品バージョン更新の要点）
 3. **`CHANGELOG.md`** — 先頭に `## [x.y.z] - YYYY-MM-DD` を追加（`### 追加/変更/修正`）。
    - ⚠️ **方向に注意**: CHANGELOG は**新しい版が上（降順）**、設計書の改訂履歴は**昇順（末尾追記）**。両者で逆。
-4. テストは `/health`・ハンバーガー表示が `package.json` を実行時参照するためコード変更不要。`npm test` で全通過確認。
-5. メモリ（versioning）も最新の版へ更新。
+4. **`README.md`** — 冒頭のバージョンバッジ（`version-x.y.z`）を更新。
+5. テストは `/health`・ハンバーガー表示が `package.json` を実行時参照するためコード変更不要。`npm test` で全通過確認。
+6. メモリ（versioning）も最新の版へ更新。
