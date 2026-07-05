@@ -1,4 +1,4 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
 // wsRoom はモジュール読み込み時に WebSocketServer を起動する。
@@ -50,5 +50,79 @@ describe('wsRoom ブロードキャスト', () => {
 
     expect(got).toBe(false);
     a.close();
+  });
+});
+
+describe('wsRoom ハードニング', () => {
+  it('maxPayload を超えるメッセージを送ると接続が切断される（close code 1009）', async () => {
+    const ws = new WebSocket(WS_URL);
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+
+    const closed = new Promise<number>((resolve) => {
+      ws.on('close', (code) => resolve(code));
+    });
+
+    ws.send('a'.repeat(70 * 1024)); // 64KB の maxPayload を超える
+
+    const code = await closed;
+    expect(code).toBe(1009);
+  });
+
+  it('CORS_ORIGIN 設定時、不一致な Origin からの接続は拒否される', async () => {
+    vi.resetModules();
+    process.env.WS_PORT = '4074';
+    process.env.CORS_ORIGIN = 'http://allowed.example';
+    const mod = await import('../ws/wsRoom.js');
+    try {
+      const ws = new WebSocket('ws://localhost:4074', { origin: 'http://evil.example' });
+      const result = await new Promise<'open' | 'rejected'>((resolve) => {
+        ws.on('open', () => resolve('open'));
+        ws.on('unexpected-response', () => resolve('rejected'));
+      });
+      expect(result).toBe('rejected');
+    } finally {
+      mod.wss.close();
+      delete process.env.CORS_ORIGIN;
+    }
+  });
+
+  it('CORS_ORIGIN 設定時でも Origin ヘッダーが無い接続は許可される（非ブラウザクライアント）', async () => {
+    vi.resetModules();
+    process.env.WS_PORT = '4075';
+    process.env.CORS_ORIGIN = 'http://allowed.example';
+    const mod = await import('../ws/wsRoom.js');
+    try {
+      const ws = new WebSocket('ws://localhost:4075'); // Origin ヘッダーなし（ws クライアントは既定で送らない）
+      const result = await new Promise<'open' | 'rejected'>((resolve) => {
+        ws.on('open', () => resolve('open'));
+        ws.on('unexpected-response', () => resolve('rejected'));
+      });
+      expect(result).toBe('open');
+      ws.close();
+    } finally {
+      mod.wss.close();
+      delete process.env.CORS_ORIGIN;
+    }
+  });
+
+  it('CORS_ORIGIN 未設定（既定 *）では Origin 不一致でも接続できる（挙動が変わらない）', async () => {
+    vi.resetModules();
+    process.env.WS_PORT = '4076';
+    delete process.env.CORS_ORIGIN;
+    const mod = await import('../ws/wsRoom.js');
+    try {
+      const ws = new WebSocket('ws://localhost:4076', { origin: 'http://anything.example' });
+      const result = await new Promise<'open' | 'rejected'>((resolve) => {
+        ws.on('open', () => resolve('open'));
+        ws.on('unexpected-response', () => resolve('rejected'));
+      });
+      expect(result).toBe('open');
+      ws.close();
+    } finally {
+      mod.wss.close();
+    }
   });
 });
