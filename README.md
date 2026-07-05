@@ -15,8 +15,7 @@
 
 </div>
 
-> 📸 _アプリ全体のスクリーンショット / デモ GIF は順次追加予定_
-<!-- ![TreeGantt 全体像](docs/images/hero.png) -->
+![TreeGantt 全体像](docs/images/overview.png)
 
 ---
 
@@ -56,12 +55,12 @@
 
 ## 📸 スクリーンショット
 
-> 📸 _以下は近日追加予定（画像は `docs/images/` に配置）_
+全体像は冒頭を参照。依存関係・競合解決 UI 個別のスクリーンショットは近日追加予定（画像は `docs/images/` に配置）。
 
 <!--
-| 全体 | 依存関係 | 競合解決 |
-|------|----------|----------|
-| ![全体](docs/images/overview.png) | ![依存矢印](docs/images/dependency.png) | ![競合解決](docs/images/conflict.png) |
+| 依存関係 | 競合解決 |
+|----------|----------|
+| ![依存矢印](docs/images/dependency.png) | ![競合解決](docs/images/conflict.png) |
 -->
 
 ---
