@@ -16,9 +16,8 @@ import { apiFetch, fetchHealth, fetchSettings, updateAppSettings } from './utils
 import { useSettingsStore } from './store/settingsStore';
 import { resolveCapacityMinutes, resolveWorkingDays } from './utils/duration';
 import { ResourceSettingsModal } from './components/ResourceSettingsModal/ResourceSettingsModal';
-import { makeCopyTitle } from './utils/copyTitle';
 import { mapInternalPredecessors } from './utils/copyDeps';
-import { computeInsertOrder } from './utils/ganttCalc';
+import { buildCopyBatch, computeCopyInsertOrder } from './utils/copyBatch';
 import { useProjectTasks } from './hooks/useProjectTasks';
 import { showToast } from './store/toastStore';
 import { ToastContainer } from './components/Toast/Toast';
@@ -203,51 +202,7 @@ export default function App() {
   ) {
     if (!currentProject) return;
     const allTasksSnapshot = [...tasks];
-
-    // コピー先の兄弟タスク名と衝突する場合のみ「(コピー)」「(コピーN)」を採番
-    const siblingTitles = new Set(
-      allTasksSnapshot.filter(t => t.parentId === parentId).map(t => t.title)
-    );
-    const rootTitle = makeCopyTitle(source.title, siblingTitles);
-
-    // ルートタスクの挿入 order を事前計算
-    const rootSiblings = allTasksSnapshot.filter(t => t.parentId === parentId);
-    const targetOrder = computeInsertOrder(rootSiblings, afterTaskId, beforeTaskId);
-
-    // サブツリーをフラットな配列（parentRef インデックス方式）に展開
-    type BatchInput = { parentRef: number | null; title: string; [key: string]: unknown };
-    const batchInputs: BatchInput[] = [];
-    const sourceTasksFlat: Task[] = [];
-
-    function buildBatch(task: Task, parentRef: number | null, isRoot: boolean): void {
-      const idx = batchInputs.length;
-      batchInputs.push({
-        parentRef,
-        title:        isRoot ? rootTitle : task.title,
-        summary:      task.summary,
-        description:  task.description,
-        status:       task.status,
-        priority:     task.priority,
-        progress:     task.progress,
-        assignee:     task.assignee,
-        startDate:    task.startDate,
-        endDate:      task.endDate,
-        isMilestone:  task.isMilestone,
-        titleColor:   task.titleColor,
-        titleBgColor: task.titleBgColor,
-        estimateMinutes: task.estimateMinutes,
-        order:        isRoot ? targetOrder : undefined,
-      });
-      sourceTasksFlat.push(task);
-      const children = allTasksSnapshot
-        .filter(t => t.parentId === task.id)
-        .sort((a, b) => a.order - b.order);
-      for (const child of children) {
-        buildBatch(child, idx, false);
-      }
-    }
-
-    buildBatch(source, null, true);
+    const { batchInputs, sourceTasksFlat } = buildCopyBatch(source, parentId, afterTaskId, beforeTaskId, allTasksSnapshot);
 
     try {
       // バッチ API で1リクエストにまとめる（v2.69 以前のシーケンシャル POST を置き換え）
@@ -260,26 +215,9 @@ export default function App() {
         await updateTask(u.id, { predecessors: u.predecessors });
       }
 
-      const newRootTask = newTasks[0];
-      const siblings = allTasksSnapshot
-        .filter(t => t.parentId === parentId && t.id !== newRootTask.id)
-        .sort((a, b) => a.order - b.order);
-
-      let ordered: Task[];
-      if (beforeTaskId) {
-        const idx = siblings.findIndex(t => t.id === beforeTaskId);
-        if (idx === -1) return;
-        ordered = [...siblings.slice(0, idx), newRootTask, ...siblings.slice(idx)];
-      } else if (afterTaskId) {
-        const idx = siblings.findIndex(t => t.id === afterTaskId);
-        ordered = idx === -1
-          ? [...siblings, newRootTask]
-          : [...siblings.slice(0, idx + 1), newRootTask, ...siblings.slice(idx + 1)];
-      } else {
-        return;
-      }
-
-      await reorderTasks(ordered.map((t, i) => ({ id: t.id, order: i + 1, parentId })));
+      const orders = computeCopyInsertOrder(allTasksSnapshot, parentId, newTasks[0], afterTaskId, beforeTaskId);
+      if (!orders) return;
+      await reorderTasks(orders);
     } catch (err) {
       showToast('コピーに失敗しました: ' + (err as Error).message, 'error');
     }
