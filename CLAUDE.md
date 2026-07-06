@@ -1,86 +1,29 @@
 # TreeGantt
 
-設計書: `docs/treegantt_design.md`
+設計書: `docs/treegantt_design.md` — **現行ソフトの完全仕様書**。設計の正は本文（各章）。
 
 ## コマンド
 
 ```bash
-# 開発サーバー（API + フロントエンド同時起動）
-bash start.sh
-# → http://localhost:3000 / API: 4000 / WS: 4001
-
-# テスト
-cd /workspace/api      && npm test
-cd /workspace/frontend && npm test -- --run
-
-# 本番
-docker compose build && docker compose up -d
+bash start.sh                       # 開発（フロント:3000 / API:4000 / WS:4001）
+cd api      && npm test             # typecheck / lint / audit も npm run で実行可
+cd frontend && npm test -- --run
+cd e2e      && npx playwright test
+docker compose build && docker compose up -d   # 本番
 ```
 
-## Git コミット規約
+## 開発フロー（詳細な順序チェックはフックが Edit/Write 時・終了時に表示）
 
-**すべてのコミットメッセージの末尾に、どのモデルがコミットしたかを示すトレーラを必ず付ける。**
+**設計書更新→docsコミット → 失敗テスト → 失敗確認 → 実装 → 全通過 → 実装コミット** を厳守。
 
-形式（`Co-Authored-By` トレーラ。本文との間に空行を1つ入れる）:
+- 全コミット末尾に空行＋ `Co-Authored-By: Claude <実際に使用中のモデル名> <noreply@anthropic.com>`（例: `Claude Fable 5`。固定値をハードコードしない）
+- 設計書: 仕様変更は該当章の**本文**を更新し、ヘッダーのドキュメント版を +1。改訂履歴は**昇順・テーブル末尾に追記**（長い既存行を `old_string` に含めない）。バグ修正は履歴に載せない。
+- インフラ変更は start.sh（開発）と Docker（本番）の両方への影響を確認する。
 
-```
-Co-Authored-By: Claude <モデル名> <noreply@anthropic.com>
-```
+## リリース手順（変更箇所は固定・全て同じ x.y.z に揃える）
 
-例（Opus 4.8 の場合）:
-
-```
-Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
-```
-
-- **モデル名はコミット時点で実際に使用しているもの**を記載する（例: `Opus 4.8` / `Sonnet 4.6` / `Haiku 4.5` / `Fable 5`）。固定値をハードコードしない。
-- これにより、各コミットがどのモデルによる作業かを後から追跡できる。
-
-## 開発ルール
-
-順序厳守: **ドキュメントコミット → 失敗テスト追加 → 実装 → 全通過 → 実装コミット**
-
-### ✅ 厳守する実装順序（例外なし）
-
-1. `docs/treegantt_design.md` を更新
-2. `git commit`（ドキュメントのみ）
-3. テストを書く（この時点でテストは**失敗すること**）
-4. テスト失敗を確認
-5. 実装する
-6. 全テスト通過を確認（`npm test`）
-7. `git commit`（実装）
-
-### ❌ 絶対禁止（違反したら即中断して正しい順序からやり直す）
-
-- テストを書かずに実装ファイルを Edit/Write してはならない
-- `docs/treegantt_design.md` を更新・コミットする前に実装してはならない
-- 実装完了後にコミットせずに会話を終了してはならない
-
-### 📝 設計書の更新ルール（v1.0 以降）
-
-`docs/treegantt_design.md` は **現行ソフトの完全仕様書**であり、設計の正は本文（各章）にある。
-
-- **設計・仕様の変更は、まず本書の該当章を更新する**（設計の出典を本文に一本化する）。
-- 巻末「改訂履歴」には **版数と設計上の要点のみ**を要約として残す。**バグ修正は履歴に記載しない**（設計書は設計を記述する）。
-- 設計書のドキュメント版は `0.2.x`（**現行版はヘッダー参照**）。設計改訂ごとに `0.2.x+1` と進める。ヘッダーの「ドキュメント版」も更新する。
-- 製品バージョン（`api`/`frontend` の `package.json` `version`）はセマンティック（**現行版は `package.json` 参照**）。ハンバーガーと `/health` に表示される。
-
-改訂履歴へ要約行を追記する場合は、**末尾の区切り行（`---`）またはテーブル末尾を目印に、その直前へ追加する**（長い既存行のテキストを `old_string` に含めない＝部分一致で行が壊れるため）。**並びは昇順**（古い版が上・新しい版が下）。前の最新行の「上」に挿入しないこと（降順に崩れる）。
-
-## リリース手順（製品バージョンアップ）
-
-製品バージョンを上げるときに**変更する箇所は固定**。毎回ソース検索せず、この一覧どおりに揃える（全て同じ `x.y.z` へ）。
-
-1. **製品バージョン（`x.y.z`）** — 次の4ファイル。`package-lock.json` は**ルートの `version` のみ**（ファイル先頭と `packages[""]` の2箇所）。依存パッケージの同名バージョン文字列は触らない。
-   - `api/package.json` / `frontend/package.json` の `version`
-   - `api/package-lock.json` / `frontend/package-lock.json` のルート `version`（各2箇所）
-2. **`docs/treegantt_design.md`**
-   - ヘッダー「製品バージョン」「ステータス（`リリース（x.y.z）`）」
-   - §3 ディレクトリ構成図の `package.json version=...`（api / frontend の2箇所）
-   - §15「製品バージョン：現行リリース」とデータ形式版（変わったときのみ）
-   - **ドキュメント版を +1**、改訂履歴テーブル**末尾（昇順）**に1行（製品バージョン更新の要点）
-3. **`CHANGELOG.md`** — 先頭に `## [x.y.z] - YYYY-MM-DD` を追加（`### 追加/変更/修正`）。
-   - ⚠️ **方向に注意**: CHANGELOG は**新しい版が上（降順）**、設計書の改訂履歴は**昇順（末尾追記）**。両者で逆。
-4. **`README.md`** — 冒頭のバージョンバッジ（`version-x.y.z`）を更新。
-5. テストは `/health`・ハンバーガー表示が `package.json` を実行時参照するためコード変更不要。`npm test` で全通過確認。
-6. メモリ（versioning）も最新の版へ更新。
+1. `api`/`frontend` の `package.json` `version`。両 `package-lock.json` は**ルート `version` のみ**（各ファイル先頭と `packages[""]` の2箇所。依存側の同名文字列は触らない）
+2. 設計書: ヘッダー「製品バージョン」「ステータス（`リリース（x.y.z）`）」、§3 構成図の2箇所、§15 現行リリース（**major.minor が変わったときのみ**）、ドキュメント版 +1・改訂履歴末尾に1行
+3. `CHANGELOG.md` 先頭に `## [x.y.z] - YYYY-MM-DD`（`### 追加/変更/修正`。⚠️ CHANGELOG は**降順**＝設計書の改訂履歴と逆方向）
+4. `README.md` 冒頭のバージョンバッジ
+5. `npm test` 全通過確認（バージョン表示は `package.json` を実行時参照するためコード変更不要）。メモリ（versioning）も最新版へ更新。
