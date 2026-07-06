@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import dayjs from 'dayjs';
 import type { Task, ZoomLevel } from '../types/task';
 import { calcWorkloadMatrix } from '../utils/workloadCalc';
@@ -44,10 +44,21 @@ describe('calcWorkloadMatrix: タイムゾーン整合（JST, UTC+9）', () => {
 });
 
 describe('リソースビューの日付列がガントチャートと一致する（JST, UTC+9）', () => {
-  // parseDateStr と同じく dayjs(str).toDate() でローカル深夜の min/max を作る
-  const min = dayjs('2026-06-10').toDate();
-  const max = dayjs('2026-06-30').toDate();
-  const tasks = [task({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-30' })];
+  // parseDateStr と同じく dayjs(str).toDate() でローカル深夜の min/max を作る。
+  // describe 本体（コレクション時）は上の beforeAll（実行時）より先に評価されるため、
+  // ここで min/max/tasks を直接生成すると、CI 実行環境の元 TZ で固定された Date を
+  // 「TZ=Asia/Tokyo に切り替わった後」の dateToX/dayjs 計算と突き合わせることになり、
+  // 環境の元 TZ と Asia/Tokyo の差（境界条件次第で 1 日分ズレることもある）が
+  // 見かけ上の不一致として現れてしまう。beforeEach（実行時、beforeAll の後）で
+  // 生成することで、常に TZ=Asia/Tokyo 適用後の一貫した値にする。
+  let min: Date;
+  let max: Date;
+  let tasks: Task[];
+  beforeEach(() => {
+    min = dayjs('2026-06-10').toDate();
+    max = dayjs('2026-06-30').toDate();
+    tasks = [task({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-30' })];
+  });
 
   it('先頭列はガント先頭日（min のローカル日付）と一致し、1日前へずれない', () => {
     const { days } = calcWorkloadMatrix(tasks, min, max);

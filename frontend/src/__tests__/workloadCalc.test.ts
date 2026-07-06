@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import dayjs from 'dayjs';
 import {
   calcWorkloadMatrix, workloadColor, workloadBuckets,
   calcUtilizationMatrix, utilizationColor,
 } from '../utils/workloadCalc';
 import type { Task } from '../types/task';
+
+// min/max は本番コード（parseDateStr = dayjs(str).toDate()）と同じくローカル解釈で作る。
+// `new Date('YYYY-MM-DD')` は常に UTC 0 時として解釈されるため、UTC 背後（例: America/New_York
+// 等の負オフセット）の環境では toDateStr（ローカル整形）との突き合わせで前日にズレて見える
+// ことがある（本番では起こらない test-only の不整合）。
 
 function makeTask(partial: Partial<Task>): Task {
   return {
@@ -32,7 +38,7 @@ function makeTask(partial: Partial<Task>): Task {
 
 describe('calcWorkloadMatrix', () => {
   it('空タスクリストは空マトリクスを返す', () => {
-    const result = calcWorkloadMatrix([], new Date('2026-05-01'), new Date('2026-05-03'));
+    const result = calcWorkloadMatrix([], dayjs('2026-05-01').toDate(), dayjs('2026-05-03').toDate());
     expect(result.assignees).toEqual([]);
     expect(result.days).toEqual([]);
     expect(result.matrix).toEqual([]);
@@ -40,19 +46,19 @@ describe('calcWorkloadMatrix', () => {
 
   it('担当者なしのタスクは集計されない', () => {
     const tasks = [makeTask({ startDate: '2026-05-01', endDate: '2026-05-02', status: 'todo' })];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-02'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-02').toDate());
     expect(result.assignees).toEqual([]);
   });
 
   it('doneタスクは集計されない', () => {
     const tasks = [makeTask({ assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-02', status: 'done' })];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-02'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-02').toDate());
     expect(result.assignees).toEqual([]);
   });
 
   it('startDate/endDate が null のタスクは集計されない', () => {
     const tasks = [makeTask({ assignee: 'Alice', startDate: null, endDate: null, status: 'todo' })];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-02'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-02').toDate());
     expect(result.assignees).toEqual([]);
   });
 
@@ -61,7 +67,7 @@ describe('calcWorkloadMatrix', () => {
     const tasks = [
       makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-06', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-06').toDate());
     expect(result.assignees).toEqual(['Alice']);
     expect(result.days).toEqual(['2026-05-04', '2026-05-05', '2026-05-06']);
     // Alice の全3日（平日）count=1
@@ -73,7 +79,7 @@ describe('calcWorkloadMatrix', () => {
     const tasks = [
       makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-04', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-04'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-04').toDate());
     expect(result.days).toEqual(['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04']);
     expect(result.matrix[0]).toEqual([1, 0, 0, 1]);
   });
@@ -82,7 +88,7 @@ describe('calcWorkloadMatrix', () => {
     const tasks = [
       makeTask({ id: 't1', assignee: 'Alice', title: '設計', startDate: '2026-05-01', endDate: '2026-05-04', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-04'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-04').toDate());
     expect(result.dayTasks[0][0]).toEqual(['設計']); // 金
     expect(result.dayTasks[0][1]).toEqual([]);        // 土
     expect(result.dayTasks[0][2]).toEqual([]);        // 日
@@ -94,7 +100,7 @@ describe('calcWorkloadMatrix', () => {
       makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-01', status: 'wip' }),
       makeTask({ id: 't2', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-01', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-01'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-01').toDate());
     expect(result.matrix[0][0]).toBe(2);
   });
 
@@ -104,7 +110,7 @@ describe('calcWorkloadMatrix', () => {
       makeTask({ id: 't2', assignee: 'Bob',   startDate: '2026-05-01', endDate: '2026-05-01', status: 'todo' }),
       makeTask({ id: 't3', assignee: 'Bob',   startDate: '2026-05-01', endDate: '2026-05-01', status: 'wip' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-01'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-01').toDate());
     expect(result.assignees).toContain('Alice');
     expect(result.assignees).toContain('Bob');
     const aliceIdx = result.assignees.indexOf('Alice');
@@ -117,7 +123,7 @@ describe('calcWorkloadMatrix', () => {
     const tasks = [
       makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-04-28', endDate: '2026-05-08', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-06').toDate());
     // 範囲は5/4〜5/6 のみ（全て平日）
     expect(result.days).toEqual(['2026-05-04', '2026-05-05', '2026-05-06']);
     expect(result.matrix[0]).toEqual([1, 1, 1]);
@@ -128,7 +134,7 @@ describe('calcWorkloadMatrix', () => {
       makeTask({ id: 't1', assignee: 'Zara',  startDate: '2026-05-01', endDate: '2026-05-01', status: 'todo' }),
       makeTask({ id: 't2', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-01', status: 'todo' }),
     ];
-    const result = calcWorkloadMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-01'));
+    const result = calcWorkloadMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-01').toDate());
     expect(result.assignees[0]).toBe('Alice');
     expect(result.assignees[1]).toBe('Zara');
   });
@@ -199,7 +205,7 @@ const UOPTS = { capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] };
 describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
   it('予定工数を稼働日へ均等配分し稼働率を出す', () => {
     const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-06', estimateMinutes: 720, status: 'todo' })];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-06').toDate(), UOPTS);
     expect(r.assignees).toEqual(['Alice']);
     expect(r.demand[0]).toEqual([240, 240, 240]);   // 720 / 3 稼働日
     expect(r.utilization[0]).toEqual([0.5, 0.5, 0.5]);
@@ -209,14 +215,14 @@ describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
 
   it('土日は需要0（非稼働日）、稼働日のみへ配分', () => {
     const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-01', endDate: '2026-05-04', estimateMinutes: 480, status: 'todo' })];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-01'), new Date('2026-05-04'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-01').toDate(), dayjs('2026-05-04').toDate(), UOPTS);
     // 金,土,日,月 → 稼働 金/月=2 → 240 ずつ
     expect(r.demand[0]).toEqual([240, 0, 0, 240]);
   });
 
   it('estimateMinutes=null は需要0だが担当者行は表示される', () => {
     const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: null, status: 'todo' })];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-04').toDate(), UOPTS);
     expect(r.assignees).toEqual(['Alice']);
     expect(r.demand[0]).toEqual([0]);
     expect(r.totalMinutes[0]).toBe(0);
@@ -224,7 +230,7 @@ describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
 
   it('done は行にも需要にも含めない', () => {
     const tasks = [makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'done' })];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-04').toDate(), UOPTS);
     expect(r.assignees).toEqual([]);
   });
 
@@ -233,7 +239,7 @@ describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
       makeTask({ id: 'p', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'todo' }),
       makeTask({ id: 'c', parentId: 'p', assignee: 'Bob', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 480, status: 'todo' }),
     ];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-04').toDate(), UOPTS);
     expect(r.assignees).toEqual(['Bob']);          // 親 p は除外
     expect(r.demand[0]).toEqual([480]);
     expect(r.utilization[0]).toEqual([1]);
@@ -241,7 +247,7 @@ describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
 
   it('dayTasks は各タスクの按分時間 {title, minutes} を保持する', () => {
     const tasks = [makeTask({ id: 't1', assignee: 'Alice', title: '設計', startDate: '2026-05-04', endDate: '2026-05-06', estimateMinutes: 720, status: 'todo' })];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-06'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-06').toDate(), UOPTS);
     // 720 を 3 稼働日 → 各日 {title:'設計', minutes:240}
     expect(r.dayTasks[0][0]).toEqual([{ title: '設計', minutes: 240 }]);
     expect(r.dayTasks[0][1]).toEqual([{ title: '設計', minutes: 240 }]);
@@ -252,7 +258,7 @@ describe('calcUtilizationMatrix（工数ベース稼働率）', () => {
       makeTask({ id: 't1', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 240, status: 'todo' }),
       makeTask({ id: 't2', assignee: 'Alice', startDate: '2026-05-04', endDate: '2026-05-04', estimateMinutes: 480, status: 'wip' }),
     ];
-    const r = calcUtilizationMatrix(tasks, new Date('2026-05-04'), new Date('2026-05-04'), UOPTS);
+    const r = calcUtilizationMatrix(tasks, dayjs('2026-05-04').toDate(), dayjs('2026-05-04').toDate(), UOPTS);
     expect(r.demand[0]).toEqual([720]);
     expect(r.utilization[0]).toEqual([1.5]);
   });
