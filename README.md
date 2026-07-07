@@ -6,7 +6,7 @@
 
 複数ブラウザでリアルタイム同期する、社内向けプロジェクト/タスク管理ツール。
 
-![version](https://img.shields.io/badge/version-1.5.1-2563eb)
+![version](https://img.shields.io/badge/version-1.6.0-2563eb)
 [![CI](https://github.com/aki1jp/treegantt/actions/workflows/ci.yml/badge.svg)](https://github.com/aki1jp/treegantt/actions/workflows/ci.yml)
 ![license](https://img.shields.io/badge/license-MIT-22c55e)
 ![node](https://img.shields.io/badge/node-20+-3c873a)
@@ -38,6 +38,7 @@
 - 🎯 **クリティカルパス** — CPM で余裕ゼロの経路を強調
 - ✏️ **インライン編集** — WBS のセルを直接編集
 - 👥 **担当者別負荷ビュー** — 日付×担当のヒートマップ
+- 🔗 **クロスプロジェクト参照** — 他プロジェクトのタスクを読み取り専用で表示し、プロジェクトを跨いだ先行/後続も設定可能
 - 🔄 **競合解決 UI** — 同一フィールドの同時編集を自分/相手で選択
 - 🗂️ **マルチプロジェクト** — タブで切替
 - 📥 **Import / Export** — JSON・CSV でバックアップ/移行
