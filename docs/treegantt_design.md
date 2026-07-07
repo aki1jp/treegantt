@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.5.1** |
-| ドキュメント版 | 0.2.149 |
+| ドキュメント版 | 0.2.150 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -173,6 +173,13 @@ interface Project {
   capacityMinutesPerDay: number | null;
   workingDays: number[] | null;
 }
+
+// クロスプロジェクト参照（§5.8）。projectId が「参照する側」、refTaskId が参照先タスク
+interface TaskRef {
+  projectId: string;
+  refTaskId: string;
+  createdAt: string;
+}
 ```
 
 ### 4.2 SQLite スキーマ
@@ -223,6 +230,17 @@ interface Project {
 | successor_id | FK→tasks(id) ON DELETE CASCADE |
 | PRIMARY KEY | (predecessor_id, successor_id) |
 
+**task_refs**（クロスプロジェクト参照。012 追加。詳細は §5.8）
+
+| 列 | 制約 |
+|----|------|
+| project_id | FK→projects(id) ON DELETE CASCADE（参照する側のプロジェクト） |
+| ref_task_id | FK→tasks(id) ON DELETE CASCADE（参照先タスク。他プロジェクトのタスク） |
+| created_at | DEFAULT datetime('now') |
+| PRIMARY KEY | (project_id, ref_task_id)（同一ペアは1行＝追加は冪等） |
+
+- 逆引き index `idx_task_refs_task(ref_task_id)`：参照先タスク削除時の `ON DELETE CASCADE` が `task_refs` 側を効率的に辿れるようにするため（`project_id` 側は複合PKの先頭列で既に索引済み）。
+
 **app_settings**（リソース設定のアプリ既定。key-value, 010 追加）
 
 | 列 | 型 | 制約 |
@@ -268,6 +286,9 @@ interface Project {
 | GET | `/api/v1/tasks/:id` | 単一取得 |
 | PATCH | `/api/v1/tasks/:id` | 更新 |
 | DELETE | `/api/v1/tasks/:id?mode=subtree\|single` | 削除（既定 subtree=子孫ごと／single=子は祖父母へ付替え） |
+| GET | `/api/v1/projects/:id/refs` | クロスプロジェクト参照一覧＋ハイドレート済みタスク（§5.8） |
+| POST | `/api/v1/projects/:id/refs` | 参照追加（冪等。§5.8） |
+| DELETE | `/api/v1/projects/:id/refs/:refTaskId` | 参照解除（§5.8。跨ぎ依存は残る） |
 | POST | `/api/v1/projects/:id/import` | Import（mode: append/restore） |
 | GET | `/api/v1/projects/:id/export/json` | JSON エクスポート |
 | GET | `/api/v1/projects/:id/export/csv` | CSV エクスポート |
@@ -303,8 +324,65 @@ interface Project {
 - **`GET /docs`**：Swagger UI（対話的な API 仕様閲覧・試行）。`/health` と同様 `/api/v1` prefix 外。
 - **`GET /docs/json`** / **`GET /docs/yaml`**：生成された OpenAPI 定義（`info.version` は `package.json` の `version` を実行時読込。`/health` の `API_VERSION` と同じ方式で単一の出典を維持）。
 - `response` スキーマは定義しない（Fastify の `response` スキーマは出力のシリアライズ/フィルタに使われるため、ドキュメント化目的で正確な検証をせずに追加すると意図しないフィールド欠落を招くリスクがある）。ドキュメントはリクエスト形状と概要文（`summary`）で表現する。
-- タグは `Health` / `Projects` / `Tasks` / `ImportExport` / `Settings`（ルートモジュール単位）。
+- タグは `Health` / `Projects` / `Tasks` / `Refs` / `ImportExport` / `Settings`（ルートモジュール単位）。
 - **WebSocket（§6）は対象外**。OpenAPI は HTTP のみを扱うため、リアルタイム同期のメッセージ仕様は引き続き §6 を参照する。
+
+### 5.8 クロスプロジェクト参照（`task_refs`）
+
+他プロジェクトのタスク（や親タスク）を**読み取り専用の参照**として現在のプロジェクトに取り込み、進捗・日付を確認しつつ、**プロジェクトをまたぐ依存関係**（先行/後続）をつなげる機能。§17.4 で調査済みだった保留事項を実装したもの。
+
+> **実装状況**：本節（データモデル・API・依存循環検証）は実装済み。フロントエンド（参照行/合成グループ行の描画、readonly ガード、追加 UI）は本節末尾の「フロントエンド仕様」に設計として記述するのみで、実装は次段階（frontend 対応後のリリースで反映）。
+
+#### データモデル
+
+`task_refs(project_id, ref_task_id, created_at)`（§4.2）。`project_id` が「参照する側」のプロジェクト、`ref_task_id` が参照先タスク（他プロジェクトのタスクを想定するが、DB 上は同一プロジェクトのタスク ID も指定でき、API 側で `SELF_REF` として拒否する）。複合 PK `(project_id, ref_task_id)` のため、同一ペアの追加は自然に冪等となる。
+
+**参照の単位はタスク単位**。親タスクを参照した場合はサブツリー全体（子孫すべて）を同梱して取得する（後述ハイドレート）。これによりフロントの親スパン/進捗の算出ロジックをそのまま流用できる。
+
+#### API 仕様
+
+- **GET `/api/v1/projects/:id/refs`** → `{ refs, tasks, projects }`
+  - `refs`：`:id` プロジェクトが持つ `TaskRef[]`（`projectId`/`refTaskId`/`createdAt`）。
+  - `tasks`：`refs` の各 `refTaskId` を根とするサブツリーの和集合を**重複排除**してハイドレートした `TaskWithSuccessors[]`（`predecessors`/`successors` 付与済み）。親と子を両方参照していても、同じタスクが2重に含まれることはない。`taskService.getTaskSubtrees(rootIds)` で算出（`deleteTaskSubtree` と同じ再帰 CTE でサブツリー ID を収集し、`attachDeps` を流用して依存を付与）。
+  - `projects`：`tasks` に含まれる各タスクの所属プロジェクトの `{ id, name, color }`（重複排除）。フロントが合成グループ行「🔗 &lt;プロジェクト名&gt;」の見出し・配色に使う。
+  - `:id` のプロジェクトが存在しない場合は 404 `NOT_FOUND`。
+- **POST `/api/v1/projects/:id/refs`**（body: `{ refTaskId }`）
+  - `:id` が存在しない → 404 `NOT_FOUND`。
+  - `refTaskId` のタスクが存在しない → 400 `INVALID_REF_TASK`。
+  - `refTaskId` が `:id` 自身のプロジェクトに属する（自プロジェクトのタスクを参照しようとした） → 400 `SELF_REF`。
+  - 既存の参照と重複 → 冪等に 200 `{ ref }`（エラーにしない）。新規追加時は 201 `{ ref }`。
+- **DELETE `/api/v1/projects/:id/refs/:refTaskId`**
+  - 参照が存在すれば削除して 204。存在しなければ 404 `NOT_FOUND`。
+  - **参照解除は跨ぎ依存（`task_deps`）を削除しない**。参照を外しても、既に張った先行/後続の依存関係はデータとして残る（フロントは参照が外れたタスクの矢印を描画しなくなるため見た目には消えるが、DB上は消えていない）。再度同じタスクを参照すると、消えていた依存関係の矢印が復活する。これは「参照はあくまで表示上のショートカットであり、依存関係の実体は `task_deps` 側にある」という設計上の割り切りである。
+
+#### プロジェクト跨ぎの依存と循環検証
+
+- `task_deps` は元々 project 非依存（タスク ID のみを保持）であり、`predecessors` の作成/更新にも同一プロジェクト限定の検証は無かったため、**DB/API 層は元から他プロジェクトのタスクへの依存を保持可能**だった（§17.4 の調査結果）。
+- 一方で、フロントの依存追加 UI は自プロジェクト内の循環しか検出できないため、**API 側に `task_deps` 全域（プロジェクトを跨いでも）の循環検証**を新設した：`taskService.wouldCreateDepCycleDb(successorId, newPredecessors)`。
+  - `successorId` を起点に `task_deps` を「先行→後続」方向（`predecessor_id = 現在ノード` → `successor_id`）へ BFS し、`newPredecessors` のいずれかに到達できれば、それを新たな先行として追加すると循環になるため検出する。`successorId` 自身が `newPredecessors` に含まれる場合（自己依存）も即座に検出する。
+  - **`predecessors` を全置換する更新**（`PATCH /tasks/:id`）でも、既存のまま変わらないエッジを偽陽性で弾かない：BFS は `successorId` から辿れる**後続方向**のみを見るため、置換対象である `successorId` 自身への既存の先行エッジ（置換で消える側）を辿ることはなく、再送された既存の先行関係を誤って循環と判定しない。
+  - `POST /api/v1/projects/:id/tasks` と `PATCH /api/v1/tasks/:id` の `predecessors` 指定時に適用し、循環時は 400 `DEP_CYCLE_DETECTED` を返す（タスクの親子構造の循環を検出する既存の `CYCLE_DETECTED`＝`wouldCreateCycle` とは別コード・別ロジック）。3プロジェクトを跨ぐ循環（A→B→C→A）も検出対象。
+- 参照登録（`task_refs`）と依存（`task_deps`）は疎結合：参照していないタスクへも `predecessors` で依存を張ること自体は API 上禁止しない（フロントの依存追加 UI は参照済みタスクのみを候補に提示する想定だが、API は寛容さを維持する）。
+
+#### 認可・読み取り専用の担保
+
+参照先タスクの「読み取り専用」はフロントエンドのみで担保する。API は本節導入後も**従来どおり任意のタスクを `PATCH`/`DELETE` 可能**（プロジェクトを跨いでいても不可にしない）。TreeGantt は §1.3/§11 に明記のとおり認可・マルチテナント分離を実装しない方針であり、本機能もその思想を踏襲する。
+
+#### スコープ外（設計判断）
+
+- **Export/Import への `task_refs` 同梱**：しない。Import の `restore` はバッチ外の ID を除外するため、Export→Import 往復では跨ぎ依存（`task_deps`）も参照（`task_refs`）も復元されない。
+- **ジャンプ先タスクの自動フォーカス**：しない（プロジェクト切替のみ）。
+- **MCP への refs ツール追加**：しない（§18 の方針・スコープに含めない）。
+- **サーバー側の書き込み拒否**：しない（上記「認可・読み取り専用の担保」のとおりフロント側担保に統一）。
+- **ライブ更新（WebSocket）**：本節の GET はロード時/手動再読み込み時に取得する**スナップショット方式（R1）**。複数プロジェクトの WS 購読によるリアルタイム反映（R2）は将来の拡張候補とし、本節では扱わない（WS のルーム構造・再接続・振り分けのテスト面積が大きく、分離した方が検証しやすいため）。
+
+#### フロントエンド仕様（設計。実装は次段階）
+
+- **ストア**：`taskStore` に非永続スロット `refTasks`/`refProjects` を追加し、既存 `tasks` スロットとは分離する（`setTasks` の全置換・WS 反映・フィルタ処理との干渉を避けるため）。
+- **描画（合成グループ行）**：参照先プロジェクトごとに合成グループ Task（`id = "ref:<projectId>"`、`order` はガント末尾に固定表示されるよう大きな値）を生成し、参照タスクの `parentId`（参照セット外を指す場合）をこのグループ行に差し替えてから既存のツリー描画・折りたたみ・行仮想化・依存矢印機構に渡す（`mergeRefTasks()`）。クリティカルパス・リソースビュー・担当者候補は現在プロジェクトのみを入力とし、意味論を変えない。
+- **読み取り専用ガード**：`isReadonlyTask(task, currentProjectId)` を、インライン編集・バードラッグ・作成ドラッグ・リンクドラッグ・行 D&D・右クリックメニュー・タスク詳細モーダル・削除の**8経路**すべてに配布し、参照タスクに対する編集操作を no-op にする（多層防御。`App` のハンドラ層にも同じガードを重ねる）。参照行は淡色表示＋🔗 アイコンで区別する。
+- **UI 入口は2つ**：①ガントの右クリックコンテキストメニュー（既存の「タスク追加」「マイルストーン追加」と同列に「🔗 参照を追加」を配置）、②ツールバーの「🔗 参照」ボタンから開く参照管理モーダル（一覧・解除・再読み込み）。どちらも「プロジェクト選択→タスク選択→追加」という共通の追加フローを呼び出す。
+- **クロス依存の追加**：後続タスクが参照タスク側にあるリンクドラッグは、`tasks` スロットを汚染しない専用の更新経路を使う（既存の楽観的更新フックをそのまま流用すると参照タスクが `tasks` スロットに紛れ込むため）。
 
 ---
 
@@ -743,19 +821,16 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 - **エラーハンドリング方針**：無言の `catch(() => {})` を禁止し、ユーザーに必ず通知する。
 - **Conventional Commits** の明文化（既にほぼ実践：`feat/fix/docs/test:`）。
 
-### 17.4 クロスプロジェクトのタスク参照（ペンディング）
-別プロジェクトのタスク（や親タスク）を**読み取り専用の参照**として現在プロジェクトに取り込み、進捗を確認しつつ**プロジェクトをまたぐ依存関係**（先行/後続）をつなぎたい、という要望。現時点では**保留**（実装しない）。調査メモ:
-- `task_deps(predecessor_id, successor_id)` は project 非依存でタスク ID のみを持ち、`attachDeps` は他プロジェクトの予先 ID も `predecessors`/`successors` に含める。create/update に同一プロジェクト限定の予先検証も無い → **DB/API 層は既にクロスプロジェクト依存を保持可能**。
-- `GET /tasks/:id` は project 非スコープで任意タスクを返す → 外部タスクの内容（進捗・日付）はフロントから取得可能。
-- 未対応: フロントの**参照行（読み取り専用）描画**（現状 `resolveVisibleId` は現在プロジェクト外の予先 ID を描画しない）、外部参照の追加 UI、**進捗のライブ更新**（WS ルームはプロジェクト単位のため、クロスルーム購読/通知の拡張が必要）。
-- 想定スコープ案: ①依存ベースの参照（依存が在れば外部タスクを参照行で表示）→ ②ロード時取得（ライブは後段）→ ③両方向（先行/後続）。依存なしの「ウォッチ」専用参照は別テーブルが必要で更に大きい。
-- 任意：PR ＋ 自己コードレビュー（`/code-review`）をマージ前に。
+### 17.4 クロスプロジェクトのタスク参照（実装済み → §5.8 参照）
+別プロジェクトのタスク（や親タスク）を読み取り専用の参照として現在プロジェクトに取り込み、進捗を確認しつつプロジェクトをまたぐ依存関係（先行/後続）をつなぎたい、という要望。かつては本節に保留（実装しない）としていたが、データモデル・API・依存循環検証を実装した。**設計・仕様の出典は新設 §5.8「クロスプロジェクト参照（`task_refs`）」に一本化**し、本節には要点のみを残す。
+- 調査の結果、`task_deps` は元々 project 非依存でクロスプロジェクト依存を保持可能だったため、不足していたのは参照の管理テーブル（`task_refs`）・参照 API・全域の依存循環検証（クロスで必須）・フロントの参照行描画/UI だった。
+- フロントエンド（参照行描画・readonly ガード・追加 UI）は §5.8 に設計として記述済みだが、実装は次段階（本書の対象リリースでは未反映）。
 
-### 17.4 着手順の目安
+### 17.5 着手順の目安
 **① CI＋ESLint/Prettier（土台）→ ② a11y 監査＋修正 → ③ ビジュアルリグレッション → ④ エラー可視化**。
 ①で再発防止の基盤を作り、②③④で UI/UX 品質を直接押し上げる。
 
-### 17.5 単独実行ファイル化（検討・保留）
+### 17.6 単独実行ファイル化（検討・保留）
 
 **現時点の判断: 実施しない（`docker compose up -d` で十分）**
 
@@ -903,3 +978,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.147 | 2026/7 | `BACKUP_INTERVAL_HOURS=0` の記述を実挙動に合わせて是正（§13.1・§16.5）。`0` は「定期実行の無効化」であり、起動時の1回のバックアップは実行される（CI の E2E ジョブでは起動時1回分が `runner.temp` に生成されるがジョブ終了で破棄されるため実害なし）ことを明確化。`ci.yml` の該当コメントも同趣旨に修正。 |
 | 0.2.148 | 2026/7 | 製品バージョンを **1.5.0** に更新（ヘッダー・ステータス・構成図・§15）。SQLite の定期バックアップ機能（起動時＋既定24時間ごと、7世代ローテーション、`BACKUP_DIR`/`BACKUP_INTERVAL_HOURS`/`BACKUP_RETENTION`、手動リストア手順。0.2.145〜0.2.147 で明記した設計）と、CI への E2E(Playwright) ジョブ追加（0.2.146 で明記した設計）を機能追加の製品リリースとして `CHANGELOG.md` の `[1.5.0]` に記録。**今回は major.minor が 1.4→1.5 に変わるマイナーバンプのため§15「現行リリース」も更新した**（データ形式版 1.1 は変更なし）。 |
 | 0.2.149 | 2026/7 | 製品バージョンを **1.5.1** に更新（ヘッダー・ステータス・構成図）。LICENSE（MIT）の追加とヒーロースクリーンショット・CIバッジを含む README の全面更新、および CI 環境（TZ=UTC）でのみ顕在化していたフロントエンドのテストのタイムゾーン依存バグ（`workloadCalc.test.ts`/`workloadCalcTz.test.ts`）の修正を、品質改善の製品リリースとして `CHANGELOG.md` の `[1.5.1]` に記録。§15「現行リリース」の表記（1.5）はパッチ更新のため変更なし。 |
+| 0.2.150 | 2026/7 | クロスプロジェクトのタスク参照（`task_refs`）を新設 §5.8 に明記し実装（§17.4 は実装済みへ更新、§5.8 へ出典を一本化）。データモデル（`task_refs`、§4.2）、参照 API 3本（GET/POST/DELETE `/projects/:id/refs`、冪等追加・サブツリーハイドレート・重複排除・参照解除は跨ぎ依存を消さない）、`task_deps` 全域（プロジェクト跨ぎ含む）の依存循環検証 `wouldCreateDepCycleDb`（400 `DEP_CYCLE_DETECTED`、親子構造循環の既存 `CYCLE_DETECTED` とは別ロジック）を明記。読み取り専用はフロント担保でサーバー側書き込み拒否はしない方針、Export/Import 非同梱・MCP 非対応・ライブ更新（WS）は将来（R2）というスコープ外事項も明記。フロントエンド仕様（合成グループ行・`isReadonlyTask` の8経路・追加 UI 入口2つ）も設計として記述（実装は次段階）。§17.4 直後にあった見出し番号の重複（旧 17.4「着手順の目安」）を 17.5 に採番し直し、旧 17.5「単独実行ファイル化」を 17.6 に繰り下げ。 |
