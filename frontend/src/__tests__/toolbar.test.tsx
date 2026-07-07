@@ -29,7 +29,7 @@ beforeEach(() => {
   localStorage.clear();
   useTaskStore.setState({
     tasks: [], needsReload: false,
-    filterStatus: '', filterAssignee: '', filterPriority: '', filterSearch: '',
+    filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterSearch: '',
     zoomLevel: 'week', ganttStartDate: '', ganttPeriod: '3m',
     showLightningLine: true, showWeekend: true, showCriticalPath: false, showResourceView: true,
     uiFontSize: 13, uiRowHeight: 36,
@@ -215,6 +215,70 @@ describe('Toolbar フィルタインライン表示', () => {
     )!;
     const labels = Array.from(statusSelect.options).map(o => o.text);
     expect(labels).toContain('DONE/保留以外');
+  });
+});
+
+describe('Toolbar 色フィルタ', () => {
+  it('行2に色選択が直接表示される（aria-label="色で絞り込み"）', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const colorSelect = row2.querySelector('select[aria-label="色で絞り込み"]');
+    expect(colorSelect).toBeTruthy();
+  });
+
+  it('色選択のデフォルト値は空文字（すべて）', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
+    expect(select.value).toBe('');
+  });
+
+  it('色選択に「すべて」の選択肢がある', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
+    expect(Array.from(select.options).some(o => o.value === '' && o.text === 'すべて')).toBe(true);
+  });
+
+  it('色選択に「色付き」の選択肢がある（value="*"）', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
+    expect(Array.from(select.options).some(o => o.value === '*' && o.text === '色付き')).toBe(true);
+  });
+
+  it('タスクで使用中の色が選択肢として動的に追加される', () => {
+    useTaskStore.setState({
+      tasks: [
+        {
+          id: 't1', projectId: 'p1', parentId: null, title: 'A', summary: '', description: '',
+          status: 'todo', priority: 'medium', progress: 0, assignee: '',
+          startDate: null, endDate: null, isMilestone: false, predecessors: [],
+          seq: 1, order: 1, titleColor: null, titleBgColor: '#ef4444', estimateMinutes: null,
+          createdAt: '', updatedAt: '',
+        },
+      ],
+    });
+    renderToolbar();
+    const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
+    expect(Array.from(select.options).some(o => o.value === '#ef4444')).toBe(true);
+  });
+
+  it('色を選択していないタスクのみのときは色の選択肢が「すべて」「色付き」のみになる', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
+    expect(select.options.length).toBe(2);
+  });
+
+  it('色選択を変更するとストアの filterColor が更新される', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: '*' } });
+    expect(useTaskStore.getState().filterColor).toBe('*');
+  });
+
+  it('色フィルタ設定中は✕クリアボタンで filterColor もクリアされる', () => {
+    useTaskStore.setState({ filterColor: '*' });
+    renderToolbar();
+    fireEvent.click(screen.getByTitle('フィルタをクリア'));
+    expect(useTaskStore.getState().filterColor).toBe('');
   });
 });
 

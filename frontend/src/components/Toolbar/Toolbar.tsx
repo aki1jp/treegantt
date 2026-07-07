@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
-import { todayStr, getUniqueAssignees } from '../../utils/ganttCalc';
+import { todayStr, getUniqueAssignees, getUniqueTaskColors } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 import { FRONTEND_VERSION } from '../../version';
 import { API_DOCS_URL } from '../../utils/api';
@@ -111,7 +111,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
 export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, onOpenRefManager, backendVersion }: Props) {
   const {
     tasks,
-    zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
+    zoomLevel, filterStatus, filterAssignee, filterPriority, filterColor, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
@@ -144,10 +144,13 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     filterStatus !== '',
     filterPriority !== '',
     filterAssignee !== '',
+    filterColor !== '',
   ].filter(Boolean).length;
 
   // 担当者 datalist の候補。毎レンダーの再計算（tasks 全走査）を避ける
   const assigneeOptions = useMemo(() => getUniqueAssignees(tasks), [tasks]);
+  // 色フィルタの選択肢（使用中の実効色）。担当者候補と同じ動的収集パターン（§9.3）
+  const colorOptions = useMemo(() => getUniqueTaskColors(tasks), [tasks]);
 
   const today = todayStr();
 
@@ -332,10 +335,22 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             </div>
           </div>
 
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>色</span>
+            <select style={SELECT} value={filterColor} aria-label="色で絞り込み"
+              onChange={e => setFilter({ filterColor: e.target.value })}>
+              <option value="">すべて</option>
+              <option value="*">色付き</option>
+              {colorOptions.map(c => (
+                <option key={c} value={c} style={{ color: c }}>{`● ${c}`}</option>
+              ))}
+            </select>
+          </div>
+
           {activeFilterCount > 0 && (
             <button
               style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
-              onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '' })}
+              onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '', filterColor: '' })}
               title="フィルタをクリア"
             >
               ✕ クリア

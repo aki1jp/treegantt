@@ -23,6 +23,7 @@ beforeEach(() => {
     filterStatus: '',
     filterAssignee: '',
     filterPriority: '',
+    filterColor: '',
     filterSearch: '',
     zoomLevel: 'week',
     ganttStartDate: '',
@@ -82,6 +83,20 @@ describe('setFilter', () => {
     useTaskStore.getState().setFilter({ filterAssignee: 'Bob' });
     expect(useTaskStore.getState().filterStatus).toBe('wip');
     expect(useTaskStore.getState().filterAssignee).toBe('Bob');
+  });
+
+  it('filterColor を更新する', () => {
+    useTaskStore.getState().setFilter({ filterColor: '#ef4444' });
+    expect(useTaskStore.getState().filterColor).toBe('#ef4444');
+  });
+
+  it('filterColor に "*"（色付き）を設定できる', () => {
+    useTaskStore.getState().setFilter({ filterColor: '*' });
+    expect(useTaskStore.getState().filterColor).toBe('*');
+  });
+
+  it('filterColor の初期値は空文字（すべて）', () => {
+    expect(useTaskStore.getState().filterColor).toBe('');
   });
 });
 
@@ -227,10 +242,11 @@ describe('UI設定の永続化', () => {
   });
 
   it('フィルタ・検索は localStorage に保存されない', () => {
-    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice', filterSearch: 'foo' });
+    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice', filterColor: '*', filterSearch: 'foo' });
     const saved = getSaved();
     expect(saved).not.toHaveProperty('filterStatus');
     expect(saved).not.toHaveProperty('filterAssignee');
+    expect(saved).not.toHaveProperty('filterColor');
     expect(saved).not.toHaveProperty('filterSearch');
   });
 });

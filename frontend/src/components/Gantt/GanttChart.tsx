@@ -89,7 +89,7 @@ export function GanttChart({
   onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
   const {
-    tasks, refTasks, refProjects, filterStatus, filterAssignee, filterPriority, filterSearch,
+    tasks, refTasks, refProjects, filterStatus, filterAssignee, filterPriority, filterColor, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
@@ -108,13 +108,13 @@ export function GanttChart({
   // マイルストーン行・本体の菱形は常に表示する。`showMilestones`（「マイル」トグル）は
   // ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯＝milestoneItems）のみ制御する。
   const sorted = useMemo(
-    () => filterTasks(displayTasks, filterStatus, filterAssignee, filterPriority, filterSearch),
-    [displayTasks, filterStatus, filterAssignee, filterPriority, filterSearch],
+    () => filterTasks(displayTasks, filterStatus, filterAssignee, filterPriority, filterSearch, filterColor),
+    [displayTasks, filterStatus, filterAssignee, filterPriority, filterSearch, filterColor],
   );
   // 現プロジェクトのみの絞り込み結果（クリティカルパス・リソースビュー用, §5.8）
   const sortedOwn = useMemo(
-    () => filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch),
-    [tasks, filterStatus, filterAssignee, filterPriority, filterSearch],
+    () => filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch, filterColor),
+    [tasks, filterStatus, filterAssignee, filterPriority, filterSearch, filterColor],
   );
   // tasks が変わっても内容が同じなら前回の配列参照を維持する
   // （全行に渡る props のため、参照が変わると React.memo が全行で無効化される）

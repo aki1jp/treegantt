@@ -362,6 +362,13 @@ export function getUniqueAssignees(tasks: Task[]): string[] {
   return [...new Set(tasks.map(t => t.assignee).filter(Boolean))].sort();
 }
 
+// 色フィルタ（filterColor, §9.3）の選択肢用: 使用中の「実効色」（titleBgColor 優先・
+// 未設定時のみ titleColor）を重複排除・ソートして返す（getUniqueAssignees と同じ動的収集パターン）。
+export function getUniqueTaskColors(tasks: Task[]): string[] {
+  const colors = tasks.map(t => t.titleBgColor ?? t.titleColor).filter((c): c is string => c != null);
+  return [...new Set(colors)].sort();
+}
+
 export function buildCollapsedCriticalParents(
   sorted: Task[],
   criticalSet: Set<string>,

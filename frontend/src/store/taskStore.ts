@@ -16,6 +16,7 @@ interface TaskStore {
   filterStatus:       TaskStatus | '' | '!done';
   filterAssignee:     string;
   filterPriority:     string;
+  filterColor:        string;
   filterSearch:       string;
   zoomLevel:          ZoomLevel;
   ganttStartDate:     string;
@@ -43,7 +44,7 @@ interface TaskStore {
   removeTasks:            (ids: string[]) => void;
   applyOrders:            (orders: { id: string; order: number; parentId?: string | null }[]) => void;
   setNeedsReload:         (v: boolean) => void;
-  setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterSearch'>>) => void;
+  setFilter:              (filter: Partial<Pick<TaskStore, 'filterStatus' | 'filterAssignee' | 'filterPriority' | 'filterColor' | 'filterSearch'>>) => void;
   setZoomLevel:           (z: ZoomLevel) => void;
   setGanttRange:          (startDate: string, period: GanttPeriod) => void;
   setShowLightningLine:   (show: boolean) => void;
@@ -93,6 +94,7 @@ export const useTaskStore = create<TaskStore>()(
       filterStatus:      '' as TaskStatus | '' | '!done',
       filterAssignee:    '',
       filterPriority:    '',
+      filterColor:       '',
       filterSearch:      '',
       theme:             'auto' as ThemeMode,
       ganttBarOpen:      true,

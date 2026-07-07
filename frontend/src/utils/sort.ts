@@ -1,11 +1,19 @@
 import type { Task, TaskStatus } from '../types/task';
 
+// タスクの「実効色」：右クリック色パレット（titleColor/titleBgColor は独立設定可）を
+// 一本化した同一性判定に使う。背景色を優先し、背景色が未設定（null）のときのみ文字色で判定する。
+// 両方 null なら無色（null）。
+export function effectiveTaskColor(t: Task): string | null {
+  return t.titleBgColor ?? t.titleColor;
+}
+
 export function filterTasks(
   tasks: Task[],
   filterStatus: TaskStatus | '' | '!done',
   filterAssignee: string,
   filterPriority: string,
   filterSearch = '',
+  filterColor = '',
 ): Task[] {
   let result = tasks;
 
@@ -29,6 +37,8 @@ export function filterTasks(
     result = result.filter(t => t.isMilestone || matchesAssignee(t));
   }
   if (filterPriority) result = result.filter(t => t.priority === filterPriority);
+  if (filterColor === '*') result = result.filter(t => effectiveTaskColor(t) !== null);
+  else if (filterColor)    result = result.filter(t => effectiveTaskColor(t) === filterColor);
   if (filterSearch) {
     const q = filterSearch.toLowerCase();
     result = result.filter(t =>
