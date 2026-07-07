@@ -24,6 +24,15 @@ export function isReadonlyTask(task: Task, currentProjectId: string | undefined)
   return task.projectId !== currentProjectId;
 }
 
+/**
+ * 作成ドラッグ（GanttSvgBody の背景クリック→ドラッグで新規タスクの日付を確定する操作）
+ * を許可してよい行かどうか。日付未設定・非親・非マイルストーンに加え、読み取り専用
+ * （参照タスク・合成グループ行）でないことを条件にする（§5.8 readonly ガード）。
+ */
+export function canCreateOnRow(task: Task, isParent: boolean, currentProjectId: string | undefined): boolean {
+  return !task.startDate && !isParent && !task.isMilestone && !isReadonlyTask(task, currentProjectId);
+}
+
 function makeGroupTask(project: RefProject, order: number): Task {
   return {
     id: refGroupId(project.id),

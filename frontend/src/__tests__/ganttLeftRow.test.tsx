@@ -446,3 +446,38 @@ describe('GanttLeftRow 親タスク displayStart/displayEnd（v2.37）', () => {
     expect(screen.getByText('2026-05-31')).toBeTruthy();
   });
 });
+
+// ─── クロスプロジェクト参照: readonly ガード（単位5, §5.8）─────────────────
+describe('GanttLeftRow — readOnly（参照タスク・合成グループ行）', () => {
+  it('readOnly=true のときタイトルをクリックしても編集入力にならない', () => {
+    const onInlineUpdate = vi.fn();
+    render(<GanttLeftRow {...rowProps(makeTask(), onInlineUpdate)} readOnly />);
+    fireEvent.click(screen.getByText('🔗 元のタイトル', { exact: false }));
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('readOnly=true のときタイトルに 🔗 マーカーが付く', () => {
+    render(<GanttLeftRow {...rowProps(makeTask(), vi.fn())} readOnly />);
+    expect(screen.getByText('🔗', { exact: false })).toBeTruthy();
+  });
+
+  it('readOnly=false（既定）のときは 🔗 マーカーが付かない', () => {
+    render(<GanttLeftRow {...rowProps(makeTask(), vi.fn())} />);
+    expect(screen.queryByText('🔗', { exact: false })).toBeNull();
+  });
+
+  it('readOnly=true のときステータスをクリックしても編集セレクトにならない', () => {
+    const onInlineUpdate = vi.fn();
+    render(<GanttLeftRow {...rowProps(makeTask(), onInlineUpdate)} readOnly />);
+    fireEvent.click(screen.getByText('TODO'));
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('readOnly=true の行は淡色表示になる（opacity < 1）', () => {
+    const { container } = render(<GanttLeftRow {...rowProps(makeTask(), vi.fn())} readOnly />);
+    const row = container.firstElementChild as HTMLElement;
+    expect(row.style.opacity).not.toBe('');
+    expect(Number(row.style.opacity)).toBeLessThan(1);
+  });
+});

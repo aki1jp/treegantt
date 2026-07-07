@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Task } from '../../types/task';
 import { textStartX } from '../../utils/wbsLayout';
+import { isReadonlyTask } from '../../utils/refTasks';
 import { GanttLeftRow } from './GanttLeftRow';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 import { QuickAddRow } from './QuickAddRow';
@@ -23,6 +24,8 @@ type FlatRow = { task: Task; depth: number };
 type ParentSpan = { startDate: string | null; endDate: string | null };
 
 interface Props {
+  // クロスプロジェクト参照（§5.8）: 現プロジェクトID。readonly ガード判定に使う。
+  currentProjectId?: string;
   // レイアウト・列
   wbsPanelOpen: boolean;
   setWbsPanelOpen: (open: boolean) => void;
@@ -83,6 +86,7 @@ const TH: React.CSSProperties = {
 // 列表示設定ポップアップ・QuickAddRow）。GanttChart から抽出（挙動不変, D4）。
 export function WbsPanel(props: Props) {
   const {
+    currentProjectId,
     wbsPanelOpen, setWbsPanelOpen, leftTotal, visibleLeftCols, colWidths, setColResize,
     dateColWidth, ganttHeaderH, totalHeaderH, wbsHiddenCols, setWbsHiddenCols,
     childCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
@@ -221,10 +225,11 @@ export function WbsPanel(props: Props) {
               const idx = vStart + sliceIdx; // D&D は絶対インデックスで処理する
               const isNoOp = dragIdx !== -1 && (rowDropIdx === dragIdx || rowDropIdx === dragIdx + 1);
               const showDropLine = rowDropIdx === idx && !!rowDragId && !isNoOp;
+              const readOnly = isReadonlyTask(task, currentProjectId);
               return (
                 <div
                   key={task.id}
-                  draggable
+                  draggable={!readOnly}
                   onDragStart={(e) => handleRowDragStart(e, task.id)}
                   onDragOver={(e) => handleRowDragOver(e, idx)}
                   onDrop={(e) => handleRowDrop(e, idx)}
@@ -265,6 +270,7 @@ export function WbsPanel(props: Props) {
                     assigneeOptions={assigneeOptions}
                     displayStart={(childCount.get(task.id) ?? 0) > 0 ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
                     displayEnd={(childCount.get(task.id) ?? 0) > 0   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
+                    readOnly={readOnly}
                     onToggleCollapse={toggleCollapse}
                     onInlineUpdate={handleInlineUpdate}
                     onRowContextMenu={handleRowContextMenu}

@@ -11,6 +11,7 @@ import {
 import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
+import { mergeRefTasks } from '../../utils/refTasks';
 import { calcVisibleRange } from '../../utils/virtualRange';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
@@ -67,11 +68,26 @@ interface Props {
   capacityMinutesPerDay?: number;
   /** リソースビュー稼働率の実効稼働日（0=日…6=土） */
   workingDays?: number[];
+  /**
+   * クロスプロジェクト参照（§5.8）: 後続（ドロップ先）が参照タスクのときの専用更新経路。
+   * onInlineUpdate（useTasks.updateTask）は楽観的更新で `tasks` スロットを汚染するため使えない。
+   */
+  onUpdateExternalDeps?: (id: string, patch: Partial<Task>) => void;
+  /** 参照先プロジェクトへジャンプする（コンテキストメニュー「参照先プロジェクトを開く」） */
+  onOpenRefProject?: (projectId: string) => void;
+  /** 参照を解除する（コンテキストメニュー「参照を解除」） */
+  onRemoveRef?: (refTaskId: string) => void;
+  /** 参照を再読み込みする（コンテキストメニュー「参照を再読み込み」） */
+  onRefreshRefs?: () => void;
 }
 
-export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert, capacityMinutesPerDay, workingDays }: Props) {
+export function GanttChart({
+  projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert,
+  capacityMinutesPerDay, workingDays,
+  onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
+}: Props) {
   const {
-    tasks, filterStatus, filterAssignee, filterPriority, filterSearch,
+    tasks, refTasks, refProjects, filterStatus, filterAssignee, filterPriority, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
@@ -79,9 +95,22 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
 
+  // クロスプロジェクト参照（§5.8）: 参照タスク＋合成グループ行を現プロジェクトのタスクに合成する。
+  // displayTasks は filterTasks/includeAncestors の入力として使い、ツリー描画・依存矢印に反映する。
+  // calcCriticalPath / ResourceView / 担当者候補は現プロジェクトのみ（`tasks`）を入力のまま保つ（§5.8 明記）。
+  const displayTasks = useMemo(
+    () => mergeRefTasks(tasks, refTasks, refProjects),
+    [tasks, refTasks, refProjects],
+  );
+
   // マイルストーン行・本体の菱形は常に表示する。`showMilestones`（「マイル」トグル）は
   // ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯＝milestoneItems）のみ制御する。
   const sorted = useMemo(
+    () => filterTasks(displayTasks, filterStatus, filterAssignee, filterPriority, filterSearch),
+    [displayTasks, filterStatus, filterAssignee, filterPriority, filterSearch],
+  );
+  // 現プロジェクトのみの絞り込み結果（クリティカルパス・リソースビュー用, §5.8）
+  const sortedOwn = useMemo(
     () => filterTasks(tasks, filterStatus, filterAssignee, filterPriority, filterSearch),
     [tasks, filterStatus, filterAssignee, filterPriority, filterSearch],
   );
@@ -140,7 +169,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   // フィルタ一致タスク＋ツリー構造保持のための表示専用祖先（§9.3）。折りたたみ状態には依存しない
   // 「概念上のツリー全ノード」であり、resolveVisibleId の親チェーン遡り（§8.5）は折りたたみで
   // 隠れているノードも辿る必要があるため、taskById もここから構築する（flatRows からは作らない）。
-  const treeTasks = useMemo(() => includeAncestors(sorted, tasks), [sorted, tasks]);
+  const treeTasks = useMemo(() => includeAncestors(sorted, displayTasks), [sorted, displayTasks]);
   const { roots, childCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
   const flatRows = useMemo(() => flattenTree(roots, collapsed), [roots, collapsed]);
 
@@ -257,10 +286,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     uiRowHeight,
   ), [flatRows, progressMap, childCount, collapsed, effStartDate, effEndDate, min, zoomLevel, uiRowHeight]);
 
-  // クリティカルパス
+  // クリティカルパス（現プロジェクトのみ, §5.8）
   const criticalSet = useMemo(
-    () => (showCriticalPath ? calcCriticalPath(sorted) : new Set<string>()),
-    [showCriticalPath, sorted],
+    () => (showCriticalPath ? calcCriticalPath(sortedOwn) : new Set<string>()),
+    [showCriticalPath, sortedOwn],
   );
   const collapsedCriticalParents = useMemo(
     () => (showCriticalPath
@@ -281,7 +310,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     wbsPanelRef, rowDragId, rowDropIdx, rowDropDepth, rowDropTarget,
     copiedTask, setCopiedTask,
     clearDrop, handleRowDragStart, handleRowDragOver, handleRowDrop,
-  } = useRowDnd({ flatRows, onReorder, onCopyInsert });
+  } = useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId: projectId });
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
@@ -303,14 +332,17 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
   const {
     linkDragState, linkDragStateRef, hoveredBarId, setHoveredBarId,
     startLinkDrag, cancelLinkDrag,
-  } = useLinkDrag({ svgRef, uiRowHeight, flatRowsRef, taskByIdRef, childCountRef, parentSpanMapRef, onInlineUpdate });
+  } = useLinkDrag({
+    svgRef, uiRowHeight, flatRowsRef, taskByIdRef, childCountRef, parentSpanMapRef,
+    onInlineUpdate, onUpdateExternalDeps, currentProjectId: projectId,
+  });
 
   // ── バー移動・左右リサイズ・作成ドラッグ ──
   const {
     dragState, dragPreview, dragStateRef,
     handleBarMoveStart, handleBarResizeLeftStart, handleBarResizeRightStart,
     startCreateDrag, cancelDrag,
-  } = useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef });
+  } = useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef, currentProjectId: projectId });
 
   // App から渡るコールバックは再レンダリングごとに再生成されるため、
   // 最新値 ref + 安定 useCallback に変換して React.memo 行コンポーネントへ渡す
@@ -519,6 +551,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
       <WbsPanel
+        currentProjectId={projectId}
         wbsPanelOpen={wbsPanelOpen}
         setWbsPanelOpen={setWbsPanelOpen}
         leftTotal={LEFT_TOTAL}
@@ -589,6 +622,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
             min={min}
             zoomLevel={zoomLevel}
             dayWidth={dayWidth}
+            currentProjectId={projectId}
             flatRows={flatRows}
             vStart={vStart}
             vEnd={vEnd}
@@ -648,6 +682,10 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
         collapseAll={collapseAll}
         expandToDepth={expandToDepth}
         expandAll={expandAll}
+        currentProjectId={projectId}
+        onOpenRefProject={onOpenRefProject}
+        onRemoveRef={onRemoveRef}
+        onRefreshRefs={onRefreshRefs}
       />
 
     </div>{/* メインエリア終了 */}
@@ -655,7 +693,7 @@ export function GanttChart({ projectId, onEditTask, onDeleteTask, onInlineUpdate
     {/* ── 担当者別スイムレーン（リソースビュー）── */}
     {showResourceView && (
       <ResourceView
-        tasks={sorted}
+        tasks={sortedOwn}
         min={min}
         zoomLevel={zoomLevel}
         totalWidth={totalWidth}

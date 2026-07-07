@@ -5,6 +5,7 @@ import { titlePaddingLeft } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 import { TaskTooltip } from './TaskTooltip';
 import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL } from '../../utils/taskColors';
+import { isRefGroupId } from '../../utils/refTasks';
 
 export interface GanttLeftRowProps {
   task: Task;
@@ -23,6 +24,8 @@ export interface GanttLeftRowProps {
   assigneeOptions?: string[];
   displayStart?: string | null;
   displayEnd?:   string | null;
+  /** クロスプロジェクト参照（§5.8）: 参照タスク・合成グループ行は読み取り専用（淡色＋🔗、インライン編集不可） */
+  readOnly?: boolean;
   onToggleCollapse: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onRowContextMenu: (x: number, y: number, taskId: string) => void;
@@ -37,6 +40,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   hiddenCols = [], wbsPanelOpen = true,
   assigneeOptions,
   displayStart, displayEnd,
+  readOnly = false,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
   const [editField, setEditField] = useState<string | null>(null);
@@ -77,6 +81,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   }, [editField]);
 
   function startEdit(field: string, val: string) {
+    if (readOnly) return; // 参照タスク・合成グループ行は読み取り専用（§5.8）
     if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
     setTooltipVisible(false);
     setEditField(field);
@@ -149,6 +154,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
   const rowBg = task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)');
+  const readOnlyStyle: React.CSSProperties = readOnly ? { opacity: 0.65 } : {};
   const effectiveStartDate = hasChildren ? (displayStart ?? null) : task.startDate;
   const effectiveEndDate   = hasChildren ? (displayEnd   ?? null) : task.endDate;
   const duration = calcDuration({ ...task, startDate: effectiveStartDate, endDate: effectiveEndDate });
@@ -162,6 +168,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
         height: rowHeight, boxSizing: 'border-box',
         borderBottom: '1px solid var(--th-border)',
         borderLeft: isRootParent ? '3px solid var(--th-border-strong)' : '3px solid transparent',
+        ...readOnlyStyle,
       }}
       onContextMenu={e => { e.preventDefault(); if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setTooltipVisible(false); onRowContextMenu(e.clientX, e.clientY, task.id); }}
     >
@@ -199,10 +206,11 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               onMouseEnter={handleTitleMouseEnter}
               onMouseLeave={handleTitleMouseLeave}
               style={{
-                cursor: 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                cursor: readOnly ? 'default' : 'text', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 fontWeight: isRootParent ? 700 : 400,
                 color: task.titleColor ?? (isRootParent ? 'var(--th-text-parent)' : 'var(--th-text2)'),
               }}>
+              {readOnly && !isRefGroupId(task.id) && '🔗 '}
               {task.title}
             </span>
           )}

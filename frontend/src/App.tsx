@@ -19,6 +19,8 @@ import { ResourceSettingsModal } from './components/ResourceSettingsModal/Resour
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { buildCopyBatch, computeCopyInsertOrder } from './utils/copyBatch';
 import { useProjectTasks } from './hooks/useProjectTasks';
+import { useProjectRefs } from './hooks/useProjectRefs';
+import { isReadonlyTask } from './utils/refTasks';
 import { showToast } from './store/toastStore';
 import { ToastContainer } from './components/Toast/Toast';
 
@@ -33,7 +35,7 @@ export default function App() {
   const [settingsModal, setSettingsModal] = useState<'app' | Project | null>(null);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
-  const { tasks, setTasks, theme, setTheme } = useTaskStore();
+  const { tasks, refTasks, setTasks, theme, setTheme } = useTaskStore();
   const {
     projects, currentProject, setCurrentProject, loading, error: projectsError, retry: retryProjects,
     createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject,
@@ -43,6 +45,8 @@ export default function App() {
   useWebSocket(currentProject?.id ?? null);
 
   const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks } = useTasks(currentProject?.id ?? '');
+  // クロスプロジェクト参照（§5.8）: プロジェクト切替でスナップショットロード（R1）
+  const projectRefs = useProjectRefs(currentProject?.id);
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
     useImportExport(currentProject, tasks, setTasks);
 
@@ -133,12 +137,45 @@ export default function App() {
     }
   }
 
+  // tasks / refTasks のどちらかから id のタスクを引く（クロスプロジェクト参照, §5.8）
+  function findAnyTask(id: string): Task | undefined {
+    return tasks.find(t => t.id === id) ?? refTasks.find(t => t.id === id);
+  }
+
+  // 多層防御（§5.8）: 参照タスク（readonly）への更新は、predecessors 単独のときのみ
+  // 専用経路（tasks スロットを汚染しない updateExternalPredecessors）へ回し、
+  // それ以外のフィールドを含む更新は拒否する。他の8経路のガードをすり抜けても
+  // ここで最終的に弾く／正しい経路へ振り分ける。
   async function handleInlineUpdate(id: string, patch: Partial<Task>) {
+    const task = findAnyTask(id);
+    if (task && isReadonlyTask(task, currentProject?.id)) {
+      const keys = Object.keys(patch);
+      if (keys.length === 1 && keys[0] === 'predecessors') {
+        await projectRefs.updateExternalPredecessors(id, patch.predecessors ?? []).catch(() => {
+          // updateExternalPredecessors は失敗時に自前でトースト表示済み
+        });
+        return;
+      }
+      showToast('参照タスクは読み取り専用です（編集は参照先プロジェクトで行ってください）', 'error');
+      return;
+    }
     try {
       await updateTask(id, patch);
     } catch (err) {
       showToast('更新に失敗しました: ' + (err as Error).message, 'error');
     }
+  }
+
+  // GanttChart（useLinkDrag）向け: patch 形式 { predecessors } を受けて専用経路へ委譲する
+  function handleUpdateExternalDeps(id: string, patch: Partial<Task>) {
+    projectRefs.updateExternalPredecessors(id, patch.predecessors ?? []).catch(() => {});
+  }
+
+  // 参照先プロジェクトへジャンプする（コンテキストメニュー「参照先プロジェクトを開く」）
+  function handleOpenRefProject(projectId: string) {
+    const target = projects.find(p => p.id === projectId);
+    if (target) setCurrentProject(target);
+    else showToast('参照先プロジェクトが見つかりません', 'error');
   }
 
   function countDescendants(id: string): number {
@@ -148,6 +185,11 @@ export default function App() {
   }
 
   async function handleDeleteTask(id: string) {
+    const anyTask = findAnyTask(id);
+    if (anyTask && isReadonlyTask(anyTask, currentProject?.id)) {
+      showToast('参照タスクは削除できません（削除は参照先プロジェクトで行ってください）', 'error');
+      return;
+    }
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     // 子を持たないタスクは従来通りの確認ダイアログ
@@ -345,6 +387,10 @@ export default function App() {
                 onCopyInsert={handleCopyInsert}
                 capacityMinutesPerDay={effectiveCapacityMinutes}
                 workingDays={effectiveWorkingDays}
+                onUpdateExternalDeps={handleUpdateExternalDeps}
+                onOpenRefProject={handleOpenRefProject}
+                onRemoveRef={(refTaskId) => { projectRefs.remove(refTaskId).catch(() => {}); }}
+                onRefreshRefs={() => { projectRefs.refresh(); }}
               />
             </div>
           </>

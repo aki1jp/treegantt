@@ -17,6 +17,8 @@ interface Props {
   dragPreview?: { startDate: string; endDate: string } | null;
   rowHeight?: number;
   milestoneColor?: string;
+  /** クロスプロジェクト参照（§5.8）: 参照タスクは読み取り専用（移動・リサイズハンドル非表示） */
+  readOnly?: boolean;
   onMoveStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeLeftStart: (e: React.MouseEvent, taskId: string) => void;
   onResizeRightStart: (e: React.MouseEvent, taskId: string) => void;
@@ -44,7 +46,7 @@ function titleTextMode(
 export const GanttBar = memo(function GanttBar({
   task, minDate, zoom, rowIndex, isCritical, isParent = false, isCollapsed = false, effectiveProgress,
   displayStart, displayEnd,
-  dragPreview, rowHeight = ROW_HEIGHT_PX, milestoneColor,
+  dragPreview, rowHeight = ROW_HEIGHT_PX, milestoneColor, readOnly = false,
   onMoveStart, onResizeLeftStart, onResizeRightStart,
   onClick,
 }: Props) {
@@ -221,28 +223,31 @@ export const GanttBar = memo(function GanttBar({
         </>);
       })()}
 
-      {/* 移動ゾーン（中央） */}
-      <rect
-        x={x + HANDLE_W} y={y}
-        width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight}
-        fill="transparent"
-        style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
-        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
-      />
-      {/* 左リサイズハンドル */}
-      <rect
-        x={x} y={y} width={HANDLE_W} height={barHeight}
-        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
-        style={{ cursor: 'ew-resize' }}
-        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
-      />
-      {/* 右リサイズハンドル */}
-      <rect
-        x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
-        fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
-        style={{ cursor: 'ew-resize' }}
-        onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
-      />
+      {/* 移動ゾーン・左右リサイズハンドル（参照タスクは読み取り専用のため非表示, §5.8） */}
+      {!readOnly && (<>
+        {/* 移動ゾーン（中央） */}
+        <rect
+          x={x + HANDLE_W} y={y}
+          width={Math.max(width - HANDLE_W * 2, 0)} height={barHeight}
+          fill="transparent"
+          style={{ cursor: dragPreview ? 'grabbing' : 'move' }}
+          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); }}
+        />
+        {/* 左リサイズハンドル */}
+        <rect
+          x={x} y={y} width={HANDLE_W} height={barHeight}
+          fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
+          style={{ cursor: 'ew-resize' }}
+          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeLeftStart(e, task.id); }}
+        />
+        {/* 右リサイズハンドル */}
+        <rect
+          x={x + width - HANDLE_W} y={y} width={HANDLE_W} height={barHeight}
+          fill={isOverdue ? '#dc2626' : isCritical ? '#6366f1aa' : color + '88'} rx={3}
+          style={{ cursor: 'ew-resize' }}
+          onMouseDown={e => { if (e.button !== 0) return; e.stopPropagation(); onResizeRightStart(e, task.id); }}
+        />
+      </>)}
     </g>
   );
 });

@@ -2,6 +2,7 @@ import type { Task } from '../../types/task';
 import type { ZoomLevel } from '../../types/task';
 import { dateToX, type LightningPoint } from '../../utils/ganttCalc';
 import { milestoneColorOf } from '../../utils/taskColors';
+import { canCreateOnRow, isReadonlyTask } from '../../utils/refTasks';
 import { GanttBar } from './GanttBar';
 import { LightningLine, TodayLine } from './LightningLine';
 import type { DragState, DragPreview } from './useBarDrag';
@@ -19,6 +20,8 @@ interface Props {
   min: Date;
   zoomLevel: ZoomLevel;
   dayWidth: number;
+  /** クロスプロジェクト参照（§5.8）: 現プロジェクトID。未指定時は readonly ガード無効。 */
+  currentProjectId?: string;
   // 行・派生データ
   flatRows: FlatRow[];
   vStart: number;
@@ -59,7 +62,7 @@ interface Props {
 // ガント右パネルの SVG 本体（縞背景・土日/マイルストーン列・タスクバー・依存矢印・
 // コネクタドット・今日ライン・イナズマライン）。GanttChart から抽出（挙動不変, D4）。
 export function GanttSvgBody({
-  svgRef, totalWidth, totalHeight, uiRowHeight, min, zoomLevel, dayWidth,
+  svgRef, totalWidth, totalHeight, uiRowHeight, min, zoomLevel, dayWidth, currentProjectId,
   flatRows, vStart, vEnd, childCount, collapsed, progressMap, parentSpanMap,
   taskById, taskIndex, effStartDate, effEndDate, criticalSet, collapsedCriticalParents,
   weekendXs, milestoneItems, milestoneHighlightColor,
@@ -96,7 +99,7 @@ export function GanttSvgBody({
         const i = vStart + sliceIdx;
         const isParent    = (childCount.get(task.id) ?? 0) > 0;
         const isRootParent = depth === 0 && isParent;
-        const canCreate   = !task.startDate && !isParent && !task.isMilestone;
+        const canCreate   = canCreateOnRow(task, isParent, currentProjectId);
         return (
           <rect key={task.id} x={0} y={i * uiRowHeight} width={totalWidth} height={uiRowHeight}
             style={{ fill: task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : (i % 2 === 0 ? 'var(--th-bg)' : 'var(--th-bg-alt)')), cursor: canCreate ? 'crosshair' : undefined }}
@@ -147,6 +150,7 @@ export function GanttSvgBody({
             displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
             displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
             milestoneColor={task.isMilestone ? milestoneColorOf(task.titleColor, milestoneHighlightColor) : undefined}
+            readOnly={isReadonlyTask(task, currentProjectId)}
             onMoveStart={handleBarMoveStart}
             onResizeLeftStart={handleBarResizeLeftStart}
             onResizeRightStart={handleBarResizeRightStart}

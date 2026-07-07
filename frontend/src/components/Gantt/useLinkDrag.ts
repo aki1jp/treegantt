@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Task } from '../../types/task';
 import { isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { isReadonlyTask } from '../../utils/refTasks';
 
 // ── リンクドラッグ状態（先行・後続タスク設定） ──────
 export interface LinkDragState {
@@ -21,11 +22,21 @@ interface Params {
   childCountRef: { current: Map<string, number> };
   parentSpanMapRef: { current: Map<string, ParentSpan> };
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
+  /**
+   * クロスプロジェクト参照（§5.8）: 後続（ドロップ先）が参照タスクのときの専用更新経路。
+   * useTasks.updateTask（onInlineUpdate の実体）は楽観的更新で `tasks` スロットを汚染するため使えない。
+   */
+  onUpdateExternalDeps?: (id: string, patch: Partial<Task>) => void;
+  /** 現プロジェクトID。ドロップ先が参照タスクかどうかの判定に使う。 */
+  currentProjectId?: string;
 }
 
 // 依存リンクドラッグ（バー右端コネクタドット→別バーへドロップして先行/後続を設定）の
 // 状態・イベントハンドラ（GanttChart から抽出、挙動不変, D4）。
-export function useLinkDrag({ svgRef, uiRowHeight, flatRowsRef, taskByIdRef, childCountRef, parentSpanMapRef, onInlineUpdate }: Params) {
+export function useLinkDrag({
+  svgRef, uiRowHeight, flatRowsRef, taskByIdRef, childCountRef, parentSpanMapRef,
+  onInlineUpdate, onUpdateExternalDeps, currentProjectId,
+}: Params) {
   const [linkDragState, setLinkDragState] = useState<LinkDragState | null>(null);
   const linkDragStateRef = useRef<LinkDragState | null>(null);
   useEffect(() => { linkDragStateRef.current = linkDragState; }, [linkDragState]);
@@ -85,13 +96,19 @@ export function useLinkDrag({ svgRef, uiRowHeight, flatRowsRef, taskByIdRef, chi
       ) {
         const target = taskByIdRef.current.get(ld.targetTaskId);
         if (target && !target.predecessors.includes(ld.fromTaskId)) {
-          onInlineUpdate(ld.targetTaskId, { predecessors: [...target.predecessors, ld.fromTaskId] });
+          const patch = { predecessors: [...target.predecessors, ld.fromTaskId] };
+          // 後続（ドロップ先）が参照タスクなら専用経路（tasks スロットを汚染しない）に分岐する
+          if (isReadonlyTask(target, currentProjectId) && onUpdateExternalDeps) {
+            onUpdateExternalDeps(ld.targetTaskId, patch);
+          } else {
+            onInlineUpdate(ld.targetTaskId, patch);
+          }
         }
       }
     }
     setLinkDragState(null);
     setHoveredBarId(null);
-  }, [onInlineUpdate, taskByIdRef]);
+  }, [onInlineUpdate, onUpdateExternalDeps, currentProjectId, taskByIdRef]);
 
   const isLinkDragging = linkDragState !== null;
   useEffect(() => {

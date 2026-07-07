@@ -36,7 +36,10 @@ vi.mock('../components/Gantt/GanttChart', () => ({
   }) => (
     <div data-testid="gantt-chart-stub">
       <button onClick={() => props.onDeleteTask('t1')}>delete-t1</button>
+      <button onClick={() => props.onDeleteTask('r1')}>delete-r1</button>
       <button onClick={() => props.onInlineUpdate('t1', { title: '更新後' })}>inline-update</button>
+      <button onClick={() => props.onInlineUpdate('r1', { title: '更新後' })}>inline-update-r1-title</button>
+      <button onClick={() => props.onInlineUpdate('r1', { predecessors: ['t1'] })}>inline-update-r1-preds</button>
       <button onClick={() => props.onQuickAdd('新規タスク')}>quick-add</button>
       <button onClick={() => props.onCopyInsert(
         { ...PARENT_TASK }, null, 'parent', null,
@@ -77,6 +80,7 @@ interface RouterState {
   failPatch?: boolean;
   failReorder?: boolean;
   requests: { url: string; method: string; body?: unknown }[];
+  refsResponse?: { refs: unknown[]; tasks: Task[]; projects: unknown[] };
 }
 
 function makeFetchMock(state: RouterState) {
@@ -87,6 +91,10 @@ function makeFetchMock(state: RouterState) {
 
     if (url.endsWith('/health')) return jsonResponse({ status: 'ok', version: '9.9.9' });
     if (url.includes('/api/v1/settings')) return jsonResponse({ capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] });
+
+    if (url.match(/\/projects\/[^/?]+\/refs$/) && method === 'GET') {
+      return jsonResponse(state.refsResponse ?? { refs: [], tasks: [], projects: [] });
+    }
 
     const taskListMatch = url.match(/\/projects\/([^/?]+)\/tasks\?/);
     if (taskListMatch && method === 'GET') {
@@ -285,5 +293,63 @@ describe('App — エラー経路（D1: トースト表示）', () => {
     });
     // 楽観的並び替えがロールバックされ、元の order に戻る
     expect(useTaskStore.getState().tasks[0].order).toBe(originalOrder);
+  });
+});
+
+// ─── クロスプロジェクト参照: 多層防御（単位5, §5.8）─────────────────────────
+describe('App — 参照タスクの多層防御（handleInlineUpdate/handleDeleteTask）', () => {
+  beforeEach(() => {
+    routerState.refsResponse = {
+      refs: [{ projectId: 'p1', refTaskId: 'r1', createdAt: '2026-01-01' }],
+      tasks: [makeTask({ id: 'r1', projectId: 'p2', title: '外部タスク' })],
+      projects: [{ id: 'p2', name: 'プロジェクト2', color: null }],
+    };
+  });
+
+  it('参照タスクの title 更新は拒否されトーストが出る（PATCHは送られない）', async () => {
+    render(<App />);
+    await waitFor(() => expect(useTaskStore.getState().refTasks).toHaveLength(1));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('inline-update-r1-title'));
+    });
+
+    await waitFor(() => {
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.type === 'error' && t.message.includes('読み取り専用'))).toBe(true);
+    });
+    expect(routerState.requests.some(r => r.method === 'PATCH' && r.url.includes('/tasks/r1'))).toBe(false);
+  });
+
+  it('参照タスクの predecessors 単独更新は許可され、refTasksへ反映されtasksは汚染されない', async () => {
+    render(<App />);
+    await waitFor(() => expect(useTaskStore.getState().refTasks).toHaveLength(1));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('inline-update-r1-preds'));
+    });
+
+    await waitFor(() => {
+      expect(routerState.requests.some(r => r.method === 'PATCH' && r.url.includes('/tasks/r1'))).toBe(true);
+    });
+    await waitFor(() => {
+      const r1 = useTaskStore.getState().refTasks.find(t => t.id === 'r1');
+      expect(r1?.predecessors).toEqual(['t1']);
+    });
+    // tasks スロット（現プロジェクトの一覧）に r1 が紛れ込んでいない
+    expect(useTaskStore.getState().tasks.some(t => t.id === 'r1')).toBe(false);
+  });
+
+  it('参照タスクの削除は拒否されトーストが出る（DELETEは送られない）', async () => {
+    render(<App />);
+    await waitFor(() => expect(useTaskStore.getState().refTasks).toHaveLength(1));
+
+    fireEvent.click(screen.getByText('delete-r1'));
+
+    await waitFor(() => {
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.type === 'error' && t.message.includes('参照'))).toBe(true);
+    });
+    expect(routerState.requests.some(r => r.method === 'DELETE' && r.url.includes('/tasks/r1'))).toBe(false);
   });
 });

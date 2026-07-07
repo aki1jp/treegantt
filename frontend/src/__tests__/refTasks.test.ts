@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { refGroupId, isRefGroupId, isReadonlyTask, mergeRefTasks } from '../utils/refTasks';
+import { refGroupId, isRefGroupId, isReadonlyTask, mergeRefTasks, canCreateOnRow } from '../utils/refTasks';
 import type { Task, RefProject } from '../types/task';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -51,11 +51,11 @@ describe('isReadonlyTask', () => {
   });
 });
 
-describe('mergeRefTasks', () => {
-  const projects: RefProject[] = [
-    { id: 'p2', name: 'プロジェクトB', color: '#3b82f6' },
-  ];
+const projects: RefProject[] = [
+  { id: 'p2', name: 'プロジェクトB', color: '#3b82f6' },
+];
 
+describe('mergeRefTasks', () => {
   it('参照タスクが空のときは何も足さない（同一参照を返す）', () => {
     const tasks = [makeTask({ id: 't1' })];
     const result = mergeRefTasks(tasks, [], []);
@@ -108,6 +108,32 @@ describe('mergeRefTasks', () => {
     expect(g1.order).toBeLessThan(g2.order);
   });
 
+});
+
+describe('canCreateOnRow（作成ドラッグの可否）', () => {
+  it('日付未設定・非親・非マイルストーン・現プロジェクトのタスクは作成可', () => {
+    const t = makeTask({ id: 't1', projectId: 'p1', startDate: null });
+    expect(canCreateOnRow(t, false, 'p1')).toBe(true);
+  });
+
+  it('日付未設定でも参照タスク（他プロジェクト）は作成不可', () => {
+    const t = makeTask({ id: 'r1', projectId: 'p2', startDate: null });
+    expect(canCreateOnRow(t, false, 'p1')).toBe(false);
+  });
+
+  it('合成グループ行は作成不可', () => {
+    const t = makeTask({ id: 'ref:p2', projectId: 'p2', startDate: null });
+    expect(canCreateOnRow(t, false, 'p1')).toBe(false);
+  });
+
+  it('親タスク・マイルストーン・日付設定済みは従来どおり作成不可', () => {
+    expect(canCreateOnRow(makeTask({ startDate: null }), true, 'p1')).toBe(false);
+    expect(canCreateOnRow(makeTask({ startDate: null, isMilestone: true }), false, 'p1')).toBe(false);
+    expect(canCreateOnRow(makeTask({ startDate: '2026-01-01' }), false, 'p1')).toBe(false);
+  });
+});
+
+describe('mergeRefTasks — 非破壊確認', () => {
   it('元の tasks 配列を変更しない（非破壊）', () => {
     const tasks = [makeTask({ id: 't1' })];
     const refTasks = [makeTask({ id: 'r1', projectId: 'p2' })];

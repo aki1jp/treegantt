@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Task } from '../../types/task';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
+import { isReadonlyTask } from '../../utils/refTasks';
 
 type FlatRow = { task: Task; depth: number };
 type ReorderOrders = { id: string; order: number; parentId?: string | null }[];
@@ -9,12 +10,14 @@ interface Params {
   flatRows: FlatRow[];
   onReorder: (orders: ReorderOrders) => Promise<void>;
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
+  /** クロスプロジェクト参照（§5.8）: 参照タスク・合成グループ行はドラッグ開始・ドロップ先の両方から除外する */
+  currentProjectId?: string;
 }
 
 // WBS 行の並び替え・親子変更・Ctrl/Cmd コピー（GanttChart から抽出、挙動不変, D4）。
 // wbsPanelRef はドラッグ時の X 座標から depth インジケーターを算出するために内部で保持し、
 // 呼び出し側は WBS パネル div に ref として渡す。
-export function useRowDnd({ flatRows, onReorder, onCopyInsert }: Params) {
+export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId }: Params) {
   const wbsPanelRef = useRef<HTMLDivElement>(null);
   const [rowDragId,    setRowDragId]    = useState<string | null>(null);
   const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
@@ -37,6 +40,12 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert }: Params) {
       e.preventDefault();
       return;
     }
+    // 参照タスク・合成グループ行（読み取り専用, §5.8）はドラッグ開始できない
+    const task = flatRows.find(r => r.task.id === taskId)?.task;
+    if (task && isReadonlyTask(task, currentProjectId)) {
+      e.preventDefault();
+      return;
+    }
     // 'all' を明示設定しないと Chrome が 'uninitialized' を 'none' 扱いし早期 dragEnd を発火する
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'all';
     setRowDragId(taskId);
@@ -54,7 +63,8 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert }: Params) {
     const isAdoptZone = rowRect.height > 0 && relY / rowRect.height > 0.3;
 
     const candidate = flatRows[idx];
-    if (isAdoptZone && candidate?.task.id !== rowDragId && !candidate?.task.isMilestone) {
+    const candidateReadonly = !!candidate && isReadonlyTask(candidate.task, currentProjectId);
+    if (isAdoptZone && candidate?.task.id !== rowDragId && !candidate?.task.isMilestone && !candidateReadonly) {
       setRowDropTarget(candidate.task.id);
       setRowDropIdx(null);
       setRowDropDepth(null);
@@ -65,6 +75,16 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert }: Params) {
     setRowDropTarget(null);
     const rowAbove = idx > 0 ? flatRows[idx - 1] : null;
     const rowBelow = flatRows[idx];
+
+    // 挿入位置の前後が両方とも読み取り専用（参照セクション内部）なら挿入先として認めない。
+    // 前が自プロジェクトのタスク（境目＝参照セクション直前への挿入）は許可する。
+    const aboveReadonly = !rowAbove || isReadonlyTask(rowAbove.task, currentProjectId);
+    const belowReadonly = !rowBelow || isReadonlyTask(rowBelow.task, currentProjectId);
+    if (aboveReadonly && belowReadonly) {
+      setRowDropIdx(null);
+      setRowDropDepth(null);
+      return;
+    }
 
     let depth: number;
     if (!rowAbove || rowAbove.depth === rowBelow.depth) {
@@ -119,6 +139,18 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert }: Params) {
     // ── バー挿入モード ──
     if (dragIdx === dropIdx) { clearDrop(); return; }
 
+    // 挿入位置の前後が両方とも読み取り専用（参照セクション内部）なら不可。
+    // rowDropDepth の null は handleRowDragOver 側の視覚状態のみに作用し `?? 0` で
+    // 既定値へフォールバックしてしまうため、実際のドロップ実行時にも dropIdx から
+    // 直接再判定する（状態経由のガードだけでは防げない, §5.8）。
+    {
+      const rowAbove = dropIdx > 0 ? flatRows[dropIdx - 1] : null;
+      const rowBelow = flatRows[dropIdx] ?? null;
+      const aboveReadonly = !rowAbove || isReadonlyTask(rowAbove.task, currentProjectId);
+      const belowReadonly = !rowBelow || isReadonlyTask(rowBelow.task, currentProjectId);
+      if (aboveReadonly && belowReadonly) { clearDrop(); return; }
+    }
+
     const newParentId: string | null =
       moved.isMilestone || targetParentId === moved.id ? moved.parentId : targetParentId;
 
@@ -149,10 +181,16 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert }: Params) {
 
     if (insertAt === dragIdx && !parentIdChanged) { clearDrop(); return; }
 
-    const orders = newRows.map((t, i) => ({
-      id: t.id, order: i + 1,
-      ...(t.id === moved.id && parentIdChanged ? { parentId: newParentId } : {}),
-    }));
+    // 参照タスク・合成グループ行（読み取り専用, §5.8）は reorder ペイロードから除外する。
+    // これらは他プロジェクト所属／実在しない合成行のため、そのまま送ると
+    // reorder API のプロジェクト境界検証に失敗する。除外後に order を採番し直す
+    // （常に自プロジェクトのタスクのみを対象にした従来の挙動と同じ連番になる）。
+    const orders = newRows
+      .filter(t => !isReadonlyTask(t, currentProjectId))
+      .map((t, i) => ({
+        id: t.id, order: i + 1,
+        ...(t.id === moved.id && parentIdChanged ? { parentId: newParentId } : {}),
+      }));
     onReorder(orders);
     clearDrop();
   }

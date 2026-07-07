@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Task } from '../../types/task';
 import { addDays, xToDateStr } from '../../utils/ganttCalc';
+import { isReadonlyTask } from '../../utils/refTasks';
 
 // 作成ドラッグの開始閾値（px）。mousedown 位置からこの距離以上動いて初めて
 // 作成対象になる。クリックの手ぶれによる日付の誤作成を防ぐ（§9.4）。
@@ -29,10 +30,12 @@ interface Params {
   taskByIdRef: { current: Map<string, Task> };
   linkDragStateRef: { current: unknown | null };
   ganttPanelRef: { current: HTMLDivElement | null };
+  /** クロスプロジェクト参照（§5.8）: 現プロジェクト以外のタスク（参照タスク）は移動・リサイズ不可 */
+  currentProjectId?: string;
 }
 
 // バー移動・左右リサイズ・作成ドラッグの状態・イベントハンドラ（GanttChart から抽出、挙動不変, D4）。
-export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef }: Params) {
+export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef, currentProjectId }: Params) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
@@ -103,16 +106,17 @@ export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskB
     if (e.button !== 0) return;
     if (linkDragStateRef.current) return; // リンクドラッグ中は move/resize を無効化
     if ((childCountRef.current.get(taskId) ?? 0) > 0) return; // 親バーは移動・リサイズ不可
-    e.preventDefault();
     const task = taskByIdRef.current.get(taskId);
     if (!task?.startDate) return;
+    if (isReadonlyTask(task, currentProjectId)) return; // 参照タスクは読み取り専用（§5.8）
+    e.preventDefault();
     setDragState({
       taskId, type,
       startClientX: e.clientX,
       origStart: task.startDate,
       origEnd: task.endDate ?? task.startDate,
     });
-  }, [linkDragStateRef, childCountRef, taskByIdRef]);
+  }, [linkDragStateRef, childCountRef, taskByIdRef, currentProjectId]);
   const handleBarMoveStart        = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'move'),         [startDrag]);
   const handleBarResizeLeftStart  = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-left'),  [startDrag]);
   const handleBarResizeRightStart = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-right'), [startDrag]);

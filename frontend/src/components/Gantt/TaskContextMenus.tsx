@@ -1,6 +1,7 @@
 import type { Task } from '../../types/task';
 import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
+import { isReadonlyTask, isRefGroupId } from '../../utils/refTasks';
 
 // ── 色パレット ───────────────────────────────────────
 const COLOR_PALETTE: (string | null)[] = [
@@ -47,6 +48,11 @@ interface Props {
   collapseAll: () => void;
   expandToDepth: (depth: number) => void;
   expandAll: () => void;
+  // クロスプロジェクト参照（§5.8）: 参照タスク・合成グループ行の専用メニュー
+  currentProjectId?: string;
+  onOpenRefProject?: (projectId: string) => void;
+  onRemoveRef?: (refTaskId: string) => void;
+  onRefreshRefs?: () => void;
 }
 
 // バー/行/依存矢印/タイトル列見出しの右クリックメニュー群（GanttChart から抽出、挙動不変, D4）。
@@ -56,6 +62,7 @@ export function TaskContextMenus({
   taskById, tasks, copiedTask, setCopiedTask,
   onEditTask, onDeleteTask, onInlineUpdate, onAddSubTask, onAddSubMilestone, onCopyInsert,
   collapseAll, expandToDepth, expandAll,
+  currentProjectId, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
   return (
     <>
@@ -68,6 +75,33 @@ export function TaskContextMenus({
         const { menu, close } = entry;
         const task = taskById.get(menu.taskId);
         if (!task) return null;
+
+        // ── 参照タスク・合成グループ行: 専用メニュー（§5.8） ──
+        const isGroup = isRefGroupId(task.id);
+        if (isGroup || isReadonlyTask(task, currentProjectId)) {
+          return (
+            <ContextMenu key={i} x={menu.x} y={menu.y}
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
+            >
+              <button onClick={() => { onOpenRefProject?.(task.projectId); close(); }}
+                style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
+                参照先プロジェクトを開く
+              </button>
+              {!isGroup && (
+                <button onClick={() => { onRemoveRef?.(task.id); close(); }}
+                  style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
+                  参照を解除
+                </button>
+              )}
+              <button onClick={() => { onRefreshRefs?.(); close(); }}
+                style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
+                参照を再読み込み
+              </button>
+            </ContextMenu>
+          );
+        }
+
         return (
           <ContextMenu key={i} x={menu.x} y={menu.y}
             onMouseDown={e => e.stopPropagation()}
