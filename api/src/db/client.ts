@@ -42,3 +42,4 @@ runMigration('008_next_seq',      readFileSync(join(migrationsDir, '008_next_seq
 runMigration('009_task_estimate', readFileSync(join(migrationsDir, '009_task_estimate.sql'), 'utf-8'));
 runMigration('010_app_settings',  readFileSync(join(migrationsDir, '010_app_settings.sql'),  'utf-8'));
 runMigration('011_project_resource_overrides', readFileSync(join(migrationsDir, '011_project_resource_overrides.sql'), 'utf-8'));
+runMigration('012_task_refs', readFileSync(join(migrationsDir, '012_task_refs.sql'), 'utf-8'));

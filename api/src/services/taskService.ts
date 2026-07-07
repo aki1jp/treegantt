@@ -317,6 +317,73 @@ export function deleteTaskKeepChildren(
   return children.map(c => ({ id: c.id, order: c.ord, parentId: task.parent_id }));
 }
 
+/**
+ * 複数の rootIds を根とするサブツリー（子孫含む）の和集合を重複排除してハイドレートする。
+ * `deleteTaskSubtree` と同じ再帰 CTE でサブツリー ID を収集し、`attachDeps` を流用して
+ * predecessors/successors を付与する（クロスプロジェクト参照 §5.8 のハイドレートに使用）。
+ */
+export function getTaskSubtrees(rootIds: string[]): TaskWithSuccessors[] {
+  if (rootIds.length === 0) return [];
+
+  const placeholders = rootIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `WITH RECURSIVE sub(id) AS (
+         SELECT id FROM tasks WHERE id IN (${placeholders})
+         UNION
+         SELECT t.id FROM tasks t JOIN sub ON t.parent_id = sub.id
+       )
+       SELECT id FROM sub`
+    )
+    .all(...rootIds) as { id: string }[];
+  const ids = rows.map(r => r.id);
+  if (ids.length === 0) return [];
+
+  const idPlaceholders = ids.map(() => '?').join(',');
+  const taskRows = db
+    .prepare(`SELECT * FROM tasks WHERE id IN (${idPlaceholders})`)
+    .all(...ids) as RawTask[];
+
+  return attachDeps(taskRows.map(rawToTask));
+}
+
+/**
+ * successorId の predecessors を newPredecessors に全置換した場合に、
+ * task_deps 全体（プロジェクトを跨いでも）で循環が生じるかを判定する。
+ * successorId を起点に「先行→後続」方向（predecessor_id=現在ノード → successor_id）へ
+ * BFS し、newPredecessors のいずれかへ到達できれば、それを新たな先行として追加すると
+ * 循環になるため検出する。successorId 自身が newPredecessors に含まれる場合（自己依存）も検出する。
+ * この BFS は successorId から辿れる「後続方向」のみを見るため、置換対象である
+ * successorId 自身への既存の先行エッジ（置換で消える側）は辿らず、変更のない既存の
+ * 先行関係を再送しても偽陽性にならない。
+ */
+export function wouldCreateDepCycleDb(successorId: string, newPredecessors: string[]): boolean {
+  if (newPredecessors.length === 0) return false;
+  if (newPredecessors.includes(successorId)) return true;
+
+  const targets = new Set(newPredecessors);
+  const visited = new Set<string>([successorId]);
+  let frontier = [successorId];
+
+  while (frontier.length > 0) {
+    const placeholders = frontier.map(() => '?').join(',');
+    const rows = db
+      .prepare(`SELECT successor_id FROM task_deps WHERE predecessor_id IN (${placeholders})`)
+      .all(...frontier) as { successor_id: string }[];
+
+    const next: string[] = [];
+    for (const { successor_id } of rows) {
+      if (targets.has(successor_id)) return true;
+      if (!visited.has(successor_id)) {
+        visited.add(successor_id);
+        next.push(successor_id);
+      }
+    }
+    frontier = next;
+  }
+  return false;
+}
+
 export function wouldCreateCycle(taskId: string, newParentId: string): boolean {
   let current: string | null = newParentId;
   const visited = new Set<string>();

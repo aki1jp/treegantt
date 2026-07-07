@@ -9,6 +9,7 @@ import {
   deleteTaskKeepChildren,
   reorderTasks,
   wouldCreateCycle,
+  wouldCreateDepCycleDb,
   batchCreateTasks,
   type BatchTaskInput,
 } from '../services/taskService.js';
@@ -84,8 +85,13 @@ export async function taskRoutes(fastify: FastifyInstance) {
           if (parent.isMilestone)
             return reply.code(400).send({ error: 'Milestone cannot be a parent', code: 'MILESTONE_CANNOT_BE_PARENT' });
         }
+        const id = uuidv4();
+        const predecessors = req.body.predecessors as string[] | undefined;
+        if (predecessors?.length && wouldCreateDepCycleDb(id, predecessors)) {
+          return reply.code(400).send({ error: 'Circular dependency detected', code: 'DEP_CYCLE_DETECTED' });
+        }
         const task = createTask({
-          id: uuidv4(),
+          id,
           projectId: req.params.id,
           parentId,
           title:       req.body.title       as string,
@@ -98,7 +104,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           startDate:   req.body.startDate   as string | null | undefined,
           endDate:     req.body.endDate     as string | null | undefined,
           isMilestone: req.body.isMilestone as boolean | undefined,
-          predecessors: req.body.predecessors as string[] | undefined,
+          predecessors,
           titleColor:   req.body.titleColor   as string | null | undefined,
           titleBgColor: req.body.titleBgColor as string | null | undefined,
           estimateMinutes: req.body.estimateMinutes as number | null | undefined,
@@ -206,6 +212,12 @@ export async function taskRoutes(fastify: FastifyInstance) {
             return reply.code(400).send({ error: 'Invalid parentId', code: 'INVALID_PARENT' });
           if (parent.isMilestone)
             return reply.code(400).send({ error: 'Milestone cannot be a parent', code: 'MILESTONE_CANNOT_BE_PARENT' });
+        }
+        if (req.body.predecessors !== undefined) {
+          const predecessors = req.body.predecessors as string[];
+          if (wouldCreateDepCycleDb(req.params.id, predecessors)) {
+            return reply.code(400).send({ error: 'Circular dependency detected', code: 'DEP_CYCLE_DETECTED' });
+          }
         }
         const task = updateTask(req.params.id, {
           parentId:     req.body.parentId     as string | null | undefined,

@@ -214,7 +214,7 @@ describe('API 悪意テスト — 依存関係の悪用', () => {
     pid = await mkProject(app);
   });
 
-  it('循環依存 A→B, B→A を作成しても API がクラッシュしない', async () => {
+  it('循環依存 A→B, B→A の作成は 400 DEP_CYCLE_DETECTED で拒否され、API はクラッシュしない', async () => {
     const idA = (await mkTask(app, pid, { title: 'A' })).json().task.id as string;
     const idB = (await mkTask(app, pid, { title: 'B', predecessors: [idA] })).json().task.id as string;
 
@@ -223,7 +223,8 @@ describe('API 悪意テスト — 依存関係の悪用', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ predecessors: [idB] }),
     });
-    expect(rPatch.statusCode).toBe(200);
+    expect(rPatch.statusCode).toBe(400);
+    expect(rPatch.json().code).toBe('DEP_CYCLE_DETECTED');
 
     const list = await app.inject({ method: 'GET', url: `/api/v1/projects/${pid}/tasks` });
     expect(list.statusCode).toBe(200);

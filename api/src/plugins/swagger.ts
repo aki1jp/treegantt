@@ -23,6 +23,7 @@ export async function registerSwagger(fastify: FastifyInstance): Promise<void> {
         { name: 'Health', description: '稼働確認' },
         { name: 'Projects', description: 'プロジェクトの CRUD' },
         { name: 'Tasks', description: 'タスクの CRUD・並び替え・一括作成' },
+        { name: 'Refs', description: 'クロスプロジェクトのタスク参照（読み取り専用）' },
         { name: 'ImportExport', description: 'タスクの一括インポート・エクスポート' },
         { name: 'Settings', description: 'アプリ既定のリソース設定' },
       ],

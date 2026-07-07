@@ -28,6 +28,13 @@ export interface Task {
 
 export type TaskWithSuccessors = Task & { successors: string[] };
 
+// クロスプロジェクト参照（§5.8）。projectId が「参照する側」、refTaskId が参照先タスク
+export interface TaskRef {
+  projectId:  string;
+  refTaskId:  string;
+  createdAt:  string;
+}
+
 export interface Project {
   id:        string;
   name:      string;

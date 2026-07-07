@@ -9,6 +9,7 @@ import { registerSwagger } from './plugins/swagger.js';
 import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { taskRoutes } from './routes/tasks.js';
+import { refRoutes } from './routes/refs.js';
 import { importExportRoutes } from './routes/importExport.js';
 import { settingsRoutes } from './routes/settings.js';
 
@@ -31,6 +32,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   await app.register(healthRoutes);
   await app.register(projectRoutes, { prefix: API_PREFIX });
   await app.register(taskRoutes, { prefix: API_PREFIX });
+  await app.register(refRoutes, { prefix: API_PREFIX });
   await app.register(importExportRoutes, { prefix: API_PREFIX });
   await app.register(settingsRoutes, { prefix: API_PREFIX });
 
