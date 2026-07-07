@@ -11,6 +11,7 @@ let onDeleteTask: Mock;
 let onInlineUpdate: Mock;
 let onAddSubTask: Mock;
 let onAddSubMilestone: Mock;
+let onAddRef: Mock;
 const NOOP = vi.fn();
 
 let seq = 0;
@@ -34,6 +35,7 @@ beforeEach(() => {
   onInlineUpdate = vi.fn();
   onAddSubTask  = vi.fn();
   onAddSubMilestone = vi.fn();
+  onAddRef = vi.fn();
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
   localStorage.clear();
@@ -64,6 +66,7 @@ function renderChart(tasks: Task[]) {
       onAddSubTask={onAddSubTask}
       onAddSubMilestone={onAddSubMilestone}
       onReorder={NOOP} onCopyInsert={NOOP}
+      onAddRef={onAddRef}
     />
   );
 }
@@ -154,6 +157,30 @@ describe('ガントバー右クリックメニュー（barCtxMenu）', () => {
     fireEvent.click(screen.getByText('マイルストーン'));
 
     expect(onAddSubMilestone).toHaveBeenCalledWith(task.id);
+    expect(screen.queryByText('＋ 子追加', { exact: false })).toBeNull();
+  });
+
+  it('子メニューに「🔗 参照を追加」が「タスク」「マイルストーン」と同列に表示される', () => {
+    const task = makeTask();
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+    fireEvent.mouseEnter(screen.getByText('＋ 子追加', { exact: false }));
+
+    expect(screen.getByText('タスク')).toBeTruthy();
+    expect(screen.getByText('マイルストーン')).toBeTruthy();
+    expect(screen.getByText('🔗 参照を追加')).toBeTruthy();
+  });
+
+  it('子メニュー「🔗 参照を追加」クリックで onAddRef が呼ばれメニューが閉じる（parentId は無関係）', () => {
+    const task = makeTask();
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+    fireEvent.mouseEnter(screen.getByText('＋ 子追加', { exact: false }));
+    fireEvent.click(screen.getByText('🔗 参照を追加'));
+
+    expect(onAddRef).toHaveBeenCalled();
     expect(screen.queryByText('＋ 子追加', { exact: false })).toBeNull();
   });
 

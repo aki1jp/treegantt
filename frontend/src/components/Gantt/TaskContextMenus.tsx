@@ -43,6 +43,8 @@ interface Props {
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
   onAddSubTask: (parentId: string) => void;
   onAddSubMilestone?: (parentId: string) => void;
+  /** クロスプロジェクト参照（§5.8）: 「＋ 子追加」フライアウトに同列で「🔗 参照を追加」を出す */
+  onAddRef?: () => void;
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
   // 展開/折りたたみ
   collapseAll: () => void;
@@ -60,7 +62,7 @@ export function TaskContextMenus({
   barCtxMenu, rowCtxMenu, depCtxMenu, titleHeaderCtxMenu,
   closeBarCtxMenu, closeRowCtxMenu, closeDepCtxMenu, closeTitleHeaderCtxMenu,
   taskById, tasks, copiedTask, setCopiedTask,
-  onEditTask, onDeleteTask, onInlineUpdate, onAddSubTask, onAddSubMilestone, onCopyInsert,
+  onEditTask, onDeleteTask, onInlineUpdate, onAddSubTask, onAddSubMilestone, onAddRef, onCopyInsert,
   collapseAll, expandToDepth, expandAll,
   currentProjectId, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
@@ -112,6 +114,7 @@ export function TaskContextMenus({
                 <AddChildMenuItem
                   onAddTask={() => { onAddSubTask(task.id); close(); }}
                   onAddMilestone={() => { onAddSubMilestone?.(task.id); close(); }}
+                  onAddRef={onAddRef ? () => { onAddRef(); close(); } : undefined}
                 />
                 <div style={{ height: 1, background: 'var(--th-border)' }} />
               </>

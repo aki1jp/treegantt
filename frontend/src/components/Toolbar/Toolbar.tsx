@@ -14,6 +14,8 @@ interface Props {
   onExportJson: () => void;
   onExportCsv: () => void;
   onOpenResourceSettings?: () => void;
+  /** クロスプロジェクト参照（§5.8）: 未指定時は「🔗 参照」ボタンを表示しない */
+  onOpenRefManager?: () => void;
   backendVersion?: string;
 }
 
@@ -106,7 +108,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
   );
 }
 
-export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, backendVersion }: Props) {
+export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, onOpenRefManager, backendVersion }: Props) {
   const {
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterSearch,
@@ -191,6 +193,9 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
         {/* タスク操作 */}
         <button style={PRIMARY_BTN} onClick={onAddTask}>+ タスク追加</button>
         <button style={BTN} onClick={onAddMilestone}>◇ マイルストーン</button>
+        {onOpenRefManager && (
+          <button style={BTN} onClick={onOpenRefManager} title="クロスプロジェクト参照の管理">🔗 参照</button>
+        )}
 
         {/* 右端: ☰ + ∧/∨ */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>

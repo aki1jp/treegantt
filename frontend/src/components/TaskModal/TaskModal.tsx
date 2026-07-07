@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { MarkdownBody } from '../MarkdownBody/MarkdownBody';
-import type { Task, TaskStatus, TaskPriority } from '../../types/task';
+import type { Task, TaskStatus, TaskPriority, RefProject } from '../../types/task';
 import { getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
 import { parseDuration, formatMinutes, HARDCODED_CAPACITY_MINUTES } from '../../utils/duration';
+import { isReadonlyTask } from '../../utils/refTasks';
 
 interface Props {
   task: Task | null;
@@ -14,6 +15,14 @@ interface Props {
   capacityMinutes?: number;
   /** 1週あたりの稼働日数。既定 5 */
   workingDaysPerWeek?: number;
+  /** クロスプロジェクト参照（§5.8）: 現プロジェクトID。task が他プロジェクト所属なら readOnly モード */
+  currentProjectId?: string;
+  /** 「外部の先行タスク（参照済み）」チェックリストの候補（現プロジェクトの参照タスク） */
+  refTasks?: Task[];
+  /** 参照先プロジェクトの表示名・配色（🔗 プロジェクト名 表示用） */
+  refProjects?: RefProject[];
+  /** readOnly モードの「参照先プロジェクトを開く」ボタン */
+  onOpenRefProject?: (projectId: string) => void;
 }
 
 const ESTIMATE_HELP =
@@ -36,7 +45,10 @@ const INPUT: React.CSSProperties = {
 export function TaskModal({
   task, allTasks, initialParentId, onSave, onClose,
   capacityMinutes = HARDCODED_CAPACITY_MINUTES, workingDaysPerWeek = 5,
+  currentProjectId, refTasks = [], refProjects = [], onOpenRefProject,
 }: Props) {
+  // クロスプロジェクト参照（§5.8）: 参照タスク自身を開いた場合は readOnly モード
+  const isReadOnly = task ? isReadonlyTask(task, currentProjectId) : false;
   const [shaking, setShaking] = useState(false);
   const [title, setTitle]             = useState(task?.title ?? '');
   const [summary, setSummary]         = useState(task?.summary ?? '');
@@ -95,6 +107,13 @@ export function TaskModal({
     !(task && isAncestorOf(task.id, t.id, taskById))
   );
   const hasChildren = task ? allTasks.some(t => t.parentId === task.id) : false;
+
+  // 外部の先行タスク（参照済み, §5.8）: 循環判定は現プロジェクト＋参照タスクを統合した taskById で行う
+  const mergedTaskById = new Map([...allTasks, ...refTasks].map(t => [t.id, t]));
+  const refProjectById = new Map(refProjects.map(p => [p.id, p]));
+  const refCandidates = task
+    ? refTasks.filter(t => !wouldCreateDepCycle(t.id, task.id, mergedTaskById))
+    : refTasks;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -179,12 +198,12 @@ export function TaskModal({
         <form onSubmit={handleSubmit}>
           <div data-field="title" {...shakeProps(dirtyFields.title)}>
             <label style={LABEL}>タイトル *</label>
-            <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} />
+            <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} disabled={isReadOnly} />
           </div>
 
           <div data-field="summary" {...shakeProps(dirtyFields.summary)}>
             <label style={LABEL}>サマリ</label>
-            <input style={INPUT} value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} />
+            <input style={INPUT} value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} disabled={isReadOnly} />
           </div>
 
           <div data-field="description" {...shakeProps(dirtyFields.description)}>
@@ -216,6 +235,7 @@ export function TaskModal({
                 style={{ ...INPUT, minHeight: 80, resize: 'vertical' }}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
+                disabled={isReadOnly}
               />
             )}
 
@@ -237,7 +257,7 @@ export function TaskModal({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div data-field="status" {...shakeProps(dirtyFields.status)}>
               <label style={LABEL}>ステータス</label>
-              <select style={INPUT} value={status} onChange={e => setStatus(e.target.value as TaskStatus)}>
+              <select style={INPUT} value={status} onChange={e => setStatus(e.target.value as TaskStatus)} disabled={isReadOnly}>
                 {Object.entries(STATUS_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
@@ -245,7 +265,7 @@ export function TaskModal({
             </div>
             <div data-field="priority" {...shakeProps(dirtyFields.priority)}>
               <label style={LABEL}>優先度</label>
-              <select style={INPUT} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)}>
+              <select style={INPUT} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)} disabled={isReadOnly}>
                 {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
@@ -256,13 +276,13 @@ export function TaskModal({
           <div data-field="progress" {...shakeProps(dirtyFields.progress)}>
             <label style={LABEL}>進捗率: {progress}%</label>
             <input type="range" min={0} max={100} value={progress}
-              onChange={e => setProgress(Number(e.target.value))} style={{ width: '100%' }} />
+              onChange={e => setProgress(Number(e.target.value))} style={{ width: '100%' }} disabled={isReadOnly} />
           </div>
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
             <input style={INPUT} value={assignee} list="assignee-opts-modal"
-              onChange={e => setAssignee(e.target.value)} />
+              onChange={e => setAssignee(e.target.value)} disabled={isReadOnly} />
             <datalist id="assignee-opts-modal">
               {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
             </datalist>
@@ -280,7 +300,7 @@ export function TaskModal({
             </label>
             <input style={INPUT} value={estimateText}
               placeholder="例: 1d 4h, 7:45, 30m"
-              onChange={e => setEstimateText(e.target.value)} />
+              onChange={e => setEstimateText(e.target.value)} disabled={isReadOnly} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -289,7 +309,7 @@ export function TaskModal({
                 開始日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
               </label>
               <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" value={startDate}
-                disabled={hasChildren}
+                disabled={hasChildren || isReadOnly}
                 onChange={e => setStartDate(e.target.value)}
                 title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
             </div>
@@ -298,7 +318,7 @@ export function TaskModal({
                 終了日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
               </label>
               <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" value={endDate}
-                disabled={hasChildren}
+                disabled={hasChildren || isReadOnly}
                 onChange={e => setEndDate(e.target.value)}
                 title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
             </div>
@@ -319,8 +339,9 @@ export function TaskModal({
                   const found = parentCandidates.find(t => t.seq === num);
                   setParentId(found ? found.id : '');
                 }}
+                disabled={isReadOnly}
               />
-              <select style={{ ...INPUT, flex: 1 }} value={parentId} onChange={e => setParentId(e.target.value)}>
+              <select style={{ ...INPUT, flex: 1 }} value={parentId} onChange={e => setParentId(e.target.value)} disabled={isReadOnly}>
                 <option value="">なし（ルートタスク）</option>
                 {parentCandidates.map(t => (
                   <option key={t.id} value={t.id}>
@@ -348,12 +369,13 @@ export function TaskModal({
                     .filter((id): id is string => !!id);
                   setPredecessors([...new Set(ids)]);
                 }}
+                disabled={isReadOnly}
               />
               <div style={{ border: '1px solid var(--th-input-border)', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto', background: 'var(--th-input-bg)' }}>
                 {predecessorCandidates.map(t => (
                   <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
                     <input type="checkbox" checked={predecessors.includes(t.id)}
-                      onChange={() => togglePredecessor(t.id)} />
+                      onChange={() => togglePredecessor(t.id)} disabled={isReadOnly} />
                     <span style={{ fontSize: 13 }}>
                       <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6366f1', marginRight: 4 }}>
                         #{t.seq}
@@ -366,7 +388,41 @@ export function TaskModal({
             </div>
           )}
 
+          {/* 外部の先行タスク（参照済み, §5.8）: 既存の #seq 入力とは別枠のチェックリスト */}
+          {refCandidates.length > 0 && (
+            <div data-field="externalPredecessors" style={FIELD}>
+              <label style={LABEL}>外部の先行タスク（参照済み）</label>
+              <div style={{ border: '1px solid var(--th-input-border)', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto', background: 'var(--th-input-bg)' }}>
+                {refCandidates.map(t => (
+                  <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
+                    <input type="checkbox" checked={predecessors.includes(t.id)}
+                      onChange={() => togglePredecessor(t.id)} disabled={isReadOnly} />
+                    <span style={{ fontSize: 13 }}>
+                      🔗 {refProjectById.get(t.projectId)?.name ?? '?'}
+                      <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6366f1', margin: '0 4px' }}>
+                        #{t.seq}
+                      </span>
+                      {t.title}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            {isReadOnly ? (
+              <>
+                <button type="button" onClick={onClose}
+                  style={{ padding: '8px 16px', border: '1px solid var(--th-input-border)', borderRadius: 4, background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer' }}>
+                  閉じる
+                </button>
+                <button type="button" onClick={() => task && onOpenRefProject?.(task.projectId)}
+                  style={{ padding: '8px 16px', border: 'none', borderRadius: 4, background: '#4f46e5', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                  参照先プロジェクトを開く
+                </button>
+              </>
+            ) : (<>
             <button type="button" onClick={onClose}
               style={{ padding: '8px 16px', border: '1px solid var(--th-input-border)', borderRadius: 4, background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer' }}>
               キャンセル
@@ -375,6 +431,7 @@ export function TaskModal({
               style={{ padding: '8px 16px', border: 'none', borderRadius: 4, background: '#4f46e5', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
               保存
             </button>
+            </>)}
           </div>
         </form>
       </div>

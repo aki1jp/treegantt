@@ -62,6 +62,8 @@ interface Props {
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
   onAddSubMilestone?: (parentId: string) => void;
+  /** クロスプロジェクト参照（§5.8）: 右クリックメニュー「🔗 参照を追加」（parentId は使わない） */
+  onAddRef?: () => void;
   onReorder: (orders: { id: string; order: number; parentId?: string | null }[]) => Promise<void>;
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
   /** リソースビュー稼働率の実効キャパ（分/稼働日） */
@@ -82,7 +84,7 @@ interface Props {
 }
 
 export function GanttChart({
-  projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onReorder, onCopyInsert,
+  projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onAddRef, onReorder, onCopyInsert,
   capacityMinutesPerDay, workingDays,
   onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
@@ -678,6 +680,7 @@ export function GanttChart({
         onInlineUpdate={onInlineUpdate}
         onAddSubTask={onAddSubTask}
         onAddSubMilestone={onAddSubMilestone}
+        onAddRef={onAddRef}
         onCopyInsert={onCopyInsert}
         collapseAll={collapseAll}
         expandToDepth={expandToDepth}

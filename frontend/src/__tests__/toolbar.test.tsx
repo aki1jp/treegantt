@@ -79,6 +79,27 @@ describe('Toolbar 2段レイアウト', () => {
   });
 });
 
+// ─── クロスプロジェクト参照（§5.8）─────────────────────────────────────────
+describe('Toolbar — 🔗 参照ボタン', () => {
+  it('onOpenRefManager を渡すと「🔗 参照」ボタンが表示され、クリックで呼ばれる', () => {
+    const onOpenRefManager = vi.fn();
+    render(
+      <Toolbar
+        onAddTask={NOOP} onAddMilestone={NOOP} onImport={NOOP} onRestore={NOOP}
+        onExportJson={NOOP} onExportCsv={NOOP} onOpenRefManager={onOpenRefManager}
+      />
+    );
+    const btn = screen.getByRole('button', { name: /🔗 参照/ });
+    fireEvent.click(btn);
+    expect(onOpenRefManager).toHaveBeenCalled();
+  });
+
+  it('onOpenRefManager 未指定のときは「🔗 参照」ボタンを表示しない', () => {
+    renderToolbar();
+    expect(screen.queryByRole('button', { name: /🔗 参照/ })).toBeNull();
+  });
+});
+
 describe('Toolbar フィルタインライン表示', () => {
   it('行2（展開時）にステータス選択が直接表示される', () => {
     renderToolbar();

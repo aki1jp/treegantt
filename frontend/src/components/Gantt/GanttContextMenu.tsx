@@ -17,10 +17,14 @@ const onBtnEnter = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget
 const onBtnLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.background = 'none'; };
 
 /**
- * 「＋ 追加」トリガにホバーすると右側に「子タスク」「子マイルストーン」のフライアウト子メニューを開く。
- * onAddTask/onAddMilestone は呼び出し側で対象 ID をバインドし、メニュー close まで済ませて渡す。
+ * 「＋ 追加」トリガにホバーすると右側に「子タスク」「子マイルストーン」（＋クロスプロジェクト
+ * 参照の「🔗 参照を追加」, §5.8）のフライアウト子メニューを開く。
+ * onAddTask/onAddMilestone/onAddRef は呼び出し側で対象 ID をバインドし、メニュー close まで
+ * 済ませて渡す（onAddRef は参照追加フローを開くだけで、右クリック対象の parentId は使わない）。
  */
-export function AddChildMenuItem({ onAddTask, onAddMilestone }: { onAddTask: () => void; onAddMilestone: () => void }) {
+export function AddChildMenuItem({
+  onAddTask, onAddMilestone, onAddRef,
+}: { onAddTask: () => void; onAddMilestone: () => void; onAddRef?: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position: 'relative' }} onMouseLeave={() => setOpen(false)}>
@@ -39,6 +43,10 @@ export function AddChildMenuItem({ onAddTask, onAddMilestone }: { onAddTask: () 
             onClick={onAddTask}>タスク</button>
           <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
             onClick={onAddMilestone}>マイルストーン</button>
+          {onAddRef && (
+            <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
+              onClick={onAddRef}>🔗 参照を追加</button>
+          )}
         </div>
       )}
     </div>

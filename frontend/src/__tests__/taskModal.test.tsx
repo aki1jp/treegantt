@@ -5,7 +5,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen, act } from '@testing-library/react';
 import { TaskModal } from '../components/TaskModal/TaskModal';
-import type { Task } from '../types/task';
+import type { Task, RefProject } from '../types/task';
 
 afterEach(() => { cleanup(); });
 
@@ -355,5 +355,100 @@ describe('TaskModal — backdrop クリック時の shake アニメーション'
     expect(container.querySelector('[data-field="title"][data-shaking]')).toBeTruthy();
     expect(container.querySelector('[data-field="summary"][data-shaking]')).toBeTruthy();
     expect(container.querySelector('[data-field="status"][data-shaking]')).toBeNull();
+  });
+});
+
+// ─── クロスプロジェクト参照（単位6, §5.8）───────────────────────────────────
+const REF_PROJECTS: RefProject[] = [{ id: 'p2', name: 'プロジェクトB', color: null }];
+
+function makeRefTask(overrides: Partial<Task> = {}): Task {
+  return makeTask({ id: 'r1', projectId: 'p2', seq: 3, title: '外部タスク', ...overrides });
+}
+
+describe('TaskModal — 外部の先行タスク（参照済み）チェックリスト', () => {
+  it('refTasks があると「外部の先行タスク（参照済み）」チェックリストが表示される', () => {
+    const { container } = render(
+      <TaskModal
+        task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP}
+        refTasks={[makeRefTask()]} refProjects={REF_PROJECTS}
+      />
+    );
+    expect(screen.getByText('外部の先行タスク（参照済み）')).toBeTruthy();
+    const field = container.querySelector('[data-field="externalPredecessors"]')!;
+    expect(field.textContent).toContain('🔗');
+    expect(field.textContent).toContain('プロジェクトB');
+    expect(field.textContent).toContain('#3');
+    expect(field.textContent).toContain('外部タスク');
+  });
+
+  it('外部先行タスクのチェックボックスを選択して保存すると predecessors に含まれる', () => {
+    const onSave = vi.fn();
+    render(
+      <TaskModal
+        task={makeTask()} allTasks={[]} onSave={onSave} onClose={NOOP}
+        refTasks={[makeRefTask()]} refProjects={REF_PROJECTS}
+      />
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /外部タスク/ }));
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ predecessors: ['r1'] }));
+  });
+
+  it('循環を作る外部タスクは候補から除外される', () => {
+    // r1 が task(t1) を先行に持つ場合、t1 の先行に r1 を追加すると循環になる
+    const cyclicRef = makeRefTask({ predecessors: ['t1'] });
+    render(
+      <TaskModal
+        task={makeTask({ id: 't1' })} allTasks={[]} onSave={NOOP} onClose={NOOP}
+        refTasks={[cyclicRef]} refProjects={REF_PROJECTS}
+      />
+    );
+    expect(screen.queryByText('外部タスク', { exact: false })).toBeNull();
+  });
+
+  it('refTasks が空のときはチェックリスト見出しを表示しない', () => {
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.queryByText('外部の先行タスク（参照済み）')).toBeNull();
+  });
+});
+
+describe('TaskModal — readOnly（参照タスク自身を開いた場合）', () => {
+  const refTask = makeRefTask();
+
+  function renderReadOnly(onOpenRefProject = vi.fn()) {
+    return render(
+      <TaskModal
+        task={refTask} allTasks={[]} onSave={NOOP} onClose={NOOP}
+        currentProjectId="p1" onOpenRefProject={onOpenRefProject}
+      />
+    );
+  }
+
+  it('参照タスクを開くと全ての input/select/textarea が disabled になる', () => {
+    renderReadOnly();
+    const controls = document.querySelectorAll('input, select, textarea');
+    expect(controls.length).toBeGreaterThan(0);
+    controls.forEach(el => {
+      expect((el as HTMLInputElement).disabled).toBe(true);
+    });
+  });
+
+  it('参照タスクを開くと「保存」ボタンが表示されない', () => {
+    renderReadOnly();
+    expect(screen.queryByRole('button', { name: '保存' })).toBeNull();
+  });
+
+  it('参照タスクを開くと「参照先プロジェクトを開く」ボタンが表示され、クリックで onOpenRefProject が呼ばれる', () => {
+    const onOpenRefProject = vi.fn();
+    renderReadOnly(onOpenRefProject);
+    fireEvent.click(screen.getByRole('button', { name: '参照先プロジェクトを開く' }));
+    expect(onOpenRefProject).toHaveBeenCalledWith('p2');
+  });
+
+  it('自プロジェクトのタスクを開いた場合は readOnly にならない（保存ボタンが表示される）', () => {
+    render(
+      <TaskModal task={makeTask({ projectId: 'p1' })} allTasks={[]} onSave={NOOP} onClose={NOOP} currentProjectId="p1" />
+    );
+    expect(screen.getByRole('button', { name: '保存' })).toBeTruthy();
   });
 });

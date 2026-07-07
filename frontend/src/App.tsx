@@ -16,6 +16,7 @@ import { apiFetch, fetchHealth, fetchSettings, updateAppSettings } from './utils
 import { useSettingsStore } from './store/settingsStore';
 import { resolveCapacityMinutes, resolveWorkingDays } from './utils/duration';
 import { ResourceSettingsModal } from './components/ResourceSettingsModal/ResourceSettingsModal';
+import { RefManagerModal } from './components/RefManager/RefManagerModal';
 import { mapInternalPredecessors } from './utils/copyDeps';
 import { buildCopyBatch, computeCopyInsertOrder } from './utils/copyBatch';
 import { useProjectTasks } from './hooks/useProjectTasks';
@@ -33,9 +34,11 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   // リソース設定モーダル: 'app'=アプリ既定 / Project=そのプロジェクト上書き / null=非表示
   const [settingsModal, setSettingsModal] = useState<'app' | Project | null>(null);
+  // クロスプロジェクト参照の管理モーダル（§5.8）
+  const [refManagerOpen, setRefManagerOpen] = useState(false);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
-  const { tasks, refTasks, setTasks, theme, setTheme } = useTaskStore();
+  const { tasks, refTasks, refProjects, setTasks, theme, setTheme } = useTaskStore();
   const {
     projects, currentProject, setCurrentProject, loading, error: projectsError, retry: retryProjects,
     createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject,
@@ -372,6 +375,7 @@ export default function App() {
               onExportJson={handleExportJson}
               onExportCsv={handleExportCsv}
               onOpenResourceSettings={() => setSettingsModal('app')}
+              onOpenRefManager={() => setRefManagerOpen(true)}
               backendVersion={backendVersion ?? undefined}
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -387,6 +391,7 @@ export default function App() {
                 onCopyInsert={handleCopyInsert}
                 capacityMinutesPerDay={effectiveCapacityMinutes}
                 workingDays={effectiveWorkingDays}
+                onAddRef={() => setRefManagerOpen(true)}
                 onUpdateExternalDeps={handleUpdateExternalDeps}
                 onOpenRefProject={handleOpenRefProject}
                 onRemoveRef={(refTaskId) => { projectRefs.remove(refTaskId).catch(() => {}); }}
@@ -423,6 +428,10 @@ export default function App() {
             initialParentId={modalInitialParentId}
             capacityMinutes={effectiveCapacityMinutes}
             workingDaysPerWeek={effectiveWorkingDays.length}
+            currentProjectId={currentProject?.id}
+            refTasks={refTasks}
+            refProjects={refProjects}
+            onOpenRefProject={(pid) => { setModalTask(undefined); setModalInitialParentId(undefined); handleOpenRefProject(pid); }}
             onSave={handleSaveTask}
             onClose={() => { setModalTask(undefined); setModalInitialParentId(undefined); }}
           />
@@ -465,6 +474,20 @@ export default function App() {
             } catch (err) { showToast('保存に失敗しました: ' + (err as Error).message, 'error'); }
             setSettingsModal(null);
           }}
+        />
+      )}
+
+      {refManagerOpen && currentProject && (
+        <RefManagerModal
+          projects={projects}
+          currentProjectId={currentProject.id}
+          refs={projectRefs.refs}
+          refTasks={refTasks}
+          refProjects={refProjects}
+          onAdd={(refTaskId) => projectRefs.add(refTaskId)}
+          onRemove={(refTaskId) => projectRefs.remove(refTaskId)}
+          onRefresh={() => { projectRefs.refresh(); }}
+          onClose={() => setRefManagerOpen(false)}
         />
       )}
 
