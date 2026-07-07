@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.6.0** |
-| ドキュメント版 | 0.2.153 |
+| ドキュメント版 | 0.2.154 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -425,7 +425,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 ### 7.1 状態管理（`store/taskStore.ts`、zustand + persist）
 - データ：`tasks`、`needsReload`。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。
-- フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterSearch`。
+- フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterColor`（`'' | '*' | string`。`'*'`＝色付き、それ以外は実効色の一致、§9.3）、`filterSearch`。
 - ガント表示：`zoomLevel`(既定 day)、`ganttStartDate`、`ganttPeriod`(既定 3m)、`showLightningLine/Weekend/CriticalPath/ResourceView/TodayLine/Milestones`、`milestoneHighlightColor`(#8b5cf6)、`uiFontSize`(13)、`uiRowHeight`(36)、`ganttHeaderLevels`(month/day=true)、`depArrowStyle`(bezier)。
 - レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`。
 - 差分適用アクション：`upsertTask`/`removeTasks`/`applyOrders`（未変更タスクの参照を保ち `React.memo` 行の再描画を最小化）。
@@ -561,8 +561,9 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 ### 9.3 ツールバー
 - 操作：タスク追加・マイルストーン追加・ハンバーガー（Import 追記/レストア、Export JSON/CSV、**バージョン表示**、API仕様書（Swagger UI を新規タブで開く。URL は `utils/api.ts` の `API_DOCS_URL` = 既存 `API_BASE`（`VITE_API_URL` 優先・未設定時 `hostname:4000` へフォールバック）+ `/docs`）)。
-- フィルタ：ステータス（「DONE/保留以外」=`!done` 含む）・優先度・担当者（部分一致・datalist 補完・クリア）・タスク検索。
-  - **担当者フィルタの親子継承**：担当者フィルタは、タスク自身の担当者が一致する場合に加え、**祖先タスクのいずれかが一致する場合もそのタスクを表示する**（自分が担当する親タスク配下の子タスクは、子の担当者に関わらず全て表示）。判定は `parentId` を遡る再帰で、任意の深さの子孫に及ぶ。マイルストーンは従来どおり常に表示。他フィルタ（ステータス／優先度／検索）は各タスク自身の値で AND 判定する（親子継承しない）。
+- フィルタ：ステータス（「DONE/保留以外」=`!done` 含む）・優先度・担当者（部分一致・datalist 補完・クリア）・**色**・タスク検索。
+  - **担当者フィルタの親子継承**：担当者フィルタは、タスク自身の担当者が一致する場合に加え、**祖先タスクのいずれかが一致する場合もそのタスクを表示する**（自分が担当する親タスク配下の子タスクは、子の担当者に関わらず全て表示）。判定は `parentId` を遡る再帰で、任意の深さの子孫に及ぶ。マイルストーンは従来どおり常に表示。他フィルタ（ステータス／優先度／色／検索）は各タスク自身の値で AND 判定する（親子継承しない）。
+  - **色フィルタ（`filterColor`）**：右クリック色パレット（`TaskContextMenus`）で設定する `titleColor`（文字色）／`titleBgColor`（背景色）は独立に設定できるため、色フィルタの同一性判定は両者を一本化した「実効色」＝`titleBgColor ?? titleColor`（背景色を優先し、背景色が未設定＝`null` のときのみ文字色で判定）で行う。両方とも `null` のタスクは「無色」として扱う。選択肢は `<select aria-label="色で絞り込み">` で、①`''`＝「すべて」（既定）、②`'*'`＝「色付き」（実効色が非 `null` の全タスク）、③現在のタスクで使用中の実効色ごと（`getUniqueTaskColors`、`ganttCalc.ts`。担当者フィルタの `getUniqueAssignees` と同じ「タスク一覧から動的収集してソート」パターン。各 `<option>` は色つきの丸印文字（`●`）で簡易スウォッチを表示）。`filterTasks`（`utils/sort.ts`）内で他フィルタ（status/priority/assignee）と同じ合成（AND）で扱い、親子継承などの特別なロジックは持たない。参照タスク（クロスプロジェクト参照の合成行）にも他フィルタと同様に適用され、特別扱いしない。フィルタ後ツリーの祖先再表示（`includeAncestors`、直下）は他フィルタと共通の挙動のまま変更しない。
   - **フィルタ後ツリーの祖先再表示（構造保持、`includeAncestors`）**：上記の継承（祖先が一致→子孫を表示）とは**逆方向**に、フィルタ結果（`filterTasks` 適用後の一覧）に子孫が残った場合、その**祖先自身は担当者が一致していなくても**ツリー表示の階層を保つために画面には表示される。この「表示専用祖先」はフィルタの一致結果（一覧・件数）には含まれないが、WBS/ガントの行としては可視であり、`taskIndex`（行位置）には含まれる。依存矢印など「その行が画面に見えているか」を扱う処理は、フィルタ結果の一覧ではなく、この表示専用祖先を含めた可視集合を基準に判定しなければならない（§8.5）。
 - ガント表示設定：ズーム（日/週/月）、表示期間（3/6/12/24 ヶ月）、イナズマ/週末/クリティカル/担当者ビュー/今日ライン/マイルストーンの各トグル、フォントサイズ・行高さ、ヘッダー段（年/月/週/日）、依存矢印スタイル、マイルストーン色、テーマ。
   - **「マイル」トグル**（ヘッダー段グループ内）は **ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯）のみ** を ON/OFF する（§8.2）。WBS のマイルストーン行・本体の菱形バーは常時表示で、このトグルでは消えない（行のフィルタリングではない）。
@@ -990,3 +991,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.151 | 2026/7 | §5.8 の依存循環検証の項に、Import（`restore`）の `predecessors` リマップ（Pass 3）が `wouldCreateDepCycleDb` を経由しない既知の未検証経路であることを追記（循環を含むエクスポートデータの再インポートで循環が復元されうる。検証導入前からの既知挙動）。§17.5/§17.6 見出し付近に、0.2.150 での見出し番号採番修正（旧 17.4/17.5 → 17.5/17.6）に伴い、それ以前の改訂履歴に現れる §17.5 の参照が旧採番を指す旨の注記を追加。コード変更なし。 |
 | 0.2.152 | 2026/7 | クロスプロジェクト参照のフロントエンド（§5.8「フロントエンド仕様」）を実装済みへ更新し、実装詳細を明記：`taskStore` 非永続スロット `refTasks`/`refProjects`・`hooks/useProjectRefs`（スナップショットロード・`updateExternalPredecessors` 専用経路）・`utils/refTasks`（`mergeRefTasks` 合成グループ行 `ref:<projectId>`/`isReadonlyTask`/`canCreateOnRow`）・readonly ガード8経路＋`App` 層の多層防御（readonly への patch は `predecessors` 単独のみ許可）・参照行専用の右クリックメニュー・UI入口2つ（右クリック「🔗 参照を追加」／ツールバー「🔗 参照」→`RefManagerModal`、共通 `AddRefFlow`）・`TaskModal` の「外部の先行タスク（参照済み）」チェックリストと readOnly モード。§7.1/§7.2/§7.3 に新規ストアスロット・コンポーネント・hooks/utils を追記、§14 の E2E 一覧にクロスプロジェクト参照フローを追記、§17.4 の「実装は次段階」記述を解消。 |
 | 0.2.153 | 2026/7 | 製品バージョンを **1.6.0** に更新（ヘッダー・ステータス・構成図・§15）。クロスプロジェクトのタスク参照（0.2.150〜0.2.152 で明記した設計、§5.8）を機能追加の製品リリースとして `CHANGELOG.md` の `[1.6.0]` に記録。**今回は major.minor が 1.5→1.6 に変わるマイナーバンプのため§15「現行リリース」も更新した**（データ形式版 1.1 は変更なし）。 |
+| 0.2.154 | 2026/7 | タスクの色によるフィルタ（新設）を追加（§9.3・§7.1）。ツールバーのフィルタ列に「色」セレクタ（`aria-label="色で絞り込み"`）を追加し、`filterTasks`（`utils/sort.ts`）へ色条件を他フィルタと同じ AND 合成で追加。`titleColor`/`titleBgColor` は右クリック色パレットで独立に設定できるため、同一性判定は `titleBgColor ?? titleColor`（背景色優先・未設定時のみ文字色）の「実効色」で行う。選択肢は「すべて」（`''`、既定）／「色付き」（`'*'`、実効色が非 `null` の全タスク）／使用中の実効色ごと（新設 `getUniqueTaskColors`（`ganttCalc.ts`）＝担当者の `getUniqueAssignees` と同じ動的収集パターン、各選択肢に丸印スウォッチを表示）。`taskStore` に `filterColor` を追加（他フィルタと同じく非永続・`partialize` 対象外）。参照タスクにも他フィルタと同様に適用し特別扱いせず、`includeAncestors` による祖先再表示など既存のツリー挙動も変更しない。 |
