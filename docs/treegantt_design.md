@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.5.1** |
-| ドキュメント版 | 0.2.151 |
+| ドキュメント版 | 0.2.152 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -331,7 +331,7 @@ interface TaskRef {
 
 他プロジェクトのタスク（や親タスク）を**読み取り専用の参照**として現在のプロジェクトに取り込み、進捗・日付を確認しつつ、**プロジェクトをまたぐ依存関係**（先行/後続）をつなげる機能。§17.4 で調査済みだった保留事項を実装したもの。
 
-> **実装状況**：本節（データモデル・API・依存循環検証）は実装済み。フロントエンド（参照行/合成グループ行の描画、readonly ガード、追加 UI）は本節末尾の「フロントエンド仕様」に設計として記述するのみで、実装は次段階（frontend 対応後のリリースで反映）。
+> **実装状況**：本節（データモデル・API・依存循環検証）およびフロントエンド（参照行/合成グループ行の描画、readonly ガード、追加 UI、跨ぎ依存の設定経路）はいずれも実装済み。
 
 #### データモデル
 
@@ -377,13 +377,15 @@ interface TaskRef {
 - **サーバー側の書き込み拒否**：しない（上記「認可・読み取り専用の担保」のとおりフロント側担保に統一）。
 - **ライブ更新（WebSocket）**：本節の GET はロード時/手動再読み込み時に取得する**スナップショット方式（R1）**。複数プロジェクトの WS 購読によるリアルタイム反映（R2）は将来の拡張候補とし、本節では扱わない（WS のルーム構造・再接続・振り分けのテスト面積が大きく、分離した方が検証しやすいため）。
 
-#### フロントエンド仕様（設計。実装は次段階）
+#### フロントエンド仕様（実装済み）
 
-- **ストア**：`taskStore` に非永続スロット `refTasks`/`refProjects` を追加し、既存 `tasks` スロットとは分離する（`setTasks` の全置換・WS 反映・フィルタ処理との干渉を避けるため）。
-- **描画（合成グループ行）**：参照先プロジェクトごとに合成グループ Task（`id = "ref:<projectId>"`、`order` はガント末尾に固定表示されるよう大きな値）を生成し、参照タスクの `parentId`（参照セット外を指す場合）をこのグループ行に差し替えてから既存のツリー描画・折りたたみ・行仮想化・依存矢印機構に渡す（`mergeRefTasks()`）。クリティカルパス・リソースビュー・担当者候補は現在プロジェクトのみを入力とし、意味論を変えない。
-- **読み取り専用ガード**：`isReadonlyTask(task, currentProjectId)` を、インライン編集・バードラッグ・作成ドラッグ・リンクドラッグ・行 D&D・右クリックメニュー・タスク詳細モーダル・削除の**8経路**すべてに配布し、参照タスクに対する編集操作を no-op にする（多層防御。`App` のハンドラ層にも同じガードを重ねる）。参照行は淡色表示＋🔗 アイコンで区別する。
-- **UI 入口は2つ**：①ガントの右クリックコンテキストメニュー（既存の「タスク追加」「マイルストーン追加」と同列に「🔗 参照を追加」を配置）、②ツールバーの「🔗 参照」ボタンから開く参照管理モーダル（一覧・解除・再読み込み）。どちらも「プロジェクト選択→タスク選択→追加」という共通の追加フローを呼び出す。
-- **クロス依存の追加**：後続タスクが参照タスク側にあるリンクドラッグは、`tasks` スロットを汚染しない専用の更新経路を使う（既存の楽観的更新フックをそのまま流用すると参照タスクが `tasks` スロットに紛れ込むため）。
+- **ストア**：`taskStore` に非永続スロット `refTasks`/`refProjects`（アクション `setRefData`/`upsertRefTask`）を追加し、既存 `tasks` スロットとは分離する（`setTasks` の全置換・WS 反映・フィルタ処理との干渉を避けるため。`partialize` に含めず localStorage へ永続化しない）。取得・追加・解除・跨ぎ依存更新は `hooks/useProjectRefs.ts` が担い、プロジェクト切替時にスナップショットをロードする（R1）。
+- **描画（合成グループ行）**：参照先プロジェクトごとに合成グループ Task（`id = "ref:<projectId>"`、`order` はガント末尾に固定表示されるよう `1e9 + idx`、`titleBgColor` に参照先プロジェクトの色）を生成し、参照タスクの `parentId`（参照セット外を指す場合）をこのグループ行に差し替えてから既存のツリー描画・折りたたみ・行仮想化・依存矢印機構に渡す（`utils/refTasks.ts` の `mergeRefTasks()`。`GanttChart` で `displayTasks` として `filterTasks`/`includeAncestors` の入力に用いる）。クリティカルパス・リソースビュー・担当者候補は現在プロジェクトのみを入力とし、意味論を変えない。
+- **読み取り専用ガード**：`isReadonlyTask(task, currentProjectId)` を、インライン編集（`GanttLeftRow` の `readOnly` prop）・バードラッグ/リサイズ（`useBarDrag` 早期 return＋`GanttBar` ハンドル非表示）・作成ドラッグ（`canCreateOnRow`）・リンクドラッグ・行 D&D（`useRowDnd`。ドラッグ開始拒否・ドロップ先からの除外・reorder ペイロードからの除外）・右クリックメニュー・タスク詳細モーダル・削除（`App.handleDeleteTask`）の**8経路**すべてに配布し、参照タスクに対する編集操作を no-op にする（多層防御：`App.handleInlineUpdate` は readonly タスクへの patch が `predecessors` 単独のときのみ専用経路へ回し、それ以外は拒否してトースト表示）。参照行は淡色表示＋🔗 アイコンで区別する。
+- **参照行の右クリックメニュー**：参照タスク行・合成グループ行は専用メニュー（「参照先プロジェクトを開く」「参照を解除」（グループ行にはなし）「参照を再読み込み」）を表示し、通常の編集・削除・色変更は出さない。
+- **UI 入口は2つ**：①ガントの右クリックコンテキストメニュー（「＋ 子追加」フライアウトの「タスク」「マイルストーン」と同列に「🔗 参照を追加」を配置）、②ツールバーの「🔗 参照」ボタンから開く参照管理モーダル `RefManagerModal`（一覧・解除（跨ぎ依存は残る旨の注意文言つき）・再読み込み・追加フロー）。どちらも「プロジェクト選択→タスク選択→追加」という共通の追加フロー `AddRefFlow`（`components/RefManager/`）を呼び出す（プロジェクト候補から現在プロジェクトは除外）。
+- **クロス依存の追加**：後続タスクが参照タスク側にあるリンクドラッグは、`tasks` スロットを汚染しない専用の更新経路 `useProjectRefs.updateExternalPredecessors()`（PATCH 応答を `upsertRefTask` で `refTasks` へ反映）を使う（既存の楽観的更新フックをそのまま流用すると参照タスクが `tasks` スロットに紛れ込むため）。逆方向（先行＝参照タスク、後続＝自タスク）は `TaskModal` の既存 `#seq` 入力とは別枠の「**外部の先行タスク（参照済み）**」チェックリスト（`🔗 プロジェクト名 #seq タイトル` 表示。循環判定は現在プロジェクト＋参照タスクを統合した `taskById` で行う）から設定できる。
+- **readOnly TaskModal**：参照タスク自身を開いた場合は全入力 disabled・保存ボタン非表示とし、「参照先プロジェクトを開く」ボタン（プロジェクト切替でジャンプ）を表示する。
 
 ---
 
@@ -422,7 +424,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 ## 7. フロントエンド設計
 
 ### 7.1 状態管理（`store/taskStore.ts`、zustand + persist）
-- データ：`tasks`、`needsReload`。
+- データ：`tasks`、`needsReload`。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。
 - フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterSearch`。
 - ガント表示：`zoomLevel`(既定 day)、`ganttStartDate`、`ganttPeriod`(既定 3m)、`showLightningLine/Weekend/CriticalPath/ResourceView/TodayLine/Milestones`、`milestoneHighlightColor`(#8b5cf6)、`uiFontSize`(13)、`uiRowHeight`(36)、`ganttHeaderLevels`(month/day=true)、`depArrowStyle`(bezier)。
 - レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`。
@@ -452,6 +454,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `ResourceView` | 担当者×日付の工数稼働率ヒートマップ（予定工数ベース、§8.9） |
 | `TaskModal`/`MilestoneModal` | 作成/編集フォーム（`TaskModal` は予定工数 `estimateMinutes` 入力欄を持つ＝単位トークン/`HH:MM`、`?` 書式ヘルプ付き、§9.8） |
 | `ResourceSettingsModal` | リソース設定（キャパ `HH:MM`＋稼働日チェック）の編集。アプリ既定＝ハンバーガー「リソース設定」、プロジェクト上書き＝`ProjectTabs` 右クリック「リソース設定」（「アプリ既定を継承」トグル付き＝オンで `null` 送信） |
+| `RefManagerModal`/`AddRefFlow` | クロスプロジェクト参照の管理モーダル（一覧・解除・再読み込み）と共通の追加フロー（プロジェクト選択→タスク選択→追加、§5.8）。入口はツールバー「🔗 参照」と右クリック「🔗 参照を追加」の2つ |
 | `GanttContextMenu`/`ContextMenu` | 右クリックメニュー |
 | `TaskTooltip` | バー hover ツールチップ（Markdown） |
 | `ConflictDialog` | 競合解決 UI |
@@ -461,8 +464,8 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `ErrorBoundary` | `App` 全体を包む描画エラーの捕捉（§7.4） |
 
 ### 7.3 hooks / utils
-- hooks：`useTasks`（楽観的 CRUD・batch）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
-- utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`/`copyBatch`（サブツリーコピーの batch API 入力構築・挿入順計算, `handleCopyInsert` から抽出）、`menuPos`、`portConfig`、`theme`。
+- hooks：`useTasks`（楽観的 CRUD・batch）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9）、`useProjectRefs`（クロスプロジェクト参照のロード/追加/解除/跨ぎ依存更新 `updateExternalPredecessors`, §5.8）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
+- utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`refTasks`（`mergeRefTasks`/`isReadonlyTask`/`refGroupId`/`canCreateOnRow`, §5.8）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`・`fetchProjectRefs`/`addProjectRef`/`removeProjectRef`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`/`copyBatch`（サブツリーコピーの batch API 入力構築・挿入順計算, `handleCopyInsert` から抽出）、`menuPos`、`portConfig`、`theme`。
 
 ### 7.4 エラー処理（`ErrorBoundary`）
 `main.tsx` は `<App />` をクラスコンポーネント `ErrorBoundary`（`getDerivedStateFromError`/`componentDidCatch`）で包む。子孫のレンダー中に想定外の例外が発生した場合、React はデフォルトでは DOM ツリー全体をアンマウントする（本アプリには他に `window.onerror` 等のグローバルハンドラは無い）ため、これを捕捉しないと画面が空の `<div id="root">` のみになる「白画面」に陥る。`ErrorBoundary` は例外を捕捉した場合、白画面の代わりに簡潔なメッセージと再読み込みボタン（`window.location.reload()`）を表示するフォールバック UI に切り替える。個々の描画ロジックの防御的なガード（例：ID 解決の不変条件、§8.5）を代替するものではなく、最終防衛線として位置づける。
@@ -739,7 +742,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 ## 14. テスト構成
 
 - 単体/結合：Vitest。`cd api && npm test`（サービス・ルート inject・WS・圧縮・敵対的入力）、`cd frontend && npm test -- --run`（ガント計算・描画・ストア・hooks・コンポーネント）。
-- E2E：`e2e/`（Playwright、フロント:3001 → API:4000 の**クロスオリジン**実構成）。プロジェクト/タスク CRUD・モーダル・ガント描画・**ガントバーのドラッグ（日付変更=PATCH）**。実ブラウザ×実サーバのため CORS など結合不具合を最終的に捕捉する（CORS プリフライトは E2E が定期実行されていれば検出できた）。CI（`.github/workflows/ci.yml` の `e2e` ジョブ、§16.5）で push/PR ごとに自動実行する。
+- E2E：`e2e/`（Playwright、フロント:3001 → API:4000 の**クロスオリジン**実構成）。プロジェクト/タスク CRUD・モーダル・ガント描画・**ガントバーのドラッグ（日付変更=PATCH）**・**クロスプロジェクト参照（追加→表示→跨ぎ依存→readonly、§5.8）**。実ブラウザ×実サーバのため CORS など結合不具合を最終的に捕捉する（CORS プリフライトは E2E が定期実行されていれば検出できた）。CI（`.github/workflows/ci.yml` の `e2e` ジョブ、§16.5）で push/PR ごとに自動実行する。
 - 依存ガード：`api/src/__tests__/security.test.ts`（既知脆弱依存の混入防止・fastify/cors/compress/uuid の major 下限）。
 - **バックアップ**：`api/src/__tests__/backup.test.ts`（§13.4）。実際に `.backup()` を実行して開ける有効な SQLite ファイルが生成されること、世代管理（`BACKUP_RETENTION` 超過分の削除）、`BACKUP_INTERVAL_HOURS=0` で以降のスケジュール実行が発生しないこと、バックアップ失敗（DB 例外）が呼び出し元に伝播しないことを検証する。
 - **本番配線テスト**：`api/src/app.ts` の `buildApp()`（cors/compress/auth/全ルート/エラーハンドラを登録）を `app.test.ts` で inject 検証する（`/health` の version 返却、エラーハンドラ形、CORS プリフライトが PATCH/DELETE を許可）。`index.ts` は `buildApp()` + `listen()` のみ。WSサーバ `wsRoom` のブロードキャストは `ws.test.ts` で実ソケット検証。
@@ -823,9 +826,8 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 - **Conventional Commits** の明文化（既にほぼ実践：`feat/fix/docs/test:`）。
 
 ### 17.4 クロスプロジェクトのタスク参照（実装済み → §5.8 参照）
-別プロジェクトのタスク（や親タスク）を読み取り専用の参照として現在プロジェクトに取り込み、進捗を確認しつつプロジェクトをまたぐ依存関係（先行/後続）をつなぎたい、という要望。かつては本節に保留（実装しない）としていたが、データモデル・API・依存循環検証を実装した。**設計・仕様の出典は新設 §5.8「クロスプロジェクト参照（`task_refs`）」に一本化**し、本節には要点のみを残す。
+別プロジェクトのタスク（や親タスク）を読み取り専用の参照として現在プロジェクトに取り込み、進捗を確認しつつプロジェクトをまたぐ依存関係（先行/後続）をつなぎたい、という要望。かつては本節に保留（実装しない）としていたが、データモデル・API・依存循環検証・フロントエンド（参照行描画・readonly ガード・追加 UI）を実装した。**設計・仕様の出典は新設 §5.8「クロスプロジェクト参照（`task_refs`）」に一本化**し、本節には要点のみを残す。
 - 調査の結果、`task_deps` は元々 project 非依存でクロスプロジェクト依存を保持可能だったため、不足していたのは参照の管理テーブル（`task_refs`）・参照 API・全域の依存循環検証（クロスで必須）・フロントの参照行描画/UI だった。
-- フロントエンド（参照行描画・readonly ガード・追加 UI）は §5.8 に設計として記述済みだが、実装は次段階（本書の対象リリースでは未反映）。
 
 ### 17.5 着手順の目安
 
@@ -986,3 +988,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.149 | 2026/7 | 製品バージョンを **1.5.1** に更新（ヘッダー・ステータス・構成図）。LICENSE（MIT）の追加とヒーロースクリーンショット・CIバッジを含む README の全面更新、および CI 環境（TZ=UTC）でのみ顕在化していたフロントエンドのテストのタイムゾーン依存バグ（`workloadCalc.test.ts`/`workloadCalcTz.test.ts`）の修正を、品質改善の製品リリースとして `CHANGELOG.md` の `[1.5.1]` に記録。§15「現行リリース」の表記（1.5）はパッチ更新のため変更なし。 |
 | 0.2.150 | 2026/7 | クロスプロジェクトのタスク参照（`task_refs`）を新設 §5.8 に明記し実装（§17.4 は実装済みへ更新、§5.8 へ出典を一本化）。データモデル（`task_refs`、§4.2）、参照 API 3本（GET/POST/DELETE `/projects/:id/refs`、冪等追加・サブツリーハイドレート・重複排除・参照解除は跨ぎ依存を消さない）、`task_deps` 全域（プロジェクト跨ぎ含む）の依存循環検証 `wouldCreateDepCycleDb`（400 `DEP_CYCLE_DETECTED`、親子構造循環の既存 `CYCLE_DETECTED` とは別ロジック）を明記。読み取り専用はフロント担保でサーバー側書き込み拒否はしない方針、Export/Import 非同梱・MCP 非対応・ライブ更新（WS）は将来（R2）というスコープ外事項も明記。フロントエンド仕様（合成グループ行・`isReadonlyTask` の8経路・追加 UI 入口2つ）も設計として記述（実装は次段階）。§17.4 直後にあった見出し番号の重複（旧 17.4「着手順の目安」）を 17.5 に採番し直し、旧 17.5「単独実行ファイル化」を 17.6 に繰り下げ。 |
 | 0.2.151 | 2026/7 | §5.8 の依存循環検証の項に、Import（`restore`）の `predecessors` リマップ（Pass 3）が `wouldCreateDepCycleDb` を経由しない既知の未検証経路であることを追記（循環を含むエクスポートデータの再インポートで循環が復元されうる。検証導入前からの既知挙動）。§17.5/§17.6 見出し付近に、0.2.150 での見出し番号採番修正（旧 17.4/17.5 → 17.5/17.6）に伴い、それ以前の改訂履歴に現れる §17.5 の参照が旧採番を指す旨の注記を追加。コード変更なし。 |
+| 0.2.152 | 2026/7 | クロスプロジェクト参照のフロントエンド（§5.8「フロントエンド仕様」）を実装済みへ更新し、実装詳細を明記：`taskStore` 非永続スロット `refTasks`/`refProjects`・`hooks/useProjectRefs`（スナップショットロード・`updateExternalPredecessors` 専用経路）・`utils/refTasks`（`mergeRefTasks` 合成グループ行 `ref:<projectId>`/`isReadonlyTask`/`canCreateOnRow`）・readonly ガード8経路＋`App` 層の多層防御（readonly への patch は `predecessors` 単独のみ許可）・参照行専用の右クリックメニュー・UI入口2つ（右クリック「🔗 参照を追加」／ツールバー「🔗 参照」→`RefManagerModal`、共通 `AddRefFlow`）・`TaskModal` の「外部の先行タスク（参照済み）」チェックリストと readOnly モード。§7.1/§7.2/§7.3 に新規ストアスロット・コンポーネント・hooks/utils を追記、§14 の E2E 一覧にクロスプロジェクト参照フローを追記、§17.4 の「実装は次段階」記述を解消。 |
