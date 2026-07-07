@@ -1,4 +1,4 @@
-import type { Task, AppSettings, Project } from '../types/task';
+import type { Task, AppSettings, Project, TaskRef, RefProject } from '../types/task';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:4000`;
 
@@ -75,4 +75,24 @@ export async function updateProjectResource(
     method: 'PATCH', body: JSON.stringify(patch),
   })) as { project: Project };
   return data.project;
+}
+
+// ── クロスプロジェクト参照（task_refs, §5.8）───────────────────────────────
+export async function fetchProjectRefs(
+  projectId: string,
+): Promise<{ refs: TaskRef[]; tasks: Task[]; projects: RefProject[] }> {
+  return (await apiFetch(`/projects/${projectId}/refs`)) as {
+    refs: TaskRef[]; tasks: Task[]; projects: RefProject[];
+  };
+}
+
+export async function addProjectRef(projectId: string, refTaskId: string): Promise<TaskRef> {
+  const data = (await apiFetch(`/projects/${projectId}/refs`, {
+    method: 'POST', body: JSON.stringify({ refTaskId }),
+  })) as { ref: TaskRef };
+  return data.ref;
+}
+
+export async function removeProjectRef(projectId: string, refTaskId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/refs/${refTaskId}`, { method: 'DELETE' });
 }

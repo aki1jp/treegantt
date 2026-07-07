@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Task, TaskStatus, ZoomLevel } from '../types/task';
+import type { Task, TaskStatus, ZoomLevel, RefProject } from '../types/task';
 import type { GanttPeriod, DepArrowStyle } from '../utils/ganttCalc';
 import type { ThemeMode } from '../utils/theme';
 
@@ -8,6 +8,10 @@ export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; 
 
 interface TaskStore {
   tasks:              Task[];
+  // クロスプロジェクト参照（§5.8）: 現プロジェクトの `tasks` とは分離した非永続スロット。
+  // setTasks の全置換・WS 反映・フィルタ処理との干渉を避けるため（partialize に含めない）。
+  refTasks:           Task[];
+  refProjects:        RefProject[];
   needsReload:        boolean;
   filterStatus:       TaskStatus | '' | '!done';
   filterAssignee:     string;
@@ -34,6 +38,8 @@ interface TaskStore {
   depArrowStyle:      DepArrowStyle;
   setTasks:               (tasks: Task[]) => void;
   upsertTask:             (task: Task) => void;
+  setRefData:             (refTasks: Task[], refProjects: RefProject[]) => void;
+  upsertRefTask:          (task: Task) => void;
   removeTasks:            (ids: string[]) => void;
   applyOrders:            (orders: { id: string; order: number; parentId?: string | null }[]) => void;
   setNeedsReload:         (v: boolean) => void;
@@ -81,6 +87,8 @@ export const useTaskStore = create<TaskStore>()(
   persist(
     (set) => ({
       tasks:             [],
+      refTasks:          [] as Task[],
+      refProjects:       [] as RefProject[],
       needsReload:       false,
       filterStatus:      '' as TaskStatus | '' | '!done',
       filterAssignee:    '',
@@ -98,6 +106,12 @@ export const useTaskStore = create<TaskStore>()(
         tasks: s.tasks.some(t => t.id === task.id)
           ? s.tasks.map(t => (t.id === task.id ? task : t))
           : [...s.tasks, task],
+      })),
+      setRefData:             (refTasks, refProjects) => set({ refTasks, refProjects }),
+      upsertRefTask:          (task) => set((s) => ({
+        refTasks: s.refTasks.some(t => t.id === task.id)
+          ? s.refTasks.map(t => (t.id === task.id ? task : t))
+          : [...s.refTasks, task],
       })),
       removeTasks:            (ids) => set((s) => {
         const removed = new Set(ids);

@@ -42,3 +42,13 @@ export interface AppSettings {
   capacityMinutesPerDay: number;
   workingDays: number[];
 }
+
+/** クロスプロジェクト参照（task_refs, §5.8）。projectId=参照する側、refTaskId=参照先タスク。 */
+export interface TaskRef {
+  projectId:  string;
+  refTaskId:  string;
+  createdAt:  string;
+}
+
+/** GET /projects/:id/refs のレスポンスに含まれる参照先プロジェクトの要約情報（重複排除済み）。 */
+export type RefProject = Pick<Project, 'id' | 'name' | 'color'>;
