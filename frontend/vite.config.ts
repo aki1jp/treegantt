@@ -22,6 +22,15 @@ export default defineConfig({
       // text は多数ファイル時に一部行を省くため、完全な per-file は html/json-summary で確認する
       reporter: ['text', 'json-summary', 'html'],
       skipFull: false,
+      // 導入時の実測値（statements 86.6 / branches 85.38 / functions 78.53 / lines 89.06）から
+      // 数ポイントの余裕を持たせた下限。黙って下がるのを防ぐためのゲートであり、
+      // 現状の到達水準そのものを保証する値ではない（§16.5）。
+      thresholds: {
+        statements: 84,
+        branches: 80,
+        functions: 75,
+        lines: 86,
+      },
     },
   },
 } as Parameters<typeof defineConfig>[0]);

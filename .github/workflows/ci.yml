@@ -7,7 +7,7 @@ on:
 
 jobs:
   api:
-    name: API (typecheck / lint / test / audit)
+    name: API (typecheck / lint / test+coverage / audit)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -22,11 +22,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      # カバレッジ閾値（vitest.config.ts の coverage.thresholds）を満たさない場合 exit 1 になる。
+      - run: npm run test:coverage
       - run: npm audit --audit-level=high
 
   frontend:
-    name: Frontend (typecheck / lint / test / audit)
+    name: Frontend (typecheck / lint / test+coverage / audit)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,7 +42,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test -- --run
+      # カバレッジ閾値（vite.config.ts の test.coverage.thresholds）を満たさない場合 exit 1 になる。
+      - run: npm run test:coverage
       - run: npm audit --omit=dev --audit-level=high
 
   e2e:
