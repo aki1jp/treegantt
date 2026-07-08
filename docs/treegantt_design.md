@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.7.0** |
-| ドキュメント版 | 0.2.159 |
+| ドキュメント版 | 0.2.160 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -751,6 +751,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 
 - 単体/結合：Vitest。`cd api && npm test`（サービス・ルート inject・WS・圧縮・敵対的入力）、`cd frontend && npm test -- --run`（ガント計算・描画・ストア・hooks・コンポーネント）。
 - E2E：`e2e/`（Playwright、フロント:3001 → API:4000 の**クロスオリジン**実構成）。プロジェクト/タスク CRUD・モーダル・ガント描画・**ガントバーのドラッグ（日付変更=PATCH）**・**クロスプロジェクト参照（追加→表示→跨ぎ依存→readonly、§5.8）**。実ブラウザ×実サーバのため CORS など結合不具合を最終的に捕捉する（CORS プリフライトは E2E が定期実行されていれば検出できた）。CI（`.github/workflows/ci.yml` の `e2e` ジョブ、§16.5）で push/PR ごとに自動実行する。
+- **ビジュアルリグレッション**：`e2e/tests/visual-regression.spec.ts`（Playwright `toHaveScreenshot`、詳細は §17.2）。通常の `npx playwright test` に含まれ CI でも毎回実行される点で、README 用ヒーロー画像を手動生成する `hero-screenshot.spec.ts`（`HERO_SCREENSHOT=1` 明示指定時のみ・通常実行ではスキップ）とは役割が異なる。
 - 依存ガード：`api/src/__tests__/security.test.ts`（既知脆弱依存の混入防止・fastify/cors/compress/uuid の major 下限）。
 - **バックアップ**：`api/src/__tests__/backup.test.ts`（§13.4）。実際に `.backup()` を実行して開ける有効な SQLite ファイルが生成されること、世代管理（`BACKUP_RETENTION` 超過分の削除）、`BACKUP_INTERVAL_HOURS=0` で以降のスケジュール実行が発生しないこと、バックアップ失敗（DB 例外）が呼び出し元に伝播しないことを検証する。
 - **本番配線テスト**：`api/src/app.ts` の `buildApp()`（cors/compress/auth/全ルート/エラーハンドラを登録）を `app.test.ts` で inject 検証する（`/health` の version 返却、エラーハンドラ形、CORS プリフライトが PATCH/DELETE を許可）。`index.ts` は `buildApp()` + `listen()` のみ。WSサーバ `wsRoom` のブロードキャストは `ws.test.ts` で実ソケット検証。
@@ -826,7 +827,12 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 
 ### 17.2 UI/UX 改善
 - **アクセシビリティ（a11y）監査＋修正**（高優先）：基本方針（アイコンボタンの `aria-label`、フィルタ入力の名前付け）・**`axe-core` による自動チェック（ユニット: `vitest` から直接呼び出し／E2E: `@axe-core/playwright`、§9.10）は導入済み**。自動チェックで検出した critical/serious 違反（`TaskModal`/`MilestoneModal` のフォーム未ラベル・タブボタンの `aria-required-parent`、`Toolbar` の色ピッカー `label-title-only`）は導入時に修正済み。**残課題**：キーボード操作（ガント/WBS のフォーカス移動、D&D のキーボード代替）、モーダル/メニューのフォーカストラップ、コントラスト比(WCAG) の監査・是正（E2E の自動チェックは `color-contrast` ルールを除外しており未カバー）。
-- **ビジュアルリグレッションテスト**：Playwright のスクリーンショット比較。描画中心のアプリ（バー/マイルストーン/依存矢印）で意図しない見た目変化を検出。
+- **ビジュアルリグレッションテスト**（Playwright のスクリーンショット比較、`toHaveScreenshot`）は**導入済み**。描画中心のアプリ（バー/マイルストーン/依存矢印/WBS）で意図しない見た目変化を検出する。
+  - **対象範囲**（`e2e/tests/visual-regression.spec.ts`）：全画面撮影は差分ノイズで運用が破綻するため、代表的な3シナリオに絞る。①**ガントメイン表示**（`data-testid="gantt-chart-body"`＝WBS＋ガントの結合領域。親子タスク・依存矢印2本・進捗の異なるステータス混在・マイルストーン菱形を含む代表状態）②**ツールバー**（行1操作列＋行2フィルタ/表示設定を展開した状態）③**TaskModal**（`data-testid="task-modal-panel"`。タイトル/日付/担当者/ステータス/優先度/先行タスクなど主要フィールドを埋めた編集画面）。
+  - **非決定性の排除**：タスクの日付は `new Date()` 由来の相対日付ではなく**固定の未来日付（2031年）の文字列リテラル**を使う。ガントの表示範囲・ズームレベル（`ganttStartDate`/`ganttPeriod`/`zoomLevel`）をツールバー操作で明示的に固定し、`showTodayLine`（今日ライン）は実行日に応じて位置が変わるため OFF にする。`playwright.config.ts` の `use.reducedMotion: 'reduce'` と `expect.toHaveScreenshot.animations: 'disabled'` で CSS トランジション/アニメーション（バリデーションエラー時の `field-shake` 等）による撮影タイミング差を抑止する。
+  - **閾値**：`expect.toHaveScreenshot` の `maxDiffPixelRatio: 0.02` をグローバル既定（`playwright.config.ts`）とする。フォントのアンチエイリアス等の微小な差は許容しつつ、レイアウト崩れ等の実質的な変化は検出する値として採用した。
+  - **ベースライン画像の運用**：`*-snapshots/` 配下の PNG はリポジトリにコミットする。生成・更新は `npx playwright test --update-snapshots`（対象ファイル指定可）。**CI（ubuntu-latest, Chromium）と同一の Linux/Chromium 環境で生成するのが理想だが、本導入時点では Docker 等の CI 相当環境を用意できなかったため、開発機の Linux コンテナ（Playwright 同梱 Chromium・日本語フォント導入済み）でベースラインを生成した**。CI（GitHub Actions ubuntu-latest）は既定で日本語（CJK）フォントを持たないため、`.github/workflows/ci.yml` の `e2e` ジョブに `fonts-noto-cjk` の apt インストール手順を追加し、日本語文字が「豆腐（tofu）」化してベースラインと大きく乖離する事態を避けている（ローカルの Noto Sans JP と CI の Noto Sans CJK JP はフォントファイルが異なるため、グリフレベルの完全一致は保証できず、その差は上記の `maxDiffPixelRatio` で吸収する想定）。CI で継続的に不安定になる場合は本節の閾値・対象シナリオを見直す。
+  - **既存の `hero-screenshot.spec.ts` との違い**：あちらは README 用ヒーロー画像（`docs/images/overview.png`）を上書きする手動キャプチャで、`HERO_SCREENSHOT=1` を明示指定したときのみ実行され通常の `npx playwright test` ではスキップされる。本項のビジュアルリグレッションは**通常の `npx playwright test` で常に実行され、CI（§16.5 の `e2e` ジョブ）でも push/PR ごとに自動チェックされる**回帰テストである点が異なる。
 - **エラー/空/ローディング状態の整備**：導入済み（§9.9）。`App.tsx` の `alert()` と無言の `.catch(() => {})` をトースト通知（`toastStore`/`Toast`）に置換し、プロジェクト一覧・タスク初回取得の失敗は再試行ボタン付きの可視エラー表示に統一した。`confirm()`/`prompt()` の対話 UI は今回スコープ外で継続検討。
 - **レスポンシブ／マルチビューポート検証**：Playwright で複数解像度・ブラウザを確認。
 - **既知の未再現報告（ペンディング）**：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると、WBS からは即座に消える一方でガント（SVG バー）側の行が残り高さがズレる、というユーザー報告あり（2026/7）。`upsertTask` 直接呼び出し・実際のクリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが、いずれも green（`GanttChart.tsx` が単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造のため）。再発検知用の回帰テスト（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）のみ追加し実装は保留。再現条件（一時的な描画か持続か、他タブ/WS 経由か、親タスクか、直前の操作等）が判明した時点で再調査する。
@@ -846,7 +852,7 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 （旧 17.4/17.5 — 0.2.150 で採番修正。それ以前の改訂履歴の §17.5 参照は旧採番であり、本節ではなく当時の「単独実行ファイル化」節を指す）
 
 **① CI＋ESLint/Prettier（土台）→ ② a11y 監査＋修正 → ③ ビジュアルリグレッション → ④ エラー可視化**。
-①で再発防止の基盤を作り、②③④で UI/UX 品質を直接押し上げる。
+①で再発防止の基盤を作り、②③④で UI/UX 品質を直接押し上げる。**①②③④とも導入済み**（① §16.5、② a11y 自動チェック §17.2、③ ビジュアルリグレッション §17.2、④ エラー通知 §9.9・§17.2）。②のキーボード操作/フォーカストラップ/コントラスト比監査は残課題として §17.2 に残る。
 
 ### 17.6 単独実行ファイル化（検討・保留）
 
@@ -1008,3 +1014,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.157 | 2026/7 | §17.1 に残っていた自動ゲートの土台整備3件を導入（新設§16.5 該当箇条・§17.1 は導入済みへ更新）：①Prettier（`.prettierrc`・`format`/`format:check` npm script、CI 組み込みは既存コード未フォーマットのため見送り）、②カバレッジ閾値（`api`/`frontend` の `vitest.config.ts`/`vite.config.ts` に `coverage.thresholds`、実測値に余裕を持たせた下限。`frontend` に `test:coverage` npm script を新設し、CI の `npm test` ステップを `npm run test:coverage` に置き換えてゲート化）、③ ESLint `@typescript-eslint/no-floating-promises`（`tsconfig` 対象範囲に絞った型ありリンティング）。§17.3 の CLAUDE.md 追記候補（Definition of Done 拡張・無言 `catch` 禁止・Conventional Commits）を CLAUDE.md へ反映し「反映済み」へ更新。製品バージョン・CHANGELOG は変更なし。 |
 | 0.2.158 | 2026/7 | a11y 自動チェック（`axe-core`）導入を明記（§9.10・§17.2）。フロントのユニット/コンポーネントテスト（`axe.run()` を直接呼び出す軽量方式、ページレベルルールを除外、対象: Toolbar/TaskModal/MilestoneModal/ConflictDialog/RefManagerModal/GanttChart 主要行）と E2E（`@axe-core/playwright`、メイン画面、`color-contrast` ルールは除外）で critical/serious 違反ゼロを assert する方針を追加。§9.10 の残課題だった自動チェックを解消し、キーボード操作・フォーカストラップ・コントラスト比監査は引き続き §17.2 の将来課題として残す。 |
 | 0.2.159 | 2026/7 | §9.10 の a11y 自動チェックで検出した違反の内訳に、E2E（実ブラウザ）でのみ顕在化した項目を追記：`GanttChart` のガント右パネル（`overflow: auto` のスクロール領域）がキーボードでフォーカス・スクロールできない（`scrollable-region-focusable`）。jsdom はレイアウトを持たないためユニットテストでは検出されず、E2E 導入で初めて顕在化したことを明記し、`tabIndex`/`aria-label` 付与で解消する方針を追加。 |
+| 0.2.160 | 2026/7 | §17.2 のビジュアルリグレッションテスト（Playwright `toHaveScreenshot`）を導入済みへ更新し §14・§17.5 にも追記。対象は3シナリオ（ガントメイン表示・ツールバー・TaskModal）に限定。非決定性対策として固定の未来日付（2031年）・表示範囲/ズームレベルの明示固定・今日ラインOFF・`reducedMotion: 'reduce'`・`animations: 'disabled'` を採用し、閾値は `maxDiffPixelRatio: 0.02`。ベースラインは開発機の Linux/Chromium で生成しリポジトリへコミット、CI（ubuntu-latest）には日本語グリフの tofu 化を避けるため `fonts-noto-cjk` の導入手順を追加した（ローカルの Noto Sans JP と CI の Noto Sans CJK JP はフォントファイルが異なるためグリフレベルの完全一致は保証せず、差は閾値で吸収する）。製品バージョン・CHANGELOG は変更なし。 |
