@@ -549,7 +549,7 @@ export function GanttChart({
     }}>
 
     {/* ── メインエリア（WBS + ガント）── */}
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 120 }}>
+    <div data-testid="gantt-chart-body" style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 120 }}>
 
       {/* ── WBS 左パネル（スクロールバーなし） ── */}
       <WbsPanel

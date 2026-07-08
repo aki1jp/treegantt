@@ -19,7 +19,13 @@ const LD_LIBRARY_PATH = [LIBS_DIR, process.env.LD_LIBRARY_PATH].filter(Boolean).
 export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
-  expect: { timeout: 10_000 },
+  expect: {
+    timeout: 10_000,
+    // ビジュアルリグレッション（§17.2）のグローバル既定。フォントのアンチエイリアス等の微小な差は
+    // 許容しつつレイアウト崩れ等の実質的な変化は検出する値として採用。CSS アニメーション/トランジションは
+    // 撮影直前に無効化し（reducedMotion に加えて明示指定）、撮影タイミング差によるフレーク要因を減らす。
+    toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled' },
+  },
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: process.env.CI ? 'github' : 'list',
@@ -28,6 +34,8 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // ビジュアルリグレッションのアニメーション由来の非決定性を抑える（§17.2）。
+    reducedMotion: 'reduce',
     launchOptions: {
       // process.env をマージして HOME 等を保持する（落とすと fontconfig が
       // ~/.local/share/fonts の Noto CJK を見つけられず日本語が豆腐化する）。

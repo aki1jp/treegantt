@@ -59,6 +59,11 @@ jobs:
             api/package-lock.json
             frontend/package-lock.json
             e2e/package-lock.json
+      # ビジュアルリグレッション（§17.2）の日本語UI描画をランナー既定フォント（CJKグリフ非対応）で
+      # 「豆腐」化させないために導入。ベースライン画像はローカル（Noto Sans JP）で生成しているため
+      # 完全なグリフレベル一致は保証しないが、閾値（maxDiffPixelRatio）で吸収する想定。
+      - name: Install CJK fonts (for visual regression, §17.2)
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
       - name: Install api dependencies
         working-directory: api
         run: npm ci

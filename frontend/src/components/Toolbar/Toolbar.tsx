@@ -165,7 +165,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
   };
 
   return (
-    <div style={{
+    <div data-testid="toolbar" style={{
       display: 'flex', flexDirection: 'column',
       background: 'var(--th-bg)', borderBottom: '1px solid var(--th-border)',
     }}>
