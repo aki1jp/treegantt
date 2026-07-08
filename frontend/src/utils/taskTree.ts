@@ -60,6 +60,17 @@ export function flattenTree(
   return result;
 }
 
+// No. 列（表示専用の通し番号, 設計書 §9.2）: 全展開・フィルタなしの表示順
+// （buildTree → flattenTree(roots, 空の Set)）で 1 から採番したタスク id → 番号 の Map を返す。
+// 実際の画面（フィルタ適用後・折りたたみ適用後）ではこの Map の値をそのまま表示し、詰め直さない。
+export function buildRowNumberMap(tasks: Task[]): Map<string, number> {
+  const { roots } = buildTree(tasks);
+  const flat = flattenTree(roots, new Set());
+  const map = new Map<string, number>();
+  flat.forEach((row, i) => map.set(row.task.id, i + 1));
+  return map;
+}
+
 export function includeAncestors(filtered: Task[], all: Task[]): Task[] {
   const ids = new Set(filtered.map(t => t.id));
   const allMap = new Map(all.map(t => [t.id, t]));

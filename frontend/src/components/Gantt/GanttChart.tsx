@@ -8,7 +8,7 @@ import {
   buildMultiLevelHeaders, dateToX, getUniqueAssignees,
   calcParentSpanMap, assignMilestoneLanes, isMilestoneXVisible, measureMilestoneLabel,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
+import { buildTree, flattenTree, buildRowNumberMap, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
@@ -26,6 +26,7 @@ import { HEADER_ROW_H } from './ganttChartConstants';
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
+  { key: 'rowNumber', label: 'No.',      width: 36  },
   { key: 'order',     label: '#',        width: 36  },
   { key: 'title',     label: 'タイトル', width: 180 },
   { key: 'status',    label: 'ST',       width: 66  },
@@ -104,6 +105,10 @@ export function GanttChart({
     () => mergeRefTasks(tasks, refTasks, refProjects),
     [tasks, refTasks, refProjects],
   );
+
+  // No. 列（表示専用の通し番号, §9.2）: 全展開・フィルタなしの displayTasks 基準で固定する。
+  // filterStatus 等の他の状態には依存させず、フィルタ/折りたたみで詰め直さない。
+  const rowNumberMap = useMemo(() => buildRowNumberMap(displayTasks), [displayTasks]);
 
   // マイルストーン行・本体の菱形は常に表示する。`showMilestones`（「マイル」トグル）は
   // ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯＝milestoneItems）のみ制御する。
@@ -578,6 +583,7 @@ export function GanttChart({
         uiRowHeight={uiRowHeight}
         uiFontSize={uiFontSize}
         flatRows={flatRows}
+        rowNumberMap={rowNumberMap}
         collapsed={collapsed}
         progressMap={progressMap}
         parentSpanMap={parentSpanMap}

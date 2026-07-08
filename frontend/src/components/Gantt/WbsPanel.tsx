@@ -54,6 +54,8 @@ interface Props {
   uiRowHeight: number;
   uiFontSize: number;
   flatRows: FlatRow[];
+  /** No. 列（表示専用の通し番号, §9.2）: 全展開・フィルタなし基準の task id → 番号。 */
+  rowNumberMap: Map<string, number>;
   collapsed: Set<string>;
   progressMap: Map<string, number>;
   parentSpanMap: Map<string, ParentSpan>;
@@ -91,7 +93,7 @@ export function WbsPanel(props: Props) {
     dateColWidth, ganttHeaderH, totalHeaderH, wbsHiddenCols, setWbsHiddenCols,
     childCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
     handleWbsWheel, wbsPanelRef, wbsBodyRef, vStart, vEnd, uiRowHeight, uiFontSize,
-    flatRows, collapsed, progressMap, parentSpanMap, assigneeOptions,
+    flatRows, rowNumberMap, collapsed, progressMap, parentSpanMap, assigneeOptions,
     toggleCollapse, handleInlineUpdate, handleRowContextMenu,
     rowDragId, rowDropIdx, rowDropDepth, rowDropTarget,
     handleRowDragStart, handleRowDragOver, handleRowDrop, clearDrop,
@@ -255,6 +257,7 @@ export function WbsPanel(props: Props) {
                   )}
                   <GanttLeftRow
                     task={task}
+                    rowNumber={rowNumberMap.get(task.id) ?? 0}
                     depth={depth}
                     hasChildren={(childCount.get(task.id) ?? 0) > 0}
                     isCollapsed={collapsed.has(task.id)}

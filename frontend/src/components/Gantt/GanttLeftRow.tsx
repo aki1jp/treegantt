@@ -9,6 +9,8 @@ import { isRefGroupId } from '../../utils/refTasks';
 
 export interface GanttLeftRowProps {
   task: Task;
+  /** No. 列（表示専用の通し番号, §9.2）: 全展開・フィルタなし基準で固定した行番号。 */
+  rowNumber?: number;
   depth: number;
   hasChildren: boolean;
   isCollapsed: boolean;
@@ -34,7 +36,7 @@ export interface GanttLeftRowProps {
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttLeftRow = memo(function GanttLeftRow({
-  task, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
+  task, rowNumber = 0, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
@@ -172,6 +174,11 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       }}
       onContextMenu={e => { e.preventDefault(); if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setTooltipVisible(false); onRowContextMenu(e.clientX, e.clientY, task.id); }}
     >
+      {/* No. (表示専用の通し番号: 全展開・フィルタなし基準で固定、詰め直さない) */}
+      <div data-testid="row-number" style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
+        {rowNumber}
+      </div>
+
       {/* # (seq: 作成時発番・不変) */}
       <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
         {task.isMilestone ? '◇' : task.seq}
