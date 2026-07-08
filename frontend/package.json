@@ -8,8 +8,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "dayjs": "^1.11.0",
@@ -30,6 +33,7 @@
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
+    "prettier": "^3.9.4",
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.62.1",
     "vite": "^5.2.0",
