@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.7.0** |
-| ドキュメント版 | 0.2.158 |
+| ドキュメント版 | 0.2.159 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -626,7 +626,10 @@ API 呼び出し失敗などユーザーに伝えるべきエラーは、`alert(
 - **自動チェック（`axe-core`）の導入**：手動整備した aria-label 方針の再発防止・回帰検出のため、`axe-core` によるアクセシビリティ自動チェックを導入した。
   - **フロントのユニット/コンポーネントテスト**：`frontend/src/__tests__/a11yAxe.ts`（共通ヘルパー）が `axe-core` を直接呼び出す（`jest-axe` 相当のカスタムマッチャは導入せず、`axe.run(container)` の戻り値をそのまま assert する軽量な方式）。フラグメント単体（ページ全体のランドマーク・`<html lang>` 等を前提としない DOM 断片）を検証するため、`region`/`landmark-one-main`/`html-has-lang` 等のページレベルルールは除外して実行する。対象は主要画面・コンポーネント（`Toolbar`/`TaskModal`/`MilestoneModal`/`ConflictDialog`/`RefManagerModal`/`GanttChart` の主要行、`a11yAxe.test.tsx`）で、**critical/serious の違反ゼロ**を assert する（moderate/minor は許容リストの対象とする方針だが、本導入時点でユニットレベルでは該当なし）。
   - **E2E**：`e2e/tests/a11y.spec.ts`（`@axe-core/playwright`）が、実際に起動したアプリのメイン画面（ガント表示）に対して自動チェックを実行する。**`color-contrast` ルールは除外する**：jsdom（ユニットテスト）では信頼できる算出ができず「incomplete」判定に留まる一方、実ブラウザ（E2E）では実際の計算結果として大量に検出されうるため、コントラスト比の監査自体は §17.2 の将来課題としてまとめて別途実施する方針とし、本導入では対象外にする。critical/serious（`color-contrast` を除く）の違反ゼロを assert する。
-  - **本導入で検出し修正した違反**（すべて critical/serious。moderate/minor は未検出）：`TaskModal` の説明タブボタン（`role="tab"` が `tablist` に包まれていない、`aria-required-parent`）、`TaskModal` のフォーム未ラベル（タイトル/サマリ/進捗率/担当者/開始日/終了日の `<input>`、ステータス/優先度/親タスクの `<select>`、`label`/`select-name`）、`MilestoneModal` のフォーム未ラベル（タイトル/日付/担当者、`label`）、`Toolbar` のマイルストーン強調色ピッカー（`<input type="color">` が `title` のみで可視ラベル/`aria-label` を持たない、`label-title-only`）。いずれも `aria-label`（または `role="tablist"`）追加の小さな修正で解消し、挙動・見た目は変更していない。
+  - **本導入で検出し修正した違反**（すべて critical/serious。moderate/minor は未検出）：
+    - ユニット（jsdom）：`TaskModal` の説明タブボタン（`role="tab"` が `tablist` に包まれていない、`aria-required-parent`）、`TaskModal` のフォーム未ラベル（タイトル/サマリ/進捗率/担当者/開始日/終了日の `<input>`、ステータス/優先度/親タスクの `<select>`、`label`/`select-name`）、`MilestoneModal` のフォーム未ラベル（タイトル/日付/担当者、`label`）、`Toolbar` のマイルストーン強調色ピッカー（`<input type="color">` が `title` のみで可視ラベル/`aria-label` を持たない、`label-title-only`）。
+    - E2E（実ブラウザ）：`GanttChart` のガント右パネル（`data-testid="gantt-panel"`、`overflow: auto` のスクロール領域）がキーボードでフォーカス・スクロールできない（`scrollable-region-focusable`）。jsdom では要素にレイアウト（実スクロール可能性）が無いため検出されず、E2E で初めて顕在化した。`tabIndex={0}` と `aria-label="ガントチャート"` を付与し、キーボードでフォーカスしてスクロールできるようにした（ドラッグ操作等の完全なキーボード代替は引き続きスコープ外）。
+    いずれも `aria-label`（または `role="tablist"`/`tabIndex`）追加の小さな修正で解消し、挙動・見た目は変更していない。
 - **対象外（今回のスコープ外）**：ドラッグ&ドロップ操作（バー移動/リサイズ・依存リンク・WBS 行並び替え）のキーボード代替、モーダル/メニューのフォーカストラップ、コントラスト比の監査（自動チェックの `color-contrast` ルールも除外）は §17.2 の将来課題のまま。
 
 ---
@@ -1003,4 +1006,5 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.155 | 2026/7 | §17.2 に既知の未再現報告（ペンディング）を追記：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると WBS からは消えるがガント側の行が残り高さがズレる、というユーザー報告。`upsertTask` 直接呼び出し・実クリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが green（`GanttChart.tsx` は単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造）。実装は保留し、再発検知用の回帰テストのみ追加（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）。コード変更なし。 |
 | 0.2.156 | 2026/7 | 製品バージョンを **1.7.0** に更新（ヘッダー・ステータス・構成図・§15）。タスクの色によるフィルタ（0.2.154 で明記した設計、§9.3・§7.1）を機能追加の製品リリースとして `CHANGELOG.md` の `[1.7.0]` に記録。**今回は major.minor が 1.6→1.7 に変わるマイナーバンプのため§15「現行リリース」も更新した**（データ形式版 1.1 は変更なし）。 |
 | 0.2.158 | 2026/7 | a11y 自動チェック（`axe-core`）導入を明記（§9.10・§17.2）。フロントのユニット/コンポーネントテスト（`axe.run()` を直接呼び出す軽量方式、ページレベルルールを除外、対象: Toolbar/TaskModal/MilestoneModal/ConflictDialog/RefManagerModal/GanttChart 主要行）と E2E（`@axe-core/playwright`、メイン画面、`color-contrast` ルールは除外）で critical/serious 違反ゼロを assert する方針を追加。§9.10 の残課題だった自動チェックを解消し、キーボード操作・フォーカストラップ・コントラスト比監査は引き続き §17.2 の将来課題として残す。 |
+| 0.2.159 | 2026/7 | §9.10 の a11y 自動チェックで検出した違反の内訳に、E2E（実ブラウザ）でのみ顕在化した項目を追記：`GanttChart` のガント右パネル（`overflow: auto` のスクロール領域）がキーボードでフォーカス・スクロールできない（`scrollable-region-focusable`）。jsdom はレイアウトを持たないためユニットテストでは検出されず、E2E 導入で初めて顕在化したことを明記し、`tabIndex`/`aria-label` 付与で解消する方針を追加。 |
 | 0.2.157 | 2026/7 | §17.1 に残っていた自動ゲートの土台整備3件を導入（新設§16.5 該当箇条・§17.1 は導入済みへ更新）：①Prettier（`.prettierrc`・`format`/`format:check` npm script、CI 組み込みは既存コード未フォーマットのため見送り）、②カバレッジ閾値（`api`/`frontend` の `vitest.config.ts`/`vite.config.ts` に `coverage.thresholds`、実測値に余裕を持たせた下限。`frontend` に `test:coverage` npm script を新設し、CI の `npm test` ステップを `npm run test:coverage` に置き換えてゲート化）、③ ESLint `@typescript-eslint/no-floating-promises`（`tsconfig` 対象範囲に絞った型ありリンティング）。§17.3 の CLAUDE.md 追記候補（Definition of Done 拡張・無言 `catch` 禁止・Conventional Commits）を CLAUDE.md へ反映し「反映済み」へ更新。製品バージョン・CHANGELOG は変更なし。 |
