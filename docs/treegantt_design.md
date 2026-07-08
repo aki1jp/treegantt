@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.7.0** |
-| ドキュメント版 | 0.2.156 |
+| ドキュメント版 | 0.2.157 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -801,7 +801,12 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
   - **`npm audit` の対象範囲**：`api` は全依存（`npm audit --audit-level=high`）。`frontend` は **`--omit=dev`**（`npm audit --omit=dev --audit-level=high`、本番依存のみ）とする。frontend は vite/esbuild/undici 等 dev 専用依存に、メジャー更新なしには解消できない既知の脆弱性が残っており（§16.4）、全依存を対象にすると常に CI が失敗してしまうため、実際にビルド成果物へ同梱される本番依存のみを厳格にゲートする。
 - **E2E（Playwright）の CI 組み込み**：`e2e` ジョブを追加。`api`/`frontend`/`e2e` それぞれ `npm ci` → `npx playwright install --with-deps chromium` → `npx playwright test` を実行する。DB は `DB_PATH` に CI 一時ディレクトリ（`${{ runner.temp }}`）配下の専用ファイルを指定し、開発用DBと分離してテスト間の汚染を避ける。§13.4 のバックアップは `BACKUP_INTERVAL_HOURS=0` で定期実行を無効化する（起動時の1回は実行され、そのバックアップファイル1個が `runner.temp` 配下に生成されるが、ジョブ終了とともに破棄されるため実害はない。既定値のままでも E2E 実行そのものへの支障がないことは確認済み）。失敗時は `e2e/test-results/`（トレース・スクリーンショット）を `actions/upload-artifact@v4` でアップロードする（`if: failure()`）。
   - **`playwright.config.ts` のポータビリティ修正**：`webServer` の起動コマンドが `cd /workspace/api`/`cd /workspace/frontend` とチェックアウト先の絶対パスをハードコードしており、GitHub Actions（チェックアウト先が `/home/runner/work/...` 等、`/workspace` と異なる）では起動に失敗する不具合があったため、設定ファイル自身のディレクトリ（`__dirname`）からの相対パスでリポジトリルートを解決するよう修正した。
-- 既知の残課題（未着手）：Prettier 導入、カバレッジ閾値のゲート化は 17.1 に残す。
+- **Prettier（フォーマット自動統一）**：`api`/`frontend` それぞれに devDependency として導入し、`.prettierrc`（プロジェクトルート直下、両パッケージ共通）を追加。既存コードの慣習（シングルクォート・セミコロンあり・インデント幅2）に合わせ `singleQuote: true` / `semi: true` / `tabWidth: 2` / `printWidth: 100` とした。`"format": "prettier --write ."` / `"format:check": "prettier --check ."` npm script を両パッケージに追加。**CI には組み込まない**：既存コードが未フォーマットのまま `format:check` を CI ゲートにすると即失敗するため、今回はスクリプト導入のみに留め、既存ファイルへの一括適用（大量差分になりレビュー困難）は将来の別作業とする。
+- **カバレッジ閾値**：`api`（`vitest.config.ts`、v8 provider）・`frontend`（`vite.config.ts`、istanbul provider）それぞれの `test.coverage.thresholds` に、導入時点の実測値から数ポイントの余裕を持たせた下限を設定した（黙って下がるのを防ぐ目的で、既存の到達水準を保証する値ではない）。実測値（0.2.157 時点）と設定値：
+  - `api`：実測 statements 96.93% / branches 92.8% / functions 96.99% / lines 98.53% → 閾値 statements 95 / branches 88 / functions 95 / lines 97。
+  - `frontend`：実測 statements 86.6% / branches 85.38% / functions 78.53% / lines 89.06% → 閾値 statements 84 / branches 80 / functions 75 / lines 86。
+  - vitest はカバレッジ計測時（`--coverage`）に閾値未達だと `exit 1` になる仕様のため、CI 側の追加実装は不要。ただし平常の `npm test`（CI の既存ステップ）はカバレッジを計測しないため、`frontend` にも `api` と同様の `"test:coverage": "vitest run --coverage"` npm script を追加したうえで、CI（`.github/workflows/ci.yml`）の `api`/`frontend` ジョブの `npm test` ステップを `npm run test:coverage` に置き換えてゲート化した（`--run` 相当は `vitest run` に既に含まれる）。
+- **ESLint `@typescript-eslint/no-floating-promises`**：`api`/`frontend` の `eslint.config.js` に追加。型情報が必要なため、`tsconfig` の `include` 範囲（`api`: `src/**/*.ts`、`frontend`: `src/**/*.{ts,tsx}`）に `files` を絞った設定ブロックで `languageOptions.parserOptions.projectService: true` を有効化し、その範囲にのみ型ありリンティングを適用する（`eslint.config.js` 自身や `vitest.config.ts` 等の設定ファイルは対象外＝tsconfig の対象範囲外のファイルで型情報エラーになるのを避ける）。導入時、`api` は既存コードに違反なし。`frontend` は8ファイル・12箇所検出：いずれも実バグではなく、呼び出し先が内部で `.catch()` 済みで例外を送出しない意図的な fire-and-forget（`useProjectRefs` の `load`/`refresh`、`App.tsx` の `handleReorder`/`handleCopyInsert` 呼び出し側、`QuickAddRow` の `submit`、全プロジェクトのタスク件数集計 `Promise.all`）だったため、`// eslint-disable-line` ではなく `void` 演算子で明示した（型チェッカーが安全と認識できる形を優先する方針）。テストコード1箇所（`useProjectRefs.test.ts`）は `await` に変更しテストの決定性を上げた。
 
 ---
 
@@ -810,10 +815,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 > 以下は**未着手の検討候補**。品質向上と UI/UX 改善を目的とする。優先度の目安を付す（実施時に本書へ反映する）。
 
 ### 17.1 自動ゲート（最優先・再発防止）
-CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック）・CI への E2E(Playwright) 組み込みは **導入済み**（16.5 参照）。残る検討候補は以下。
-- **Prettier 導入**：フォーマットの自動統一（`format` npm script）。
-- **カバレッジ閾値**：istanbul で正確化済み（16章/14章）なので最低ラインを設定し、黙って下がるのを防ぐ。`App.tsx` はユニットテスト追加済み（約50%、§16.4）だが、全体への閾値設定自体は未着手。
-- **`no-floating-promises` 等の追加 ESLint ルール**：未処理 async 検出などの強化。
+CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック）・CI への E2E(Playwright) 組み込み・Prettier・カバレッジ閾値のゲート化・`@typescript-eslint/no-floating-promises` は **すべて導入済み**（16.5 参照）。土台整備（§17.5 の①）は完了。次点は §17.2（a11y 監査等）。
 
 ### 17.2 UI/UX 改善
 - **アクセシビリティ（a11y）監査＋修正**（高優先）：基本方針（アイコンボタンの `aria-label`、フィルタ入力の名前付け）は導入済み（§9.10）。残課題：`axe-core`（Playwright か `vitest`+`jest-axe`）による自動チェック、キーボード操作（ガント/WBS のフォーカス移動、D&D のキーボード代替）、モーダル/メニューのフォーカストラップ、コントラスト比(WCAG) の監査・是正。
@@ -822,8 +824,9 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 - **レスポンシブ／マルチビューポート検証**：Playwright で複数解像度・ブラウザを確認。
 - **既知の未再現報告（ペンディング）**：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると、WBS からは即座に消える一方でガント（SVG バー）側の行が残り高さがズレる、というユーザー報告あり（2026/7）。`upsertTask` 直接呼び出し・実際のクリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが、いずれも green（`GanttChart.tsx` が単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造のため）。再発検知用の回帰テスト（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）のみ追加し実装は保留。再現条件（一時的な描画か持続か、他タブ/WS 経由か、親タスクか、直前の操作等）が判明した時点で再調査する。
 
-### 17.3 開発プロセス（CLAUDE.md への追記候補）
-- **Definition of Done の拡張**：「全テスト通過」に加え `tsc` + lint + コンソールエラー0 + a11y チェック通過。
+### 17.3 開発プロセス（CLAUDE.md へ反映済み）
+以下は CLAUDE.md「開発ルール」に追記済み（a11y チェック自動化は §17.2 が未着手のため対象外とし、`tsc`/lint/コンソールエラー0 の範囲で反映）。
+- **Definition of Done の拡張**：「全テスト通過」に加え `tsc` + lint + コンソールエラー0。
 - **エラーハンドリング方針**：無言の `catch(() => {})` を禁止し、ユーザーに必ず通知する。
 - **Conventional Commits** の明文化（既にほぼ実践：`feat/fix/docs/test:`）。
 
@@ -995,3 +998,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.154 | 2026/7 | タスクの色によるフィルタ（新設）を追加（§9.3・§7.1）。ツールバーのフィルタ列に「色」セレクタ（`aria-label="色で絞り込み"`）を追加し、`filterTasks`（`utils/sort.ts`）へ色条件を他フィルタと同じ AND 合成で追加。`titleColor`/`titleBgColor` は右クリック色パレットで独立に設定できるため、同一性判定は `titleBgColor ?? titleColor`（背景色優先・未設定時のみ文字色）の「実効色」で行う。選択肢は「すべて」（`''`、既定）／「色付き」（`'*'`、実効色が非 `null` の全タスク）／使用中の実効色ごと（新設 `getUniqueTaskColors`（`ganttCalc.ts`）＝担当者の `getUniqueAssignees` と同じ動的収集パターン、各選択肢に丸印スウォッチを表示）。`taskStore` に `filterColor` を追加（他フィルタと同じく非永続・`partialize` 対象外）。参照タスクにも他フィルタと同様に適用し特別扱いせず、`includeAncestors` による祖先再表示など既存のツリー挙動も変更しない。 |
 | 0.2.155 | 2026/7 | §17.2 に既知の未再現報告（ペンディング）を追記：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると WBS からは消えるがガント側の行が残り高さがズレる、というユーザー報告。`upsertTask` 直接呼び出し・実クリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが green（`GanttChart.tsx` は単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造）。実装は保留し、再発検知用の回帰テストのみ追加（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）。コード変更なし。 |
 | 0.2.156 | 2026/7 | 製品バージョンを **1.7.0** に更新（ヘッダー・ステータス・構成図・§15）。タスクの色によるフィルタ（0.2.154 で明記した設計、§9.3・§7.1）を機能追加の製品リリースとして `CHANGELOG.md` の `[1.7.0]` に記録。**今回は major.minor が 1.6→1.7 に変わるマイナーバンプのため§15「現行リリース」も更新した**（データ形式版 1.1 は変更なし）。 |
+| 0.2.157 | 2026/7 | §17.1 に残っていた自動ゲートの土台整備3件を導入（新設§16.5 該当箇条・§17.1 は導入済みへ更新）：①Prettier（`.prettierrc`・`format`/`format:check` npm script、CI 組み込みは既存コード未フォーマットのため見送り）、②カバレッジ閾値（`api`/`frontend` の `vitest.config.ts`/`vite.config.ts` に `coverage.thresholds`、実測値に余裕を持たせた下限。`frontend` に `test:coverage` npm script を新設し、CI の `npm test` ステップを `npm run test:coverage` に置き換えてゲート化）、③ ESLint `@typescript-eslint/no-floating-promises`（`tsconfig` 対象範囲に絞った型ありリンティング）。§17.3 の CLAUDE.md 追記候補（Definition of Done 拡張・無言 `catch` 禁止・Conventional Commits）を CLAUDE.md へ反映し「反映済み」へ更新。製品バージョン・CHANGELOG は変更なし。 |
