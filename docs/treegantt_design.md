@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.7.0** |
-| ドキュメント版 | 0.2.157 |
+| ドキュメント版 | 0.2.158 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -623,7 +623,11 @@ API 呼び出し失敗などユーザーに伝えるべきエラーは、`alert(
 
 - **アイコン/記号のみのボタンには `aria-label` を必須とする**：可視テキストを持たないボタン（`▷`/`◁`/`☰`/`∧`/`∨`/`⊟`/`⊞`/`✕`/`▶`/`▼` 等の記号・絵文字のみ、または色見本のみで文字を持たない色選択ボタン）は、視覚的な `title`（ツールチップ）だけでなく `aria-label` で操作内容を明示する。対象：`GanttChart`（WBS 開閉トグル・展開/折りたたみボタン群・タイトル文字色/背景色パレット）、`GanttLeftRow`（行の展開/折りたたみトグル）、`Toolbar`（ハンバーガーメニュー・フィルタクリア・開始日リセット・文字サイズボタン）、`ProjectTabs`（タブ右クリックメニューの色選択パレット）。可視テキストを持つボタン（例：「＋ タスク追加」「キャンセル」等）は対象外。
 - **フィルタ入力の関連付け**：`Toolbar` のフィルタ用 `<input>`/`<select>`（検索・ステータス・優先度・担当者・ズーム・開始日・表示期間）は、視覚的にはラベル文言（`<span>`）を隣接表示しつつ、支援技術向けに `aria-label` で同等の名前を持たせる（`<label htmlFor>` と同等の効果を、既存の視覚レイアウトを変えずに得るため `aria-label` 方式を採用）。
-- **対象外（今回のスコープ外）**：ドラッグ&ドロップ操作（バー移動/リサイズ・依存リンク・WBS 行並び替え）のキーボード代替、モーダル/メニューのフォーカストラップ、コントラスト比の監査は §17.2 の将来課題のまま。
+- **自動チェック（`axe-core`）の導入**：手動整備した aria-label 方針の再発防止・回帰検出のため、`axe-core` によるアクセシビリティ自動チェックを導入した。
+  - **フロントのユニット/コンポーネントテスト**：`frontend/src/__tests__/a11yAxe.ts`（共通ヘルパー）が `axe-core` を直接呼び出す（`jest-axe` 相当のカスタムマッチャは導入せず、`axe.run(container)` の戻り値をそのまま assert する軽量な方式）。フラグメント単体（ページ全体のランドマーク・`<html lang>` 等を前提としない DOM 断片）を検証するため、`region`/`landmark-one-main`/`html-has-lang` 等のページレベルルールは除外して実行する。対象は主要画面・コンポーネント（`Toolbar`/`TaskModal`/`MilestoneModal`/`ConflictDialog`/`RefManagerModal`/`GanttChart` の主要行、`a11yAxe.test.tsx`）で、**critical/serious の違反ゼロ**を assert する（moderate/minor は許容リストの対象とする方針だが、本導入時点でユニットレベルでは該当なし）。
+  - **E2E**：`e2e/tests/a11y.spec.ts`（`@axe-core/playwright`）が、実際に起動したアプリのメイン画面（ガント表示）に対して自動チェックを実行する。**`color-contrast` ルールは除外する**：jsdom（ユニットテスト）では信頼できる算出ができず「incomplete」判定に留まる一方、実ブラウザ（E2E）では実際の計算結果として大量に検出されうるため、コントラスト比の監査自体は §17.2 の将来課題としてまとめて別途実施する方針とし、本導入では対象外にする。critical/serious（`color-contrast` を除く）の違反ゼロを assert する。
+  - **本導入で検出し修正した違反**（すべて critical/serious。moderate/minor は未検出）：`TaskModal` の説明タブボタン（`role="tab"` が `tablist` に包まれていない、`aria-required-parent`）、`TaskModal` のフォーム未ラベル（タイトル/サマリ/進捗率/担当者/開始日/終了日の `<input>`、ステータス/優先度/親タスクの `<select>`、`label`/`select-name`）、`MilestoneModal` のフォーム未ラベル（タイトル/日付/担当者、`label`）、`Toolbar` のマイルストーン強調色ピッカー（`<input type="color">` が `title` のみで可視ラベル/`aria-label` を持たない、`label-title-only`）。いずれも `aria-label`（または `role="tablist"`）追加の小さな修正で解消し、挙動・見た目は変更していない。
+- **対象外（今回のスコープ外）**：ドラッグ&ドロップ操作（バー移動/リサイズ・依存リンク・WBS 行並び替え）のキーボード代替、モーダル/メニューのフォーカストラップ、コントラスト比の監査（自動チェックの `color-contrast` ルールも除外）は §17.2 の将来課題のまま。
 
 ---
 
@@ -818,7 +822,7 @@ Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
 CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック）・CI への E2E(Playwright) 組み込み・Prettier・カバレッジ閾値のゲート化・`@typescript-eslint/no-floating-promises` は **すべて導入済み**（16.5 参照）。土台整備（§17.5 の①）は完了。次点は §17.2（a11y 監査等）。
 
 ### 17.2 UI/UX 改善
-- **アクセシビリティ（a11y）監査＋修正**（高優先）：基本方針（アイコンボタンの `aria-label`、フィルタ入力の名前付け）は導入済み（§9.10）。残課題：`axe-core`（Playwright か `vitest`+`jest-axe`）による自動チェック、キーボード操作（ガント/WBS のフォーカス移動、D&D のキーボード代替）、モーダル/メニューのフォーカストラップ、コントラスト比(WCAG) の監査・是正。
+- **アクセシビリティ（a11y）監査＋修正**（高優先）：基本方針（アイコンボタンの `aria-label`、フィルタ入力の名前付け）・**`axe-core` による自動チェック（ユニット: `vitest` から直接呼び出し／E2E: `@axe-core/playwright`、§9.10）は導入済み**。自動チェックで検出した critical/serious 違反（`TaskModal`/`MilestoneModal` のフォーム未ラベル・タブボタンの `aria-required-parent`、`Toolbar` の色ピッカー `label-title-only`）は導入時に修正済み。**残課題**：キーボード操作（ガント/WBS のフォーカス移動、D&D のキーボード代替）、モーダル/メニューのフォーカストラップ、コントラスト比(WCAG) の監査・是正（E2E の自動チェックは `color-contrast` ルールを除外しており未カバー）。
 - **ビジュアルリグレッションテスト**：Playwright のスクリーンショット比較。描画中心のアプリ（バー/マイルストーン/依存矢印）で意図しない見た目変化を検出。
 - **エラー/空/ローディング状態の整備**：導入済み（§9.9）。`App.tsx` の `alert()` と無言の `.catch(() => {})` をトースト通知（`toastStore`/`Toast`）に置換し、プロジェクト一覧・タスク初回取得の失敗は再試行ボタン付きの可視エラー表示に統一した。`confirm()`/`prompt()` の対話 UI は今回スコープ外で継続検討。
 - **レスポンシブ／マルチビューポート検証**：Playwright で複数解像度・ブラウザを確認。
@@ -998,4 +1002,5 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.154 | 2026/7 | タスクの色によるフィルタ（新設）を追加（§9.3・§7.1）。ツールバーのフィルタ列に「色」セレクタ（`aria-label="色で絞り込み"`）を追加し、`filterTasks`（`utils/sort.ts`）へ色条件を他フィルタと同じ AND 合成で追加。`titleColor`/`titleBgColor` は右クリック色パレットで独立に設定できるため、同一性判定は `titleBgColor ?? titleColor`（背景色優先・未設定時のみ文字色）の「実効色」で行う。選択肢は「すべて」（`''`、既定）／「色付き」（`'*'`、実効色が非 `null` の全タスク）／使用中の実効色ごと（新設 `getUniqueTaskColors`（`ganttCalc.ts`）＝担当者の `getUniqueAssignees` と同じ動的収集パターン、各選択肢に丸印スウォッチを表示）。`taskStore` に `filterColor` を追加（他フィルタと同じく非永続・`partialize` 対象外）。参照タスクにも他フィルタと同様に適用し特別扱いせず、`includeAncestors` による祖先再表示など既存のツリー挙動も変更しない。 |
 | 0.2.155 | 2026/7 | §17.2 に既知の未再現報告（ペンディング）を追記：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると WBS からは消えるがガント側の行が残り高さがズレる、というユーザー報告。`upsertTask` 直接呼び出し・実クリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが green（`GanttChart.tsx` は単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造）。実装は保留し、再発検知用の回帰テストのみ追加（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）。コード変更なし。 |
 | 0.2.156 | 2026/7 | 製品バージョンを **1.7.0** に更新（ヘッダー・ステータス・構成図・§15）。タスクの色によるフィルタ（0.2.154 で明記した設計、§9.3・§7.1）を機能追加の製品リリースとして `CHANGELOG.md` の `[1.7.0]` に記録。**今回は major.minor が 1.6→1.7 に変わるマイナーバンプのため§15「現行リリース」も更新した**（データ形式版 1.1 は変更なし）。 |
+| 0.2.158 | 2026/7 | a11y 自動チェック（`axe-core`）導入を明記（§9.10・§17.2）。フロントのユニット/コンポーネントテスト（`axe.run()` を直接呼び出す軽量方式、ページレベルルールを除外、対象: Toolbar/TaskModal/MilestoneModal/ConflictDialog/RefManagerModal/GanttChart 主要行）と E2E（`@axe-core/playwright`、メイン画面、`color-contrast` ルールは除外）で critical/serious 違反ゼロを assert する方針を追加。§9.10 の残課題だった自動チェックを解消し、キーボード操作・フォーカストラップ・コントラスト比監査は引き続き §17.2 の将来課題として残す。 |
 | 0.2.157 | 2026/7 | §17.1 に残っていた自動ゲートの土台整備3件を導入（新設§16.5 該当箇条・§17.1 は導入済みへ更新）：①Prettier（`.prettierrc`・`format`/`format:check` npm script、CI 組み込みは既存コード未フォーマットのため見送り）、②カバレッジ閾値（`api`/`frontend` の `vitest.config.ts`/`vite.config.ts` に `coverage.thresholds`、実測値に余裕を持たせた下限。`frontend` に `test:coverage` npm script を新設し、CI の `npm test` ステップを `npm run test:coverage` に置き換えてゲート化）、③ ESLint `@typescript-eslint/no-floating-promises`（`tsconfig` 対象範囲に絞った型ありリンティング）。§17.3 の CLAUDE.md 追記候補（Definition of Done 拡張・無言 `catch` 禁止・Conventional Commits）を CLAUDE.md へ反映し「反映済み」へ更新。製品バージョン・CHANGELOG は変更なし。 |
