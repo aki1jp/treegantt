@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.6.0** |
-| ドキュメント版 | 0.2.154 |
+| ドキュメント版 | 0.2.155 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年7月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -820,6 +820,7 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 - **ビジュアルリグレッションテスト**：Playwright のスクリーンショット比較。描画中心のアプリ（バー/マイルストーン/依存矢印）で意図しない見た目変化を検出。
 - **エラー/空/ローディング状態の整備**：導入済み（§9.9）。`App.tsx` の `alert()` と無言の `.catch(() => {})` をトースト通知（`toastStore`/`Toast`）に置換し、プロジェクト一覧・タスク初回取得の失敗は再試行ボタン付きの可視エラー表示に統一した。`confirm()`/`prompt()` の対話 UI は今回スコープ外で継続検討。
 - **レスポンシブ／マルチビューポート検証**：Playwright で複数解像度・ブラウザを確認。
+- **既知の未再現報告（ペンディング）**：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると、WBS からは即座に消える一方でガント（SVG バー）側の行が残り高さがズレる、というユーザー報告あり（2026/7）。`upsertTask` 直接呼び出し・実際のクリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが、いずれも green（`GanttChart.tsx` が単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造のため）。再発検知用の回帰テスト（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）のみ追加し実装は保留。再現条件（一時的な描画か持続か、他タブ/WS 経由か、親タスクか、直前の操作等）が判明した時点で再調査する。
 
 ### 17.3 開発プロセス（CLAUDE.md への追記候補）
 - **Definition of Done の拡張**：「全テスト通過」に加え `tsc` + lint + コンソールエラー0 + a11y チェック通過。
@@ -992,3 +993,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.152 | 2026/7 | クロスプロジェクト参照のフロントエンド（§5.8「フロントエンド仕様」）を実装済みへ更新し、実装詳細を明記：`taskStore` 非永続スロット `refTasks`/`refProjects`・`hooks/useProjectRefs`（スナップショットロード・`updateExternalPredecessors` 専用経路）・`utils/refTasks`（`mergeRefTasks` 合成グループ行 `ref:<projectId>`/`isReadonlyTask`/`canCreateOnRow`）・readonly ガード8経路＋`App` 層の多層防御（readonly への patch は `predecessors` 単独のみ許可）・参照行専用の右クリックメニュー・UI入口2つ（右クリック「🔗 参照を追加」／ツールバー「🔗 参照」→`RefManagerModal`、共通 `AddRefFlow`）・`TaskModal` の「外部の先行タスク（参照済み）」チェックリストと readOnly モード。§7.1/§7.2/§7.3 に新規ストアスロット・コンポーネント・hooks/utils を追記、§14 の E2E 一覧にクロスプロジェクト参照フローを追記、§17.4 の「実装は次段階」記述を解消。 |
 | 0.2.153 | 2026/7 | 製品バージョンを **1.6.0** に更新（ヘッダー・ステータス・構成図・§15）。クロスプロジェクトのタスク参照（0.2.150〜0.2.152 で明記した設計、§5.8）を機能追加の製品リリースとして `CHANGELOG.md` の `[1.6.0]` に記録。**今回は major.minor が 1.5→1.6 に変わるマイナーバンプのため§15「現行リリース」も更新した**（データ形式版 1.1 は変更なし）。 |
 | 0.2.154 | 2026/7 | タスクの色によるフィルタ（新設）を追加（§9.3・§7.1）。ツールバーのフィルタ列に「色」セレクタ（`aria-label="色で絞り込み"`）を追加し、`filterTasks`（`utils/sort.ts`）へ色条件を他フィルタと同じ AND 合成で追加。`titleColor`/`titleBgColor` は右クリック色パレットで独立に設定できるため、同一性判定は `titleBgColor ?? titleColor`（背景色優先・未設定時のみ文字色）の「実効色」で行う。選択肢は「すべて」（`''`、既定）／「色付き」（`'*'`、実効色が非 `null` の全タスク）／使用中の実効色ごと（新設 `getUniqueTaskColors`（`ganttCalc.ts`）＝担当者の `getUniqueAssignees` と同じ動的収集パターン、各選択肢に丸印スウォッチを表示）。`taskStore` に `filterColor` を追加（他フィルタと同じく非永続・`partialize` 対象外）。参照タスクにも他フィルタと同様に適用し特別扱いせず、`includeAncestors` による祖先再表示など既存のツリー挙動も変更しない。 |
+| 0.2.155 | 2026/7 | §17.2 に既知の未再現報告（ペンディング）を追記：ステータスフィルタ「完了以外」表示中に WBS でタスクを完了へ変更すると WBS からは消えるがガント側の行が残り高さがズレる、というユーザー報告。`upsertTask` 直接呼び出し・実クリック操作・実ブラウザ（Playwright）の3経路で再現を試みたが green（`GanttChart.tsx` は単一の `flatRows`/`vStart`/`vEnd` を WBS/ガント双方へ同一参照で渡す構造）。実装は保留し、再発検知用の回帰テストのみ追加（`wbsGanttSyncOnStatusChange.test.tsx`、`e2e/tests/wbs-gantt-status-sync.spec.ts`）。コード変更なし。 |
