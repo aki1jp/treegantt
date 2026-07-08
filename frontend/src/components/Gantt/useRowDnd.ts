@@ -128,9 +128,9 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId 
         ? Math.max(...siblings.map(r => r.task.order))
         : 0;
       if (isDragCopyRef.current) {
-        onCopyInsert(moved, rowDropTarget, null);
+        void onCopyInsert(moved, rowDropTarget, null);
       } else {
-        onReorder([{ id: moved.id, order: maxSibOrder + 1, parentId: rowDropTarget }]);
+        void onReorder([{ id: moved.id, order: maxSibOrder + 1, parentId: rowDropTarget }]);
       }
       clearDrop();
       return;
@@ -163,11 +163,11 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId 
         if (flatRows[i].task.parentId === newParentId) { copyAfterId = flatRows[i].task.id; break; }
       }
       if (copyAfterId) {
-        onCopyInsert(moved, newParentId, copyAfterId);
+        void onCopyInsert(moved, newParentId, copyAfterId);
       } else {
         // 上に兄弟がいない＝先頭へのドロップ: 先頭兄弟の前に挿入
         const firstSibling = flatRows.find(r => r.task.parentId === newParentId);
-        onCopyInsert(moved, newParentId, null, firstSibling?.task.id ?? null);
+        void onCopyInsert(moved, newParentId, null, firstSibling?.task.id ?? null);
       }
       clearDrop();
       return;
@@ -191,7 +191,7 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId 
         id: t.id, order: i + 1,
         ...(t.id === moved.id && parentIdChanged ? { parentId: newParentId } : {}),
       }));
-    onReorder(orders);
+    void onReorder(orders);
     clearDrop();
   }
 

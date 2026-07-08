@@ -159,7 +159,7 @@ export function TaskContextMenus({
               コピー
             </button>
             {copiedTask && (
-              <button onClick={() => { onCopyInsert(copiedTask, task.parentId, null, task.id); close(); }}
+              <button onClick={() => { void onCopyInsert(copiedTask, task.parentId, null, task.id); close(); }}
                 style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
                 上に挿入
               </button>

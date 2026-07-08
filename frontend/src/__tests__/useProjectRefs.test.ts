@@ -135,7 +135,7 @@ describe('useProjectRefs', () => {
     const { result } = renderHook(() => useProjectRefs('p1'));
     await act(async () => {});
     vi.mocked(fetch).mockClear();
-    await act(async () => { result.current.refresh(); });
+    await act(async () => { await result.current.refresh(); });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

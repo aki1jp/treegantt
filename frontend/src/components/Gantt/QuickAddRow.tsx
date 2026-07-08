@@ -38,7 +38,7 @@ export function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: 
             onChange={e => setTitle(e.target.value)}
             onBlur={submit}
             onKeyDown={e => {
-              if (e.key === 'Enter') submit();
+              if (e.key === 'Enter') void submit();
               if (e.key === 'Escape') { setTitle(''); setEditing(false); }
             }}
           />

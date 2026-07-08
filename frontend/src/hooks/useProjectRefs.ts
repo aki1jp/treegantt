@@ -29,7 +29,7 @@ export function useProjectRefs(projectId: string | undefined) {
   useEffect(() => {
     setRefs([]);
     setRefData([], []);
-    load();
+    void load();
     // projectId 変化時のみ再ロードする（load 自体は setRefData 経由で毎回再生成されるが依存に含めない）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);

@@ -88,7 +88,8 @@ export default function App() {
   useEffect(() => {
     if (projects.length === 0) return;
     let anyFailed = false;
-    Promise.all(
+    // 各要素で .catch() 済みのため Promise.all 自体は reject しない（意図的な fire-and-forget）
+    void Promise.all(
       projects.map(p =>
         apiFetch(`/projects/${p.id}/tasks?limit=1`)
           .then(d => ({ id: p.id, total: d.total as number }))
@@ -395,7 +396,7 @@ export default function App() {
                 onUpdateExternalDeps={handleUpdateExternalDeps}
                 onOpenRefProject={handleOpenRefProject}
                 onRemoveRef={(refTaskId) => { projectRefs.remove(refTaskId).catch(() => {}); }}
-                onRefreshRefs={() => { projectRefs.refresh(); }}
+                onRefreshRefs={() => { void projectRefs.refresh(); }}
               />
             </div>
           </>
@@ -486,7 +487,7 @@ export default function App() {
           refProjects={refProjects}
           onAdd={(refTaskId) => projectRefs.add(refTaskId)}
           onRemove={(refTaskId) => projectRefs.remove(refTaskId)}
-          onRefresh={() => { projectRefs.refresh(); }}
+          onRefresh={() => { void projectRefs.refresh(); }}
           onClose={() => setRefManagerOpen(false)}
         />
       )}
