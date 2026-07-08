@@ -131,19 +131,19 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
         <form onSubmit={handleSubmit}>
           <div data-field="title" {...shakeProps(dirtyFields.title)}>
             <label style={LABEL}>タイトル *</label>
-            <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)}
+            <input style={INPUT} aria-label="タイトル" value={title} onChange={e => setTitle(e.target.value)}
               required maxLength={200} autoFocus />
           </div>
 
           <div data-field="date" {...shakeProps(dirtyFields.date)}>
             <label style={LABEL}>日付</label>
-            <input style={INPUT} type="date" value={date ?? ''}
+            <input style={INPUT} type="date" aria-label="日付" value={date ?? ''}
               onChange={e => setDate(e.target.value)} />
           </div>
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
-            <input style={INPUT} value={assignee} list="assignee-opts-milestone"
+            <input style={INPUT} aria-label="担当者" value={assignee} list="assignee-opts-milestone"
               onChange={e => setAssignee(e.target.value)} />
             <datalist id="assignee-opts-milestone">
               {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}

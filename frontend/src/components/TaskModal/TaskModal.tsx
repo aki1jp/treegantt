@@ -198,17 +198,17 @@ export function TaskModal({
         <form onSubmit={handleSubmit}>
           <div data-field="title" {...shakeProps(dirtyFields.title)}>
             <label style={LABEL}>タイトル *</label>
-            <input style={INPUT} value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} disabled={isReadOnly} />
+            <input style={INPUT} aria-label="タイトル" value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} disabled={isReadOnly} />
           </div>
 
           <div data-field="summary" {...shakeProps(dirtyFields.summary)}>
             <label style={LABEL}>サマリ</label>
-            <input style={INPUT} value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} disabled={isReadOnly} />
+            <input style={INPUT} aria-label="サマリ" value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} disabled={isReadOnly} />
           </div>
 
           <div data-field="description" {...shakeProps(dirtyFields.description)}>
             {/* タブヘッダー */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--th-input-border)', marginBottom: 0 }}>
+            <div role="tablist" aria-label="説明の表示切替" style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--th-input-border)', marginBottom: 0 }}>
               <label style={{ ...LABEL, marginBottom: 0, marginRight: 12 }}>説明</label>
               {(['edit', 'preview'] as const).map(tab => (
                 <button
@@ -257,7 +257,7 @@ export function TaskModal({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div data-field="status" {...shakeProps(dirtyFields.status)}>
               <label style={LABEL}>ステータス</label>
-              <select style={INPUT} value={status} onChange={e => setStatus(e.target.value as TaskStatus)} disabled={isReadOnly}>
+              <select style={INPUT} aria-label="ステータス" value={status} onChange={e => setStatus(e.target.value as TaskStatus)} disabled={isReadOnly}>
                 {Object.entries(STATUS_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
@@ -265,7 +265,7 @@ export function TaskModal({
             </div>
             <div data-field="priority" {...shakeProps(dirtyFields.priority)}>
               <label style={LABEL}>優先度</label>
-              <select style={INPUT} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)} disabled={isReadOnly}>
+              <select style={INPUT} aria-label="優先度" value={priority} onChange={e => setPriority(e.target.value as TaskPriority)} disabled={isReadOnly}>
                 {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
@@ -275,13 +275,13 @@ export function TaskModal({
 
           <div data-field="progress" {...shakeProps(dirtyFields.progress)}>
             <label style={LABEL}>進捗率: {progress}%</label>
-            <input type="range" min={0} max={100} value={progress}
+            <input type="range" aria-label="進捗率" min={0} max={100} value={progress}
               onChange={e => setProgress(Number(e.target.value))} style={{ width: '100%' }} disabled={isReadOnly} />
           </div>
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
             <label style={LABEL}>担当者</label>
-            <input style={INPUT} value={assignee} list="assignee-opts-modal"
+            <input style={INPUT} aria-label="担当者" value={assignee} list="assignee-opts-modal"
               onChange={e => setAssignee(e.target.value)} disabled={isReadOnly} />
             <datalist id="assignee-opts-modal">
               {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
@@ -308,7 +308,7 @@ export function TaskModal({
               <label style={LABEL}>
                 開始日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
               </label>
-              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" value={startDate}
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label="開始日" value={startDate}
                 disabled={hasChildren || isReadOnly}
                 onChange={e => setStartDate(e.target.value)}
                 title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
@@ -317,7 +317,7 @@ export function TaskModal({
               <label style={LABEL}>
                 終了日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
               </label>
-              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" value={endDate}
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label="終了日" value={endDate}
                 disabled={hasChildren || isReadOnly}
                 onChange={e => setEndDate(e.target.value)}
                 title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
@@ -341,7 +341,7 @@ export function TaskModal({
                 }}
                 disabled={isReadOnly}
               />
-              <select style={{ ...INPUT, flex: 1 }} value={parentId} onChange={e => setParentId(e.target.value)} disabled={isReadOnly}>
+              <select style={{ ...INPUT, flex: 1 }} aria-label="親タスク" value={parentId} onChange={e => setParentId(e.target.value)} disabled={isReadOnly}>
                 <option value="">なし（ルートタスク）</option>
                 {parentCandidates.map(t => (
                   <option key={t.id} value={t.id}>

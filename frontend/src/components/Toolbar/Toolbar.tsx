@@ -418,6 +418,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
               type="color"
               value={milestoneHighlightColor}
               title="マイルストーン強調色"
+              aria-label="マイルストーン強調色"
               onChange={e => setMilestoneHighlightColor(e.target.value)}
               style={{ width: 22, height: 22, padding: 1, border: '1px solid var(--th-border)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
             />
