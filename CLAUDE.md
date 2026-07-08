@@ -19,6 +19,9 @@ docker compose build && docker compose up -d   # 本番
 - 全コミット末尾に空行＋ `Co-Authored-By: Claude <実際に使用中のモデル名> <noreply@anthropic.com>`（例: `Claude Fable 5`。固定値をハードコードしない）
 - 設計書: 仕様変更は該当章の**本文**を更新し、ヘッダーのドキュメント版を +1。改訂履歴は**昇順・テーブル末尾に追記**（長い既存行を `old_string` に含めない）。バグ修正は履歴に載せない。
 - インフラ変更は start.sh（開発）と Docker（本番）の両方への影響を確認する。
+- **Definition of Done**：全テスト通過に加え `typecheck`・`lint`・（プロジェクトにあれば）コンソールエラー0。
+- **エラーハンドリング**：無言の `catch(() => {})` 禁止。ユーザーに必ず通知する（トースト等）。
+- **コミットメッセージ**は Conventional Commits（`feat/fix/docs/test:` 等）に従う。
 
 ## リリース手順（変更箇所は固定・全て同じ x.y.z に揃える）
 
