@@ -64,7 +64,10 @@ export function flattenTree(
 // （buildTree → flattenTree(roots, 空の Set)）で 1 から採番したタスク id → 番号 の Map を返す。
 // 実際の画面（フィルタ適用後・折りたたみ適用後）ではこの Map の値をそのまま表示し、詰め直さない。
 export function buildRowNumberMap(tasks: Task[]): Map<string, number> {
-  const { roots } = buildTree(tasks);
+  // buildTree は「order 昇順で渡される」前提（他の呼び出し箇所は全てソート済み配列を渡す）。
+  // ここでは呼び出し元（画面の displayTasks）がソート済みとは限らないため、order 昇順に揃えてから渡す。
+  const sorted = [...tasks].sort((a, b) => a.order - b.order);
+  const { roots } = buildTree(sorted);
   const flat = flattenTree(roots, new Set());
   const map = new Map<string, number>();
   flat.forEach((row, i) => map.set(row.task.id, i + 1));
