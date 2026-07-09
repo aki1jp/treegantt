@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import type { Task } from '../types/task';
 import { buildRowNumberMap } from '../utils/taskTree';
 
-// 表示専用の通し番号列「No.」（設計書 §9.2, doc 0.2.161）のロジックテスト。
+// 表示専用の通し番号列「行」（設計書 §9.2, doc 0.2.162）のロジックテスト。
 // buildRowNumberMap(tasks) は「全展開（折りたたみなし）・フィルタなし」の displayTasks を
-// buildTree → flattenTree(roots, 空の Set) でツリー順にフラット化した順序で 1 から採番し、
-// タスク id → 通し番号 の Map を返す想定（未実装のためこの import は失敗する）。
+// order 昇順に揃えた上で buildTree → flattenTree(roots, 空の Set) でツリー順にフラット化した
+// 順序で 1 から採番し、タスク id → 通し番号 の Map を返す。
 
 function makeTask(partial: Partial<Task> & { id: string }): Task {
   return {

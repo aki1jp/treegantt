@@ -26,7 +26,7 @@ import { HEADER_ROW_H } from './ganttChartConstants';
 
 // ── 左パネル列定義 ──────────────────────────────────
 const LEFT_COLS = [
-  { key: 'rowNumber', label: 'No.',      width: 36  },
+  { key: 'rowNumber', label: '行',       width: 36  },
   { key: 'order',     label: '#',        width: 36  },
   { key: 'title',     label: 'タイトル', width: 180 },
   { key: 'status',    label: 'ST',       width: 66  },

@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 /**
- * No. 列（表示専用の通し番号）統合テスト — 設計書 §9.2（doc 0.2.161）。
+ * 「行」列（表示専用の通し番号）統合テスト — 設計書 §9.2（doc 0.2.162）。
  * GanttChart が displayTasks を全展開・フィルタなし基準で採番した番号を、
  * フィルタ適用後・折りたたみ適用後も「詰め直さず」元の番号のまま表示することを検証する。
  *
- * 行の No. セルは新設想定の data-testid="row-number"（GanttLeftRow.tsx の
- * 既存「#」列セル、176-178行目のすぐ隣に追加される想定）から取得する。
- * 実装前のため、この data-testid を持つ要素は存在せず本テストは失敗する。
+ * 行の番号セルは data-testid="row-number"（GanttLeftRow.tsx の既存「#」列セルの
+ * すぐ隣）から取得する。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, screen, fireEvent } from '@testing-library/react';
@@ -61,7 +60,7 @@ function renderChart(tasks: Task[], filterOverrides: Partial<ReturnType<typeof u
   );
 }
 
-/** wbs-panel 内の各タスク行から、タイトルと No. セルのテキストを表示順に取得する。 */
+/** wbs-panel 内の各タスク行から、タイトルと行番号セルのテキストを表示順に取得する。 */
 function getWbsRowNumbers(): { title: string; rowNumber: string }[] {
   const wbs = screen.getByTestId('wbs-panel');
   return Array.from(wbs.querySelectorAll('[draggable="true"]'))
@@ -74,7 +73,7 @@ function getWbsRowNumbers(): { title: string; rowNumber: string }[] {
     .filter(r => r.title);
 }
 
-describe('No. 列: 全展開・フィルタなし基準の採番', () => {
+describe('「行」列: 全展開・フィルタなし基準の採番', () => {
   it('フィルタなし・折りたたみなしのとき、表示順に 1,2,3... と振られる', () => {
     const tasks = [
       makeTask({ title: 'Task1' }),
@@ -99,7 +98,7 @@ describe('No. 列: 全展開・フィルタなし基準の採番', () => {
   });
 });
 
-describe('No. 列: フィルタ適用時に番号を詰め直さない', () => {
+describe('「行」列: フィルタ適用時に番号を詰め直さない', () => {
   it('中間のタスクがフィルタで非表示になっても、残りの行は元の番号のまま表示される', () => {
     // 全展開・フィルタなし基準では Task1=1, Task2=2, Task3=3, Task4=4, Task5=5
     const tasks = [
@@ -121,7 +120,7 @@ describe('No. 列: フィルタ適用時に番号を詰め直さない', () => {
   });
 });
 
-describe('No. 列: 折りたたみ適用時も番号が変わらない', () => {
+describe('「行」列: 折りたたみ適用時も番号が変わらない', () => {
   it('親を折りたたんで子行が隠れても、表示されている行の番号は変わらない', () => {
     const parent = makeTask({ title: 'Parent' });
     const child = makeTask({ title: 'Child', parentId: parent.id });
