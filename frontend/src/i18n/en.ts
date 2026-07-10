@@ -273,6 +273,23 @@ export const en = {
 
   'toast.closeAriaLabel': 'Close',
 
+  'resourceView.panelTitle': 'Resource View (Workload by Assignee)',
+  'resourceView.resizeHandleTitle': 'Drag to resize height',
+  'resourceView.legendLabel': 'Legend',
+  'resourceView.legend.underOrEqual80': '~80% Light',
+  'resourceView.legend.underOrEqual100': '~100% Optimal',
+  'resourceView.legend.underOrEqual120': '~120% Caution',
+  'resourceView.legend.over120': '>120% Overloaded',
+  'resourceView.totalLabel': 'Total',
+  'resourceView.peakLabel': 'Peak',
+  'resourceView.tooltip.peakDaySuffix': ' (peak day)',
+  'resourceView.tooltip.summary': 'Utilization {pct}   Demand {demand} / Capacity {capacity}',
+
+  'resourceSettings.inheritLabel': 'Inherit App Defaults',
+  'resourceSettings.capacityLabel': 'Daily Capacity (h:mm)',
+  'resourceSettings.capacityPlaceholder': 'e.g., 8:00, 7:45',
+  'resourceSettings.workingDaysLabel': 'Working Days',
+
   'apiError.notFound': 'The requested item was not found.',
   'apiError.invalidFormat': 'Invalid import format.',
   'apiError.selfRef': 'Cannot reference a task in the same project.',

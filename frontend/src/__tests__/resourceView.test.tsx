@@ -237,3 +237,52 @@ describe('ResourceView: 稼働率セル tooltip', () => {
     expect(title).toContain('12:00'); // 合計需要 480+240=720=12:00
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('ResourceView の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('パネルタイトル・凡例ラベル・稼働率凡例が英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15' })]);
+    const panel = screen.getByTestId('workload-panel');
+    expect(panel.textContent).toContain('Resource View (Workload by Assignee)');
+    expect(panel.textContent).toContain('Legend');
+    expect(panel.textContent).toContain('~80% Light');
+    expect(panel.textContent).toContain('~100% Optimal');
+    expect(panel.textContent).toContain('~120% Caution');
+    expect(panel.textContent).toContain('>120% Overloaded');
+  });
+
+  it('担当者行の合計・ピークラベルが英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15', estimateMinutes: 240 })]);
+    const panel = screen.getByTestId('workload-panel');
+    expect(panel.textContent).toContain('Total');
+    expect(panel.textContent).toContain('Peak');
+  });
+
+  it('リサイズハンドルの title が英語になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    renderChart([makeTask({ assignee: 'Alice', startDate: '2026-06-10', endDate: '2026-06-15' })]);
+    const handle = screen.getByTestId('workload-resize');
+    expect(handle.title).toBe('Drag to resize height');
+  });
+
+  it('稼働率セル tooltip が英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    renderChart([makeTask({ assignee: 'Alice', title: 'Design', startDate: '2026-06-01', endDate: '2026-06-01', estimateMinutes: 480 })]);
+    const panel = screen.getByTestId('workload-panel');
+    const cell = Array.from(panel.querySelectorAll('[title]'))
+      .find(el => el.getAttribute('title')?.includes('Alice'));
+    expect(cell).toBeTruthy();
+    const title = cell!.getAttribute('title')!;
+    expect(title).toContain('Utilization');
+    expect(title).toContain('100%');
+    expect(title).toContain('Capacity 8:00');
+    expect(title).toContain('Design 8:00');
+  });
+});

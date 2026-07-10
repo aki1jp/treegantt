@@ -4,6 +4,7 @@ import type { Task, ZoomLevel } from '../../types/task';
 import { ZOOM_CONFIG } from '../../utils/ganttCalc';
 import { calcUtilizationMatrix, workloadBuckets, utilizationColor } from '../../utils/workloadCalc';
 import { formatMinutes, HARDCODED_CAPACITY_MINUTES, HARDCODED_WORKING_DAYS } from '../../utils/duration';
+import { useTranslation } from '../../i18n/useTranslation';
 
 const HEADER_H  = 22;
 const LEGEND_H  = 18;
@@ -13,12 +14,15 @@ const MIN_HEIGHT = HEADER_H + LEGEND_H + CELL_H; // 1 行ぶん
 const MIN_GANTT  = 120; // リサイズ時にガント本体へ残す最低高
 const DEFAULT_HEIGHT = 220;
 
-const LEGEND_ITEMS = [
-  { label: '〜80% 余裕',   c: utilizationColor(0.5) },
-  { label: '〜100% 適正',  c: utilizationColor(0.95) },
-  { label: '〜120% 注意',  c: utilizationColor(1.1) },
-  { label: '>120% 過負荷', c: utilizationColor(1.5) },
-];
+function useLegendItems() {
+  const { t } = useTranslation();
+  return [
+    { label: t('resourceView.legend.underOrEqual80'),  c: utilizationColor(0.5) },
+    { label: t('resourceView.legend.underOrEqual100'), c: utilizationColor(0.95) },
+    { label: t('resourceView.legend.underOrEqual120'), c: utilizationColor(1.1) },
+    { label: t('resourceView.legend.over120'),         c: utilizationColor(1.5) },
+  ];
+}
 
 export interface ResourceViewProps {
   tasks: Task[];
@@ -45,6 +49,8 @@ export function ResourceView({
   workingDays = HARDCODED_WORKING_DAYS,
   height = DEFAULT_HEIGHT, onHeightChange,
 }: ResourceViewProps) {
+  const { t } = useTranslation();
+  const LEGEND_ITEMS = useLegendItems();
   const panelRef     = useRef<HTMLDivElement>(null);
   const leftBodyRef  = useRef<HTMLDivElement>(null);
   const rightBodyRef = useRef<HTMLDivElement>(null);
@@ -109,7 +115,7 @@ export function ResourceView({
       <div
         data-testid="workload-resize"
         onMouseDown={onResizeMouseDown}
-        title="ドラッグで高さを変更"
+        title={t('resourceView.resizeHandleTitle')}
         style={{
           position: 'absolute', top: -3, left: 0, right: 0, height: HANDLE_H,
           cursor: 'ns-resize', zIndex: 5,
@@ -127,7 +133,7 @@ export function ResourceView({
           color: 'var(--th-text-muted)', background: 'var(--th-bg2)',
           borderBottom: '1px solid var(--th-border)', flexShrink: 0,
         }}>
-          リソースビュー（担当者別 工数負荷）
+          {t('resourceView.panelTitle')}
         </div>
         {/* 色凡例 */}
         <div style={{
@@ -136,7 +142,7 @@ export function ResourceView({
           background: 'var(--th-bg2)', borderBottom: '1px solid var(--th-border)',
           flexShrink: 0, overflow: 'hidden', whiteSpace: 'nowrap',
         }}>
-          <span style={{ fontWeight: 700 }}>凡例</span>
+          <span style={{ fontWeight: 700 }}>{t('resourceView.legendLabel')}</span>
           {LEGEND_ITEMS.map(l => (
             <span key={l.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
               <span style={{ width: 9, height: 9, background: l.c, border: '1px solid rgba(0,0,0,0.2)', display: 'inline-block' }} />
@@ -161,7 +167,7 @@ export function ResourceView({
                 whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden',
               }}>{a}</div>
               <div style={{ fontSize: 8, color: 'var(--th-text-muted)', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                合計 {totalMinutes[ai] > 0 ? formatMinutes(totalMinutes[ai]) : '—'} / ピーク {pct(peakUtil[ai])}
+                {t('resourceView.totalLabel')} {totalMinutes[ai] > 0 ? formatMinutes(totalMinutes[ai]) : '—'} / {t('resourceView.peakLabel')} {pct(peakUtil[ai])}
               </div>
             </div>
           ))}
@@ -226,10 +232,14 @@ export function ResourceView({
                   if (peak > 0) {
                     const dateLabel = dayjs(days[peakIdx]).format('M/D');
                     const breakdown = dayTasks[ai][peakIdx]
-                      .map(t => `・${t.title} ${formatMinutes(Math.round(t.minutes))}`)
+                      .map(dt => `・${dt.title} ${formatMinutes(Math.round(dt.minutes))}`)
                       .join('\n');
-                    tip = `${a}  ${dateLabel}${b.span > 1 ? '（ピーク日）' : ''}\n`
-                        + `稼働率 ${pct(peak)}   需要 ${formatMinutes(Math.round(demand[ai][peakIdx]))} ÷ キャパ ${formatMinutes(capacityMinutesPerDay)}`
+                    tip = `${a}  ${dateLabel}${b.span > 1 ? t('resourceView.tooltip.peakDaySuffix') : ''}\n`
+                        + t('resourceView.tooltip.summary', {
+                            pct: pct(peak),
+                            demand: formatMinutes(Math.round(demand[ai][peakIdx])),
+                            capacity: formatMinutes(capacityMinutesPerDay),
+                          })
                         + (breakdown ? `\n${breakdown}` : '');
                   }
                   return (

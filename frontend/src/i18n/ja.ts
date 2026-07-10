@@ -272,6 +272,23 @@ export const ja = {
 
   'toast.closeAriaLabel': '閉じる',
 
+  'resourceView.panelTitle': 'リソースビュー（担当者別 工数負荷）',
+  'resourceView.resizeHandleTitle': 'ドラッグで高さを変更',
+  'resourceView.legendLabel': '凡例',
+  'resourceView.legend.underOrEqual80': '〜80% 余裕',
+  'resourceView.legend.underOrEqual100': '〜100% 適正',
+  'resourceView.legend.underOrEqual120': '〜120% 注意',
+  'resourceView.legend.over120': '>120% 過負荷',
+  'resourceView.totalLabel': '合計',
+  'resourceView.peakLabel': 'ピーク',
+  'resourceView.tooltip.peakDaySuffix': '（ピーク日）',
+  'resourceView.tooltip.summary': '稼働率 {pct}   需要 {demand} ÷ キャパ {capacity}',
+
+  'resourceSettings.inheritLabel': 'アプリ既定を継承',
+  'resourceSettings.capacityLabel': '1日のキャパシティ（時:分）',
+  'resourceSettings.capacityPlaceholder': '例: 8:00, 7:45',
+  'resourceSettings.workingDaysLabel': '稼働日',
+
   'apiError.notFound': '対象が見つかりません。',
   'apiError.invalidFormat': 'インポート形式が不正です。',
   'apiError.selfRef': '同一プロジェクト内のタスクは参照できません。',

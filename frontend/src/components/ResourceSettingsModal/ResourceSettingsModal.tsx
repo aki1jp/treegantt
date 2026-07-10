@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { parseDuration, formatMinutes } from '../../utils/duration';
 import { useDowLabels } from '../../i18n/dow';
+import { useTranslation } from '../../i18n/useTranslation';
 
 export interface ResourceSettingsModalProps {
   title: string;
@@ -29,6 +30,7 @@ export function ResourceSettingsModal({
   fallbackCapacityMinutes, fallbackWorkingDays,
   onSave, onClose,
 }: ResourceSettingsModalProps) {
+  const { t } = useTranslation();
   const dowLabels = useDowLabels();
   const [inherit, setInherit] = useState(
     inheritable && initialCapacityMinutes == null && initialWorkingDays == null,
@@ -79,19 +81,19 @@ export function ResourceSettingsModal({
         {inheritable && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
             <input type="checkbox" checked={inherit} onChange={e => setInherit(e.target.checked)} />
-            アプリ既定を継承
+            {t('resourceSettings.inheritLabel')}
           </label>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, opacity: disabled ? 0.5 : 1 }}>
-          <label style={LABEL}>1日のキャパシティ（時:分）</label>
+          <label style={LABEL}>{t('resourceSettings.capacityLabel')}</label>
           <input style={INPUT} value={capacityText} disabled={disabled}
-            placeholder="例: 8:00, 7:45"
+            placeholder={t('resourceSettings.capacityPlaceholder')}
             onChange={e => setCapacityText(e.target.value)} />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, opacity: disabled ? 0.5 : 1 }}>
-          <label style={LABEL}>稼働日</label>
+          <label style={LABEL}>{t('resourceSettings.workingDaysLabel')}</label>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {dowLabels.map((lbl, d) => (
               <label key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 13 }}>
@@ -106,11 +108,11 @@ export function ResourceSettingsModal({
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
           <button type="button" onClick={onClose}
             style={{ padding: '6px 14px', borderRadius: 4, border: '1px solid var(--th-border)', background: 'var(--th-bg2)', color: 'var(--th-text)', cursor: 'pointer' }}>
-            キャンセル
+            {t('common.cancel')}
           </button>
           <button type="submit"
             style={{ padding: '6px 14px', borderRadius: 4, border: 'none', background: 'var(--th-accent)', color: '#fff', cursor: 'pointer' }}>
-            保存
+            {t('common.save')}
           </button>
         </div>
       </form>

@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { ResourceSettingsModal } from '../components/ResourceSettingsModal/ResourceSettingsModal';
+import { useTaskStore } from '../store/taskStore';
 
 afterEach(() => { cleanup(); });
 const NOOP = vi.fn();
@@ -81,5 +82,35 @@ describe('ResourceSettingsModal', () => {
     fireEvent.change(screen.getByDisplayValue('8:00'), { target: { value: '6:00' } });
     fireEvent.click(screen.getByRole('button', { name: '保存' }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ capacityMinutesPerDay: 360 }));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('ResourceSettingsModal の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('継承チェックボックス・ラベル・placeholder・ボタンが英語表示になる（曜日は既存対応済のため対象外）', () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(
+      <ResourceSettingsModal
+        title="Project Settings"
+        inheritable
+        initialCapacityMinutes={null}
+        initialWorkingDays={null}
+        fallbackCapacityMinutes={480}
+        fallbackWorkingDays={[1, 2, 3, 4, 5]}
+        onSave={vi.fn()}
+        onClose={NOOP}
+      />
+    );
+    expect(screen.getByLabelText('Inherit App Defaults')).toBeTruthy();
+    expect(screen.getByText('Daily Capacity (h:mm)')).toBeTruthy();
+    expect(screen.getByPlaceholderText('e.g., 8:00, 7:45')).toBeTruthy();
+    expect(screen.getByText('Working Days')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
   });
 });
