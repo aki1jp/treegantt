@@ -2,6 +2,7 @@ import type { Task } from '../../types/task';
 import { ContextMenu, AddChildMenuItem } from './GanttContextMenu';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 import { isReadonlyTask, isRefGroupId } from '../../utils/refTasks';
+import { useTranslation } from '../../i18n/useTranslation';
 
 // ── 色パレット ───────────────────────────────────────
 const COLOR_PALETTE: (string | null)[] = [
@@ -66,6 +67,7 @@ export function TaskContextMenus({
   collapseAll, expandToDepth, expandAll,
   currentProjectId, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <>
       {/* コンテキストメニュー（position: fixed なのでどこに置いても動作する） */}
@@ -88,17 +90,17 @@ export function TaskContextMenus({
             >
               <button onClick={() => { onOpenRefProject?.(task.projectId); close(); }}
                 style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-                参照先プロジェクトを開く
+                {t('contextMenu.openRefProject')}
               </button>
               {!isGroup && (
                 <button onClick={() => { onRemoveRef?.(task.id); close(); }}
                   style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-                  参照を解除
+                  {t('contextMenu.removeRef')}
                 </button>
               )}
               <button onClick={() => { onRefreshRefs?.(); close(); }}
                 style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-                参照を再読み込み
+                {t('contextMenu.refreshRefs')}
               </button>
             </ContextMenu>
           );
@@ -121,14 +123,14 @@ export function TaskContextMenus({
             )}
             <button onClick={() => { onEditTask(task); close(); }}
               style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-              編集（詳細）
+              {t('contextMenu.editDetail')}
             </button>
             <div style={{ height: 1, background: 'var(--th-border)' }} />
             {/* 色パレット */}
             <div style={{ padding: '6px 10px' }}>
               {([
-                { label: '文字色', field: 'titleColor' as const },
-                { label: '背景色', field: 'titleBgColor' as const },
+                { label: t('contextMenu.titleColorLabel'), field: 'titleColor' as const },
+                { label: t('contextMenu.titleBgColorLabel'), field: 'titleBgColor' as const },
               ] as { label: string; field: 'titleColor' | 'titleBgColor' }[]).map(({ label, field }) => (
                 <div key={field} style={{ marginBottom: 4 }}>
                   <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 3 }}>{label}</div>
@@ -136,8 +138,8 @@ export function TaskContextMenus({
                     {COLOR_PALETTE.map((c, ci) => (
                       <button
                         key={ci}
-                        title={c ?? 'リセット'}
-                        aria-label={c ?? 'リセット'}
+                        title={c ?? t('contextMenu.colorReset')}
+                        aria-label={c ?? t('contextMenu.colorReset')}
                         onClick={() => { onInlineUpdate(task.id, { [field]: c }); close(); }}
                         style={{
                           width: 18, height: 18, borderRadius: '50%', border: '1px solid #9ca3af',
@@ -156,12 +158,12 @@ export function TaskContextMenus({
             <div style={{ height: 1, background: 'var(--th-border)' }} />
             <button onClick={() => { setCopiedTask(task); close(); }}
               style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-              コピー
+              {t('contextMenu.copy')}
             </button>
             {copiedTask && (
               <button onClick={() => { void onCopyInsert(copiedTask, task.parentId, null, task.id); close(); }}
                 style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-                上に挿入
+                {t('contextMenu.insertAbove')}
               </button>
             )}
             <div style={{ height: 1, background: 'var(--th-border)' }} />
@@ -169,7 +171,7 @@ export function TaskContextMenus({
               style={{ ...MENU_BTN, color: '#ef4444' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
               onMouseLeave={onMenuLeave}>
-              削除
+              {t('common.delete')}
             </button>
           </ContextMenu>
         );
@@ -181,7 +183,7 @@ export function TaskContextMenus({
           onMouseDown={e => e.stopPropagation()}
           onClick={e => e.stopPropagation()}
         >
-          <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--th-text-muted)' }}>依存関係</div>
+          <div style={{ padding: '4px 14px 2px', fontSize: 11, color: 'var(--th-text-muted)' }}>{t('contextMenu.dependencyLabel')}</div>
           <button
             onClick={() => {
               const target = taskById.get(depCtxMenu.toTaskId);
@@ -194,7 +196,7 @@ export function TaskContextMenus({
             onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
             onMouseLeave={onMenuLeave}
           >
-            依存を解除
+            {t('contextMenu.removeDependency')}
           </button>
         </ContextMenu>
       )}
@@ -206,7 +208,7 @@ export function TaskContextMenus({
           onClick={e => e.stopPropagation()}
         >
           <div style={{ padding: '6px 10px' }}>
-            <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>展開 / 折りたたみ</div>
+            <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>{t('contextMenu.expandCollapseLabel')}</div>
             <ExpandCollapseButtons
               variant="boxed"
               collapseAll={collapseAll}
@@ -223,7 +225,7 @@ export function TaskContextMenus({
               closeTitleHeaderCtxMenu();
             }}
             style={MENU_BTN} onMouseEnter={onMenuEnter} onMouseLeave={onMenuLeave}>
-            全タスクの色をリセット
+            {t('contextMenu.resetAllColors')}
           </button>
         </ContextMenu>
       )}

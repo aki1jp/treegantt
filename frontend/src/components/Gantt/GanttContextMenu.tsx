@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { clampMenuPos } from '../../utils/menuPos';
+import { useTranslation } from '../../i18n/useTranslation';
 
 interface Props {
   x: number;
@@ -25,12 +26,13 @@ const onBtnLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget
 export function AddChildMenuItem({
   onAddTask, onAddMilestone, onAddRef,
 }: { onAddTask: () => void; onAddMilestone: () => void; onAddRef?: () => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <div style={{ position: 'relative' }} onMouseLeave={() => setOpen(false)}>
       <button style={{ ...MENU_BTN, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         onMouseEnter={(e) => { setOpen(true); onBtnEnter(e); }} onMouseLeave={onBtnLeave}>
-        <span>＋ 子追加</span>
+        <span>{t('contextMenu.addChild')}</span>
         <span style={{ marginLeft: 12, color: 'var(--th-text-muted)' }}>▶</span>
       </button>
       {open && (
@@ -40,12 +42,12 @@ export function AddChildMenuItem({
           boxShadow: '0 4px 16px rgba(0,0,0,.18)', zIndex: 10000, minWidth: 150,
         }}>
           <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
-            onClick={onAddTask}>タスク</button>
+            onClick={onAddTask}>{t('contextMenu.addChildTask')}</button>
           <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
-            onClick={onAddMilestone}>マイルストーン</button>
+            onClick={onAddMilestone}>{t('contextMenu.addChildMilestone')}</button>
           {onAddRef && (
             <button style={MENU_BTN} onMouseEnter={onBtnEnter} onMouseLeave={onBtnLeave}
-              onClick={onAddRef}>🔗 参照を追加</button>
+              onClick={onAddRef}>{t('contextMenu.addRefLink')}</button>
           )}
         </div>
       )}

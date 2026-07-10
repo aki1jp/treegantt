@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
-import type { Task } from '../types/task';
+import type { Task, RefProject } from '../types/task';
 
 let onEditTask: Mock;
 let onDeleteTask: Mock;
@@ -290,5 +290,97 @@ describe('WBS行右クリックメニュー（rowCtxMenu）', () => {
     // 行右クリック（barCtxMenu が閉じて rowCtxMenu が開く）
     fireEvent.contextMenu(getWbsTitleEl(task.title));
     expect(screen.getAllByText('削除').length).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('コンテキストメニューの多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('バー右クリックメニューが英語表示になる', () => {
+    const task = makeTask();
+    useTaskStore.setState({ locale: 'en' });
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+
+    expect(screen.getByText('Edit (Details)')).toBeTruthy();
+    expect(screen.getByText('Copy')).toBeTruthy();
+    expect(screen.getByText('Delete')).toBeTruthy();
+    expect(screen.getByText('Text color')).toBeTruthy();
+    expect(screen.getByText('Background color')).toBeTruthy();
+  });
+
+  it('「＋ 子追加」相当（+ Add child）にホバーすると英語の子メニューが出る', () => {
+    const task = makeTask();
+    useTaskStore.setState({ locale: 'en' });
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+    expect(screen.getByText('+ Add child', { exact: false })).toBeTruthy();
+
+    fireEvent.mouseEnter(screen.getByText('+ Add child', { exact: false }));
+
+    expect(screen.getByText('Task')).toBeTruthy();
+    expect(screen.getByText('Milestone')).toBeTruthy();
+    expect(screen.getByText('🔗 Add reference')).toBeTruthy();
+  });
+
+  it('依存矢印の右クリックメニューが英語表示になる（Dependency / Remove dependency）', () => {
+    const from = makeTask({ id: 'from1', startDate: '2026-06-10', endDate: '2026-06-12' });
+    const to = makeTask({ id: 'to1', startDate: '2026-06-13', endDate: '2026-06-15', predecessors: ['from1'] });
+    useTaskStore.setState({ locale: 'en' });
+    const { container } = renderChart([from, to]);
+
+    const arrow = container.querySelector('path[data-dep-from="from1"][data-dep-to="to1"]');
+    expect(arrow).toBeTruthy();
+    fireEvent.contextMenu(arrow!);
+
+    expect(screen.getByText('Dependency')).toBeTruthy();
+    expect(screen.getByText('Remove dependency')).toBeTruthy();
+  });
+
+  it('クロスプロジェクト参照メニューが英語表示になる（Open referenced project）', () => {
+    const own = makeTask({ id: 'own1', projectId: 'p1' });
+    const ref = makeTask({ id: 'ref1', projectId: 'p2', parentId: null });
+    const refProjects: RefProject[] = [{ id: 'p2', name: 'ProjectB', color: '#3b82f6' }];
+    const onOpenRefProject = vi.fn();
+    const onRemoveRef = vi.fn();
+    const onRefreshRefs = vi.fn();
+    useTaskStore.setState({ locale: 'en', tasks: [own], refTasks: [ref], refProjects });
+
+    render(
+      <GanttChart
+        projectId="p1"
+        onEditTask={onEditTask}
+        onDeleteTask={onDeleteTask}
+        onInlineUpdate={onInlineUpdate}
+        onQuickAdd={NOOP}
+        onAddSubTask={onAddSubTask}
+        onAddSubMilestone={onAddSubMilestone}
+        onReorder={NOOP} onCopyInsert={NOOP}
+        onAddRef={onAddRef}
+        onOpenRefProject={onOpenRefProject}
+        onRemoveRef={onRemoveRef}
+        onRefreshRefs={onRefreshRefs}
+      />
+    );
+
+    const wbs = screen.getByTestId('wbs-panel');
+    const titleEl = Array.from(wbs.querySelectorAll('*'))
+      .find(e => e.textContent?.trim() === '🔗 Task2' && e.children.length === 0);
+    expect(titleEl).toBeTruthy();
+
+    fireEvent.contextMenu(titleEl!);
+
+    expect(screen.getByText('Open referenced project')).toBeTruthy();
+    expect(screen.getByText('Remove reference')).toBeTruthy();
+    expect(screen.getByText('Refresh references')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Open referenced project'));
+    expect(onOpenRefProject).toHaveBeenCalledWith('p2');
   });
 });
