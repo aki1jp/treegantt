@@ -97,3 +97,36 @@ describe('useProjectTasks', () => {
     expect(useToastStore.getState().toasts.some(t => t.type === 'error')).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのトースト/エラー表示テスト（既存の ja テストは変更しない）
+describe('useProjectTasks — 多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('取得失敗時、error とトーストが英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch).mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useProjectTasks('p1'));
+    await act(async () => {});
+    expect(result.current.error).toBe('Failed to fetch tasks');
+    expect(useToastStore.getState().toasts.some(t => t.message.includes('Failed to fetch tasks: boom'))).toBe(true);
+  });
+
+  it('reload 失敗時、トーストが英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ tasks: [], total: 0 }),
+    } as Response);
+
+    renderHook(() => useProjectTasks('p1'));
+    await act(async () => {});
+    vi.mocked(fetch).mockRejectedValue(new Error('reload failed'));
+    useTaskStore.getState().setNeedsReload(true);
+    await act(async () => {});
+    expect(useToastStore.getState().toasts.some(t => t.message.includes('Failed to reload: reload failed'))).toBe(true);
+  });
+});

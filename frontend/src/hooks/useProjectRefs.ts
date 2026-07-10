@@ -3,6 +3,7 @@ import type { Task, TaskRef } from '../types/task';
 import { useTaskStore } from '../store/taskStore';
 import { showToast } from '../store/toastStore';
 import { apiFetch, fetchProjectRefs, addProjectRef, removeProjectRef } from '../utils/api';
+import { apiErrorMessage, dictionaries } from '../i18n/apiError';
 
 // クロスプロジェクト参照（§5.8）のロード・追加・解除・跨ぎ依存更新を担うフック。
 // R1（本リリース）はスナップショット方式: プロジェクト切替時ロード＋手動 refresh() のみ。
@@ -21,7 +22,11 @@ export function useProjectRefs(projectId: string | undefined) {
         setRefData(d.tasks, d.projects);
       })
       .catch((err: Error) => {
-        showToast('参照の取得に失敗しました: ' + err.message, 'error');
+        // useCallback のクロージャで locale を固定しないよう、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        const msg = dictionaries[currentLocale]['refManager.toast.loadFailed']
+          .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+        showToast(msg, 'error');
       })
       .finally(() => setLoading(false));
   }, [projectId, setRefData]);
@@ -40,7 +45,10 @@ export function useProjectRefs(projectId: string | undefined) {
       await addProjectRef(projectId, refTaskId);
       await load();
     } catch (err) {
-      showToast('参照の追加に失敗しました: ' + (err as Error).message, 'error');
+      const currentLocale = useTaskStore.getState().locale;
+      const msg = dictionaries[currentLocale]['refManager.toast.addFailed']
+        .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+      showToast(msg, 'error');
       throw err;
     }
   }
@@ -51,7 +59,10 @@ export function useProjectRefs(projectId: string | undefined) {
       await removeProjectRef(projectId, refTaskId);
       await load();
     } catch (err) {
-      showToast('参照の解除に失敗しました: ' + (err as Error).message, 'error');
+      const currentLocale = useTaskStore.getState().locale;
+      const msg = dictionaries[currentLocale]['refManager.toast.removeFailed']
+        .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+      showToast(msg, 'error');
       throw err;
     }
   }
@@ -66,7 +77,10 @@ export function useProjectRefs(projectId: string | undefined) {
       });
       upsertRefTask(data.task as Task);
     } catch (err) {
-      showToast('依存の更新に失敗しました: ' + (err as Error).message, 'error');
+      const currentLocale = useTaskStore.getState().locale;
+      const msg = dictionaries[currentLocale]['refManager.toast.updatePredecessorsFailed']
+        .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+      showToast(msg, 'error');
       throw err;
     }
   }

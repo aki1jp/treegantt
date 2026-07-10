@@ -139,3 +139,55 @@ describe('useProjectRefs', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのトースト表示テスト（既存の ja テストは変更しない）
+describe('useProjectRefs — 多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('取得失敗時、トーストが英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch).mockRejectedValue(new Error('boom'));
+    renderHook(() => useProjectRefs('p1'));
+    await act(async () => {});
+    expect(useToastStore.getState().toasts.some(t => t.message.includes('Failed to fetch references: boom'))).toBe(true);
+  });
+
+  it('add 失敗時、トーストが英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ refs: [], tasks: [], projects: [] }) } as Response)
+      .mockRejectedValueOnce(new Error('add failed'));
+
+    const { result } = renderHook(() => useProjectRefs('p1'));
+    await act(async () => {});
+    await expect(result.current.add('r1')).rejects.toThrow();
+    expect(useToastStore.getState().toasts.some(t => t.message.includes('Failed to add reference: add failed'))).toBe(true);
+  });
+
+  it('remove 失敗時、トーストが英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ refs: [], tasks: [], projects: [] }) } as Response)
+      .mockRejectedValueOnce(new Error('remove failed'));
+
+    const { result } = renderHook(() => useProjectRefs('p1'));
+    await act(async () => {});
+    await expect(result.current.remove('r1')).rejects.toThrow();
+    expect(useToastStore.getState().toasts.some(t => t.message.includes('Failed to remove reference: remove failed'))).toBe(true);
+  });
+
+  it('updateExternalPredecessors 失敗時、トーストが英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ refs: [], tasks: [], projects: [] }) } as Response)
+      .mockRejectedValueOnce(new Error('patch failed'));
+
+    const { result } = renderHook(() => useProjectRefs('p1'));
+    await act(async () => {});
+    await expect(result.current.updateExternalPredecessors('r1', [])).rejects.toThrow();
+    expect(useToastStore.getState().toasts.some(t => t.message.includes('Failed to update dependency: patch failed'))).toBe(true);
+  });
+});

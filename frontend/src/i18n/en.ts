@@ -309,6 +309,16 @@ export const en = {
   'refManager.selectPlaceholder': 'Please select',
   'refManager.addButton': 'Add',
   'refManager.toast.fetchTasksFailed': 'Failed to fetch task list: {message}',
+  'refManager.toast.loadFailed': 'Failed to fetch references: {message}',
+  'refManager.toast.addFailed': 'Failed to add reference: {message}',
+  'refManager.toast.removeFailed': 'Failed to remove reference: {message}',
+  'refManager.toast.updatePredecessorsFailed': 'Failed to update dependency: {message}',
+
+  'hooks.error.projectsFetchFailed': 'Failed to fetch project list',
+  'hooks.toast.projectsFetchFailed': 'Failed to fetch project list: {message}',
+  'hooks.error.tasksFetchFailed': 'Failed to fetch tasks',
+  'hooks.toast.tasksFetchFailed': 'Failed to fetch tasks: {message}',
+  'hooks.toast.reloadFailed': 'Failed to reload: {message}',
 
   'apiError.notFound': 'The requested item was not found.',
   'apiError.invalidFormat': 'Invalid import format.',

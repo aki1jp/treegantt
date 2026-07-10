@@ -308,6 +308,16 @@ export const ja = {
   'refManager.selectPlaceholder': '選択してください',
   'refManager.addButton': '追加',
   'refManager.toast.fetchTasksFailed': 'タスク一覧の取得に失敗しました: {message}',
+  'refManager.toast.loadFailed': '参照の取得に失敗しました: {message}',
+  'refManager.toast.addFailed': '参照の追加に失敗しました: {message}',
+  'refManager.toast.removeFailed': '参照の解除に失敗しました: {message}',
+  'refManager.toast.updatePredecessorsFailed': '依存の更新に失敗しました: {message}',
+
+  'hooks.error.projectsFetchFailed': 'プロジェクト一覧の取得に失敗しました',
+  'hooks.toast.projectsFetchFailed': 'プロジェクト一覧の取得に失敗しました: {message}',
+  'hooks.error.tasksFetchFailed': 'タスクの取得に失敗しました',
+  'hooks.toast.tasksFetchFailed': 'タスクの取得に失敗しました: {message}',
+  'hooks.toast.reloadFailed': '再読み込みに失敗しました: {message}',
 
   'apiError.notFound': '対象が見つかりません。',
   'apiError.invalidFormat': 'インポート形式が不正です。',

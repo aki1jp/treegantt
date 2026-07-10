@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import type { Project } from '../types/task';
 import { apiFetch } from '../utils/api';
 import { showToast } from '../store/toastStore';
+import { useTaskStore } from '../store/taskStore';
+import { apiErrorMessage, dictionaries } from '../i18n/apiError';
 import {
   parseProjectPath,
   projectPath,
@@ -60,8 +62,12 @@ export function useProjects() {
         setLoading(false);
       })
       .catch((err: Error) => {
-        setError('プロジェクト一覧の取得に失敗しました');
-        showToast('プロジェクト一覧の取得に失敗しました: ' + err.message, 'error');
+        // 空 dep 相当のクロージャで locale を固定しないよう、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        setError(dictionaries[currentLocale]['hooks.error.projectsFetchFailed']);
+        const msg = dictionaries[currentLocale]['hooks.toast.projectsFetchFailed']
+          .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+        showToast(msg, 'error');
         setLoading(false);
       });
   }, [retryTick]);

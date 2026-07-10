@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTaskStore } from '../store/taskStore';
 import { showToast } from '../store/toastStore';
 import { fetchAllTasks } from '../utils/api';
+import { apiErrorMessage, dictionaries } from '../i18n/apiError';
 
 // 選択中プロジェクトのタスク取得（初回・切替時・reload イベント）を担うフック。
 // 失敗時は無言で握りつぶさず、エラートーストを出す（§9.9）。
@@ -32,8 +33,12 @@ export function useProjectTasks(
         onLoadedRef.current?.(d.total);
       })
       .catch((err: Error) => {
-        setError('タスクの取得に失敗しました');
-        showToast('タスクの取得に失敗しました: ' + err.message, 'error');
+        // 空 dep 相当のクロージャで locale を固定しないよう、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        setError(dictionaries[currentLocale]['hooks.error.tasksFetchFailed']);
+        const msg = dictionaries[currentLocale]['hooks.toast.tasksFetchFailed']
+          .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+        showToast(msg, 'error');
       });
   }, [projectId, retryTick]);
 
@@ -44,7 +49,11 @@ export function useProjectTasks(
     fetchAllTasks(projectId)
       .then(d => setTasks(d.tasks))
       .catch((err: Error) => {
-        showToast('再読み込みに失敗しました: ' + err.message, 'error');
+        // 空 dep 相当のクロージャで locale を固定しないよう、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        const msg = dictionaries[currentLocale]['hooks.toast.reloadFailed']
+          .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+        showToast(msg, 'error');
       });
   }, [needsReload]);
 
