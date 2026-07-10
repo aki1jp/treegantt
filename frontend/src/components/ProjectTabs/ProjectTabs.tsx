@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ContextMenu } from '../Gantt/GanttContextMenu';
+import { useTranslation } from '../../i18n/useTranslation';
 import type { Project } from '../../types/task';
 
 const LS_ORDER_KEY = 'treegantt-project-order';
@@ -29,6 +30,7 @@ function estimateTabWidth(name: string): number {
 }
 
 export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRename, onUpdateColor, onProjectSettings, taskCounts }: Props) {
+  const { t } = useTranslation();
   const [order, setOrder] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(LS_ORDER_KEY) ?? '[]'); }
     catch { return []; }
@@ -239,7 +241,7 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
             >
               {activeInOverflow
                 ? <><span>{currentProject!.name}</span><span style={{ opacity: 0.7 }}>▾</span></>
-                : <span>▾ +{overflowProjects.length}件</span>
+                : <span>{t('projectTabs.overflowCount', { count: overflowProjects.length })}</span>
               }
             </button>
           </div>
@@ -318,14 +320,14 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            名前を変更
+            {t('projectTabs.rename')}
           </button>
 
           {onUpdateColor && (
             <>
               <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
               <div style={{ padding: '6px 12px' }}>
-                <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>色を変更</div>
+                <div style={{ fontSize: 10, color: 'var(--th-text-dim)', marginBottom: 4 }}>{t('projectTabs.changeColor')}</div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                   {COLOR_PRESETS.map(c => (
                     <button
@@ -341,8 +343,8 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
                     />
                   ))}
                   <button
-                    title="なし"
-                    aria-label="なし"
+                    title={t('projectTabs.noColor')}
+                    aria-label={t('projectTabs.noColor')}
                     onClick={() => { onUpdateColor(tabMenu.project, null); setTabMenu(null); }}
                     style={{
                       width: 18, height: 18, borderRadius: '50%',
@@ -365,7 +367,7 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-hover)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                リソース設定
+                {t('projectTabs.resourceSettings')}
               </button>
             </>
           )}
@@ -377,7 +379,7 @@ export function ProjectTabs({ projects, currentProject, onSelect, onDelete, onRe
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--th-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            削除
+            {t('common.delete')}
           </button>
         </ContextMenu>
       )}

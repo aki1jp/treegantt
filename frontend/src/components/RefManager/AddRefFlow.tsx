@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import type { Project, Task } from '../../types/task';
 import { fetchAllTasks } from '../../utils/api';
 import { showToast } from '../../store/toastStore';
+import { useTranslation } from '../../i18n/useTranslation';
+import { dictionaries } from '../../i18n/apiError';
+import { useTaskStore } from '../../store/taskStore';
 
 interface Props {
   /** 参照先候補プロジェクト一覧（呼び出し側で現プロジェクトを除外して渡す） */
@@ -18,6 +21,7 @@ const SELECT: React.CSSProperties = {
 // クロスプロジェクト参照の追加フロー（プロジェクト選択→タスク選択→追加, §5.8）。
 // 右クリックメニュー「🔗 参照を追加」・ツールバー「🔗 参照」の RefManagerModal 両入口から共通利用する。
 export function AddRefFlow({ projects, onAdd }: Props) {
+  const { t } = useTranslation();
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id ?? '');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
@@ -30,13 +34,18 @@ export function AddRefFlow({ projects, onAdd }: Props) {
     setLoading(true);
     fetchAllTasks(selectedProjectId)
       .then(d => { if (alive) setTasks(d.tasks); })
-      .catch((err: Error) => showToast('タスク一覧の取得に失敗しました: ' + err.message, 'error'))
+      .catch((err: Error) => {
+        // 空 dep 相当のクロージャで t/locale を固定しないよう、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        const msg = dictionaries[currentLocale]['refManager.toast.fetchTasksFailed'].replaceAll('{message}', err.message);
+        showToast(msg, 'error');
+      })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [selectedProjectId]);
 
   if (projects.length === 0) {
-    return <p style={{ fontSize: 13, color: 'var(--th-text-muted)' }}>参照できる他のプロジェクトがありません。</p>;
+    return <p style={{ fontSize: 13, color: 'var(--th-text-muted)' }}>{t('refManager.noOtherProjects')}</p>;
   }
 
   async function handleAdd() {
@@ -55,9 +64,9 @@ export function AddRefFlow({ projects, onAdd }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <label style={LABEL}>参照先プロジェクト</label>
+        <label style={LABEL}>{t('refManager.targetProjectLabel')}</label>
         <select
-          aria-label="参照先プロジェクト"
+          aria-label={t('refManager.targetProjectLabel')}
           style={SELECT}
           value={selectedProjectId}
           onChange={e => { setSelectedProjectId(e.target.value); setSelectedTaskId(''); }}
@@ -67,18 +76,18 @@ export function AddRefFlow({ projects, onAdd }: Props) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <label style={LABEL}>参照するタスク</label>
+        <label style={LABEL}>{t('refManager.targetTaskLabel')}</label>
         {loading ? (
-          <div style={{ fontSize: 12, color: 'var(--th-text-muted)' }}>読み込み中...</div>
+          <div style={{ fontSize: 12, color: 'var(--th-text-muted)' }}>{t('refManager.loadingTasks')}</div>
         ) : (
           <select
-            aria-label="参照するタスク"
+            aria-label={t('refManager.targetTaskLabel')}
             style={SELECT}
             value={selectedTaskId}
             onChange={e => setSelectedTaskId(e.target.value)}
           >
-            <option value="">選択してください</option>
-            {tasks.map(t => <option key={t.id} value={t.id}>#{t.seq} {t.title}</option>)}
+            <option value="">{t('refManager.selectPlaceholder')}</option>
+            {tasks.map(task => <option key={task.id} value={task.id}>#{task.seq} {task.title}</option>)}
           </select>
         )}
       </div>
@@ -93,7 +102,7 @@ export function AddRefFlow({ projects, onAdd }: Props) {
             color: '#fff', cursor: (!selectedTaskId || adding) ? 'default' : 'pointer', fontSize: 13,
           }}
         >
-          追加
+          {t('refManager.addButton')}
         </button>
       </div>
     </div>

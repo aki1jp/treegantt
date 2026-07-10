@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { RefManagerModal } from '../components/RefManager/RefManagerModal';
+import { useTaskStore } from '../store/taskStore';
 import type { Project, Task, TaskRef, RefProject } from '../types/task';
 
 beforeEach(() => {
@@ -94,5 +95,36 @@ describe('RefManagerModal', () => {
     const optionValues = Array.from(projectSelect.options).map(o => o.value);
     expect(optionValues).not.toContain('p1');
     expect(optionValues).toContain('p2');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('RefManagerModal の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('見出し・一覧・解除・再読み込み・閉じるボタンが英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<RefManagerModal {...baseProps()} />);
+    expect(screen.getByText(/Cross-Project References/)).toBeTruthy();
+    expect(screen.getByText('Current References')).toBeTruthy();
+    expect(screen.getByText('Remove')).toBeTruthy();
+    expect(screen.getByLabelText('Refresh references')).toBeTruthy();
+    expect(screen.getByText('Add Reference')).toBeTruthy();
+    expect(screen.getByText('Close')).toBeTruthy();
+  });
+
+  it('参照が空のときの案内メッセージが英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<RefManagerModal {...baseProps({ refs: [], refTasks: [], refProjects: [] })} />);
+    expect(screen.getByText(/No references yet/)).toBeTruthy();
+  });
+
+  it('他に参照できるプロジェクトがない場合の案内が英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<RefManagerModal {...baseProps({ projects: [makeProject('p1', 'プロジェクトA')] })} />);
+    expect(screen.getByText(/No other projects available/)).toBeTruthy();
   });
 });

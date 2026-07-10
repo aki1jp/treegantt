@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, fireEvent, screen, waitFor, act } from '@testing-library/react';
 import { AddRefFlow } from '../components/RefManager/AddRefFlow';
+import { useTaskStore } from '../store/taskStore';
 import type { Project } from '../types/task';
 
 function makeProject(id: string, name: string): Project {
@@ -78,5 +79,30 @@ describe('AddRefFlow', () => {
 
     fireEvent.change(screen.getByLabelText('参照先プロジェクト'), { target: { value: 'p3' } });
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('AddRefFlow の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('プロジェクト選択・タスク選択ステップの文言が英語表示になる', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ tasks: [], total: 0 }));
+    render(<AddRefFlow projects={[makeProject('p2', 'Project B')]} onAdd={vi.fn()} />);
+
+    expect(screen.getByText('Target Project')).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Task to Reference')).toBeTruthy());
+    expect(screen.getByText('Please select')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeTruthy();
+  });
+
+  it('参照できる他のプロジェクトがない場合の案内が英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<AddRefFlow projects={[]} onAdd={vi.fn()} />);
+    expect(screen.getByText(/No other projects available/)).toBeTruthy();
   });
 });

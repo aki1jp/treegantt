@@ -452,7 +452,7 @@ describe('App — 本体文言の i18n（locale="en"）', () => {
 
     const tab = screen.getByText('プロジェクト1');
     fireEvent.contextMenu(tab);
-    fireEvent.click(screen.getByText('削除'));
+    fireEvent.click(screen.getByText('Delete'));
 
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Delete project "プロジェクト1"?'));
   });

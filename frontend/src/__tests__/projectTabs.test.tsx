@@ -5,6 +5,7 @@
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { ProjectTabs } from '../components/ProjectTabs/ProjectTabs';
+import { useTaskStore } from '../store/taskStore';
 import type { Project } from '../types/task';
 
 afterEach(() => { cleanup(); });
@@ -365,5 +366,78 @@ describe('ProjectTabs — ドロップダウン収納', () => {
     const items = screen.getByTestId('overflow-dropdown').querySelectorAll('button');
     fireEvent.click(items[0]);
     expect(onSelect).toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('ProjectTabs の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+    cleanup();
+  });
+
+  it('右クリックメニュー項目が英語表示になる（名前を変更/色を変更/削除）', () => {
+    useTaskStore.setState({ locale: 'en' });
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+        onUpdateColor={NOOP}
+        onProjectSettings={NOOP}
+      />
+    );
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    expect(screen.getByText('Rename')).toBeTruthy();
+    expect(screen.getByText('Change Color')).toBeTruthy();
+    expect(screen.getByText('Resource Settings')).toBeTruthy();
+    expect(screen.getByText('Delete')).toBeTruthy();
+  });
+
+  it('色スウォッチの「なし」が英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    const projects = [makeProject('p1', 'Alpha')];
+    render(
+      <ProjectTabs
+        projects={projects}
+        currentProject={projects[0]}
+        onSelect={NOOP}
+        onDelete={NOOP}
+        onRename={NOOP}
+        onUpdateColor={NOOP}
+      />
+    );
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    expect(screen.getByTitle('None')).toBeTruthy();
+  });
+
+  it('オーバーフロードロップダウンボタンの件数表示が英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    const savedRO = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      private cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) { this.cb = cb; }
+      observe(_el: Element) {
+        this.cb([{ contentRect: { width: 200 } } as ResizeObserverEntry], this as unknown as ResizeObserver);
+      }
+      disconnect() {}
+      unobserve() {}
+    } as unknown as typeof ResizeObserver;
+    localStorage.clear();
+    const projects = [
+      makeProject('p1', 'Alpha'), makeProject('p2', 'Beta'), makeProject('p3', 'Gamma'),
+    ];
+    render(
+      <ProjectTabs projects={projects} currentProject={projects[0]}
+        onSelect={NOOP} onDelete={NOOP} onRename={NOOP} />
+    );
+    const btn = screen.getByTestId('overflow-btn');
+    expect(btn.textContent).toContain('more');
+    globalThis.ResizeObserver = savedRO;
+    localStorage.clear();
   });
 });
