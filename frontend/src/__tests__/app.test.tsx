@@ -79,6 +79,8 @@ interface RouterState {
   tasksByProject: Record<string, Task[]>;
   failPatch?: boolean;
   failReorder?: boolean;
+  failHealth?: boolean;
+  failSettings?: boolean;
   requests: { url: string; method: string; body?: unknown }[];
   refsResponse?: { refs: unknown[]; tasks: Task[]; projects: unknown[] };
 }
@@ -89,8 +91,14 @@ function makeFetchMock(state: RouterState) {
     const body = init?.body ? JSON.parse(init.body as string) : undefined;
     state.requests.push({ url, method, body });
 
-    if (url.endsWith('/health')) return jsonResponse({ status: 'ok', version: '9.9.9' });
-    if (url.includes('/api/v1/settings')) return jsonResponse({ capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] });
+    if (url.endsWith('/health')) {
+      if (state.failHealth) return jsonResponse({ error: 'health boom' }, false, 500);
+      return jsonResponse({ status: 'ok', version: '9.9.9' });
+    }
+    if (url.includes('/api/v1/settings')) {
+      if (state.failSettings) return jsonResponse({ error: 'settings boom' }, false, 500);
+      return jsonResponse({ capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] });
+    }
 
     if (url.match(/\/projects\/[^/?]+\/refs$/) && method === 'GET') {
       return jsonResponse(state.refsResponse ?? { refs: [], tasks: [], projects: [] });
@@ -398,6 +406,32 @@ describe('App — テーマ切替ボタンの title', () => {
     expect(screen.getByTitle('Light mode')).toBeTruthy();
     expect(screen.getByTitle('Dark mode')).toBeTruthy();
     expect(screen.getByTitle('Follow system setting')).toBeTruthy();
+  });
+});
+
+// ─── 言語切替中に mount-effect の fetch が失敗した場合のトースト言語 ──────
+describe('App — 言語切替中に保留中の fetch が失敗した場合のトースト言語', () => {
+  it('バージョン取得が失敗する前にlocaleをenへ切り替えると、トーストは英語で表示される', async () => {
+    routerState.failHealth = true;
+    render(<App />);
+    // fetch はまだ解決していない（マイクロタスク未消化）うちに同期的に locale を切り替える
+    useTaskStore.setState({ locale: 'en' });
+
+    await waitFor(() => {
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.type === 'error' && t.message.includes('Failed to fetch version info'))).toBe(true);
+    });
+  });
+
+  it('リソース設定取得が失敗する前にlocaleをenへ切り替えると、トーストは英語で表示される', async () => {
+    routerState.failSettings = true;
+    render(<App />);
+    useTaskStore.setState({ locale: 'en' });
+
+    await waitFor(() => {
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.type === 'error' && t.message.includes('Failed to fetch resource settings'))).toBe(true);
+    });
   });
 });
 

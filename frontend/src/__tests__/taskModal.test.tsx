@@ -5,6 +5,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen, act } from '@testing-library/react';
 import { TaskModal } from '../components/TaskModal/TaskModal';
+import { useTaskStore } from '../store/taskStore';
 import type { Task, RefProject } from '../types/task';
 
 afterEach(() => { cleanup(); });
@@ -450,5 +451,59 @@ describe('TaskModal — readOnly（参照タスク自身を開いた場合）', 
       <TaskModal task={makeTask({ projectId: 'p1' })} allTasks={[]} onSave={NOOP} onClose={NOOP} currentProjectId="p1" />
     );
     expect(screen.getByRole('button', { name: '保存' })).toBeTruthy();
+  });
+});
+
+// ─── i18n（locale='en'）─────────────────────────────────────────────
+describe('TaskModal i18n（locale="en"）', () => {
+  beforeEach(() => {
+    useTaskStore.setState({ locale: 'en' });
+  });
+
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('新規作成時のモーダル見出しが英語表示される（Create Task）', () => {
+    render(<TaskModal task={null} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.getByText('Create Task')).toBeTruthy();
+  });
+
+  it('編集時のモーダル見出しが英語表示される（Edit Task）', () => {
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.getByText('Edit Task')).toBeTruthy();
+  });
+
+  it('主要フィールドの aria-label が英語表示される', () => {
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.getByLabelText('Title')).toBeTruthy();
+    expect(screen.getByLabelText('Summary')).toBeTruthy();
+    expect(screen.getByLabelText('Description')).toBeTruthy();
+    expect(screen.getByLabelText('Status')).toBeTruthy();
+    expect(screen.getByLabelText('Priority')).toBeTruthy();
+    expect(screen.getByLabelText('Assignee')).toBeTruthy();
+    expect(screen.getByLabelText('Start Date')).toBeTruthy();
+    expect(screen.getByLabelText('End Date')).toBeTruthy();
+  });
+
+  it('Cancel/Save ボタンが英語表示される', () => {
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+
+  it('ステータス選択肢が英語表示される（Wait/Pending）', () => {
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    const select = screen.getByLabelText('Status') as HTMLSelectElement;
+    const labels = Array.from(select.options).map(o => o.text);
+    expect(labels).toContain('Wait');
+    expect(labels).toContain('Pending');
+  });
+
+  it('優先度選択肢が英語表示される（Critical/High/Medium/Low）', () => {
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    const select = screen.getByLabelText('Priority') as HTMLSelectElement;
+    const labels = Array.from(select.options).map(o => o.text);
+    expect(labels).toEqual(['Critical', 'High', 'Medium', 'Low']);
   });
 });

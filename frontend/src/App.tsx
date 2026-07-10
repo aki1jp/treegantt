@@ -6,7 +6,7 @@ import { useImportExport } from './hooks/useImportExport';
 import { useTaskStore } from './store/taskStore';
 import { useTheme } from './hooks/useTheme';
 import { useTranslation } from './i18n/useTranslation';
-import { apiErrorMessage } from './i18n/apiError';
+import { apiErrorMessage, dictionaries } from './i18n/apiError';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
@@ -61,7 +61,13 @@ export default function App() {
     let alive = true;
     fetchHealth()
       .then(h => { if (alive) setBackendVersion(h.version ?? null); })
-      .catch((err: Error) => showToast(t('app.toast.versionFetchFailed', { message: apiErrorMessage(err, locale) }), 'error'));
+      .catch((err: Error) => {
+        // 空 dep のクロージャで t/locale を固定せず、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        const msg = dictionaries[currentLocale]['app.toast.versionFetchFailed']
+          .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+        showToast(msg, 'error');
+      });
     return () => { alive = false; };
   }, []);
 
@@ -72,7 +78,13 @@ export default function App() {
     let alive = true;
     fetchSettings()
       .then(s => { if (alive) setAppSettings(s); })
-      .catch((err: Error) => showToast(t('app.toast.settingsFetchFailed', { message: apiErrorMessage(err, locale) }), 'error'));
+      .catch((err: Error) => {
+        // 空 dep のクロージャで t/locale を固定せず、catch 実行時点の最新 locale を読み直す
+        const currentLocale = useTaskStore.getState().locale;
+        const msg = dictionaries[currentLocale]['app.toast.settingsFetchFailed']
+          .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+        showToast(msg, 'error');
+      });
     return () => { alive = false; };
   }, [setAppSettings]);
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
 import { getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { useTranslation } from '../../i18n/useTranslation';
 
 interface Props {
   task: Task | null;
@@ -18,6 +19,7 @@ const INPUT: React.CSSProperties = {
 };
 
 export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClose }: Props) {
+  const { t } = useTranslation();
   const [shaking, setShaking] = useState(false);
   const [title, setTitle]       = useState(task?.title    ?? '');
   const [date, setDate]         = useState(task?.startDate ?? '');
@@ -122,28 +124,28 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
       }} onClick={e => e.stopPropagation()}>
 
         <h2 style={{ marginBottom: 4, fontSize: 18 }}>
-          {task ? 'マイルストーン編集' : 'マイルストーン作成'}
+          {task ? t('milestoneModal.editTitle') : t('milestoneModal.createTitle')}
         </h2>
         <p style={{ fontSize: 12, color: 'var(--th-text-muted)', marginBottom: 16, margin: '4px 0 16px' }}>
-          ◇ 期間ゼロの到達点（チェックポイント）
+          {t('milestoneModal.subtitle')}
         </p>
 
         <form onSubmit={handleSubmit}>
           <div data-field="title" {...shakeProps(dirtyFields.title)}>
-            <label style={LABEL}>タイトル *</label>
-            <input style={INPUT} aria-label="タイトル" value={title} onChange={e => setTitle(e.target.value)}
+            <label style={LABEL}>{t('milestoneModal.titleLabel')} *</label>
+            <input style={INPUT} aria-label={t('milestoneModal.titleLabel')} value={title} onChange={e => setTitle(e.target.value)}
               required maxLength={200} autoFocus />
           </div>
 
           <div data-field="date" {...shakeProps(dirtyFields.date)}>
-            <label style={LABEL}>日付</label>
-            <input style={INPUT} type="date" aria-label="日付" value={date ?? ''}
+            <label style={LABEL}>{t('milestoneModal.dateLabel')}</label>
+            <input style={INPUT} type="date" aria-label={t('milestoneModal.dateLabel')} value={date ?? ''}
               onChange={e => setDate(e.target.value)} />
           </div>
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
-            <label style={LABEL}>担当者</label>
-            <input style={INPUT} aria-label="担当者" value={assignee} list="assignee-opts-milestone"
+            <label style={LABEL}>{t('milestoneModal.assigneeLabel')}</label>
+            <input style={INPUT} aria-label={t('milestoneModal.assigneeLabel')} value={assignee} list="assignee-opts-milestone"
               onChange={e => setAssignee(e.target.value)} />
             <datalist id="assignee-opts-milestone">
               {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
@@ -152,10 +154,10 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
 
           {candidates.length > 0 && (
             <div data-field="predecessors" {...shakeProps(dirtyFields.predecessors)}>
-              <label style={LABEL}>先行タスク（複数選択可）</label>
+              <label style={LABEL}>{t('milestoneModal.predecessorsLabel')}</label>
               <input
                 style={{ ...INPUT, marginBottom: 6 }}
-                placeholder="# で指定（例: 1, 3）"
+                placeholder={t('milestoneModal.predecessorsPlaceholder')}
                 value={predecessorText}
                 onChange={e => {
                   const text = e.target.value;
@@ -193,13 +195,13 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
               padding: '8px 16px', border: '1px solid var(--th-input-border)', borderRadius: 4,
               background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer',
             }}>
-              キャンセル
+              {t('common.cancel')}
             </button>
             <button type="submit" style={{
               padding: '8px 16px', border: 'none', borderRadius: 4,
               background: '#4f46e5', color: '#fff', cursor: 'pointer', fontWeight: 600,
             }}>
-              保存
+              {t('common.save')}
             </button>
           </div>
         </form>

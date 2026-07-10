@@ -3,7 +3,10 @@ import { ja } from './ja';
 import { en } from './en';
 import type { TranslationKey } from './useTranslation';
 
-const dictionaries = { ja, en } as const;
+// catch 時点の最新 locale を non-hook で参照したい呼び出し元（例: App.tsx の
+// mount-once useEffect）向けに export。t/locale をクロージャで固定してしまう
+// 問題を避けるための共有辞書。
+export const dictionaries = { ja, en } as const;
 
 // api/src の各 routes/*.ts が返す既知のエラー code → 辞書キーの対応表。
 // api/src/app.ts の集約エラーハンドラが未設定 code を 'INTERNAL_ERROR' に正規化する。

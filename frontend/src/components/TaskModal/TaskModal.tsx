@@ -4,6 +4,7 @@ import type { Task, TaskStatus, TaskPriority, RefProject } from '../../types/tas
 import { getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
 import { parseDuration, formatMinutes, HARDCODED_CAPACITY_MINUTES } from '../../utils/duration';
 import { isReadonlyTask } from '../../utils/refTasks';
+import { useTranslation } from '../../i18n/useTranslation';
 
 interface Props {
   task: Task | null;
@@ -25,16 +26,6 @@ interface Props {
   onOpenRefProject?: (projectId: string) => void;
 }
 
-const ESTIMATE_HELP =
-  '予定工数の書式: 3d=3人日 / 4h=4時間 / 30m=30分 / 7:45=7時間45分 / 1d 4h=1人日+4時間 / 1w=1週。1人日=キャパシティ(既定8:00)';
-
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: 'TODO', wip: 'Doing', done: 'DONE', wait: '待機', pending: '保留',
-};
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  critical: '最高', high: '高', medium: '中', low: '低',
-};
-
 const FIELD: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 12 };
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--th-text-muted)' };
 const INPUT: React.CSSProperties = {
@@ -47,6 +38,16 @@ export function TaskModal({
   capacityMinutes = HARDCODED_CAPACITY_MINUTES, workingDaysPerWeek = 5,
   currentProjectId, refTasks = [], refProjects = [], onOpenRefProject,
 }: Props) {
+  const { t } = useTranslation();
+  const ESTIMATE_HELP = t('taskModal.estimateHelp');
+  const STATUS_LABELS: Record<TaskStatus, string> = {
+    todo: 'TODO', wip: 'Doing', done: 'DONE', wait: t('toolbar.status.wait'), pending: t('toolbar.status.pending'),
+  };
+  const PRIORITY_LABELS: Record<TaskPriority, string> = {
+    critical: t('toolbar.priority.critical'), high: t('toolbar.priority.high'),
+    medium: t('toolbar.priority.medium'), low: t('toolbar.priority.low'),
+  };
+
   // クロスプロジェクト参照（§5.8）: 参照タスク自身を開いた場合は readOnly モード
   const isReadOnly = task ? isReadonlyTask(task, currentProjectId) : false;
   const [shaking, setShaking] = useState(false);
@@ -192,30 +193,30 @@ export function TaskModal({
         overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,.3)', color: 'var(--th-text)',
       }} onClick={e => e.stopPropagation()}>
         <h2 style={{ marginBottom: 16, fontSize: 18 }}>
-          {task ? 'タスク編集' : 'タスク作成'}
+          {task ? t('taskModal.editTitle') : t('taskModal.createTitle')}
         </h2>
 
         <form onSubmit={handleSubmit}>
           <div data-field="title" {...shakeProps(dirtyFields.title)}>
-            <label style={LABEL}>タイトル *</label>
-            <input style={INPUT} aria-label="タイトル" value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} disabled={isReadOnly} />
+            <label style={LABEL}>{t('taskModal.titleLabel')} *</label>
+            <input style={INPUT} aria-label={t('taskModal.titleLabel')} value={title} onChange={e => setTitle(e.target.value)} required maxLength={200} disabled={isReadOnly} />
           </div>
 
           <div data-field="summary" {...shakeProps(dirtyFields.summary)}>
-            <label style={LABEL}>サマリ</label>
-            <input style={INPUT} aria-label="サマリ" value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} disabled={isReadOnly} />
+            <label style={LABEL}>{t('taskModal.summaryLabel')}</label>
+            <input style={INPUT} aria-label={t('taskModal.summaryLabel')} value={summary} onChange={e => setSummary(e.target.value)} maxLength={500} disabled={isReadOnly} />
           </div>
 
           <div data-field="description" {...shakeProps(dirtyFields.description)}>
             {/* タブヘッダー */}
-            <div role="tablist" aria-label="説明の表示切替" style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--th-input-border)', marginBottom: 0 }}>
-              <label style={{ ...LABEL, marginBottom: 0, marginRight: 12 }}>説明</label>
+            <div role="tablist" aria-label={t('taskModal.descTab.tablistAriaLabel')} style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: '1px solid var(--th-input-border)', marginBottom: 0 }}>
+              <label style={{ ...LABEL, marginBottom: 0, marginRight: 12 }}>{t('taskModal.descriptionLabel')}</label>
               {(['edit', 'preview'] as const).map(tab => (
                 <button
                   key={tab}
                   type="button"
                   role="tab"
-                  aria-label={tab === 'edit' ? '編集' : 'プレビュー'}
+                  aria-label={tab === 'edit' ? t('taskModal.descTab.edit') : t('taskModal.descTab.preview')}
                   onClick={() => setDescTab(tab)}
                   style={{
                     padding: '4px 12px', border: 'none', borderBottom: descTab === tab ? '2px solid #4f46e5' : '2px solid transparent',
@@ -223,7 +224,7 @@ export function TaskModal({
                     color: descTab === tab ? '#4f46e5' : 'var(--th-text-muted)', marginBottom: -1,
                   }}
                 >
-                  {tab === 'edit' ? '編集' : 'プレビュー'}
+                  {tab === 'edit' ? t('taskModal.descTab.edit') : t('taskModal.descTab.preview')}
                 </button>
               ))}
             </div>
@@ -231,7 +232,7 @@ export function TaskModal({
             {/* 編集タブ */}
             {descTab === 'edit' && (
               <textarea
-                aria-label="説明"
+                aria-label={t('taskModal.descriptionLabel')}
                 style={{ ...INPUT, minHeight: 80, resize: 'vertical' }}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
@@ -248,7 +249,7 @@ export function TaskModal({
                 {description.trim() ? (
                   <MarkdownBody>{description}</MarkdownBody>
                 ) : (
-                  <span style={{ color: 'var(--th-text-ph)', fontStyle: 'italic' }}>説明がありません</span>
+                  <span style={{ color: 'var(--th-text-ph)', fontStyle: 'italic' }}>{t('taskModal.descTab.empty')}</span>
                 )}
               </div>
             )}
@@ -256,16 +257,16 @@ export function TaskModal({
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div data-field="status" {...shakeProps(dirtyFields.status)}>
-              <label style={LABEL}>ステータス</label>
-              <select style={INPUT} aria-label="ステータス" value={status} onChange={e => setStatus(e.target.value as TaskStatus)} disabled={isReadOnly}>
+              <label style={LABEL}>{t('taskModal.statusLabel')}</label>
+              <select style={INPUT} aria-label={t('taskModal.statusLabel')} value={status} onChange={e => setStatus(e.target.value as TaskStatus)} disabled={isReadOnly}>
                 {Object.entries(STATUS_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
               </select>
             </div>
             <div data-field="priority" {...shakeProps(dirtyFields.priority)}>
-              <label style={LABEL}>優先度</label>
-              <select style={INPUT} aria-label="優先度" value={priority} onChange={e => setPriority(e.target.value as TaskPriority)} disabled={isReadOnly}>
+              <label style={LABEL}>{t('taskModal.priorityLabel')}</label>
+              <select style={INPUT} aria-label={t('taskModal.priorityLabel')} value={priority} onChange={e => setPriority(e.target.value as TaskPriority)} disabled={isReadOnly}>
                 {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
@@ -274,14 +275,14 @@ export function TaskModal({
           </div>
 
           <div data-field="progress" {...shakeProps(dirtyFields.progress)}>
-            <label style={LABEL}>進捗率: {progress}%</label>
-            <input type="range" aria-label="進捗率" min={0} max={100} value={progress}
+            <label style={LABEL}>{t('taskModal.progressLabel', { progress })}</label>
+            <input type="range" aria-label={t('taskModal.progressAriaLabel')} min={0} max={100} value={progress}
               onChange={e => setProgress(Number(e.target.value))} style={{ width: '100%' }} disabled={isReadOnly} />
           </div>
 
           <div data-field="assignee" {...shakeProps(dirtyFields.assignee)}>
-            <label style={LABEL}>担当者</label>
-            <input style={INPUT} aria-label="担当者" value={assignee} list="assignee-opts-modal"
+            <label style={LABEL}>{t('taskModal.assigneeLabel')}</label>
+            <input style={INPUT} aria-label={t('taskModal.assigneeLabel')} value={assignee} list="assignee-opts-modal"
               onChange={e => setAssignee(e.target.value)} disabled={isReadOnly} />
             <datalist id="assignee-opts-modal">
               {getUniqueAssignees(allTasks).map(a => <option key={a} value={a} />)}
@@ -290,7 +291,7 @@ export function TaskModal({
 
           <div data-field="estimateMinutes" {...shakeProps(dirtyFields.estimateMinutes)}>
             <label style={LABEL}>
-              予定工数
+              {t('taskModal.estimateLabel')}
               <span title={ESTIMATE_HELP} style={{
                 marginLeft: 6, cursor: 'help', fontWeight: 700,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -299,34 +300,34 @@ export function TaskModal({
               }}>?</span>
             </label>
             <input style={INPUT} value={estimateText}
-              placeholder="例: 1d 4h, 7:45, 30m"
+              placeholder={t('taskModal.estimatePlaceholder')}
               onChange={e => setEstimateText(e.target.value)} disabled={isReadOnly} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div data-field="startDate" {...shakeProps(dirtyFields.startDate)}>
               <label style={LABEL}>
-                開始日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
+                {t('taskModal.startDateLabel')}{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>{t('taskModal.autoSuffix')}</span>}
               </label>
-              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label="開始日" value={startDate}
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label={t('taskModal.startDateLabel')} value={startDate}
                 disabled={hasChildren || isReadOnly}
                 onChange={e => setStartDate(e.target.value)}
-                title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
+                title={hasChildren ? t('taskModal.autoDateTitle') : undefined} />
             </div>
             <div data-field="endDate" {...shakeProps(dirtyFields.endDate)}>
               <label style={LABEL}>
-                終了日{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>(自動)</span>}
+                {t('taskModal.endDateLabel')}{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>{t('taskModal.autoSuffix')}</span>}
               </label>
-              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label="終了日" value={endDate}
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label={t('taskModal.endDateLabel')} value={endDate}
                 disabled={hasChildren || isReadOnly}
                 onChange={e => setEndDate(e.target.value)}
-                title={hasChildren ? '子タスクの日付から自動計算されます' : undefined} />
+                title={hasChildren ? t('taskModal.autoDateTitle') : undefined} />
             </div>
           </div>
 
           {/* 親タスク（マイルストーンは親になれない） */}
           <div data-field="parentId" {...shakeProps(dirtyFields.parentId)}>
-            <label style={LABEL}>親タスク</label>
+            <label style={LABEL}>{t('taskModal.parentTaskLabel')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 style={{ ...INPUT, width: 72, flexShrink: 0 }}
@@ -341,8 +342,8 @@ export function TaskModal({
                 }}
                 disabled={isReadOnly}
               />
-              <select style={{ ...INPUT, flex: 1 }} aria-label="親タスク" value={parentId} onChange={e => setParentId(e.target.value)} disabled={isReadOnly}>
-                <option value="">なし（ルートタスク）</option>
+              <select style={{ ...INPUT, flex: 1 }} aria-label={t('taskModal.parentTaskLabel')} value={parentId} onChange={e => setParentId(e.target.value)} disabled={isReadOnly}>
+                <option value="">{t('taskModal.parentTaskNone')}</option>
                 {parentCandidates.map(t => (
                   <option key={t.id} value={t.id}>
                     #{t.seq} {t.title}
@@ -355,10 +356,10 @@ export function TaskModal({
           {/* 先行タスク */}
           {predecessorCandidates.length > 0 && (
             <div data-field="predecessors" {...shakeProps(dirtyFields.predecessors)}>
-              <label style={LABEL}>先行タスク（複数選択可）</label>
+              <label style={LABEL}>{t('taskModal.predecessorsLabel')}</label>
               <input
                 style={{ ...INPUT, marginBottom: 6 }}
-                placeholder="# で指定（例: 1, 3, 5）"
+                placeholder={t('taskModal.predecessorsPlaceholder')}
                 value={predecessorText}
                 onChange={e => {
                   const text = e.target.value;
@@ -391,7 +392,7 @@ export function TaskModal({
           {/* 外部の先行タスク（参照済み, §5.8）: 既存の #seq 入力とは別枠のチェックリスト */}
           {refCandidates.length > 0 && (
             <div data-field="externalPredecessors" style={FIELD}>
-              <label style={LABEL}>外部の先行タスク（参照済み）</label>
+              <label style={LABEL}>{t('taskModal.externalPredecessorsLabel')}</label>
               <div style={{ border: '1px solid var(--th-input-border)', borderRadius: 4, padding: 8, maxHeight: 120, overflowY: 'auto', background: 'var(--th-input-bg)' }}>
                 {refCandidates.map(t => (
                   <label key={t.id} style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', marginBottom: 4 }}>
@@ -415,21 +416,21 @@ export function TaskModal({
               <>
                 <button type="button" onClick={onClose}
                   style={{ padding: '8px 16px', border: '1px solid var(--th-input-border)', borderRadius: 4, background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer' }}>
-                  閉じる
+                  {t('common.close')}
                 </button>
                 <button type="button" onClick={() => task && onOpenRefProject?.(task.projectId)}
                   style={{ padding: '8px 16px', border: 'none', borderRadius: 4, background: '#4f46e5', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-                  参照先プロジェクトを開く
+                  {t('taskModal.openRefProject')}
                 </button>
               </>
             ) : (<>
             <button type="button" onClick={onClose}
               style={{ padding: '8px 16px', border: '1px solid var(--th-input-border)', borderRadius: 4, background: 'var(--th-bg)', color: 'var(--th-text2)', cursor: 'pointer' }}>
-              キャンセル
+              {t('common.cancel')}
             </button>
             <button type="submit"
               style={{ padding: '8px 16px', border: 'none', borderRadius: 4, background: '#4f46e5', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-              保存
+              {t('common.save')}
             </button>
             </>)}
           </div>
