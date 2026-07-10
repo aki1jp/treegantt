@@ -194,6 +194,16 @@ export const ja = {
   'wbs.col.endDate': '終了',
   'wbs.col.duration': '日数',
 
+  // 列表示設定ポップアップ専用（スペースに余裕がありユーザーへの分かりやすさのため
+  // 完全形。wbs.col.* のヘッダー短縮形とは意図的に異なる, §9.11）
+  'wbs.colToggle.status': 'ステータス',
+  'wbs.colToggle.priority': '優先度',
+  'wbs.colToggle.progress': '進捗率',
+  'wbs.colToggle.assignee': '担当者',
+  'wbs.colToggle.startDate': '開始日',
+  'wbs.colToggle.endDate': '終了日',
+  'wbs.colToggle.duration': '日数',
+
   'wbs.show': 'WBSを表示',
   'wbs.hide': 'WBSを隠す',
   'wbs.colSettingsTitle': 'WBS列の表示設定',

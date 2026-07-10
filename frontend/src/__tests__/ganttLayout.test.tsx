@@ -986,10 +986,90 @@ describe('WBS/ガント列見出し i18n（locale="en"）', () => {
     ]);
   });
 
-  it('GanttChart の列見出しと WbsPanel の列表示設定ポップアップが同じ辞書キー（同一の英語ラベル）を参照する', () => {
-    const { getByTitle, getAllByText } = renderChart();
-    // ポップアップを開く（重複解消前は見出し「優先」とポップアップ「優先度」で文言が異なっていた）
+  it('GanttChart の列見出しと WbsPanel の列表示設定ポップアップは意図的に異なる辞書キー（別ラベル）を参照する', () => {
+    // §9.11 の「重複解消」は列ラベルの文字列リテラルを辞書（ja.ts/en.ts）へ集約する
+    // 実装上の重複解消であり、見出し（スペース制約あり・短縮形）とポップアップ
+    // （スペースに余裕あり・完全形でユーザーへの分かりやすさ優先）の表示文言自体を
+    // 統一する意図ではない。ヘッダーは短縮形（Start/End/Days）のまま、ポップアップは
+    // 完全形（Start Date/End Date/Duration）を表示し、両者は異なる必要がある。
+    const { getByTestId, getByTitle, getAllByText, getByText } = renderChart();
+    const header = getByTestId('wbs-header');
+    const headerTexts = Array.from(header.children).slice(0, 10).map(el => el.textContent);
+    expect(headerTexts).toEqual(
+      expect.arrayContaining(['Start', 'End', 'Days']),
+    );
+
     fireEvent.click(getByTitle('Column Settings'));
-    expect(getAllByText('Priority').length).toBe(2); // 見出しセル + ポップアップのチェックボックスラベル
+
+    // ポップアップは完全形を表示する
+    expect(getByText('Start Date')).toBeTruthy();
+    expect(getByText('End Date')).toBeTruthy();
+    expect(getByText('Duration')).toBeTruthy();
+    // ヘッダーの短縮形はヘッダー側にしか出現しない（ポップアップには短縮形は出ない）
+    expect(getAllByText('Start').length).toBe(1);
+    expect(getAllByText('End').length).toBe(1);
+    expect(getAllByText('Days').length).toBe(1);
+  });
+});
+
+// ─── WBS列表示設定ポップアップ — ヘッダー短縮形との意図的な差異（日本語, 退行防止）───
+// 15ab652 で WBS_COL_LABEL_KEYS への一本化時に、ポップアップの表示文言が誤って
+// ヘッダーの短縮形（例:「優先」）に変わってしまった（「優先度」が期待値）。
+// ポップアップはスペースに余裕があるUIのため、一本化前の完全形に戻す（§9.11）。
+describe('WBS列表示設定ポップアップの完全形表示（日本語ロケール, 退行防止）', () => {
+  function makeTask(overrides: Partial<Task> = {}): Task {
+    return {
+      id: 't1', projectId: 'p1', parentId: null,
+      title: 'タスク', summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: '2026-05-01', endDate: '2026-05-10',
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      titleColor: null, titleBgColor: null, estimateMinutes: null,
+      ...overrides,
+    };
+  }
+
+  function renderChart() {
+    // 子タスクなしのフラットな1件（タイトル列見出しに ExpandCollapseButtons が
+    // 混ざらないようにし、列見出しテキストのみを厳密比較できるようにする）
+    useTaskStore.setState({ tasks: [makeTask()], locale: 'ja', showResourceView: false });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
+    );
+  }
+
+  it('ヘッダーは短縮形（ST/優先/進捗/担当/開始/終了）のまま変わらない', () => {
+    const { getByTestId } = renderChart();
+    const header = getByTestId('wbs-header');
+    const colTexts = Array.from(header.children).slice(0, 10).map(el => el.textContent);
+    expect(colTexts).toEqual([
+      '行', '#', 'タイトル', 'ST', '優先', '進捗', '担当', '開始', '終了', '日数',
+    ]);
+  });
+
+  it('列表示設定ポップアップは完全形（ステータス/優先度/進捗率/担当者/開始日/終了日）を表示する', () => {
+    const { getByTitle, getByText } = renderChart();
+    fireEvent.click(getByTitle('WBS列の表示設定'));
+    expect(getByText('ステータス')).toBeTruthy();
+    expect(getByText('優先度')).toBeTruthy();
+    expect(getByText('進捗率')).toBeTruthy();
+    expect(getByText('担当者')).toBeTruthy();
+    expect(getByText('開始日')).toBeTruthy();
+    expect(getByText('終了日')).toBeTruthy();
+  });
+
+  it('ヘッダーの短縮形「優先」はポップアップのラベルとしては出現しない（ヘッダーの1箇所のみ）', () => {
+    const { getByTitle, getAllByText } = renderChart();
+    fireEvent.click(getByTitle('WBS列の表示設定'));
+    // 「優先」はヘッダーの1セルのみに出現し、ポップアップは「優先度」なので重複しない
+    expect(getAllByText('優先').length).toBe(1);
+  });
+
+  it('日数はヘッダー・ポップアップとも同じ表記のため2箇所に出現する（変更対象外）', () => {
+    const { getByTitle, getAllByText } = renderChart();
+    fireEvent.click(getByTitle('WBS列の表示設定'));
+    expect(getAllByText('日数').length).toBe(2);
   });
 });

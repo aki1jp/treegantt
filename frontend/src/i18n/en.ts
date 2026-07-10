@@ -195,6 +195,16 @@ export const en = {
   'wbs.col.endDate': 'End',
   'wbs.col.duration': 'Days',
 
+  // Column-toggle popup only (spacious UI, full wording for clarity; intentionally
+  // distinct from the abbreviated wbs.col.* header labels, §9.11)
+  'wbs.colToggle.status': 'Status',
+  'wbs.colToggle.priority': 'Priority',
+  'wbs.colToggle.progress': 'Progress',
+  'wbs.colToggle.assignee': 'Assignee',
+  'wbs.colToggle.startDate': 'Start Date',
+  'wbs.colToggle.endDate': 'End Date',
+  'wbs.colToggle.duration': 'Duration',
+
   'wbs.show': 'Show WBS',
   'wbs.hide': 'Hide WBS',
   'wbs.colSettingsTitle': 'Column Settings',

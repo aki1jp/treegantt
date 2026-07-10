@@ -6,10 +6,12 @@ import { useTranslation } from '../../i18n/useTranslation';
 import { GanttLeftRow } from './GanttLeftRow';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 import { QuickAddRow } from './QuickAddRow';
-import { HEADER_ROW_H, WBS_COL_LABEL_KEYS } from './ganttChartConstants';
+import { HEADER_ROW_H, WBS_COL_TOGGLE_LABEL_KEYS } from './ganttChartConstants';
 
-// 列表示設定ポップアップで隠せる列のキー（ラベルは GanttChart.tsx の LEFT_COLS と同じ
-// WBS_COL_LABEL_KEYS を参照し、辞書へ一本化する, §9.11）
+// 列表示設定ポップアップで隠せる列のキー（ラベルは WBS_COL_TOGGLE_LABEL_KEYS 経由で
+// 辞書に一本化する, §9.11）。GanttChart.tsx の LEFT_COLS（見出し・短縮形）とは別の
+// キー・別の値（完全形）を参照する（ポップアップはスペースに余裕がありユーザーへの
+// 分かりやすさを優先するため）。
 const HIDEABLE_COL_KEYS = ['status', 'priority', 'progress', 'assignee', 'startDate', 'endDate', 'duration'] as const;
 
 const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
@@ -96,7 +98,7 @@ export function WbsPanel(props: Props) {
   } = props;
 
   const { t } = useTranslation();
-  const HIDEABLE_COLS = HIDEABLE_COL_KEYS.map(key => ({ key, label: t(WBS_COL_LABEL_KEYS[key]) }));
+  const HIDEABLE_COLS = HIDEABLE_COL_KEYS.map(key => ({ key, label: t(WBS_COL_TOGGLE_LABEL_KEYS[key]) }));
 
   // WBS列表示設定ポップアップの開閉位置（このコンポーネント内でのみ完結する）
   const [wbsColMenuPos, setWbsColMenuPos] = useState<{ x: number; y: number } | null>(null);
