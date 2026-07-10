@@ -222,6 +222,9 @@ export const en = {
   'wbs.row.dateAutoTitle': 'Automatically calculated from child task dates',
   'wbs.row.milestoneEndSyncTitle': 'Milestone end date is synced to the start date',
 
+  'ganttChart.panelAriaLabel': 'Gantt Chart',
+  'ganttChart.todayLabel': 'Today',
+
   'contextMenu.openRefProject': 'Open referenced project',
   'contextMenu.removeRef': 'Remove reference',
   'contextMenu.refreshRefs': 'Refresh references',
@@ -319,6 +322,7 @@ export const en = {
   'hooks.error.tasksFetchFailed': 'Failed to fetch tasks',
   'hooks.toast.tasksFetchFailed': 'Failed to fetch tasks: {message}',
   'hooks.toast.reloadFailed': 'Failed to reload: {message}',
+  'hooks.toast.importFailed': 'Failed to import: {message}',
 
   'apiError.notFound': 'The requested item was not found.',
   'apiError.invalidFormat': 'Invalid import format.',

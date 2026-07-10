@@ -3,6 +3,8 @@ import type { Task, Project } from '../types/task';
 import { apiFetch } from '../utils/api';
 import { showToast } from '../store/toastStore';
 import { exportToJson, exportToCsv, importFromJson, importFromCsv, downloadFile } from '../utils/importExport';
+import { apiErrorMessage, dictionaries } from '../i18n/apiError';
+import { useTaskStore } from '../store/taskStore';
 
 function exportFileName(project: Project, ext: string): string {
   const safeName = project.name.replace(/[/\\:*?"<>|]/g, '_');
@@ -56,7 +58,11 @@ export function useImportExport(
       const data = await apiFetch(`/projects/${currentProject.id}/tasks`);
       setTasks(data.tasks as Task[]);
     } catch (err) {
-      showToast('インポートに失敗しました: ' + (err as Error).message, 'error');
+      // 空 dep 相当のクロージャで locale を固定しないよう、catch 実行時点の最新 locale を読み直す
+      const currentLocale = useTaskStore.getState().locale;
+      const msg = dictionaries[currentLocale]['hooks.toast.importFailed']
+        .replaceAll('{message}', apiErrorMessage(err, currentLocale));
+      showToast(msg, 'error');
     }
     e.target.value = '';
   }

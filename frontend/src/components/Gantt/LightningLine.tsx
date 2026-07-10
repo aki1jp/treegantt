@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { ZoomLevel } from '../../types/task';
 import type { LightningPoint } from '../../utils/ganttCalc';
 import { calcNowX } from '../../utils/ganttCalc';
+import { useTranslation } from '../../i18n/useTranslation';
 
 interface Props {
   points: LightningPoint[];
@@ -32,6 +33,8 @@ interface TodayLineProps {
 }
 
 export function TodayLine({ min, zoomLevel, height }: TodayLineProps) {
+  const { t, locale } = useTranslation();
+  const timeLocale = locale === 'en' ? 'en-US' : 'ja-JP';
   const lineRef = useRef<SVGLineElement>(null);
   const labelRef = useRef<SVGTextElement>(null);
   const timeRef = useRef<SVGTextElement>(null);
@@ -41,7 +44,7 @@ export function TodayLine({ min, zoomLevel, height }: TodayLineProps) {
     function update() {
       const now = new Date();
       const x = calcNowX(min, zoomLevel, now);
-      const timeLabel = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      const timeLabel = now.toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit' });
       lineRef.current?.setAttribute('x1', String(x));
       lineRef.current?.setAttribute('x2', String(x));
       labelRef.current?.setAttribute('x', String(x + 4));
@@ -51,16 +54,16 @@ export function TodayLine({ min, zoomLevel, height }: TodayLineProps) {
     update();
     const id = setInterval(update, 60000);
     return () => clearInterval(id);
-  }, [min, zoomLevel]);
+  }, [min, zoomLevel, timeLocale]);
 
   const initialNow = new Date();
   const initialX = calcNowX(min, zoomLevel, initialNow);
-  const initialTime = initialNow.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+  const initialTime = initialNow.toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <g>
       <line ref={lineRef} x1={initialX} y1={0} x2={initialX} y2={height} stroke="#E24B4A" strokeWidth={2} strokeDasharray="4 3" />
-      <text ref={labelRef} x={initialX + 4} y={12} fontSize={10} fill="#E24B4A" fontWeight={600}>今日</text>
+      <text ref={labelRef} x={initialX + 4} y={12} fontSize={10} fill="#E24B4A" fontWeight={600}>{t('ganttChart.todayLabel')}</text>
       <text ref={timeRef} x={initialX + 4} y={24} fontSize={9} fill="#E24B4A">{initialTime}</text>
     </g>
   );

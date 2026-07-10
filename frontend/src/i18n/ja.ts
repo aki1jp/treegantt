@@ -221,6 +221,9 @@ export const ja = {
   'wbs.row.dateAutoTitle': '子タスクの日付から自動計算',
   'wbs.row.milestoneEndSyncTitle': 'マイルストーンの終了日は開始日に同期',
 
+  'ganttChart.panelAriaLabel': 'ガントチャート',
+  'ganttChart.todayLabel': '今日',
+
   'contextMenu.openRefProject': '参照先プロジェクトを開く',
   'contextMenu.removeRef': '参照を解除',
   'contextMenu.refreshRefs': '参照を再読み込み',
@@ -318,6 +321,7 @@ export const ja = {
   'hooks.error.tasksFetchFailed': 'タスクの取得に失敗しました',
   'hooks.toast.tasksFetchFailed': 'タスクの取得に失敗しました: {message}',
   'hooks.toast.reloadFailed': '再読み込みに失敗しました: {message}',
+  'hooks.toast.importFailed': 'インポートに失敗しました: {message}',
 
   'apiError.notFound': '対象が見つかりません。',
   'apiError.invalidFormat': 'インポート形式が不正です。',

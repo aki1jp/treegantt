@@ -43,3 +43,28 @@ describe('makeCopyTitle（Windows風コピー命名規則）', () => {
     ).toBe('TaskA (コピー2)');
   });
 });
+
+// ─── i18n（locale='en'）─────────────────────────────────────────────
+describe('makeCopyTitle — i18n（locale="en"）', () => {
+  it('コピー先に同名がなければ元タイトルをそのまま返す', () => {
+    expect(makeCopyTitle('TaskA', new Set(['TaskB', 'TaskC']), 'en')).toBe('TaskA');
+  });
+
+  it('コピー先に同名があれば「(Copy)」を付与する', () => {
+    expect(makeCopyTitle('TaskA', new Set(['TaskA']), 'en')).toBe('TaskA (Copy)');
+  });
+
+  it('「(Copy)」も既に存在する場合は「(Copy2)」を採番する', () => {
+    expect(makeCopyTitle('TaskA', new Set(['TaskA', 'TaskA (Copy)']), 'en')).toBe('TaskA (Copy2)');
+  });
+
+  it('コピー元タイトルが「(Copy)」付きでも接尾辞を積み重ねない', () => {
+    expect(
+      makeCopyTitle('TaskA (Copy)', new Set(['TaskA', 'TaskA (Copy)']), 'en')
+    ).toBe('TaskA (Copy2)');
+  });
+
+  it('locale 省略時は既定で日本語（後方互換）', () => {
+    expect(makeCopyTitle('TaskA', new Set(['TaskA']))).toBe('TaskA (コピー)');
+  });
+});

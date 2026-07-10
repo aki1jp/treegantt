@@ -20,12 +20,13 @@ export function buildCopyBatch(
   afterTaskId: string | null,
   beforeTaskId: string | null | undefined,
   allTasks: Task[],
+  locale: 'ja' | 'en' = 'ja',
 ): CopyBatchResult {
-  // コピー先の兄弟タスク名と衝突する場合のみ「(コピー)」「(コピーN)」を採番
+  // コピー先の兄弟タスク名と衝突する場合のみ「(コピー)」「(コピーN)」（en: 「(Copy)」「(CopyN)」）を採番
   const siblingTitles = new Set(
     allTasks.filter(t => t.parentId === parentId).map(t => t.title)
   );
-  const rootTitle = makeCopyTitle(source.title, siblingTitles);
+  const rootTitle = makeCopyTitle(source.title, siblingTitles, locale);
 
   // ルートタスクの挿入 order を事前計算
   const rootSiblings = allTasks.filter(t => t.parentId === parentId);

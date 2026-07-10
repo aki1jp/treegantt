@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useImportExport } from '../hooks/useImportExport';
 import { useToastStore } from '../store/toastStore';
+import { useTaskStore } from '../store/taskStore';
 import type { Task, Project } from '../types/task';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -231,5 +232,45 @@ describe('useImportExport — handleFileChange (JSON)', () => {
 
     const body = JSON.parse((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string);
     expect(body.mode).toBe('restore');
+  });
+});
+
+// ─── i18n（locale='en'）───────────────────────────────────────────────────
+describe('useImportExport — i18n（locale="en"）', () => {
+  beforeEach(() => { useTaskStore.setState({ locale: 'en' }); });
+  afterEach(() => { useTaskStore.setState({ locale: 'ja' }); });
+
+  it('API エラー時、locale=en なら英語のトーストを表示する（生の err.message 連結ではなく apiErrorMessage 経由）', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false, status: 400,
+      json: async () => ({ error: 'Invalid format' }),
+    } as Response);
+
+    const { result } = renderHook(() => useImportExport(project, [], vi.fn()));
+
+    const file = new File(['{"tasks":[]}'], 'export.json', { type: 'application/json' });
+    const event = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+    await act(async () => {
+      await result.current.handleFileChange(event);
+    });
+
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts.some(t => t.type === 'error' && t.message.startsWith('Failed to import:'))).toBe(true);
+    expect(toasts.some(t => t.message.includes('インポートに失敗しました'))).toBe(false);
+  });
+
+  it('不正な JSON でも locale=en なら英語のトーストを表示する', async () => {
+    const { result } = renderHook(() => useImportExport(project, [], vi.fn()));
+
+    const file = new File(['{invalid json'], 'export.json', { type: 'application/json' });
+    const event = { target: { files: [file], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+    await act(async () => {
+      await result.current.handleFileChange(event);
+    });
+
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts.some(t => t.type === 'error' && t.message.startsWith('Failed to import:'))).toBe(true);
   });
 });

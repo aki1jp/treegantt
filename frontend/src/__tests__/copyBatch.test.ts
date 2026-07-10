@@ -77,6 +77,18 @@ describe('buildCopyBatch', () => {
       startDate: '2026-01-01', endDate: '2026-01-05', isMilestone: false,
     });
   });
+
+  it('locale="en" を渡すと「(Copy)」が付与される', () => {
+    const source = makeTask({ id: 'a', title: 'A', parentId: 'root', order: 1 });
+    const { rootTitle } = buildCopyBatch(source, 'root', 'a', null, [source], 'en');
+    expect(rootTitle).toBe('A (Copy)');
+  });
+
+  it('locale 省略時は既定で「(コピー)」（後方互換）', () => {
+    const source = makeTask({ id: 'a', title: 'A', parentId: 'root', order: 1 });
+    const { rootTitle } = buildCopyBatch(source, 'root', 'a', null, [source]);
+    expect(rootTitle).toBe('A (コピー)');
+  });
 });
 
 describe('computeCopyInsertOrder', () => {

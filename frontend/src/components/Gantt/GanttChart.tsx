@@ -611,7 +611,7 @@ export function GanttChart({
       />
 
       {/* ── ガント右パネル（横スクロールバーあり） ── */}
-      <div data-testid="gantt-panel" ref={ganttPanelRef} tabIndex={0} aria-label="ガントチャート"
+      <div data-testid="gantt-panel" ref={ganttPanelRef} tabIndex={0} aria-label={t('ganttChart.panelAriaLabel')}
         style={{ flex: 1, overflow: 'auto' }} onScroll={handleScroll}>
         <div style={{ width: totalWidth }}>
 

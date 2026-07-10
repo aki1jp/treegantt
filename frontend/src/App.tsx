@@ -271,7 +271,7 @@ export default function App() {
   ) {
     if (!currentProject) return;
     const allTasksSnapshot = [...tasks];
-    const { batchInputs, sourceTasksFlat } = buildCopyBatch(source, parentId, afterTaskId, beforeTaskId, allTasksSnapshot);
+    const { batchInputs, sourceTasksFlat } = buildCopyBatch(source, parentId, afterTaskId, beforeTaskId, allTasksSnapshot, locale);
 
     try {
       // バッチ API で1リクエストにまとめる（v2.69 以前のシーケンシャル POST を置き換え）

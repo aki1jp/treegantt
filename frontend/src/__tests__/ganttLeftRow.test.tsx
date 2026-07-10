@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { GanttLeftRow } from '../components/Gantt/GanttLeftRow';
+import { useTaskStore } from '../store/taskStore';
 import type { Task } from '../types/task';
 
 afterEach(() => { cleanup(); });
@@ -479,5 +480,43 @@ describe('GanttLeftRow — readOnly（参照タスク・合成グループ行）
     const row = container.firstElementChild as HTMLElement;
     expect(row.style.opacity).not.toBe('');
     expect(Number(row.style.opacity)).toBeLessThan(1);
+  });
+});
+
+// ─── i18n（locale='en'）: ステータス・優先度ラベルの二重管理解消 ─────────────
+describe('GanttLeftRow i18n（locale="en"）', () => {
+  beforeEach(() => { useTaskStore.setState({ locale: 'en' }); });
+  afterEach(() => { useTaskStore.setState({ locale: 'ja' }); });
+
+  it('ステータスバッジが英語表示される（wait→Wait）', () => {
+    renderRow(makeTask({ status: 'wait' }));
+    expect(screen.getByText('Wait')).toBeTruthy();
+  });
+
+  it('ステータスバッジが英語表示される（pending→Pending）', () => {
+    renderRow(makeTask({ status: 'pending' }));
+    expect(screen.getByText('Pending')).toBeTruthy();
+  });
+
+  it('優先度バッジが英語表示される（critical→Critical, low→Low）', () => {
+    renderRow(makeTask({ priority: 'critical' }));
+    expect(screen.getByText('Critical')).toBeTruthy();
+  });
+
+  it('ステータス編集ドロップダウンの選択肢が英語表示される（Wait/Pending）', () => {
+    renderRow(makeTask());
+    fireEvent.click(screen.getByText('TODO'));
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    const labels = Array.from(select.options).map(o => o.text);
+    expect(labels).toContain('Wait');
+    expect(labels).toContain('Pending');
+  });
+
+  it('優先度編集ドロップダウンの選択肢が英語表示される（Critical/High/Medium/Low）', () => {
+    renderRow(makeTask()); // 既定 priority: 'medium'
+    fireEvent.click(screen.getByText('Medium'));
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    const labels = Array.from(select.options).map(o => o.text);
+    expect(labels).toEqual(['Critical', 'High', 'Medium', 'Low']);
   });
 });

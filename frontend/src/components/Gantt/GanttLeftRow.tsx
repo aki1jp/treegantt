@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
-import type { Task } from '../../types/task';
+import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 import { addDays, calcDuration } from '../../utils/ganttCalc';
 import { titlePaddingLeft } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 import { TaskTooltip } from './TaskTooltip';
-import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL } from '../../utils/taskColors';
+import { STATUS_COLOR, PRIORITY_COLOR } from '../../utils/taskColors';
 import { isRefGroupId } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
 
@@ -47,6 +47,16 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
   const { t } = useTranslation();
+  // ステータス/優先度の表示ラベルは TaskModal.tsx と同じ辞書キーを使う（二重管理防止）。
+  // taskColors.ts の STATUS_LABEL/PRIORITY_LABEL は色分け等の翻訳と無関係なロジックで
+  // 引き続き使われうるため削除せず、UI 表示のみここでローカルに t() 経由へ差し替える。
+  const STATUS_LABELS: Record<TaskStatus, string> = {
+    todo: 'TODO', wip: 'Doing', done: 'DONE', wait: t('toolbar.status.wait'), pending: t('toolbar.status.pending'),
+  };
+  const PRIORITY_LABELS: Record<TaskPriority, string> = {
+    critical: t('toolbar.priority.critical'), high: t('toolbar.priority.high'),
+    medium: t('toolbar.priority.medium'), low: t('toolbar.priority.low'),
+  };
   const [editField, setEditField] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [editStartVal, setEditStartVal] = useState('');
@@ -233,7 +243,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
           <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
             onChange={e => commit('status', e.target.value)}
             onBlur={() => setEditField(null)}>
-            {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         ) : (
           <span onClick={() => startEdit('status', task.status)} style={{ cursor: 'pointer' }}>
@@ -241,7 +251,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               padding: '1px 5px', borderRadius: 9999, fontSize: 10, fontWeight: 600,
               background: STATUS_COLOR[task.status] + '22', color: STATUS_COLOR[task.status],
             }}>
-              {STATUS_LABEL[task.status]}
+              {STATUS_LABELS[task.status]}
             </span>
           </span>
         )}
@@ -253,7 +263,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
           <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
             onChange={e => commit('priority', e.target.value)}
             onBlur={() => setEditField(null)}>
-            {Object.entries(PRIORITY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {Object.entries(PRIORITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         ) : (
           <span onClick={() => startEdit('priority', task.priority)} style={{ cursor: 'pointer' }}>
@@ -261,7 +271,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               padding: '1px 5px', borderRadius: 9999, fontSize: 10, fontWeight: 600,
               background: PRIORITY_COLOR[task.priority] + '22', color: PRIORITY_COLOR[task.priority],
             }}>
-              {PRIORITY_LABEL[task.priority]}
+              {PRIORITY_LABELS[task.priority]}
             </span>
           </span>
         )}
