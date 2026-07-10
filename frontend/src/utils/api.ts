@@ -4,6 +4,17 @@ const API_BASE = import.meta.env.VITE_API_URL ?? `http://${window.location.hostn
 
 export const API_DOCS_URL = `${API_BASE}/docs`;
 
+// バックエンドが返す { error, code } の code を保持するエラー型。
+// i18n/apiError.ts の apiErrorMessage() が code を辞書引きして表示用文言へ変換する。
+export class ApiError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+    this.name = 'ApiError';
+  }
+}
+
 export async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE}/api/v1${path}`, {
     ...init,
@@ -16,7 +27,8 @@ export async function apiFetch(path: string, init?: RequestInit) {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+    const { error, code } = body as { error?: string; code?: string };
+    throw new ApiError(error ?? `HTTP ${res.status}`, code);
   }
   return res.status === 204 ? null : res.json();
 }

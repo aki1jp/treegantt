@@ -5,6 +5,7 @@ import { useProjects } from './hooks/useProjects';
 import { useImportExport } from './hooks/useImportExport';
 import { useTaskStore } from './store/taskStore';
 import { useTheme } from './hooks/useTheme';
+import { useTranslation } from './i18n/useTranslation';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
@@ -38,7 +39,8 @@ export default function App() {
   const [refManagerOpen, setRefManagerOpen] = useState(false);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
-  const { tasks, refTasks, refProjects, setTasks, theme, setTheme } = useTaskStore();
+  const { tasks, refTasks, refProjects, setTasks, theme, setTheme, locale, setLocale } = useTaskStore();
+  const { t } = useTranslation();
   const {
     projects, currentProject, setCurrentProject, loading, error: projectsError, retry: retryProjects,
     createProject, renameProject, updateProjectColor, updateProjectResource, deleteProject,
@@ -331,27 +333,48 @@ export default function App() {
           </button>
         </div>
 
-        {/* テーマ選択（右端） */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
-          {([
-            { value: 'light', label: '☀', title: 'ライトモード' },
-            { value: 'dark',  label: '🌙', title: 'ダークモード' },
-            { value: 'auto',  label: '🖥', title: 'システム設定に従う' },
-          ] as const).map(opt => (
-            <button
-              key={opt.value}
-              title={opt.title}
-              onClick={() => setTheme(opt.value)}
-              style={{
-                padding: '3px 7px', borderRadius: 4, border: 'none', cursor: 'pointer',
-                fontSize: 14, lineHeight: 1,
-                background: theme === opt.value ? 'rgba(255,255,255,0.2)' : 'transparent',
-                color: theme === opt.value ? '#fff' : 'rgba(255,255,255,0.5)',
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
+        {/* テーマ選択／言語切替（右端） */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {([
+              { value: 'light', label: '☀', title: 'ライトモード' },
+              { value: 'dark',  label: '🌙', title: 'ダークモード' },
+              { value: 'auto',  label: '🖥', title: 'システム設定に従う' },
+            ] as const).map(opt => (
+              <button
+                key={opt.value}
+                title={opt.title}
+                onClick={() => setTheme(opt.value)}
+                style={{
+                  padding: '3px 7px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                  fontSize: 14, lineHeight: 1,
+                  background: theme === opt.value ? 'rgba(255,255,255,0.2)' : 'transparent',
+                  color: theme === opt.value ? '#fff' : 'rgba(255,255,255,0.5)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* 言語切替（テーマ選択の隣） */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {(['ja', 'en'] as const).map(l => (
+              <button
+                key={l}
+                aria-label={t('app.locale.switchAriaLabel')}
+                onClick={() => setLocale(l)}
+                style={{
+                  padding: '3px 7px', borderRadius: 4, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 600, lineHeight: 1,
+                  background: locale === l ? 'rgba(255,255,255,0.2)' : 'transparent',
+                  color: locale === l ? '#fff' : 'rgba(255,255,255,0.5)',
+                }}
+              >
+                {t(l === 'ja' ? 'locale.ja' : 'locale.en')}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

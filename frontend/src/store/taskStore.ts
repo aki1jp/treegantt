@@ -33,6 +33,7 @@ interface TaskStore {
   resourceViewHeight: number;
   ganttHeaderLevels:  GanttHeaderLevels;
   theme:              ThemeMode;
+  locale:             'ja' | 'en';
   ganttBarOpen:       boolean;
   wbsPanelOpen:       boolean;
   wbsHiddenCols:      string[];
@@ -59,6 +60,7 @@ interface TaskStore {
   setResourceViewHeight:  (height: number) => void;
   setGanttHeaderLevels:   (levels: Partial<GanttHeaderLevels>) => void;
   setTheme:               (theme: ThemeMode) => void;
+  setLocale:              (locale: 'ja' | 'en') => void;
   setGanttBarOpen:        (open: boolean) => void;
   setWbsPanelOpen:        (open: boolean) => void;
   setWbsHiddenCols:       (cols: string[]) => void;
@@ -97,6 +99,7 @@ export const useTaskStore = create<TaskStore>()(
       filterColor:       '',
       filterSearch:      '',
       theme:             'auto' as ThemeMode,
+      locale:            'ja' as 'ja' | 'en',
       ganttBarOpen:      true,
       wbsPanelOpen:      true,
       wbsHiddenCols:     [] as string[],
@@ -156,6 +159,7 @@ export const useTaskStore = create<TaskStore>()(
         ganttHeaderLevels: { ...s.ganttHeaderLevels, ...levels },
       })),
       setTheme:               (theme) => set({ theme }),
+      setLocale:              (locale) => set({ locale }),
       setGanttBarOpen:        (ganttBarOpen) => set({ ganttBarOpen }),
       setWbsPanelOpen:        (wbsPanelOpen) => set({ wbsPanelOpen }),
       setWbsHiddenCols:       (wbsHiddenCols) => set({ wbsHiddenCols }),
@@ -166,6 +170,7 @@ export const useTaskStore = create<TaskStore>()(
       name: 'treegantt-ui',
       partialize: (s) => ({
         theme:             s.theme,
+        locale:            s.locale,
         zoomLevel:         s.zoomLevel,
         ganttStartDate:    s.ganttStartDate,
         ganttPeriod:       s.ganttPeriod,

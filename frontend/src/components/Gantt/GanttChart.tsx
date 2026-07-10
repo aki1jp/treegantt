@@ -13,6 +13,7 @@ import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
 import { calcVisibleRange } from '../../utils/virtualRange';
+import { useDowLabels } from '../../i18n/dow';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { TaskContextMenus, type DepCtxMenu } from './TaskContextMenus';
@@ -208,9 +209,10 @@ export function GanttChart({
     () => ganttTotalWidth(sorted, zoomLevel, start, period),
     [sorted, zoomLevel, start, period],
   );
+  const dowLabels = useDowLabels();
   const headerRows = useMemo(
-    () => buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels),
-    [min, max, zoomLevel, ganttHeaderLevels],
+    () => buildMultiLevelHeaders(min, max, zoomLevel, ganttHeaderLevels, dowLabels),
+    [min, max, zoomLevel, ganttHeaderLevels, dowLabels],
   );
 
   const taskIndex = useMemo(() => new Map(flatRows.map(({ task }, i) => [task.id, i])), [flatRows]);

@@ -35,6 +35,7 @@ beforeEach(() => {
     uiRowHeight: 36,
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
     theme: 'auto',
+    locale: 'ja',
     ganttBarOpen: true,
   });
 });
@@ -257,6 +258,26 @@ describe('setTheme', () => {
     expect(useTaskStore.getState().theme).toBe('dark');
     useTaskStore.getState().setTheme('light');
     expect(useTaskStore.getState().theme).toBe('light');
+  });
+});
+
+describe('setLocale', () => {
+  it('既定値は "ja"', () => {
+    expect(useTaskStore.getState().locale).toBe('ja');
+  });
+
+  it('言語を変更できる', () => {
+    useTaskStore.getState().setLocale('en');
+    expect(useTaskStore.getState().locale).toBe('en');
+    useTaskStore.getState().setLocale('ja');
+    expect(useTaskStore.getState().locale).toBe('ja');
+  });
+
+  it('localStorage に永続化される', () => {
+    useTaskStore.getState().setLocale('en');
+    const raw = localStorage.getItem('treegantt-ui');
+    const saved = raw ? JSON.parse(raw).state : {};
+    expect(saved.locale).toBe('en');
   });
 });
 

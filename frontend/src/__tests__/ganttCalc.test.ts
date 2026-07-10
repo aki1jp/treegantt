@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
 import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, normalizeDateStr, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
+import { DOW_LABELS_JA } from '../i18n/dow';
 import type { Task } from '../types/task';
 
 let _seq = 0;
@@ -449,7 +450,7 @@ describe('buildMultiLevelHeaders', () => {
   const allLevels = { year: true, month: true, week: true, day: true };
 
   it('全レベルONで5行を返す（day行 + dow行）', () => {
-    const rows = buildMultiLevelHeaders(min, max, 'week', allLevels);
+    const rows = buildMultiLevelHeaders(min, max, 'week', allLevels, DOW_LABELS_JA);
     expect(rows.length).toBe(5);
     const levels = rows.map(r => r.level);
     expect(levels).toContain('year');
@@ -460,7 +461,7 @@ describe('buildMultiLevelHeaders', () => {
   });
 
   it('レベル指定で行数が変わる', () => {
-    const rows = buildMultiLevelHeaders(min, max, 'week', { year: true, month: true, week: false, day: false });
+    const rows = buildMultiLevelHeaders(min, max, 'week', { year: true, month: true, week: false, day: false }, DOW_LABELS_JA);
     expect(rows.length).toBe(2);
     const levels = rows.map(r => r.level);
     expect(levels).toContain('year');
@@ -468,18 +469,18 @@ describe('buildMultiLevelHeaders', () => {
   });
 
   it('全レベルOFFで0行を返す', () => {
-    const rows = buildMultiLevelHeaders(min, max, 'week', { year: false, month: false, week: false, day: false });
+    const rows = buildMultiLevelHeaders(min, max, 'week', { year: false, month: false, week: false, day: false }, DOW_LABELS_JA);
     expect(rows.length).toBe(0);
   });
 
   it('yearヘッダーは2026が含まれるセルを返す', () => {
-    const rows = buildMultiLevelHeaders(min, max, 'week', { year: true, month: false, week: false, day: false });
+    const rows = buildMultiLevelHeaders(min, max, 'week', { year: true, month: false, week: false, day: false }, DOW_LABELS_JA);
     const yearRow = rows[0];
     expect(yearRow.cells.some(c => c.label === '2026')).toBe(true);
   });
 
   it('day行のセルの dow プロパティが0-6の範囲', () => {
-    const rows = buildMultiLevelHeaders(new Date('2026-01-01'), new Date('2026-01-10'), 'day', { year: false, month: false, week: false, day: true });
+    const rows = buildMultiLevelHeaders(new Date('2026-01-01'), new Date('2026-01-10'), 'day', { year: false, month: false, week: false, day: true }, DOW_LABELS_JA);
     const dayRow = rows.find(r => r.level === 'day');
     expect(dayRow).toBeDefined();
     dayRow!.cells.forEach(c => {
@@ -501,7 +502,7 @@ describe('日付座標系の一貫性', () => {
   it('dateToX の座標が buildMultiLevelHeaders の day セル x と一致する', () => {
     const { min, max } = calcGanttRange([], '2026-05-20', '3m', 'day');
     const dayWidth = ZOOM_CONFIG['day'].dayWidth;
-    const headers = buildMultiLevelHeaders(min, max, 'day', { year: false, month: false, week: false, day: true });
+    const headers = buildMultiLevelHeaders(min, max, 'day', { year: false, month: false, week: false, day: true }, DOW_LABELS_JA);
     const dayRow = headers.find(r => r.level === 'day')!;
     dayRow.cells.forEach((cell, i) => {
       const dateStr = addDays('2026-05-20', i);

@@ -287,11 +287,11 @@ export function xToDateStr(relX: number, minDate: Date, dayWidth: number): strin
 export type HeaderCell = { label: string; x: number; width: number; dow?: number };
 export type HeaderRow  = { level: 'year' | 'month' | 'week' | 'day' | 'dow'; cells: HeaderCell[] };
 
-const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
-
 export function buildMultiLevelHeaders(
   min: Date, max: Date, zoom: ZoomLevel,
   levels: { year: boolean; month: boolean; week: boolean; day: boolean },
+  // 曜日ラベル配列（i18n/dow.ts の useDowLabels()）。純粋関数のため呼び出し元から受け取る。
+  dowLabels: readonly string[],
 ): HeaderRow[] {
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const toX = (d: dayjs.Dayjs) =>
@@ -348,7 +348,7 @@ export function buildMultiLevelHeaders(
       const x = toX(cur);
       const dow = cur.day();
       dayCells.push({ label: cur.format('D'), x, width: dayWidth, dow });
-      dowCells.push({ label: DOW_LABELS[dow], x, width: dayWidth, dow });
+      dowCells.push({ label: dowLabels[dow], x, width: dayWidth, dow });
       cur = cur.add(1, 'day');
     }
     rows.push({ level: 'day', cells: dayCells });

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { parseDuration, formatMinutes } from '../../utils/duration';
-
-const DOW_LABELS = ['日', '月', '火', '水', '木', '金', '土'] as const;
+import { useDowLabels } from '../../i18n/dow';
 
 export interface ResourceSettingsModalProps {
   title: string;
@@ -30,6 +29,7 @@ export function ResourceSettingsModal({
   fallbackCapacityMinutes, fallbackWorkingDays,
   onSave, onClose,
 }: ResourceSettingsModalProps) {
+  const dowLabels = useDowLabels();
   const [inherit, setInherit] = useState(
     inheritable && initialCapacityMinutes == null && initialWorkingDays == null,
   );
@@ -93,7 +93,7 @@ export function ResourceSettingsModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, opacity: disabled ? 0.5 : 1 }}>
           <label style={LABEL}>稼働日</label>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {DOW_LABELS.map((lbl, d) => (
+            {dowLabels.map((lbl, d) => (
               <label key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 13 }}>
                 <input type="checkbox" checked={selectedDays.has(d)} disabled={disabled}
                   onChange={() => toggleDay(d)} />

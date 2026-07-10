@@ -353,3 +353,18 @@ describe('App — 参照タスクの多層防御（handleInlineUpdate/handleDele
     expect(routerState.requests.some(r => r.method === 'DELETE' && r.url.includes('/tasks/r1'))).toBe(false);
   });
 });
+
+// ─── 言語切替UI（i18n 基盤フェーズ）─────────────────────────────
+describe('App — 言語切替ボタン', () => {
+  it('既定は ja。EN ボタンをクリックすると setLocale("en") が呼ばれる', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
+    expect(useTaskStore.getState().locale).toBe('ja');
+
+    fireEvent.click(screen.getByText('EN'));
+    expect(useTaskStore.getState().locale).toBe('en');
+
+    fireEvent.click(screen.getByText('JA'));
+    expect(useTaskStore.getState().locale).toBe('ja');
+  });
+});
