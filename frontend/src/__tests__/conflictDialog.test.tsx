@@ -7,6 +7,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { ConflictDialog } from '../components/ConflictDialog/ConflictDialog';
+import { useTaskStore } from '../store/taskStore';
 
 afterEach(() => { cleanup(); });
 
@@ -120,5 +121,54 @@ describe('ConflictDialog 既存動作', () => {
     renderDialog({ onResolve });
     fireEvent.click(screen.getByText('自分の変更を適用する'));
     expect(onResolve).toHaveBeenCalledWith(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('ConflictDialog の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('見出し・ラベル・ボタンが英語表示になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    renderDialog({ field: 'status' });
+
+    expect(screen.getByText(/Another user made changes/)).toBeTruthy();
+    expect(screen.getByText('Status')).toBeTruthy();
+    expect(screen.getByText('Their Change')).toBeTruthy();
+    expect(screen.getByText('Your Change')).toBeTruthy();
+    expect(screen.getByText('Use Their Change')).toBeTruthy();
+    expect(screen.getByText('Apply My Change')).toBeTruthy();
+  });
+
+  it('フィールド名変換テーブルが英語化される（title/priority/parentId）', () => {
+    useTaskStore.setState({ locale: 'en' });
+    const { rerender } = renderDialog({ field: 'title' });
+    expect(screen.getByText('Title')).toBeTruthy();
+
+    cleanup();
+    renderDialog({ field: 'priority' });
+    expect(screen.getByText('Priority')).toBeTruthy();
+
+    cleanup();
+    renderDialog({ field: 'parentId' });
+    expect(screen.getByText('Parent Task')).toBeTruthy();
+    void rerender;
+  });
+
+  it('値が空のときの表示が英語になる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    renderDialog({ theirVal: '', myVal: '' });
+    expect(screen.getAllByText('(empty)').length).toBe(2);
+  });
+
+  it('「Use Their Change」で onResolve(true) が呼ばれる', () => {
+    useTaskStore.setState({ locale: 'en' });
+    const onResolve = vi.fn();
+    renderDialog({ onResolve });
+    fireEvent.click(screen.getByText('Use Their Change'));
+    expect(onResolve).toHaveBeenCalledWith(true);
   });
 });

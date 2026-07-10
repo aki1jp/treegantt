@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { useToastStore } from '../store/toastStore';
+import { useTaskStore } from '../store/taskStore';
 import { ToastContainer } from '../components/Toast/Toast';
 
 beforeEach(() => {
@@ -44,5 +45,22 @@ describe('ToastContainer', () => {
     });
     expect(screen.getByText('1件目')).toBeTruthy();
     expect(screen.getByText('2件目')).toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 多言語対応（i18n）: locale: 'en' でのスモークテスト（既存の ja テストは変更しない）
+describe('ToastContainer の多言語対応（locale: en）', () => {
+  afterEach(() => {
+    useTaskStore.setState({ locale: 'ja' });
+  });
+
+  it('閉じるボタンの aria-label が英語（Close）になり、押すとトーストが消える', () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<ToastContainer />);
+    act(() => { useToastStore.getState().addToast('notice', 'info'); });
+    expect(screen.getByText('notice')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(screen.queryByText('notice')).toBeNull();
   });
 });

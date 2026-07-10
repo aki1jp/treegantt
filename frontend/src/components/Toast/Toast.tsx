@@ -1,4 +1,5 @@
 import { useToastStore, type ToastType } from '../../store/toastStore';
+import { useTranslation } from '../../i18n/useTranslation';
 
 const TOAST_COLORS: Record<ToastType, { bg: string; fg: string }> = {
   error:   { bg: '#dc2626', fg: '#ffffff' },
@@ -11,6 +12,7 @@ const TOAST_COLORS: Record<ToastType, { bg: string; fg: string }> = {
 export function ToastContainer() {
   const toasts = useToastStore(s => s.toasts);
   const removeToast = useToastStore(s => s.removeToast);
+  const { t } = useTranslation();
 
   if (toasts.length === 0) return null;
 
@@ -24,11 +26,11 @@ export function ToastContainer() {
         maxWidth: 360,
       }}
     >
-      {toasts.map(t => {
-        const colors = TOAST_COLORS[t.type];
+      {toasts.map(toast => {
+        const colors = TOAST_COLORS[toast.type];
         return (
           <div
-            key={t.id}
+            key={toast.id}
             data-testid="toast"
             style={{
               display: 'flex', alignItems: 'center', gap: 12,
@@ -37,10 +39,10 @@ export function ToastContainer() {
               boxShadow: '0 4px 16px rgba(0,0,0,.25)', fontSize: 13,
             }}
           >
-            <span style={{ flex: 1 }}>{t.message}</span>
+            <span style={{ flex: 1 }}>{toast.message}</span>
             <button
-              onClick={() => removeToast(t.id)}
-              aria-label="閉じる"
+              onClick={() => removeToast(toast.id)}
+              aria-label={t('toast.closeAriaLabel')}
               style={{
                 background: 'transparent', border: 'none', color: colors.fg,
                 cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 2, flexShrink: 0,

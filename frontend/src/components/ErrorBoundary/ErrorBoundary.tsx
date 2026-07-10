@@ -1,4 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { useTaskStore } from '../../store/taskStore';
+import { ja } from '../../i18n/ja';
+import { en } from '../../i18n/en';
+
+// クラスコンポーネント（React フックが使えない）向けに non-hook で locale を参照する。
+// useTranslation.ts の locale/dict 構造と同じもの（同ファイルの export はしない方針のため
+// ここでは ja/en を直接束ねる）。
+const dictionaries = { ja, en } as const;
 
 interface Props { children: ReactNode }
 interface State { hasError: boolean }
@@ -17,15 +25,18 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.hasError) return this.props.children;
 
+    const locale = useTaskStore.getState().locale;
+    const dict = dictionaries[locale];
+
     return (
       <div style={{
         position: 'fixed', inset: 0, background: 'var(--th-bg, #fff)', color: 'var(--th-text, #111)',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16,
         zIndex: 99999,
       }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>予期しないエラーが発生しました</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>{dict['errorBoundary.title']}</div>
         <div style={{ fontSize: 13, color: 'var(--th-text-muted, #666)' }}>
-          お手数ですが、再読み込みしてください。
+          {dict['errorBoundary.message']}
         </div>
         <button
           onClick={() => window.location.reload()}
@@ -34,7 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
             background: 'var(--th-accent, #4f46e5)', color: '#fff', cursor: 'pointer',
           }}
         >
-          再読み込み
+          {dict['errorBoundary.reloadButton']}
         </button>
       </div>
     );

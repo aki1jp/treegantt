@@ -1,3 +1,5 @@
+import { useTranslation } from '../../i18n/useTranslation';
+
 export type DeleteMode = 'subtree' | 'single';
 
 interface Props {
@@ -13,6 +15,8 @@ const BTN_BASE: React.CSSProperties = {
 };
 
 export function DeleteTaskDialog({ taskTitle, descendantCount, onDelete, onCancel }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)',
@@ -23,10 +27,10 @@ export function DeleteTaskDialog({ taskTitle, descendantCount, onDelete, onCance
         width: 440, boxShadow: '0 8px 32px rgba(0,0,0,.25)', color: 'var(--th-text)',
       }}>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          🗑 タスクの削除
+          {t('deleteDialog.heading')}
         </div>
         <div style={{ fontSize: 13, color: 'var(--th-text-muted)', marginBottom: 20 }}>
-          「<strong>{taskTitle}</strong>」には子孫タスクが <strong>{descendantCount}</strong> 件あります。削除方法を選択してください。
+          {t('deleteDialog.message.prefix')}<strong>{taskTitle}</strong>{t('deleteDialog.message.midCount')}<strong>{descendantCount}</strong>{t('deleteDialog.message.suffix')}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
@@ -37,18 +41,18 @@ export function DeleteTaskDialog({ taskTitle, descendantCount, onDelete, onCance
               background: '#ef4444', color: '#fff', border: '1px solid #dc2626',
             }}
           >
-            子孫ごと削除
+            {t('deleteDialog.subtreeButton')}
             <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2, color: 'rgba(255,255,255,.85)' }}>
-              このタスクと子孫タスク {descendantCount} 件をすべて削除します
+              {t('deleteDialog.subtreeDetail', { count: descendantCount })}
             </div>
           </button>
           <button
             onClick={() => onDelete('single')}
             style={{ ...BTN_BASE, background: 'var(--th-bg2)', color: 'var(--th-text)' }}
           >
-            このタスクのみ削除
+            {t('deleteDialog.singleButton')}
             <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2, color: 'var(--th-text-muted)' }}>
-              子タスクは1つ上の階層へ移動します
+              {t('deleteDialog.singleDetail')}
             </div>
           </button>
         </div>
@@ -60,7 +64,7 @@ export function DeleteTaskDialog({ taskTitle, descendantCount, onDelete, onCance
             background: 'transparent', color: 'var(--th-text-muted)',
           }}
         >
-          キャンセル
+          {t('common.cancel')}
         </button>
       </div>
     </div>
