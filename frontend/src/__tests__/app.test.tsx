@@ -144,7 +144,7 @@ let routerState: RouterState;
 beforeEach(() => {
   localStorage.clear();
   window.history.pushState({}, '', '/');
-  useTaskStore.setState({ tasks: [], needsReload: false });
+  useTaskStore.setState({ tasks: [], needsReload: false, locale: 'ja' });
   useToastStore.setState({ toasts: [] });
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -354,17 +354,72 @@ describe('App — 参照タスクの多層防御（handleInlineUpdate/handleDele
   });
 });
 
-// ─── 言語切替UI（i18n 基盤フェーズ）─────────────────────────────
+// ─── 言語切替UI（i18n ツールバー/App.tsx フェーズ）─────────────────────
 describe('App — 言語切替ボタン', () => {
-  it('既定は ja。EN ボタンをクリックすると setLocale("en") が呼ばれる', async () => {
+  it('「日本語」「English」がフルテキストで常に（locale に関わらず）表示される', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
+    expect(screen.getByText('日本語')).toBeTruthy();
+    expect(screen.getByText('English')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('English'));
+    expect(useTaskStore.getState().locale).toBe('en');
+    expect(screen.getByText('日本語')).toBeTruthy();
+    expect(screen.getByText('English')).toBeTruthy();
+  });
+
+  it('既定は ja。English ボタンをクリックすると setLocale("en") が呼ばれる', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
     expect(useTaskStore.getState().locale).toBe('ja');
 
-    fireEvent.click(screen.getByText('EN'));
+    fireEvent.click(screen.getByText('English'));
     expect(useTaskStore.getState().locale).toBe('en');
 
-    fireEvent.click(screen.getByText('JA'));
+    fireEvent.click(screen.getByText('日本語'));
     expect(useTaskStore.getState().locale).toBe('ja');
+  });
+});
+
+// ─── テーマ切替ボタンの title（i18n ツールバー/App.tsx フェーズ）───────
+describe('App — テーマ切替ボタンの title', () => {
+  it('既定(ja)ではテーマボタンの title が日本語で表示される', async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
+    expect(screen.getByTitle('ライトモード')).toBeTruthy();
+    expect(screen.getByTitle('ダークモード')).toBeTruthy();
+    expect(screen.getByTitle('システム設定に従う')).toBeTruthy();
+  });
+
+  it('locale="en" のときテーマボタンの title が英語で表示される', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
+    expect(screen.getByTitle('Light mode')).toBeTruthy();
+    expect(screen.getByTitle('Dark mode')).toBeTruthy();
+    expect(screen.getByTitle('Follow system setting')).toBeTruthy();
+  });
+});
+
+// ─── App.tsx 本体の残り文言（i18n ツールバー/App.tsx フェーズ）────────
+describe('App — 本体文言の i18n（locale="en"）', () => {
+  it('「+ プロジェクト」ボタンが英語表示される', async () => {
+    useTaskStore.setState({ locale: 'en' });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
+    expect(screen.getByText('+ Project')).toBeTruthy();
+  });
+
+  it('プロジェクト削除確認ダイアログがプロジェクト名を埋め込んだ英語文言になる', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    useTaskStore.setState({ locale: 'en' });
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy());
+
+    const tab = screen.getByText('プロジェクト1');
+    fireEvent.contextMenu(tab);
+    fireEvent.click(screen.getByText('削除'));
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Delete project "プロジェクト1"?'));
   });
 });

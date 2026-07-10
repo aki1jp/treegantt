@@ -6,6 +6,7 @@ import { useImportExport } from './hooks/useImportExport';
 import { useTaskStore } from './store/taskStore';
 import { useTheme } from './hooks/useTheme';
 import { useTranslation } from './i18n/useTranslation';
+import { apiErrorMessage } from './i18n/apiError';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
 import { TaskModal } from './components/TaskModal/TaskModal';
@@ -60,7 +61,7 @@ export default function App() {
     let alive = true;
     fetchHealth()
       .then(h => { if (alive) setBackendVersion(h.version ?? null); })
-      .catch((err: Error) => showToast('バージョン情報の取得に失敗しました: ' + err.message, 'error'));
+      .catch((err: Error) => showToast(t('app.toast.versionFetchFailed', { message: apiErrorMessage(err, locale) }), 'error'));
     return () => { alive = false; };
   }, []);
 
@@ -71,7 +72,7 @@ export default function App() {
     let alive = true;
     fetchSettings()
       .then(s => { if (alive) setAppSettings(s); })
-      .catch((err: Error) => showToast('リソース設定の取得に失敗しました: ' + err.message, 'error'));
+      .catch((err: Error) => showToast(t('app.toast.settingsFetchFailed', { message: apiErrorMessage(err, locale) }), 'error'));
     return () => { alive = false; };
   }, [setAppSettings]);
 
@@ -99,32 +100,32 @@ export default function App() {
       )
     ).then(results => {
       setTaskCounts(Object.fromEntries(results.map(r => [r.id, r.total])));
-      if (anyFailed) showToast('一部プロジェクトのタスク件数取得に失敗しました', 'error');
+      if (anyFailed) showToast(t('app.toast.taskCountsFetchFailed'), 'error');
     });
   }, [projects.map(p => p.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreateProject() {
-    const name = prompt('プロジェクト名を入力してください');
+    const name = prompt(t('app.projectNamePrompt'));
     if (!name) return;
     await createProject(name);
   }
 
   async function handleRenameProject(project: Project) {
-    const name = prompt('新しいプロジェクト名を入力してください', project.name);
+    const name = prompt(t('app.renameProjectPrompt'), project.name);
     if (!name || name === project.name) return;
     try {
       await renameProject(project, name);
     } catch (err) {
-      showToast('名前の変更に失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.renameProjectFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
   async function handleDeleteProject(project: Project) {
-    if (!confirm(`プロジェクト「${project.name}」を削除しますか？\n\n※ このプロジェクトのタスクもすべて削除されます。この操作は取り消せません。`)) return;
+    if (!confirm(t('app.deleteProjectConfirm', { name: project.name }))) return;
     try {
       await deleteProject(project);
     } catch (err) {
-      showToast('削除に失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.deleteFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
@@ -139,7 +140,7 @@ export default function App() {
       setModalTask(undefined);
       setModalInitialParentId(undefined);
     } catch (err) {
-      showToast('保存に失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.saveFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
@@ -162,13 +163,13 @@ export default function App() {
         });
         return;
       }
-      showToast('参照タスクは読み取り専用です（編集は参照先プロジェクトで行ってください）', 'error');
+      showToast(t('app.toast.refReadonly'), 'error');
       return;
     }
     try {
       await updateTask(id, patch);
     } catch (err) {
-      showToast('更新に失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.updateFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
@@ -181,7 +182,7 @@ export default function App() {
   function handleOpenRefProject(projectId: string) {
     const target = projects.find(p => p.id === projectId);
     if (target) setCurrentProject(target);
-    else showToast('参照先プロジェクトが見つかりません', 'error');
+    else showToast(t('app.toast.refProjectNotFound'), 'error');
   }
 
   function countDescendants(id: string): number {
@@ -193,18 +194,18 @@ export default function App() {
   async function handleDeleteTask(id: string) {
     const anyTask = findAnyTask(id);
     if (anyTask && isReadonlyTask(anyTask, currentProject?.id)) {
-      showToast('参照タスクは削除できません（削除は参照先プロジェクトで行ってください）', 'error');
+      showToast(t('app.toast.refDeleteForbidden'), 'error');
       return;
     }
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     // 子を持たないタスクは従来通りの確認ダイアログ
     if (!tasks.some(t => t.parentId === id)) {
-      if (!confirm('このタスクを削除しますか？')) return;
+      if (!confirm(t('app.deleteTaskConfirm'))) return;
       try {
         await deleteTask(id);
       } catch (err) {
-        showToast('削除に失敗しました: ' + (err as Error).message, 'error');
+        showToast(t('app.toast.deleteFailed', { message: apiErrorMessage(err, locale) }), 'error');
       }
       return;
     }
@@ -217,7 +218,7 @@ export default function App() {
     try {
       await deleteTask(deleteTarget.id, mode);
     } catch (err) {
-      showToast('削除に失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.deleteFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
@@ -225,7 +226,7 @@ export default function App() {
     try {
       await reorderTasks(orders);
     } catch (err) {
-      showToast('並び替えに失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.reorderFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
@@ -234,7 +235,7 @@ export default function App() {
     try {
       await createTask({ title, projectId: currentProject.id });
     } catch (err) {
-      showToast('追加に失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.addFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
@@ -275,13 +276,13 @@ export default function App() {
       if (!orders) return;
       await reorderTasks(orders);
     } catch (err) {
-      showToast('コピーに失敗しました: ' + (err as Error).message, 'error');
+      showToast(t('app.toast.copyFailed', { message: apiErrorMessage(err, locale) }), 'error');
     }
   }
 
   if (loading) return (
     <>
-      <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>読み込み中...</div>
+      <div style={{ padding: 40, textAlign: 'center', background: 'var(--th-bg)', color: 'var(--th-text)' }}>{t('app.loading')}</div>
       <ToastContainer />
     </>
   );
@@ -298,7 +299,7 @@ export default function App() {
           padding: '10px 24px', background: '#4f46e5', color: '#fff',
           border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,
         }}>
-          再試行
+          {t('app.retry')}
         </button>
       </div>
       <ToastContainer />
@@ -329,7 +330,7 @@ export default function App() {
             cursor: 'pointer', fontSize: 13, background: 'transparent', color: '#fff',
             flexShrink: 0,
           }}>
-            + プロジェクト
+            {t('app.addProject')}
           </button>
         </div>
 
@@ -337,9 +338,9 @@ export default function App() {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {([
-              { value: 'light', label: '☀', title: 'ライトモード' },
-              { value: 'dark',  label: '🌙', title: 'ダークモード' },
-              { value: 'auto',  label: '🖥', title: 'システム設定に従う' },
+              { value: 'light', label: '☀', title: t('theme.light') },
+              { value: 'dark',  label: '🌙', title: t('theme.dark') },
+              { value: 'auto',  label: '🖥', title: t('theme.auto') },
             ] as const).map(opt => (
               <button
                 key={opt.value}
@@ -386,7 +387,7 @@ export default function App() {
               padding: '10px 24px', background: '#4f46e5', color: '#fff',
               border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,
             }}>
-              再試行
+              {t('app.retry')}
             </button>
           </div>
         ) : (
@@ -426,12 +427,12 @@ export default function App() {
         )
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <p style={{ color: 'var(--th-text-muted)' }}>プロジェクトがありません</p>
+          <p style={{ color: 'var(--th-text-muted)' }}>{t('app.noProjects')}</p>
           <button onClick={handleCreateProject} style={{
             padding: '10px 24px', background: '#4f46e5', color: '#fff',
             border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 600,
           }}>
-            最初のプロジェクトを作成
+            {t('app.createFirstProject')}
           </button>
         </div>
       )}
@@ -464,7 +465,7 @@ export default function App() {
 
       {settingsModal === 'app' && (
         <ResourceSettingsModal
-          title="リソース設定（アプリ既定）"
+          title={t('app.resourceSettingsAppTitle')}
           initialCapacityMinutes={appSettings.capacityMinutesPerDay}
           initialWorkingDays={appSettings.workingDays}
           fallbackCapacityMinutes={appSettings.capacityMinutesPerDay}
@@ -477,7 +478,7 @@ export default function App() {
                 workingDays: patch.workingDays ?? undefined,
               });
               setAppSettings(updated);
-            } catch (err) { showToast('保存に失敗しました: ' + (err as Error).message, 'error'); }
+            } catch (err) { showToast(t('app.toast.saveFailed', { message: apiErrorMessage(err, locale) }), 'error'); }
             setSettingsModal(null);
           }}
         />
@@ -485,7 +486,7 @@ export default function App() {
 
       {settingsModal && settingsModal !== 'app' && (
         <ResourceSettingsModal
-          title={`プロジェクト設定: ${settingsModal.name}`}
+          title={t('app.resourceSettingsProjectTitle', { name: settingsModal.name })}
           inheritable
           initialCapacityMinutes={settingsModal.capacityMinutesPerDay}
           initialWorkingDays={settingsModal.workingDays}
@@ -495,7 +496,7 @@ export default function App() {
           onSave={async (patch) => {
             try {
               await updateProjectResource(settingsModal, patch);
-            } catch (err) { showToast('保存に失敗しました: ' + (err as Error).message, 'error'); }
+            } catch (err) { showToast(t('app.toast.saveFailed', { message: apiErrorMessage(err, locale) }), 'error'); }
             setSettingsModal(null);
           }}
         />

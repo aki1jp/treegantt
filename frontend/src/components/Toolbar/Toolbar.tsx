@@ -3,6 +3,7 @@ import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
 import { todayStr, getUniqueAssignees, getUniqueTaskColors } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
+import { useTranslation } from '../../i18n/useTranslation';
 import { FRONTEND_VERSION } from '../../version';
 import { API_DOCS_URL } from '../../utils/api';
 
@@ -39,30 +40,6 @@ const FILTER_GROUP: React.CSSProperties = {
 const DIVIDER: React.CSSProperties = {
   width: 1, height: 22, background: 'var(--th-border)', flexShrink: 0,
 };
-
-
-const STATUS_OPTIONS: { value: TaskStatus | '' | '!done'; label: string }[] = [
-  { value: '',      label: 'すべて'  },
-  { value: 'todo',  label: 'TODO'   },
-  { value: 'wip',   label: 'Doing'  },
-  { value: 'done',  label: 'DONE'   },
-  { value: 'wait',    label: '待機'       },
-  { value: 'pending', label: '保留'       },
-  { value: '!done',   label: 'DONE/保留以外' },
-];
-const PRIORITY_OPTIONS: { value: TaskPriority | ''; label: string }[] = [
-  { value: '', label: 'すべて' },
-  { value: 'critical', label: '最高' },
-  { value: 'high', label: '高' },
-  { value: 'medium', label: '中' },
-  { value: 'low', label: '低' },
-];
-const PERIOD_OPTIONS: { value: GanttPeriod; label: string }[] = [
-  { value: '3m', label: '3ヶ月' },
-  { value: '6m', label: '6ヶ月' },
-  { value: '12m', label: '12ヶ月' },
-  { value: '24m', label: '24ヶ月' },
-];
 
 function MenuItem({ label, indent, href, onClick }: { label: string; indent?: boolean; href?: string; onClick: () => void }) {
   const style: React.CSSProperties = {
@@ -119,6 +96,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setShowMilestones, setMilestoneHighlightColor, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
+  const { t } = useTranslation();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos,  setMenuPos]  = useState<{ top: number; right: number } | null>(null);
@@ -154,6 +132,31 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
   const today = todayStr();
 
+  // 各種選択肢は locale に応じて再計算する必要があるため、レンダー内で構築する
+  // （'TODO'/'Doing'/'DONE' は元々言語非依存の表記のため翻訳対象外）
+  const statusOptions: { value: TaskStatus | '' | '!done'; label: string }[] = [
+    { value: '',      label: t('toolbar.filter.all') },
+    { value: 'todo',  label: 'TODO'  },
+    { value: 'wip',   label: 'Doing' },
+    { value: 'done',  label: 'DONE'  },
+    { value: 'wait',    label: t('toolbar.status.wait') },
+    { value: 'pending', label: t('toolbar.status.pending') },
+    { value: '!done',   label: t('toolbar.status.notDoneOrPending') },
+  ];
+  const priorityOptions: { value: TaskPriority | ''; label: string }[] = [
+    { value: '', label: t('toolbar.filter.all') },
+    { value: 'critical', label: t('toolbar.priority.critical') },
+    { value: 'high', label: t('toolbar.priority.high') },
+    { value: 'medium', label: t('toolbar.priority.medium') },
+    { value: 'low', label: t('toolbar.priority.low') },
+  ];
+  const periodOptions: { value: GanttPeriod; label: string }[] = [
+    { value: '3m', label: t('toolbar.period.3m') },
+    { value: '6m', label: t('toolbar.period.6m') },
+    { value: '12m', label: t('toolbar.period.12m') },
+    { value: '24m', label: t('toolbar.period.24m') },
+  ];
+
   const dropdownStyle: React.CSSProperties = {
     background: 'var(--th-bg)', border: '1px solid var(--th-border)', borderRadius: 8,
     boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
@@ -179,8 +182,8 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           }}>🔍</span>
           <input
             type="search"
-            placeholder="タスク検索..."
-            aria-label="タスク検索"
+            placeholder={t('toolbar.searchPlaceholder')}
+            aria-label={t('toolbar.searchAriaLabel')}
             value={filterSearch}
             onChange={e => setFilter({ filterSearch: e.target.value })}
             style={{
@@ -194,10 +197,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
         <div style={DIVIDER} />
 
         {/* タスク操作 */}
-        <button style={PRIMARY_BTN} onClick={onAddTask}>+ タスク追加</button>
-        <button style={BTN} onClick={onAddMilestone}>◇ マイルストーン</button>
+        <button style={PRIMARY_BTN} onClick={onAddTask}>{t('toolbar.addTask')}</button>
+        <button style={BTN} onClick={onAddMilestone}>{t('toolbar.addMilestone')}</button>
         {onOpenRefManager && (
-          <button style={BTN} onClick={onOpenRefManager} title="クロスプロジェクト参照の管理">🔗 参照</button>
+          <button style={BTN} onClick={onOpenRefManager} title={t('toolbar.refButtonTitle')}>{t('toolbar.refButton')}</button>
         )}
 
         {/* 右端: ☰ + ∧/∨ */}
@@ -205,8 +208,8 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* ハンバーガーメニュー */}
           <div style={{ position: 'relative' }} ref={menuRef}>
             <button
-              title="メニュー"
-              aria-label="メニュー"
+              title={t('toolbar.menuTitle')}
+              aria-label={t('toolbar.menuTitle')}
               onClick={openMenu}
               style={{
                 ...BTN,
@@ -225,35 +228,35 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                 ...dropdownStyle, minWidth: 160, overflow: 'hidden',
               }}>
                 <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
-                  📥 インポート
+                  {t('toolbar.menu.importSection')}
                 </div>
-                <MenuItem label="追記（既存を保持）" indent onClick={() => { onImport(); setMenuOpen(false); }} />
-                <MenuItem label="レストア（既存を削除）" indent onClick={() => { onRestore(); setMenuOpen(false); }} />
+                <MenuItem label={t('toolbar.menu.importAppend')} indent onClick={() => { onImport(); setMenuOpen(false); }} />
+                <MenuItem label={t('toolbar.menu.importRestore')} indent onClick={() => { onRestore(); setMenuOpen(false); }} />
 
                 <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 
                 <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
-                  📤 エクスポート
+                  {t('toolbar.menu.exportSection')}
                 </div>
-                <MenuItem label="JSON 出力" indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
-                <MenuItem label="CSV 出力"  indent onClick={() => { onExportCsv(); setMenuOpen(false); }} />
+                <MenuItem label={t('toolbar.menu.exportJson')} indent onClick={() => { onExportJson(); setMenuOpen(false); }} />
+                <MenuItem label={t('toolbar.menu.exportCsv')}  indent onClick={() => { onExportCsv(); setMenuOpen(false); }} />
 
                 {onOpenResourceSettings && (
                   <>
                     <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
                     <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
-                      ⚙ 設定
+                      {t('toolbar.menu.settingsSection')}
                     </div>
-                    <MenuItem label="リソース設定" indent onClick={() => { onOpenResourceSettings(); setMenuOpen(false); }} />
+                    <MenuItem label={t('toolbar.menu.resourceSettings')} indent onClick={() => { onOpenResourceSettings(); setMenuOpen(false); }} />
                   </>
                 )}
 
                 <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 
                 <div style={{ padding: '8px 16px 4px', fontSize: 11, color: 'var(--th-text-dim)', fontWeight: 600, letterSpacing: '0.05em' }}>
-                  📄 ドキュメント
+                  {t('toolbar.menu.docsSection')}
                 </div>
-                <MenuItem label="API仕様書 (Swagger)" indent href={API_DOCS_URL} onClick={() => setMenuOpen(false)} />
+                <MenuItem label={t('toolbar.menu.apiDocs')} indent href={API_DOCS_URL} onClick={() => setMenuOpen(false)} />
 
                 <div style={{ height: 1, background: 'var(--th-border)', margin: '2px 0' }} />
 
@@ -269,8 +272,8 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           {/* ∧/∨ 折りたたみトグル */}
           <button
-            aria-label={ganttBarOpen ? 'ガント設定を閉じる' : 'ガント設定を開く'}
-            title={ganttBarOpen ? 'ガント設定を閉じる' : 'ガント設定を開く'}
+            aria-label={ganttBarOpen ? t('toolbar.collapseSettings') : t('toolbar.expandSettings')}
+            title={ganttBarOpen ? t('toolbar.collapseSettings') : t('toolbar.expandSettings')}
             onClick={() => setGanttBarOpen(!ganttBarOpen)}
             style={{ ...BTN, padding: '4px 8px', fontSize: 10 }}
           >
@@ -290,29 +293,29 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
         >
           {/* フィルタ（インライン直列） */}
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>ステータス</span>
-            <select style={SELECT} value={filterStatus} aria-label="ステータスで絞り込み"
+            <span style={LABEL}>{t('toolbar.filter.statusLabel')}</span>
+            <select style={SELECT} value={filterStatus} aria-label={t('toolbar.filter.statusAriaLabel')}
               onChange={e => setFilter({ filterStatus: e.target.value as TaskStatus | '' | '!done' })}>
-              {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>優先度</span>
-            <select style={SELECT} value={filterPriority} aria-label="優先度で絞り込み"
+            <span style={LABEL}>{t('toolbar.filter.priorityLabel')}</span>
+            <select style={SELECT} value={filterPriority} aria-label={t('toolbar.filter.priorityAriaLabel')}
               onChange={e => setFilter({ filterPriority: e.target.value })}>
-              {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {priorityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>担当者</span>
+            <span style={LABEL}>{t('toolbar.filter.assigneeLabel')}</span>
             <div data-testid="assignee-combobox" style={{ position: 'relative', display: 'inline-flex' }}>
               <input
                 type="text"
                 list="assignee-datalist"
-                placeholder="すべて"
-                aria-label="担当者で絞り込み"
+                placeholder={t('toolbar.filter.all')}
+                aria-label={t('toolbar.filter.assigneeAriaLabel')}
                 value={filterAssignee}
                 onChange={e => setFilter({ filterAssignee: e.target.value })}
                 style={{ ...SELECT, width: 100, paddingRight: filterAssignee ? 22 : undefined }}
@@ -328,19 +331,19 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                     fontSize: 10, lineHeight: 1, cursor: 'pointer', color: 'var(--th-text-muted)',
                   }}
                   onClick={() => setFilter({ filterAssignee: '' })}
-                  title="担当者フィルターをクリア"
-                  aria-label="担当者フィルターをクリア"
+                  title={t('toolbar.filter.assigneeClear')}
+                  aria-label={t('toolbar.filter.assigneeClear')}
                 >✕</button>
               )}
             </div>
           </div>
 
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>色</span>
-            <select style={SELECT} value={filterColor} aria-label="色で絞り込み"
+            <span style={LABEL}>{t('toolbar.filter.colorLabel')}</span>
+            <select style={SELECT} value={filterColor} aria-label={t('toolbar.filter.colorAriaLabel')}
               onChange={e => setFilter({ filterColor: e.target.value })}>
-              <option value="">すべて</option>
-              <option value="*">色付き</option>
+              <option value="">{t('toolbar.filter.all')}</option>
+              <option value="*">{t('toolbar.filter.colored')}</option>
               {colorOptions.map(c => (
                 <option key={c} value={c} style={{ color: c }}>{`● ${c}`}</option>
               ))}
@@ -351,9 +354,9 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             <button
               style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
               onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '', filterColor: '' })}
-              title="フィルタをクリア"
+              title={t('toolbar.filter.clearTitle')}
             >
-              ✕ クリア
+              {t('toolbar.filter.clearLabel')}
             </button>
           )}
 
@@ -361,12 +364,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           {/* ズーム */}
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>ズーム</span>
-            <select title="ズームレベルを選択" aria-label="ズームレベル" style={SELECT} value={zoomLevel}
+            <span style={LABEL}>{t('toolbar.filter.zoomLabel')}</span>
+            <select title={t('toolbar.zoomSelectTitle')} aria-label={t('toolbar.zoomAriaLabel')} style={SELECT} value={zoomLevel}
               onChange={e => setZoomLevel(e.target.value as ZoomLevel)}>
-              <option value="day">日</option>
-              <option value="week">週</option>
-              <option value="month">月</option>
+              <option value="day">{t('toolbar.unit.day')}</option>
+              <option value="week">{t('toolbar.unit.week')}</option>
+              <option value="month">{t('toolbar.unit.month')}</option>
             </select>
           </div>
 
@@ -374,24 +377,24 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           {/* 開始日 + 期間 */}
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>開始日</span>
-            <input type="date" style={{ ...SELECT, fontSize: 11 }} aria-label="開始日"
+            <span style={LABEL}>{t('toolbar.filter.startDateLabel')}</span>
+            <input type="date" style={{ ...SELECT, fontSize: 11 }} aria-label={t('toolbar.filter.startDateLabel')}
               value={ganttStartDate}
               onChange={e => setGanttRange(e.target.value, ganttPeriod)} />
             {ganttStartDate ? (
               <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
-                onClick={() => setGanttRange('', ganttPeriod)} title="開始日をリセット（自動）" aria-label="開始日をリセット（自動）">✕</button>
+                onClick={() => setGanttRange('', ganttPeriod)} title={t('toolbar.startDateReset')} aria-label={t('toolbar.startDateReset')}>✕</button>
             ) : (
               <button style={{ ...BTN, padding: '3px 7px', fontSize: 11 }}
-                onClick={() => setGanttRange(today, ganttPeriod)} title="今日から表示">今日</button>
+                onClick={() => setGanttRange(today, ganttPeriod)} title={t('toolbar.todayButtonTitle')}>{t('toolbar.todayButtonLabel')}</button>
             )}
           </div>
 
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>期間</span>
-            <select style={SELECT} value={ganttPeriod} aria-label="表示期間"
+            <span style={LABEL}>{t('toolbar.filter.periodLabel')}</span>
+            <select style={SELECT} value={ganttPeriod} aria-label={t('toolbar.periodAriaLabel')}
               onChange={e => setGanttRange(ganttStartDate, e.target.value as GanttPeriod)}>
-              {PERIOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {periodOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
 
@@ -399,26 +402,26 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           {/* ヘッダー表示レベル + マイル強調（ヘッダー行と同グループ） */}
           <div style={FILTER_GROUP}>
-            <span style={LABEL}>ヘッダー</span>
-            <ToggleBtn active={ganttHeaderLevels.year}  label="年" title="年ヘッダーを表示"
+            <span style={LABEL}>{t('toolbar.filter.headerLabel')}</span>
+            <ToggleBtn active={ganttHeaderLevels.year}  label={t('toolbar.unit.year')} title={t('toolbar.header.yearTitle')}
               onClick={() => setGanttHeaderLevels({ year:  !ganttHeaderLevels.year  })} />
-            <ToggleBtn active={ganttHeaderLevels.month} label="月" title="月ヘッダーを表示"
+            <ToggleBtn active={ganttHeaderLevels.month} label={t('toolbar.unit.month')} title={t('toolbar.header.monthTitle')}
               onClick={() => setGanttHeaderLevels({ month: !ganttHeaderLevels.month })} />
-            <ToggleBtn active={ganttHeaderLevels.week}  label="週" title="週ヘッダーを表示"
+            <ToggleBtn active={ganttHeaderLevels.week}  label={t('toolbar.unit.week')} title={t('toolbar.header.weekTitle')}
               onClick={() => setGanttHeaderLevels({ week:  !ganttHeaderLevels.week  })} />
-            <ToggleBtn active={ganttHeaderLevels.day}   label="日" title="日ヘッダーを表示"
+            <ToggleBtn active={ganttHeaderLevels.day}   label={t('toolbar.unit.day')} title={t('toolbar.header.dayTitle')}
               onClick={() => setGanttHeaderLevels({ day:   !ganttHeaderLevels.day   })} />
             <ToggleBtn
               active={showMilestones}
-              label="マイル"
-              title="マイルストーンをヘッダーに表示"
+              label={t('toolbar.milestoneToggleLabel')}
+              title={t('toolbar.milestoneToggleTitle')}
               onClick={() => setShowMilestones(!showMilestones)}
             />
             <input
               type="color"
               value={milestoneHighlightColor}
-              title="マイルストーン強調色"
-              aria-label="マイルストーン強調色"
+              title={t('toolbar.milestoneColorTitle')}
+              aria-label={t('toolbar.milestoneColorTitle')}
               onChange={e => setMilestoneHighlightColor(e.target.value)}
               style={{ width: 22, height: 22, padding: 1, border: '1px solid var(--th-border)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
             />
@@ -429,32 +432,32 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* 表示トグル */}
           <ToggleBtn
             active={showTodayLine}
-            label="今日バー"
-            title="今日の日付ラインを表示"
+            label={t('toolbar.todayLine.label')}
+            title={t('toolbar.todayLine.title')}
             onClick={() => setShowTodayLine(!showTodayLine)}
           />
           <ToggleBtn
             active={showLightningLine}
-            label="⚡ イナズマ"
-            title="イナズマライン（実績/計画の境界）を表示"
+            label={t('toolbar.lightning.label')}
+            title={t('toolbar.lightning.title')}
             onClick={() => setShowLightningLine(!showLightningLine)}
           />
           <ToggleBtn
             active={showWeekend}
-            label="土日"
-            title="土日（週末）の背景を強調表示"
+            label={t('toolbar.weekend.label')}
+            title={t('toolbar.weekend.title')}
             onClick={() => setShowWeekend(!showWeekend)}
           />
           <ToggleBtn
             active={showCriticalPath}
-            label="クリティカルパス"
-            title="クリティカルパスをハイライト表示"
+            label={t('toolbar.criticalPath.label')}
+            title={t('toolbar.criticalPath.title')}
             onClick={() => setShowCriticalPath(!showCriticalPath)}
           />
           <ToggleBtn
             active={showResourceView}
-            label="リソースビュー"
-            title="担当者別スイムレーンを表示"
+            label={t('toolbar.resourceView.label')}
+            title={t('toolbar.resourceView.title')}
             onClick={() => setShowResourceView(!showResourceView)}
           />
 
@@ -463,36 +466,39 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* サイズ（文字・行高） */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8,
             padding: '3px 8px', border: '1px solid var(--th-border)', borderRadius: 6, background: 'var(--th-bg2)' }}>
-            <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>サイズ</span>
+            <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>{t('toolbar.size.label')}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ ...LABEL, fontSize: 10 }}>文字</span>
-              {([11, 13, 15] as const).map((size, i) => (
-                <button
-                  key={size}
-                  title={['小', '中', '大'][i]}
-                  aria-label={`文字サイズ: ${['小', '中', '大'][i]}`}
-                  onClick={() => setUiFontSize(size)}
-                  style={{
-                    ...BTN,
-                    padding: '2px 6px',
-                    fontSize: size - 2,
-                    background: uiFontSize === size ? '#4f46e5' : 'var(--th-bg)',
-                    color: uiFontSize === size ? '#fff' : 'var(--th-text-muted)',
-                    border: `1px solid ${uiFontSize === size ? '#4f46e5' : 'var(--th-input-border)'}`,
-                    fontWeight: uiFontSize === size ? 700 : 400,
-                  }}
-                >
-                  あ
-                </button>
-              ))}
+              <span style={{ ...LABEL, fontSize: 10 }}>{t('toolbar.size.fontLabel')}</span>
+              {([11, 13, 15] as const).map((size, i) => {
+                const sizeLabel = [t('toolbar.size.small'), t('toolbar.size.medium'), t('toolbar.size.large')][i];
+                return (
+                  <button
+                    key={size}
+                    title={sizeLabel}
+                    aria-label={t('toolbar.size.fontSizeAriaLabel', { size: sizeLabel })}
+                    onClick={() => setUiFontSize(size)}
+                    style={{
+                      ...BTN,
+                      padding: '2px 6px',
+                      fontSize: size - 2,
+                      background: uiFontSize === size ? '#4f46e5' : 'var(--th-bg)',
+                      color: uiFontSize === size ? '#fff' : 'var(--th-text-muted)',
+                      border: `1px solid ${uiFontSize === size ? '#4f46e5' : 'var(--th-input-border)'}`,
+                      fontWeight: uiFontSize === size ? 700 : 400,
+                    }}
+                  >
+                    {t('toolbar.size.fontPreviewGlyph')}
+                  </button>
+                );
+              })}
             </div>
             <div style={{ width: 1, height: 18, background: 'var(--th-border)' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <span style={{ ...LABEL, fontSize: 10 }}>行高</span>
+              <span style={{ ...LABEL, fontSize: 10 }}>{t('toolbar.size.rowHeightLabel')}</span>
               {([28, 36, 44] as const).map((h, i) => (
                 <button
                   key={h}
-                  title={['小', '中', '大'][i]}
+                  title={[t('toolbar.size.small'), t('toolbar.size.medium'), t('toolbar.size.large')][i]}
                   onClick={() => setUiRowHeight(h)}
                   style={{
                     ...BTN,
@@ -513,11 +519,11 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           {/* 矢印スタイル */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8,
             padding: '3px 8px', border: '1px solid var(--th-border)', borderRadius: 6, background: 'var(--th-bg2)' }}>
-            <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>矢印</span>
+            <span style={{ ...LABEL, whiteSpace: 'nowrap' }}>{t('toolbar.arrow.label')}</span>
             {(['bezier', 'elbow', 'straight'] as const).map((s, i) => (
               <button
                 key={s}
-                title={['ベジエ曲線', '直角折れ線', '直線'][i]}
+                title={[t('toolbar.arrow.bezierTitle'), t('toolbar.arrow.elbowTitle'), t('toolbar.arrow.straightTitle')][i]}
                 onClick={() => setDepArrowStyle(s)}
                 style={{
                   ...BTN,
@@ -529,7 +535,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
                   fontWeight: depArrowStyle === s ? 700 : 400,
                 }}
               >
-                {['曲線', '直角', '直線'][i]}
+                {[t('toolbar.arrow.curveLabel'), t('toolbar.arrow.elbowLabel'), t('toolbar.arrow.straightLabel')][i]}
               </button>
             ))}
           </div>
@@ -537,10 +543,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
             <button
               style={{ ...BTN, fontSize: 11, color: 'var(--th-text-muted)' }}
-              title="表示設定をデフォルトに戻す"
+              title={t('toolbar.resetDefaultsTitle')}
               onClick={resetUi}
             >
-              デフォルト
+              {t('toolbar.resetDefaultsLabel')}
             </button>
           </div>
         </div>

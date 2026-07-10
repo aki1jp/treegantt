@@ -36,6 +36,7 @@ beforeEach(() => {
     ganttHeaderLevels: { year: true, month: true, week: true, day: true },
     theme: 'auto',
     ganttBarOpen: true,
+    locale: 'ja',
   });
 });
 
@@ -481,5 +482,53 @@ describe('API仕様書リンク（ハンバーガーメニュー）', () => {
     expect(link.href).toBe('http://localhost:4000/docs');
     expect(link.target).toBe('_blank');
     expect(link.rel).toContain('noopener');
+  });
+});
+
+// ─── i18n（locale='en'）─────────────────────────────────────────────
+describe('Toolbar i18n（locale="en"）', () => {
+  beforeEach(() => {
+    useTaskStore.setState({ locale: 'en' });
+  });
+
+  it('主要ボタンが英語表示される（+ タスク追加 → Add Task 等）', () => {
+    renderToolbar();
+    expect(screen.getByRole('button', { name: /Add Task/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '◇ Milestone' })).toBeTruthy();
+  });
+
+  it('検索ボックスの placeholder / aria-label が英語表示される', () => {
+    renderToolbar();
+    expect(screen.getByPlaceholderText('Search tasks...')).toBeTruthy();
+  });
+
+  it('ハンバーガーメニューの項目が英語表示される', () => {
+    renderToolbar();
+    fireEvent.click(screen.getByTitle('Menu'));
+    expect(screen.getByText('Append (keep existing)')).toBeTruthy();
+    expect(screen.getByText('Restore (delete existing)')).toBeTruthy();
+    expect(screen.getByText('Export JSON')).toBeTruthy();
+    expect(screen.getByText('Export CSV')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /API Docs/ })).toBeTruthy();
+  });
+
+  it('フィルタの aria-label が英語表示される', () => {
+    renderToolbar();
+    expect(screen.getByLabelText('Filter by status')).toBeTruthy();
+    expect(screen.getByLabelText('Filter by priority')).toBeTruthy();
+    expect(screen.getByLabelText('Filter by assignee')).toBeTruthy();
+    expect(screen.getByLabelText('Filter by color')).toBeTruthy();
+  });
+
+  it('ステータス選択肢が英語表示される（DONE/保留以外 → Not DONE/Pending）', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const selects = row2.querySelectorAll('select');
+    const statusSelect = Array.from(selects).find(s =>
+      Array.from(s.options).some(o => o.text === 'TODO')
+    )!;
+    const labels = Array.from(statusSelect.options).map(o => o.text);
+    expect(labels).toContain('Not DONE/Pending');
+    expect(labels).toContain('All');
   });
 });
