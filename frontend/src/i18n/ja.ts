@@ -183,6 +183,34 @@ export const ja = {
   'milestoneModal.predecessorsLabel': '先行タスク（複数選択可）',
   'milestoneModal.predecessorsPlaceholder': '# で指定（例: 1, 3）',
 
+  'wbs.col.rowNumber': '行',
+  'wbs.col.seq': '#',
+  'wbs.col.title': 'タイトル',
+  'wbs.col.status': 'ST',
+  'wbs.col.priority': '優先',
+  'wbs.col.progress': '進捗',
+  'wbs.col.assignee': '担当',
+  'wbs.col.startDate': '開始',
+  'wbs.col.endDate': '終了',
+  'wbs.col.duration': '日数',
+
+  'wbs.show': 'WBSを表示',
+  'wbs.hide': 'WBSを隠す',
+  'wbs.colSettingsTitle': 'WBS列の表示設定',
+  'wbs.colButtonLabel': '列',
+
+  'wbs.expandCollapse.collapseAll': '全て折りたたむ',
+  'wbs.expandCollapse.expandAll': '全て展開',
+  'wbs.expandCollapse.toDepth': '{depth}段目まで展開',
+
+  'wbs.quickAdd.placeholder': '＋ タスクを追加…',
+
+  'wbs.row.expand': '展開',
+  'wbs.row.collapse': '折りたたむ',
+  'wbs.row.progressAutoTitle': '子タスクの平均（自動計算）',
+  'wbs.row.dateAutoTitle': '子タスクの日付から自動計算',
+  'wbs.row.milestoneEndSyncTitle': 'マイルストーンの終了日は開始日に同期',
+
   'apiError.notFound': '対象が見つかりません。',
   'apiError.invalidFormat': 'インポート形式が不正です。',
   'apiError.selfRef': '同一プロジェクト内のタスクは参照できません。',

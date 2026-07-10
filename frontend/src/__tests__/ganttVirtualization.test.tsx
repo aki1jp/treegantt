@@ -134,6 +134,14 @@ describe('GanttChart 行仮想化（1000件）', () => {
     const { getByText } = renderChart();
     expect(getByText('＋ タスクを追加…')).toBeTruthy();
   });
+
+  // ─── i18n（locale='en'）─────────────────────────────────────────────
+  it('locale="en" のとき QuickAddRow の placeholder が英語表示される', () => {
+    useTaskStore.setState({ locale: 'en' });
+    const { getByText } = renderChart();
+    expect(getByText('+ Add Task…')).toBeTruthy();
+    useTaskStore.setState({ locale: 'ja' });
+  });
 });
 
 describe('プロジェクト切り替え時の白画面対策', () => {

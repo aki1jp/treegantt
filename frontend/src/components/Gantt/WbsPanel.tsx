@@ -2,20 +2,15 @@ import { useEffect, useState } from 'react';
 import type { Task } from '../../types/task';
 import { textStartX } from '../../utils/wbsLayout';
 import { isReadonlyTask } from '../../utils/refTasks';
+import { useTranslation } from '../../i18n/useTranslation';
 import { GanttLeftRow } from './GanttLeftRow';
 import { ExpandCollapseButtons } from './ExpandCollapseButtons';
 import { QuickAddRow } from './QuickAddRow';
-import { HEADER_ROW_H } from './ganttChartConstants';
+import { HEADER_ROW_H, WBS_COL_LABEL_KEYS } from './ganttChartConstants';
 
-const HIDEABLE_COLS = [
-  { key: 'status',    label: 'ステータス' },
-  { key: 'priority',  label: '優先度'    },
-  { key: 'progress',  label: '進捗率'    },
-  { key: 'assignee',  label: '担当者'    },
-  { key: 'startDate', label: '開始日'    },
-  { key: 'endDate',   label: '終了日'    },
-  { key: 'duration',  label: '日数'      },
-] as const;
+// 列表示設定ポップアップで隠せる列のキー（ラベルは GanttChart.tsx の LEFT_COLS と同じ
+// WBS_COL_LABEL_KEYS を参照し、辞書へ一本化する, §9.11）
+const HIDEABLE_COL_KEYS = ['status', 'priority', 'progress', 'assignee', 'startDate', 'endDate', 'duration'] as const;
 
 const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
 
@@ -100,6 +95,9 @@ export function WbsPanel(props: Props) {
     onQuickAdd, hScrollbarH,
   } = props;
 
+  const { t } = useTranslation();
+  const HIDEABLE_COLS = HIDEABLE_COL_KEYS.map(key => ({ key, label: t(WBS_COL_LABEL_KEYS[key]) }));
+
   // WBS列表示設定ポップアップの開閉位置（このコンポーネント内でのみ完結する）
   const [wbsColMenuPos, setWbsColMenuPos] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
@@ -127,9 +125,9 @@ export function WbsPanel(props: Props) {
           {/* WBS 閉じているとき: # セル全体が ▷ ボタン */}
           {!wbsPanelOpen && (
             <div
-              title="WBSを表示"
+              title={t('wbs.show')}
               role="button"
-              aria-label="WBSを表示"
+              aria-label={t('wbs.show')}
               onClick={() => setWbsPanelOpen(true)}
               style={{ ...TH, width: 36, cursor: 'pointer', alignSelf: 'stretch', height: 'auto', justifyContent: 'center' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e0e7ff'; (e.currentTarget as HTMLElement).style.color = '#4f46e5'; }}
@@ -183,7 +181,7 @@ export function WbsPanel(props: Props) {
           {wbsPanelOpen && (
             <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, display: 'flex' }}>
               <button
-                title="WBS列の表示設定"
+                title={t('wbs.colSettingsTitle')}
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => {
                   const r = e.currentTarget.getBoundingClientRect();
@@ -197,11 +195,11 @@ export function WbsPanel(props: Props) {
                 onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--th-text-dim)'; }}
               >
-                列
+                {t('wbs.colButtonLabel')}
               </button>
               <button
-                title="WBSを隠す"
-                aria-label="WBSを隠す"
+                title={t('wbs.hide')}
+                aria-label={t('wbs.hide')}
                 onClick={() => setWbsPanelOpen(false)}
                 style={{
                   border: 'none', background: 'none', cursor: 'pointer',

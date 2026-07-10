@@ -14,6 +14,7 @@ import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
 import { calcVisibleRange } from '../../utils/virtualRange';
 import { useDowLabels } from '../../i18n/dow';
+import { useTranslation } from '../../i18n/useTranslation';
 import { ResourceView } from './ResourceView';
 import { DependencyArrow } from './DependencyArrow';
 import { TaskContextMenus, type DepCtxMenu } from './TaskContextMenus';
@@ -23,20 +24,20 @@ import { useRowDnd } from './useRowDnd';
 import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
 import { WbsPanel } from './WbsPanel';
-import { HEADER_ROW_H } from './ganttChartConstants';
+import { HEADER_ROW_H, WBS_COL_LABEL_KEYS } from './ganttChartConstants';
 
-// ── 左パネル列定義 ──────────────────────────────────
-const LEFT_COLS = [
-  { key: 'rowNumber', label: '行',       width: 36  },
-  { key: 'order',     label: '#',        width: 36  },
-  { key: 'title',     label: 'タイトル', width: 180 },
-  { key: 'status',    label: 'ST',       width: 66  },
-  { key: 'priority',  label: '優先',     width: 56  },
-  { key: 'progress',  label: '進捗',     width: 76  },
-  { key: 'assignee',  label: '担当',     width: 76  },
-  { key: 'startDate', label: '開始',     width: 88  },
-  { key: 'endDate',   label: '終了',     width: 88  },
-  { key: 'duration',  label: '日数',     width: 50  },
+// ── 左パネル列定義（幅・キーのみ。ラベルは辞書から t() で引く, §9.11） ──────
+const LEFT_COL_DEFS = [
+  { key: 'rowNumber', width: 36  },
+  { key: 'order',     width: 36  },
+  { key: 'title',     width: 180 },
+  { key: 'status',    width: 66  },
+  { key: 'priority',  width: 56  },
+  { key: 'progress',  width: 76  },
+  { key: 'assignee',  width: 76  },
+  { key: 'startDate', width: 88  },
+  { key: 'endDate',   width: 88  },
+  { key: 'duration',  width: 50  },
 ] as const;
 
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
@@ -98,6 +99,10 @@ export function GanttChart({
     resourceViewHeight, setResourceViewHeight,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
+
+  const { t } = useTranslation();
+  // 列見出しラベルは辞書から t() で引く（GanttChart/WbsPanel 共通の WBS_COL_LABEL_KEYS 経由, §9.11）
+  const LEFT_COLS = LEFT_COL_DEFS.map(c => ({ ...c, label: t(WBS_COL_LABEL_KEYS[c.key]) }));
 
   // クロスプロジェクト参照（§5.8）: 参照タスク＋合成グループ行を現プロジェクトのタスクに合成する。
   // displayTasks は filterTasks/includeAncestors の入力として使い、ツリー描画・依存矢印に反映する。

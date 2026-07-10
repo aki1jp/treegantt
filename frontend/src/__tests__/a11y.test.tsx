@@ -180,4 +180,31 @@ describe('a11y — GanttChart', () => {
     expect(screen.getByRole('button', { name: '全て折りたたむ' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '全て展開' })).toBeTruthy();
   });
+
+  // ─── i18n（locale='en'）─────────────────────────────────────────────
+  describe('a11y — GanttChart i18n（locale="en"）', () => {
+    afterEach(() => { useTaskStore.setState({ locale: 'ja' }); });
+
+    it('WBS開閉ボタンの aria-label が英語表示される（Hide WBS / Show WBS）', () => {
+      useTaskStore.setState({ locale: 'en' });
+      renderChart([makeTask()]);
+      expect(screen.getByRole('button', { name: 'Hide WBS' })).toBeTruthy();
+    });
+
+    it('WBSを閉じた状態では aria-label が Show WBS になる', () => {
+      useTaskStore.setState({ locale: 'en', wbsPanelOpen: false });
+      renderChart([makeTask()]);
+      expect(screen.getByRole('button', { name: 'Show WBS' })).toBeTruthy();
+    });
+
+    it('全展開/全折りたたみボタンの aria-label が英語表示される（Collapse All / Expand All）', () => {
+      useTaskStore.setState({ locale: 'en' });
+      renderChart([
+        makeTask({ id: 'p', title: '親' }),
+        makeTask({ id: 'c', title: '子', parentId: 'p' }),
+      ]);
+      expect(screen.getByRole('button', { name: 'Collapse All' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Expand All' })).toBeTruthy();
+    });
+  });
 });

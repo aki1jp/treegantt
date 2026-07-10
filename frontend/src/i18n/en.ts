@@ -184,6 +184,34 @@ export const en = {
   'milestoneModal.predecessorsLabel': 'Predecessors (multiple allowed)',
   'milestoneModal.predecessorsPlaceholder': 'Specify by # (e.g. 1, 3)',
 
+  'wbs.col.rowNumber': 'Row',
+  'wbs.col.seq': '#',
+  'wbs.col.title': 'Title',
+  'wbs.col.status': 'Status',
+  'wbs.col.priority': 'Priority',
+  'wbs.col.progress': 'Progress',
+  'wbs.col.assignee': 'Assignee',
+  'wbs.col.startDate': 'Start',
+  'wbs.col.endDate': 'End',
+  'wbs.col.duration': 'Days',
+
+  'wbs.show': 'Show WBS',
+  'wbs.hide': 'Hide WBS',
+  'wbs.colSettingsTitle': 'Column Settings',
+  'wbs.colButtonLabel': 'Cols',
+
+  'wbs.expandCollapse.collapseAll': 'Collapse All',
+  'wbs.expandCollapse.expandAll': 'Expand All',
+  'wbs.expandCollapse.toDepth': 'Expand to level {depth}',
+
+  'wbs.quickAdd.placeholder': '+ Add Task…',
+
+  'wbs.row.expand': 'Expand',
+  'wbs.row.collapse': 'Collapse',
+  'wbs.row.progressAutoTitle': 'Average of child tasks (auto-calculated)',
+  'wbs.row.dateAutoTitle': 'Automatically calculated from child task dates',
+  'wbs.row.milestoneEndSyncTitle': 'Milestone end date is synced to the start date',
+
   'apiError.notFound': 'The requested item was not found.',
   'apiError.invalidFormat': 'Invalid import format.',
   'apiError.selfRef': 'Cannot reference a task in the same project.',

@@ -1,3 +1,5 @@
+import { useTranslation } from '../../i18n/useTranslation';
+
 // 展開/折りたたみ操作ボタン群（⊟/1/2/3/⊞）。
 // WbsPanel（タイトル列見出し）と TaskContextMenus（タイトル列見出し右クリック）の
 // 2箇所で重複定義されていたものを共通化（挙動不変の抽出、D4）。
@@ -10,13 +12,14 @@ interface Props {
 }
 
 export function ExpandCollapseButtons({ variant, collapseAll, expandToDepth, expandAll, onSelect }: Props) {
+  const { t } = useTranslation();
   const items = [
-    { label: '⊟', title: '全て折りたたむ', action: collapseAll },
-    { label: '1',  title: '1段目まで展開',  action: () => expandToDepth(1) },
-    { label: '2',  title: '2段目まで展開',  action: () => expandToDepth(2) },
-    { label: '3',  title: '3段目まで展開',  action: () => expandToDepth(3) },
-    { label: '⊞', title: '全て展開',        action: expandAll },
-  ] as const;
+    { label: '⊟', title: t('wbs.expandCollapse.collapseAll'), action: collapseAll },
+    { label: '1',  title: t('wbs.expandCollapse.toDepth', { depth: 1 }), action: () => expandToDepth(1) },
+    { label: '2',  title: t('wbs.expandCollapse.toDepth', { depth: 2 }), action: () => expandToDepth(2) },
+    { label: '3',  title: t('wbs.expandCollapse.toDepth', { depth: 3 }), action: () => expandToDepth(3) },
+    { label: '⊞', title: t('wbs.expandCollapse.expandAll'), action: expandAll },
+  ];
 
   if (variant === 'compact') {
     return (

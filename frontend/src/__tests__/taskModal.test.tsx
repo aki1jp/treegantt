@@ -507,3 +507,23 @@ describe('TaskModal i18n（locale="en"）', () => {
     expect(labels).toEqual(['Critical', 'High', 'Medium', 'Low']);
   });
 });
+
+// ─── 進捗スライダー aria-label の静的性回帰テスト（可視ラベルは動的%表示、aria-labelは静的文言）───
+describe('TaskModal 進捗スライダー aria-label — 動的な可視ラベルと静的な aria-label の分離', () => {
+  afterEach(() => { useTaskStore.setState({ locale: 'ja' }); });
+
+  it('aria-label は%を含まない静的な文言で完全一致取得できる（ja: 「進捗率」、en: 「Progress」）', () => {
+    const { unmount } = render(
+      <TaskModal task={makeTask({ progress: 45 })} allTasks={[]} onSave={NOOP} onClose={NOOP} />
+    );
+    // 可視ラベルは動的（%を含む）だが、aria-label は '進捗率' で完全一致取得できる（%を含まない）
+    expect(screen.getByLabelText('進捗率')).toBeTruthy();
+    expect(screen.getByText('進捗率: 45%')).toBeTruthy();
+    unmount();
+
+    useTaskStore.setState({ locale: 'en' });
+    render(<TaskModal task={makeTask({ progress: 45 })} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    expect(screen.getByLabelText('Progress')).toBeTruthy();
+    expect(screen.getByText('Progress: 45%')).toBeTruthy();
+  });
+});

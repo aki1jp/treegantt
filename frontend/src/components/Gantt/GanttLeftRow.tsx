@@ -6,6 +6,7 @@ import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 import { TaskTooltip } from './TaskTooltip';
 import { STATUS_COLOR, STATUS_LABEL, PRIORITY_COLOR, PRIORITY_LABEL } from '../../utils/taskColors';
 import { isRefGroupId } from '../../utils/refTasks';
+import { useTranslation } from '../../i18n/useTranslation';
 
 export interface GanttLeftRowProps {
   task: Task;
@@ -45,6 +46,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   readOnly = false,
   onToggleCollapse, onInlineUpdate, onRowContextMenu,
 }: GanttLeftRowProps) {
+  const { t } = useTranslation();
   const [editField, setEditField] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [editStartVal, setEditStartVal] = useState('');
@@ -189,7 +191,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
             <button
-              aria-label={isCollapsed ? '展開' : '折りたたむ'}
+              aria-label={isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
               onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
               width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
@@ -278,7 +280,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
         ) : (
           <div
             onClick={() => { if (!hasChildren) startEdit('progress', String(task.progress)); }}
-            title={hasChildren ? '子タスクの平均（自動計算）' : undefined}
+            title={hasChildren ? t('wbs.row.progressAutoTitle') : undefined}
             style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%',
               cursor: hasChildren ? 'default' : 'text' }}>
             <div style={{ width: 40, height: 5, background: 'var(--th-border)', borderRadius: 3, flexShrink: 0 }}>
@@ -330,7 +332,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
           <span
             data-testid={hasChildren ? 'date-readonly' : undefined}
             onClick={() => !hasChildren && startEdit('startDate', task.startDate ?? '')}
-            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
+            title={hasChildren ? t('wbs.row.dateAutoTitle') : undefined}
             style={{
               cursor: hasChildren ? 'default' : 'text',
               color: hasChildren ? 'var(--th-text-dim)' : (task.startDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
@@ -352,7 +354,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
           <span
             data-testid={endLocked ? 'date-readonly' : undefined}
             onClick={() => !endLocked && startEdit('endDate', task.endDate ?? '')}
-            title={task.isMilestone ? 'マイルストーンの終了日は開始日に同期' : hasChildren ? '子タスクの日付から自動計算' : undefined}
+            title={task.isMilestone ? t('wbs.row.milestoneEndSyncTitle') : hasChildren ? t('wbs.row.dateAutoTitle') : undefined}
             style={{
               cursor: endLocked ? 'default' : 'text',
               color: endLocked ? 'var(--th-text-dim)' : (task.endDate ? 'var(--th-text2)' : 'var(--th-text-ph)'),
@@ -378,7 +380,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
             onClick={() => {
               if (!hasChildren && task.startDate) startEdit('duration', String(duration ?? ''));
             }}
-            title={hasChildren ? '子タスクの日付から自動計算' : undefined}
+            title={hasChildren ? t('wbs.row.dateAutoTitle') : undefined}
             style={{
               cursor: (!hasChildren && task.startDate) ? 'text' : 'default',
               color: hasChildren ? 'var(--th-text-dim)' : (duration !== null ? 'var(--th-text2)' : 'var(--th-text-ph)'),

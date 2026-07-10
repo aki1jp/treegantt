@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTaskStore } from '../../store/taskStore';
+import { useTranslation } from '../../i18n/useTranslation';
 
 // WBS 最終行のクイック追加インライン入力（GanttChart/WbsPanel から抽出、挙動不変, D4）。
 export function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: { onAdd: (title: string) => Promise<void>; titleWidth: number; assigneeWidth: number; dateColWidth: number }) {
   const { uiRowHeight, uiFontSize } = useTaskStore();
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +47,7 @@ export function QuickAddRow({ onAdd, titleWidth, assigneeWidth, dateColWidth }: 
         ) : (
           <span onClick={() => setEditing(true)}
             style={{ color: 'var(--th-text-dim)', cursor: 'text', fontSize: uiFontSize, userSelect: 'none' }}>
-            ＋ タスクを追加…
+            {t('wbs.quickAdd.placeholder')}
           </span>
         )}
       </div>

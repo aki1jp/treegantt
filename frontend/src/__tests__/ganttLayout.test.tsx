@@ -948,3 +948,48 @@ describe('マイルストーン強調 UI', () => {
   });
 
 });
+
+// ─── WBS/ガント列見出し i18n（locale='en'）─────────────────────────────────
+describe('WBS/ガント列見出し i18n（locale="en"）', () => {
+  function makeTask(overrides: Partial<Task> = {}): Task {
+    return {
+      id: 't1', projectId: 'p1', parentId: null,
+      title: 'Task', summary: '', description: '',
+      status: 'todo', priority: 'medium', progress: 0, assignee: '',
+      startDate: '2026-05-01', endDate: '2026-05-10',
+      isMilestone: false, predecessors: [], seq: 1, order: 1,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      titleColor: null, titleBgColor: null, estimateMinutes: null,
+      ...overrides,
+    };
+  }
+
+  function renderChart() {
+    // 子タスクなしのフラットな1件（タイトル列見出しに ExpandCollapseButtons が
+    // 混ざらないようにし、列見出しテキストのみを厳密比較できるようにする）
+    useTaskStore.setState({ tasks: [makeTask()], locale: 'en', showResourceView: false });
+    return render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
+    );
+  }
+
+  afterEach(() => { useTaskStore.setState({ locale: 'ja' }); });
+
+  it('WBS列見出し10列（行・#・タイトル・ST・優先・進捗・担当・開始・終了・日数）が英語表示される', () => {
+    const { getByTestId } = renderChart();
+    const header = getByTestId('wbs-header');
+    // LEFT_COLS の順序どおり children[0..9] が各列見出しセル
+    const colTexts = Array.from(header.children).slice(0, 10).map(el => el.textContent);
+    expect(colTexts).toEqual([
+      'Row', '#', 'Title', 'Status', 'Priority', 'Progress', 'Assignee', 'Start', 'End', 'Days',
+    ]);
+  });
+
+  it('GanttChart の列見出しと WbsPanel の列表示設定ポップアップが同じ辞書キー（同一の英語ラベル）を参照する', () => {
+    const { getByTitle, getAllByText } = renderChart();
+    // ポップアップを開く（重複解消前は見出し「優先」とポップアップ「優先度」で文言が異なっていた）
+    fireEvent.click(getByTitle('Column Settings'));
+    expect(getAllByText('Priority').length).toBe(2); // 見出しセル + ポップアップのチェックボックスラベル
+  });
+});
