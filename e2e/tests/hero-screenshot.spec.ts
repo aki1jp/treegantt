@@ -95,6 +95,11 @@ test('ヒーロー画像用: 見栄えの良いシードデータでガント全
     await expect(page.getByText('リリース判定').first()).toBeVisible();
     await page.waitForTimeout(500);
 
+    // ホバー起因の要素（TaskTooltip・依存リンク用コネクタドット等）が写り込まないよう、
+    // 撮影直前にマウスを何もない安全な位置（左上余白）へ退避させ、ホバー解除の反映を待つ
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(300);
+
     const outPath = path.resolve(__dirname, '../../docs/images/overview.png');
     await page.screenshot({ path: outPath });
   } finally {
