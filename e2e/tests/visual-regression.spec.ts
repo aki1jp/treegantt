@@ -1,3 +1,4 @@
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/app';
 
 // ビジュアルリグレッションテスト（§17.2）。Playwright のスクリーンショット比較（`toHaveScreenshot`）で、
@@ -11,8 +12,23 @@ import { test, expect } from '../fixtures/app';
 // - ガントの表示範囲・ズームレベルはツールバー操作で明示的に固定する（既定の自動計算に依存しない）。
 // - 今日ライン（showTodayLine）は実行日に応じて位置が変わるため OFF にする。
 // - アニメーション/トランジションは playwright.config.ts の reducedMotion / toHaveScreenshot.animations で抑止する。
+// - 環境間のフォントレンダリング差（§14 参照）でロケーターの自然な境界サイズが数px揺れることがあり、
+//   `expect(locator).toHaveScreenshot()` は寸法が一致しないと `maxDiffPixelRatio` を評価する前に
+//   即失敗する（実例: CI で `data-testid="gantt-chart-body"` の高さが 630px→632px にずれ失敗、
+//   1.9.1→1.9.2 で対処）。位置はロケーターの実測値、サイズは既知の正しい値に固定してクロップ撮影
+//   することで、この揺れを既存の閾値内の差分として吸収できるようにする（`expectClippedScreenshot`）。
 
 test.use({ viewport: { width: 1280, height: 800 } });
+
+async function expectClippedScreenshot(
+  page: Page, locator: Locator, name: string, width: number, height: number,
+): Promise<void> {
+  const box = await locator.boundingBox();
+  if (!box) throw new Error(`スクリーンショット撮影対象の要素が見つかりません: ${name}`);
+  await expect(page).toHaveScreenshot(name, {
+    clip: { x: box.x, y: box.y, width, height },
+  });
+}
 
 test.describe('ビジュアルリグレッション', () => {
   test('ガントメイン表示（親子タスク・依存矢印・マイルストーン混在）', async ({
@@ -65,8 +81,8 @@ test.describe('ビジュアルリグレッション', () => {
     await expect(page.locator(`[data-task-id="${impl}"]`)).toBeVisible();
     await page.waitForTimeout(300);
 
-    await expect(page.locator('[data-testid="gantt-chart-body"]')).toHaveScreenshot(
-      'gantt-main.png',
+    await expectClippedScreenshot(
+      page, page.locator('[data-testid="gantt-chart-body"]'), 'gantt-main.png', 1280, 630,
     );
   });
 
@@ -74,7 +90,7 @@ test.describe('ビジュアルリグレッション', () => {
     await expect(page.locator('[data-testid="toolbar-row2"]')).toBeVisible();
     await page.waitForTimeout(100);
 
-    await expect(page.locator('[data-testid="toolbar"]')).toHaveScreenshot('toolbar.png');
+    await expectClippedScreenshot(page, page.locator('[data-testid="toolbar"]'), 'toolbar.png', 1280, 125);
   });
 
   test('TaskModal（主要フィールドを埋めた編集画面）', async ({ page, request, projectId }) => {
@@ -105,8 +121,8 @@ test.describe('ビジュアルリグレッション', () => {
     await expect(page.getByText('タスク編集')).toBeVisible();
     await expect(page.locator('[data-field="title"] input')).toHaveValue('ビジュアル回帰確認用タスク');
 
-    await expect(page.locator('[data-testid="task-modal-panel"]')).toHaveScreenshot(
-      'task-modal.png',
+    await expectClippedScreenshot(
+      page, page.locator('[data-testid="task-modal-panel"]'), 'task-modal.png', 560, 720,
     );
   });
 });
