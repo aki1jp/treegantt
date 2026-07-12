@@ -6,7 +6,7 @@
 
 複数ブラウザでリアルタイム同期する、社内向けプロジェクト/タスク管理ツール。
 
-![version](https://img.shields.io/badge/version-1.9.0-2563eb)
+![version](https://img.shields.io/badge/version-1.9.1-2563eb)
 [![CI](https://github.com/aki1jp/treegantt/actions/workflows/ci.yml/badge.svg)](https://github.com/aki1jp/treegantt/actions/workflows/ci.yml)
 ![license](https://img.shields.io/badge/license-MIT-22c55e)
 ![node](https://img.shields.io/badge/node-20+-3c873a)
