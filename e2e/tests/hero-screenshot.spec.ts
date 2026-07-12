@@ -95,6 +95,12 @@ test('ヒーロー画像用: 見栄えの良いシードデータでガント全
     await expect(page.getByText('リリース判定').first()).toBeVisible();
     await page.waitForTimeout(500);
 
+    // 今日ライン（showTodayLine、既定 ON）は実行日に応じて位置が変わり、シードデータの
+    // タスクバーと重なって見た目が崩れることがあるため、ヒーロー画像では OFF にする
+    // （visual-regression.spec.ts は日付を2031年に離すことで同じ問題を回避しているが、
+    // ヒーロー画像は近未来の実在感のある日付を保ちたいため、明示的にトグルで対応する）。
+    await page.getByRole('button', { name: '今日バー' }).click();
+
     // ホバー起因の要素（TaskTooltip・依存リンク用コネクタドット等）が写り込まないよう、
     // 撮影直前にマウスを何もない安全な位置（左上余白）へ退避させ、ホバー解除の反映を待つ
     await page.mouse.move(0, 0);
