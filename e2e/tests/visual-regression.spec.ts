@@ -37,9 +37,15 @@ async function expectClippedScreenshot(
 ): Promise<void> {
   const box = await locator.boundingBox();
   if (!box) throw new Error(`スクリーンショット撮影対象の要素が見つかりません: ${name}`);
+  // maxDiffPixelRatio キー自体を「値が undefined のまま」渡すと、playwright.config.ts の
+  // グローバル既定（0.02）へのフォールバックが効かず、実質的な閾値なし判定になってしまう
+  // （オブジェクトスプレッドは undefined でも明示的に上書きするため）。呼び出し元が指定した
+  // 場合のみキーを含める。
   await expect(page).toHaveScreenshot(name, {
     clip: { x: box.x, y: box.y, width, height },
-    maxDiffPixelRatio: options?.maxDiffPixelRatio,
+    ...(options?.maxDiffPixelRatio !== undefined
+      ? { maxDiffPixelRatio: options.maxDiffPixelRatio }
+      : {}),
   });
 }
 
