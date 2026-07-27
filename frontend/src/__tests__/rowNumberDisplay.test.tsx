@@ -149,3 +149,46 @@ describe('「行」列: 折りたたみ適用時も番号が変わらない', ()
     expect(byTitle['After']).toBe('3');
   });
 });
+
+describe('「行」列: フィルタで隠れた兄弟がいる状態でのD&D並び替え後も矛盾しない', () => {
+  it('非表示の兄弟の order を取り残さず、フィルタ解除後も行番号が矛盾なく昇順になる', () => {
+    const A = makeTask({ title: 'A', order: 1, status: 'todo' });
+    const B = makeTask({ title: 'B', order: 2, status: 'done' }); // フィルタで非表示
+    const C = makeTask({ title: 'C', order: 3, status: 'todo' });
+    const onReorder = vi.fn().mockResolvedValue(undefined);
+    useTaskStore.setState({ tasks: [A, B, C], filterStatus: '!done' });
+
+    const { getByTestId, rerender } = render(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} onCopyInsert={NOOP} />
+    );
+
+    // 可視行は A, C の2行（B は非表示）。C を A の前へドラッグする。
+    const rows = getByTestId('wbs-panel').querySelectorAll('[draggable="true"]');
+    fireEvent.dragStart(rows[1]); // C
+    fireEvent(rows[0], new MouseEvent('dragover', { bubbles: true, cancelable: true, clientX: 61 }));
+    fireEvent(rows[0], new MouseEvent('drop',     { bubbles: true, cancelable: true, clientX: 61 }));
+
+    expect(onReorder).toHaveBeenCalledOnce();
+    const orders: { id: string; order: number }[] = onReorder.mock.calls[0][0];
+    const orderMap = new Map(orders.map(o => [o.id, o.order]));
+
+    // 非表示だった B も含めて全タスクが採番対象になり、order が重複しないこと
+    expect(orderMap.size).toBe(3);
+    expect(new Set(orderMap.values()).size).toBe(3);
+
+    // 返ってきた order を適用してフィルタを解除し、行番号が矛盾なく昇順になることを確認
+    const updated = [A, B, C].map(t => ({ ...t, order: orderMap.get(t.id) ?? t.order }));
+    useTaskStore.setState({ tasks: updated, filterStatus: '' });
+    rerender(
+      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+        onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} onCopyInsert={NOOP} />
+    );
+
+    const numbers = getWbsRowNumbers().map(r => Number(r.rowNumber));
+    expect(numbers).toHaveLength(3);
+    for (let i = 1; i < numbers.length; i++) {
+      expect(numbers[i]).toBeGreaterThan(numbers[i - 1]);
+    }
+  });
+});

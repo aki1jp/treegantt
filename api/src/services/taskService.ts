@@ -308,13 +308,32 @@ export function deleteTaskKeepChildren(
     .prepare<[string], { id: string; ord: number }>('SELECT id, ord FROM tasks WHERE parent_id = ?')
     .all(id);
 
+  if (children.length === 0) {
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+    return [];
+  }
+
+  // 付け替え先（祖父母）の既存の子（削除対象自身を除く）の最大 ord を基準に、旧 ord の
+  // 相対順序を保ったまま新しい兄弟より後ろへ連番で採番し直す。旧 ord（削除タスク配下での
+  // 値）をそのまま引き継ぐと、新しい兄弟と衝突・順序矛盾しうるため（行番号ズレの一因）。
+  const maxSibRow = db
+    .prepare<[string | null, string], { maxOrd: number | null }>(
+      'SELECT MAX(ord) as maxOrd FROM tasks WHERE parent_id IS ? AND id != ?'
+    )
+    .get(task.parent_id, id);
+  let nextOrd = (maxSibRow?.maxOrd ?? 0) + 1;
+
+  const reordered = [...children]
+    .sort((a, b) => a.ord - b.ord)
+    .map(c => ({ id: c.id, order: nextOrd++, parentId: task.parent_id }));
+
   db.transaction(() => {
-    const upd = db.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?');
-    for (const c of children) upd.run(task.parent_id, c.id);
+    const upd = db.prepare('UPDATE tasks SET parent_id = ?, ord = ? WHERE id = ?');
+    for (const c of reordered) upd.run(c.parentId, c.order, c.id);
     db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
   })();
 
-  return children.map(c => ({ id: c.id, order: c.ord, parentId: task.parent_id }));
+  return reordered;
 }
 
 /**

@@ -371,6 +371,35 @@ describe('taskService', () => {
       expect(getTask('c')?.parentId).toBeNull();
       expect(getTask('g')?.parentId).toBe('c');
     });
+
+    it('付け替えられた子は、旧 order をそのまま引き継がず新しい兄弟（祖父母の既存の子）より後ろに採番される', () => {
+      // gpChild（祖父母の既存の子, order=100） / p の子 c1・c2（旧 order は小さい値）という
+      // 状況を作り、c1・c2 が gp に付け替わった際に gpChild の order（新しい真の兄弟の最大値）
+      // より後ろに来ることを検証する（衝突・逆転の防止）。
+      createTask({ id: 'gp', projectId: PROJECT_ID, title: '祖父母' });
+      createTask({ id: 'gpChild', projectId: PROJECT_ID, title: '祖父母の既存の子', parentId: 'gp' });
+      createTask({ id: 'p', projectId: PROJECT_ID, title: '親', parentId: 'gp' });
+      createTask({ id: 'c1', projectId: PROJECT_ID, title: '子1', parentId: 'p' });
+      createTask({ id: 'c2', projectId: PROJECT_ID, title: '子2', parentId: 'p' });
+      reorderTasks([
+        { id: 'gpChild', order: 100 },
+        { id: 'c2', order: 0 },
+        { id: 'c1', order: 1 },
+      ]);
+
+      const reparented = deleteTaskKeepChildren('p');
+      const c1Info = reparented.find(r => r.id === 'c1')!;
+      const c2Info = reparented.find(r => r.id === 'c2')!;
+
+      // 祖父母の既存の子（order=100）より後ろに採番される
+      expect(c1Info.order).toBeGreaterThan(100);
+      expect(c2Info.order).toBeGreaterThan(100);
+      // 元々の相対順序（c2 < c1）は保たれる
+      expect(c2Info.order).toBeLessThan(c1Info.order);
+      // DB（ord カラム）にも同じ値が反映されている
+      expect(getTask('c1')?.order).toBe(c1Info.order);
+      expect(getTask('c2')?.order).toBe(c2Info.order);
+    });
   });
 
   describe('reorderTasks', () => {

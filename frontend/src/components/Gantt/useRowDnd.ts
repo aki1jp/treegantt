@@ -2,12 +2,19 @@ import { useRef, useState } from 'react';
 import type { Task } from '../../types/task';
 import { textStartX, INDENT } from '../../utils/wbsLayout';
 import { isReadonlyTask } from '../../utils/refTasks';
+import { buildTree, flattenTree } from '../../utils/taskTree';
 
 type FlatRow = { task: Task; depth: number };
 type ReorderOrders = { id: string; order: number; parentId?: string | null }[];
 
 interface Params {
   flatRows: FlatRow[];
+  /**
+   * フィルタ・折りたたみ前の全タスク（`GanttChart` の `displayTasks` 相当）。
+   * order の採番はここから「真の全兄弟集合」を求めて行う（flatRows＝可視行だけを
+   * 対象にすると、非表示の兄弟の order が古いまま取り残されて表示順と矛盾する不具合になる）。
+   */
+  allTasks: Task[];
   onReorder: (orders: ReorderOrders) => Promise<void>;
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
   /** クロスプロジェクト参照（§5.8）: 参照タスク・合成グループ行はドラッグ開始・ドロップ先の両方から除外する */
@@ -17,7 +24,7 @@ interface Params {
 // WBS 行の並び替え・親子変更・Ctrl/Cmd コピー（GanttChart から抽出、挙動不変, D4）。
 // wbsPanelRef はドラッグ時の X 座標から depth インジケーターを算出するために内部で保持し、
 // 呼び出し側は WBS パネル div に ref として渡す。
-export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId }: Params) {
+export function useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, currentProjectId }: Params) {
   const wbsPanelRef = useRef<HTMLDivElement>(null);
   const [rowDragId,    setRowDragId]    = useState<string | null>(null);
   const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
@@ -123,9 +130,11 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId 
 
     // ── 子採用モード ──
     if (rowDropTarget) {
-      const siblings = flatRows.filter(r => r.task.parentId === rowDropTarget);
+      // 対象親の「真の全子」（折りたたみ・フィルタで非表示の子も含む）から最大 order を取る。
+      // flatRows（可視行）だけを見ると非表示の子の order を見落とし、後で表示順と矛盾しうる。
+      const siblings = allTasks.filter(t => t.parentId === rowDropTarget);
       const maxSibOrder = siblings.length > 0
-        ? Math.max(...siblings.map(r => r.task.order))
+        ? Math.max(...siblings.map(t => t.order))
         : 0;
       if (isDragCopyRef.current) {
         void onCopyInsert(moved, rowDropTarget, null);
@@ -181,11 +190,36 @@ export function useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId 
 
     if (insertAt === dragIdx && !parentIdChanged) { clearDrop(); return; }
 
+    // 可視リスト上での新しい直前/直後の隣接行を特定し、それを「真の全兄弟」を含む
+    // フルリスト（全展開・フィルタなし＝行番号列と同じ基準, taskTree.ts の
+    // buildRowNumberMap 相当）上での挿入位置に変換する。可視行だけを対象に連番を
+    // 振り直すと、折りたたみ・フィルタで非表示の兄弟の order が古いまま取り残され、
+    // 表示条件が変わった際に相対順序が矛盾する不具合になるため。
+    const movedIdxInNewRows = newRows.findIndex(t => t.id === moved.id);
+    const aboveNeighborId = movedIdxInNewRows > 0 ? newRows[movedIdxInNewRows - 1].id : null;
+    const belowNeighborId =
+      movedIdxInNewRows < newRows.length - 1 ? newRows[movedIdxInNewRows + 1].id : null;
+
+    const fullSorted = [...allTasks].sort((a, b) => a.order - b.order);
+    const { roots: fullRoots } = buildTree(fullSorted);
+    const fullFlat = flattenTree(fullRoots, new Set()).map(r => r.task);
+    const fullWithoutMoved = fullFlat.filter(t => t.id !== moved.id);
+    let fullInsertAt = fullWithoutMoved.length;
+    if (aboveNeighborId) {
+      const i = fullWithoutMoved.findIndex(t => t.id === aboveNeighborId);
+      fullInsertAt = i === -1 ? fullWithoutMoved.length : i + 1;
+    } else if (belowNeighborId) {
+      const i = fullWithoutMoved.findIndex(t => t.id === belowNeighborId);
+      fullInsertAt = i === -1 ? 0 : i;
+    } else {
+      fullInsertAt = 0;
+    }
+    fullWithoutMoved.splice(fullInsertAt, 0, moved);
+
     // 参照タスク・合成グループ行（読み取り専用, §5.8）は reorder ペイロードから除外する。
     // これらは他プロジェクト所属／実在しない合成行のため、そのまま送ると
-    // reorder API のプロジェクト境界検証に失敗する。除外後に order を採番し直す
-    // （常に自プロジェクトのタスクのみを対象にした従来の挙動と同じ連番になる）。
-    const orders = newRows
+    // reorder API のプロジェクト境界検証に失敗する。
+    const orders = fullWithoutMoved
       .filter(t => !isReadonlyTask(t, currentProjectId))
       .map((t, i) => ({
         id: t.id, order: i + 1,

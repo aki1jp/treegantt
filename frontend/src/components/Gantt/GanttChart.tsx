@@ -324,7 +324,7 @@ export function GanttChart({
     wbsPanelRef, rowDragId, rowDropIdx, rowDropDepth, rowDropTarget,
     copiedTask, setCopiedTask,
     clearDrop, handleRowDragStart, handleRowDragOver, handleRowDrop,
-  } = useRowDnd({ flatRows, onReorder, onCopyInsert, currentProjectId: projectId });
+  } = useRowDnd({ flatRows, allTasks: displayTasks, onReorder, onCopyInsert, currentProjectId: projectId });
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
