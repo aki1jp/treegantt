@@ -167,7 +167,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
       const { tasks } = listTasks(req.params.id, { limit: 100000 });
 
-      reply
+      return reply
         .header('Content-Type', 'application/json')
         .header('Content-Disposition', `attachment; filename="treegantt-export-${req.params.id}.json"`)
         .send({
@@ -217,7 +217,7 @@ export async function importExportRoutes(fastify: FastifyInstance) {
 
       const csv = [CSV_HEADERS, ...rows].join('\n');
 
-      reply
+      return reply
         .header('Content-Type', 'text/csv; charset=utf-8')
         .header('Content-Disposition', `attachment; filename="treegantt-export-${req.params.id}.csv"`)
         .send(csv);

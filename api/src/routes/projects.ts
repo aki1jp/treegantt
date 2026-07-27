@@ -20,7 +20,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
       },
     },
     async handler(req, reply) {
-      reply.code(201).send({ project: createProject(req.body.name, req.body.color) });
+      return reply.code(201).send({ project: createProject(req.body.name, req.body.color) });
     },
   });
 
@@ -55,6 +55,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
     if (!deleteProject(req.params.id)) {
       return reply.code(404).send({ error: 'Project not found', code: 'NOT_FOUND' });
     }
-    reply.code(204).send();
+    return reply.code(204).send();
   });
 }

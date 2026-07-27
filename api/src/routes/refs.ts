@@ -57,7 +57,7 @@ export async function refRoutes(fastify: FastifyInstance) {
         }
 
         const { ref, created } = addRef(req.params.id, refTaskId);
-        reply.code(created ? 201 : 200).send({ ref });
+        return reply.code(created ? 201 : 200).send({ ref });
       },
     }
   );
@@ -75,7 +75,7 @@ export async function refRoutes(fastify: FastifyInstance) {
       if (!deleted) {
         return reply.code(404).send({ error: 'Ref not found', code: 'NOT_FOUND' });
       }
-      reply.code(204).send();
+      return reply.code(204).send();
     }
   );
 }

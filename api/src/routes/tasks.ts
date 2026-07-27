@@ -110,7 +110,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           estimateMinutes: req.body.estimateMinutes as number | null | undefined,
         });
         notifyRoom(req.params.id, { type: 'task_created', projectId: req.params.id, task });
-        reply.code(201).send({ task });
+        return reply.code(201).send({ task });
       },
     }
   );
@@ -275,7 +275,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
           notifyRoom(task.projectId, { type: 'tasks_deleted', projectId: task.projectId, ids: deletedIds });
         }
       }
-      reply.code(204).send();
+      return reply.code(204).send();
     },
   );
 

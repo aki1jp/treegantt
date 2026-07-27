@@ -71,4 +71,43 @@ test.describe('タスクモーダル', () => {
     await expect(page.locator('[data-field="summary"] input')).toHaveValue('E2Eテスト用のサマリ');
     await expect(page.locator('[data-field="assignee"] input')).toHaveValue('E2E-Tester');
   });
+
+  // 回帰テスト: @fastify/compress の threshold(1024バイト)を超えるレスポンスで、
+  // async handler 内の reply.send() の return/await 漏れによりボディが空になり
+  // 「Failed to execute 'json' on 'Response': Unexpected end of JSON input」で保存に失敗していたバグの再現確認。
+  // 1024バイト超のSQL文＋日本語混じりの説明文を保存し、エラートーストが出ずモーダルが正常に閉じることを確認する。
+  test('1024バイトを超える説明文を保存してもエラートーストが出ずモーダルが閉じる', async ({ page, projectId: _ }) => {
+    const baseSql =
+      "SELECT id, title, description FROM tasks WHERE project_id = '00000000-0000-0000-0000-000000000000' " +
+      "AND status IN ('in_progress', 'blocked') ORDER BY created_at DESC; " +
+      '-- 緊急対応：本番環境で発生した長文descriptionの保存に関する調査用クエリログ。担当者へ即時共有すること。\n';
+    let longDescription = '';
+    while (new TextEncoder().encode(longDescription).length <= 1024) {
+      longDescription += baseSql;
+    }
+
+    await page.getByRole('button', { name: /\+ タスク追加/ }).click();
+    await expect(page.getByText('タスク作成')).toBeVisible();
+
+    await page.locator('[data-field="title"] input').fill('E2E-long-description');
+    await page.locator('[data-field="description"] textarea').fill(longDescription);
+
+    await page.getByRole('button', { name: '保存' }).click();
+
+    // エラートーストが表示されないこと（旧バグでは「保存に失敗しました」がここで出ていた）
+    await expect(page.locator('[data-testid="toast"]')).not.toBeVisible();
+    // モーダルが正常に閉じること
+    await expect(page.getByText('タスク作成')).not.toBeVisible();
+
+    const taskText = page.locator('[data-testid="wbs-panel"]').getByText('E2E-long-description');
+    await expect(taskText).toBeVisible();
+
+    // レスポンスボディが破損していないこと（保存内容が欠落せず往復すること）を確認する
+    await taskText.click({ button: 'right' });
+    await page.getByRole('button', { name: /編集（詳細）/ }).click();
+    await expect(page.getByText('タスク編集')).toBeVisible();
+    await expect(page.locator('[data-field="description"] textarea')).toHaveValue(longDescription);
+
+    await page.getByRole('button', { name: 'キャンセル' }).click();
+  });
 });
