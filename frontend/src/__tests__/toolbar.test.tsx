@@ -29,7 +29,7 @@ beforeEach(() => {
   localStorage.clear();
   useTaskStore.setState({
     tasks: [], needsReload: false,
-    filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterSearch: '',
+    filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterOverdue: '', filterSearch: '',
     zoomLevel: 'week', ganttStartDate: '', ganttPeriod: '3m',
     showLightningLine: true, showWeekend: true, showCriticalPath: false, showResourceView: true,
     uiFontSize: 13, uiRowHeight: 36,
@@ -280,6 +280,43 @@ describe('Toolbar 色フィルタ', () => {
     renderToolbar();
     fireEvent.click(screen.getByTitle('フィルタをクリア'));
     expect(useTaskStore.getState().filterColor).toBe('');
+  });
+});
+
+describe('Toolbar 期限フィルタ', () => {
+  it('行2に期限選択が直接表示される（aria-label="期限で絞り込み"）', () => {
+    renderToolbar();
+    const row2 = screen.getByTestId('toolbar-row2');
+    const dueSelect = row2.querySelector('select[aria-label="期限で絞り込み"]');
+    expect(dueSelect).toBeTruthy();
+  });
+
+  it('期限選択のデフォルト値は空文字（すべて）', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('期限で絞り込み') as HTMLSelectElement;
+    expect(select.value).toBe('');
+  });
+
+  it('期限選択の選択肢は「すべて」「遅延中」の2件', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('期限で絞り込み') as HTMLSelectElement;
+    expect(select.options.length).toBe(2);
+    expect(Array.from(select.options).some(o => o.value === '' && o.text === 'すべて')).toBe(true);
+    expect(Array.from(select.options).some(o => o.value === 'overdue' && o.text === '遅延中')).toBe(true);
+  });
+
+  it('期限選択を変更するとストアの filterOverdue が更新される', () => {
+    renderToolbar();
+    const select = screen.getByLabelText('期限で絞り込み') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'overdue' } });
+    expect(useTaskStore.getState().filterOverdue).toBe('overdue');
+  });
+
+  it('期限フィルタ設定中は✕クリアボタンで filterOverdue もクリアされる', () => {
+    useTaskStore.setState({ filterOverdue: 'overdue' });
+    renderToolbar();
+    fireEvent.click(screen.getByTitle('フィルタをクリア'));
+    expect(useTaskStore.getState().filterOverdue).toBe('');
   });
 });
 

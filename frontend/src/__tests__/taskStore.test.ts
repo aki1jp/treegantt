@@ -24,6 +24,7 @@ beforeEach(() => {
     filterAssignee: '',
     filterPriority: '',
     filterColor: '',
+    filterOverdue: '',
     filterSearch: '',
     zoomLevel: 'week',
     ganttStartDate: '',
@@ -98,6 +99,15 @@ describe('setFilter', () => {
 
   it('filterColor の初期値は空文字（すべて）', () => {
     expect(useTaskStore.getState().filterColor).toBe('');
+  });
+
+  it('filterOverdue の初期値は空文字（すべて）', () => {
+    expect(useTaskStore.getState().filterOverdue).toBe('');
+  });
+
+  it('setFilter({ filterOverdue: "overdue" }) で更新できる', () => {
+    useTaskStore.getState().setFilter({ filterOverdue: 'overdue' });
+    expect(useTaskStore.getState().filterOverdue).toBe('overdue');
   });
 });
 
@@ -243,11 +253,12 @@ describe('UI設定の永続化', () => {
   });
 
   it('フィルタ・検索は localStorage に保存されない', () => {
-    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice', filterColor: '*', filterSearch: 'foo' });
+    useTaskStore.getState().setFilter({ filterStatus: 'wip', filterAssignee: 'Alice', filterColor: '*', filterOverdue: 'overdue', filterSearch: 'foo' });
     const saved = getSaved();
     expect(saved).not.toHaveProperty('filterStatus');
     expect(saved).not.toHaveProperty('filterAssignee');
     expect(saved).not.toHaveProperty('filterColor');
+    expect(saved).not.toHaveProperty('filterOverdue');
     expect(saved).not.toHaveProperty('filterSearch');
   });
 });

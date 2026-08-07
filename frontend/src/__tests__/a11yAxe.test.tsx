@@ -44,7 +44,7 @@ describe('axe — Toolbar', () => {
     localStorage.clear();
     useTaskStore.setState({
       tasks: [], needsReload: false,
-      filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterSearch: '',
+      filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterOverdue: '', filterSearch: '',
       zoomLevel: 'week', ganttStartDate: '', ganttPeriod: '3m',
       showLightningLine: true, showWeekend: true, showCriticalPath: false, showResourceView: true,
       uiFontSize: 13, uiRowHeight: 36,
@@ -146,7 +146,7 @@ describe('axe — GanttChart', () => {
         makeTask({ id: 'm1', title: 'マイルストーン', isMilestone: true, startDate: '2026-06-05', endDate: '2026-06-05' }),
       ],
       needsReload: false,
-      filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterSearch: '',
+      filterStatus: '', filterAssignee: '', filterPriority: '', filterColor: '', filterOverdue: '', filterSearch: '',
       zoomLevel: 'week', ganttStartDate: '2026-06-01', ganttPeriod: '3m',
       showLightningLine: true, showWeekend: true, showCriticalPath: false, showResourceView: false,
       uiFontSize: 13, uiRowHeight: 36,

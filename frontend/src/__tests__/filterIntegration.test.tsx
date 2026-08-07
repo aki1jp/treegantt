@@ -31,7 +31,7 @@ beforeEach(() => {
   localStorage.clear();
   useTaskStore.setState({
     tasks: [], needsReload: false,
-    filterStatus: '', filterAssignee: '', filterPriority: '', filterSearch: '',
+    filterStatus: '', filterAssignee: '', filterPriority: '', filterOverdue: '', filterSearch: '',
     zoomLevel: 'week', ganttStartDate: '2026-06-01', ganttPeriod: '3m',
     showLightningLine: false, showWeekend: false, showCriticalPath: false, showResourceView: false,
     uiFontSize: 13, uiRowHeight: 36,
@@ -295,5 +295,48 @@ describe('GanttChart フィルタ統合: 優先度', () => {
     expect(titles).toContain('HighTask');
     expect(titles).not.toContain('MediumTask');
     expect(titles).not.toContain('LowTask');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// システム時刻は 2026-06-01 に固定（beforeEach）。makeTask の既定 endDate は
+// '2026-06-15'（未来）のため、遅延させたいタスクは個別に過去の endDate を指定する。
+describe('GanttChart フィルタ統合: 期限（filterOverdue）', () => {
+  it("filterOverdue='overdue' のとき遅延タスクのみが WBS 行に出る", () => {
+    const tasks = [
+      makeTask({ title: 'OverdueTask', status: 'todo', endDate: '2026-05-20' }),
+      makeTask({ title: 'FutureTask',  status: 'todo', endDate: '2026-06-20' }),
+      makeTask({ title: 'DoneOverdue', status: 'done', endDate: '2026-05-20' }),
+    ];
+    renderChart(tasks, { filterOverdue: 'overdue' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('OverdueTask');
+    expect(titles).not.toContain('FutureTask');
+    expect(titles).not.toContain('DoneOverdue');
+  });
+
+  it("filterOverdue='' のとき全タスクが表示される", () => {
+    const tasks = [
+      makeTask({ title: 'OverdueTask', status: 'todo', endDate: '2026-05-20' }),
+      makeTask({ title: 'FutureTask',  status: 'todo', endDate: '2026-06-20' }),
+    ];
+    renderChart(tasks, { filterOverdue: '' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('OverdueTask');
+    expect(titles).toContain('FutureTask');
+  });
+
+  it('遅延した子を持つ親は構造保持で残る（親自身は endDate が派生値のため遅延判定されない）', () => {
+    const parent = makeTask({ title: 'ParentTask', status: 'todo', startDate: null, endDate: null });
+    const tasks = [
+      parent,
+      makeTask({ title: 'OverdueChild', status: 'todo', endDate: '2026-05-20', parentId: parent.id }),
+      makeTask({ title: 'FutureChild',  status: 'todo', endDate: '2026-06-20', parentId: parent.id }),
+    ];
+    renderChart(tasks, { filterOverdue: 'overdue' });
+    const titles = getWbsTitles();
+    expect(titles).toContain('OverdueChild');
+    expect(titles).toContain('ParentTask'); // 構造保持で表示
+    expect(titles).not.toContain('FutureChild');
   });
 });
