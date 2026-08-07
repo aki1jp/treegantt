@@ -14,6 +14,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { GanttBar } from '../components/Gantt/GanttBar';
 import type { Task } from '../types/task';
+import dayjs from 'dayjs';
 
 const BASE_TASK: Task = {
   id: 't1', projectId: 'p1', parentId: null,
@@ -216,14 +217,18 @@ describe('GanttBar テキスト自動コントラスト反転（親タスク）'
 
 // BASE_TASK は過去日付（endDate=2026-05-31）なので isOverdue=true になる。
 // グローは非期限超過タスクに適用するため、テストは未来日付タスクを使う。
-const FUTURE_TASK: Task = { ...BASE_TASK, startDate: '2026-07-01', endDate: '2026-07-31' };
+// 固定日付だとその日を過ぎた時点で期限超過になり壊れるため、実行日からの相対で生成する。
+const FUTURE_START = dayjs().add(1, 'month').format('YYYY-MM-DD');
+const FUTURE_END   = dayjs().add(2, 'month').format('YYYY-MM-DD');
+const FUTURE_TASK: Task = { ...BASE_TASK, startDate: FUTURE_START, endDate: FUTURE_END };
+const FUTURE_MIN = new Date(FUTURE_START);
 
 describe('GanttBar クリティカルパス グロー（v2.31）', () => {
   it('isCritical=true のとき背景 rect に filter 属性が付く', () => {
     const { container } = render(
       <svg>
         <GanttBar
-          task={FUTURE_TASK} minDate={new Date('2026-07-01')} zoom="month" rowIndex={0}
+          task={FUTURE_TASK} minDate={FUTURE_MIN} zoom="month" rowIndex={0}
           isParent={false} isCritical={true}
           onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
         />
@@ -239,7 +244,7 @@ describe('GanttBar クリティカルパス グロー（v2.31）', () => {
     const { container } = render(
       <svg>
         <GanttBar
-          task={FUTURE_TASK} minDate={new Date('2026-07-01')} zoom="month" rowIndex={0}
+          task={FUTURE_TASK} minDate={FUTURE_MIN} zoom="month" rowIndex={0}
           isParent={false} isCritical={false}
           onMoveStart={NOOP} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
         />
