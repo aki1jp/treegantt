@@ -90,6 +90,12 @@ export function normalizeDateStr(s: string): string {
   return d.isValid() ? d.format('YYYY-MM-DD') : s;
 }
 
+/** 期限超過（§8.3 / §9.3）: 期限日が今日より前で、かつ完了・保留でないタスク。
+ *  日付は ISO 正規化してから辞書順比較する（§5.1）。 */
+export function isOverdueTask(task: Pick<Task, 'endDate' | 'status'>, today = todayStr()): boolean {
+  return task.endDate !== null && normalizeDateStr(task.endDate) < today && task.status !== 'done' && task.status !== 'pending';
+}
+
 export function calcTodayX(minDate: Date, zoom: ZoomLevel): number {
   return dateToX(todayStr(), minDate, zoom);
 }

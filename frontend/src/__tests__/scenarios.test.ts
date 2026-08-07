@@ -16,6 +16,7 @@ import {
   PERIOD_DAYS,
   ZOOM_CONFIG,
   ROW_HEIGHT_PX,
+  isOverdueTask,
 } from '../utils/ganttCalc';
 import {
   exportToJson,
@@ -1513,7 +1514,7 @@ describe('§Phase 2-A 期限超過判定', () => {
   const TODAY_STR = '2026-05-22';
 
   function isOverdue(task: Task): boolean {
-    return task.endDate !== null && task.endDate < TODAY_STR && task.status !== 'done';
+    return isOverdueTask(task, TODAY_STR);
   }
 
   it('endDate が今日より前かつ未完了 → 超過', () => {

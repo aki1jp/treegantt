@@ -88,7 +88,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
 export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, onOpenRefManager, backendVersion }: Props) {
   const {
     tasks,
-    zoomLevel, filterStatus, filterAssignee, filterPriority, filterColor, filterSearch,
+    zoomLevel, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
@@ -123,6 +123,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     filterPriority !== '',
     filterAssignee !== '',
     filterColor !== '',
+    filterOverdue !== '',
   ].filter(Boolean).length;
 
   // 担当者 datalist の候補。毎レンダーの再計算（tasks 全走査）を避ける
@@ -350,10 +351,19 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             </select>
           </div>
 
+          <div style={FILTER_GROUP}>
+            <span style={LABEL}>{t('toolbar.filter.dueLabel')}</span>
+            <select style={SELECT} value={filterOverdue} aria-label={t('toolbar.filter.dueAriaLabel')}
+              onChange={e => setFilter({ filterOverdue: e.target.value as '' | 'overdue' })}>
+              <option value="">{t('toolbar.filter.all')}</option>
+              <option value="overdue">{t('toolbar.filter.overdue')}</option>
+            </select>
+          </div>
+
           {activeFilterCount > 0 && (
             <button
               style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
-              onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '', filterColor: '' })}
+              onClick={() => setFilter({ filterStatus: '', filterPriority: '', filterAssignee: '', filterColor: '', filterOverdue: '' })}
               title={t('toolbar.filter.clearTitle')}
             >
               {t('toolbar.filter.clearLabel')}

@@ -1,4 +1,5 @@
 import type { Task, TaskStatus } from '../types/task';
+import { isOverdueTask, todayStr } from './ganttCalc';
 
 // タスクの「実効色」：右クリック色パレット（titleColor/titleBgColor は独立設定可）を
 // 一本化した同一性判定に使う。背景色を優先し、背景色が未設定（null）のときのみ文字色で判定する。
@@ -14,8 +15,10 @@ export function filterTasks(
   filterPriority: string,
   filterSearch = '',
   filterColor = '',
+  filterOverdue = '',
 ): Task[] {
   let result = tasks;
+  const today = todayStr();
 
   if (filterStatus === '!done') result = result.filter(t => t.status !== 'done' && t.status !== 'pending');
   else if (filterStatus)        result = result.filter(t => t.status === filterStatus);
@@ -39,6 +42,7 @@ export function filterTasks(
   if (filterPriority) result = result.filter(t => t.priority === filterPriority);
   if (filterColor === '*') result = result.filter(t => effectiveTaskColor(t) !== null);
   else if (filterColor)    result = result.filter(t => effectiveTaskColor(t) === filterColor);
+  if (filterOverdue === 'overdue') result = result.filter(t => isOverdueTask(t, today));
   if (filterSearch) {
     const q = filterSearch.toLowerCase();
     result = result.filter(t =>
