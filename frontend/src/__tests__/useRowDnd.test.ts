@@ -12,6 +12,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRowDnd } from '../components/Gantt/useRowDnd';
 import type { Task } from '../types/task';
+import { WBS_COL_DEFS, leadingWidth } from '../utils/wbsLayout';
+
+// 既定の列構成での title 列までの左オフセット（rowNumber 36 + order 36）。
+// 本ファイルのケースは clientY のみで分岐するため X 依存はないが、
+// 固定 px を直書きしないため wbsLayout の導出関数から算出する（§9.2）。
+const LEADING = leadingWidth(WBS_COL_DEFS, { colWidths: { title: 180, assignee: 76 }, dateColWidth: 90 });
 
 function makeTask(partial: Partial<Task> & { id: string }): Task {
   return {
@@ -67,7 +73,7 @@ describe('useRowDnd', () => {
     const onCopyInsert = vi.fn().mockResolvedValue(undefined);
 
     const { result } = renderHook(() =>
-      useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert })
+      useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, titleLeadingWidth: LEADING })
     );
 
     act(() => { result.current.handleRowDragStart(fakeEvent(), 'C'); });
@@ -96,7 +102,7 @@ describe('useRowDnd', () => {
     const onCopyInsert = vi.fn().mockResolvedValue(undefined);
 
     const { result } = renderHook(() =>
-      useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert })
+      useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, titleLeadingWidth: LEADING })
     );
 
     act(() => { result.current.handleRowDragStart(fakeEvent(), 'D'); });
