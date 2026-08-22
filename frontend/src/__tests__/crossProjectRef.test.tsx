@@ -46,7 +46,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
   localStorage.clear();
   useTaskStore.setState({
-    tasks: [], refTasks: [], refProjects: [], needsReload: false,
+    tasks: [], refTasks: [], refProjects: [], refOwnerProjectId: null, needsReload: false,
     filterStatus: '', filterAssignee: '', filterPriority: '', filterSearch: '',
     zoomLevel: 'week', ganttStartDate: '2026-06-01', ganttPeriod: '3m',
     showLightningLine: false, showWeekend: false, showCriticalPath: false, showResourceView: false,
@@ -66,7 +66,8 @@ function renderChart(
   refTasks: Task[] = [],
   refProjects: RefProject[] = [],
 ) {
-  useTaskStore.setState({ tasks, refTasks, refProjects });
+  // renderChart は常に projectId="p1" で描画するため、参照データの持ち主も 'p1' に揃える
+  useTaskStore.setState({ tasks, refTasks, refProjects, refOwnerProjectId: 'p1' });
   return render(
     <GanttChart
       projectId="p1"
@@ -128,6 +129,35 @@ describe('クロスプロジェクト参照 — 描画統合', () => {
     const own = makeTask({ id: 'own1', projectId: 'p1' });
     renderChart([own], [], []);
     expect(screen.queryByText('🔗', { exact: false })).toBeNull();
+  });
+
+  // 最終防衛線の回帰テスト（useRefData）: refOwnerProjectId が現在プロジェクトと不一致な
+  // stale データがストアに残っていても、GanttChart には一切混入しないことを確認する
+  it('refOwnerProjectId が別プロジェクトの参照データは描画に混入しない（stale ガード）', () => {
+    const own = makeTask({ id: 'own1', projectId: 'p1' });
+    const ref = makeTask({ id: 'ref1', projectId: 'p2', parentId: null });
+    // renderChart は projectId='p1' で描画するが、ストア上の持ち主は 'pA'（別プロジェクト）のまま
+    useTaskStore.setState({ tasks: [own], refTasks: [ref], refProjects, refOwnerProjectId: 'pA' });
+    render(
+      <GanttChart
+        projectId="p1"
+        onEditTask={onEditTask}
+        onDeleteTask={onDeleteTask}
+        onInlineUpdate={onInlineUpdate}
+        onQuickAdd={NOOP}
+        onAddSubTask={NOOP}
+        onAddSubMilestone={NOOP}
+        onReorder={onReorder}
+        onCopyInsert={onCopyInsert}
+        onUpdateExternalDeps={onUpdateExternalDeps}
+        onOpenRefProject={onOpenRefProject}
+        onRemoveRef={onRemoveRef}
+        onRefreshRefs={onRefreshRefs}
+      />
+    );
+
+    expect(screen.queryByText('🔗', { exact: false })).toBeNull();
+    expect(screen.queryByText('Task2', { exact: false })).toBeNull(); // ref1 のタイトル
   });
 });
 

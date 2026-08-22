@@ -12,6 +12,9 @@ interface TaskStore {
   // setTasks の全置換・WS 反映・フィルタ処理との干渉を避けるため（partialize に含めない）。
   refTasks:           Task[];
   refProjects:        RefProject[];
+  // refTasks/refProjects が「どのプロジェクトのために取得したデータか」。setRefData と必ず同時更新し、
+  // 読み出し側（useRefData）は現在プロジェクトと一致するときだけ実データを使う（stale データ混入対策）。
+  refOwnerProjectId:  string | null;
   needsReload:        boolean;
   filterStatus:       TaskStatus | '' | '!done';
   filterAssignee:     string;
@@ -41,7 +44,7 @@ interface TaskStore {
   depArrowStyle:      DepArrowStyle;
   setTasks:               (tasks: Task[]) => void;
   upsertTask:             (task: Task) => void;
-  setRefData:             (refTasks: Task[], refProjects: RefProject[]) => void;
+  setRefData:             (refTasks: Task[], refProjects: RefProject[], ownerProjectId: string | null) => void;
   upsertRefTask:          (task: Task) => void;
   removeTasks:            (ids: string[]) => void;
   applyOrders:            (orders: { id: string; order: number; parentId?: string | null }[]) => void;
@@ -93,6 +96,7 @@ export const useTaskStore = create<TaskStore>()(
       tasks:             [],
       refTasks:          [] as Task[],
       refProjects:       [] as RefProject[],
+      refOwnerProjectId: null as string | null,
       needsReload:       false,
       filterStatus:      '' as TaskStatus | '' | '!done',
       filterAssignee:    '',
@@ -114,7 +118,7 @@ export const useTaskStore = create<TaskStore>()(
           ? s.tasks.map(t => (t.id === task.id ? task : t))
           : [...s.tasks, task],
       })),
-      setRefData:             (refTasks, refProjects) => set({ refTasks, refProjects }),
+      setRefData:             (refTasks, refProjects, ownerProjectId) => set({ refTasks, refProjects, refOwnerProjectId: ownerProjectId }),
       upsertRefTask:          (task) => set((s) => ({
         refTasks: s.refTasks.some(t => t.id === task.id)
           ? s.refTasks.map(t => (t.id === task.id ? task : t))

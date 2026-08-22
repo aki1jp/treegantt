@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, cleanup } from '@testing-library/react';
 import { useProjectRefs } from '../hooks/useProjectRefs';
 import { useTaskStore } from '../store/taskStore';
 import { useToastStore } from '../store/toastStore';
@@ -21,10 +21,13 @@ function makeTask(id: string, overrides: Partial<Task> = {}): Task {
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn());
-  useTaskStore.setState({ refTasks: [], refProjects: [] });
+  useTaskStore.setState({ refTasks: [], refProjects: [], refOwnerProjectId: null });
   useToastStore.setState({ toasts: [] });
 });
 afterEach(() => {
+  // 前テストのフックが残ると needsReload 等のストア変更に反応して
+  // 後続テストの fetch を撹乱するため、毎回アンマウントする
+  cleanup();
   vi.unstubAllGlobals();
 });
 
@@ -137,6 +140,109 @@ describe('useProjectRefs', () => {
     vi.mocked(fetch).mockClear();
     await act(async () => { await result.current.refresh(); });
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// stale ガード（世代カウンタ方式）: プロジェクト切替と非同期レスポンスの競合対策
+describe('useProjectRefs — stale ガード', () => {
+  it('projectId を A→B に切替後、A の fetch が遅延解決しても B のデータが上書きされない', async () => {
+    let resolveA!: (v: Response) => void;
+    const pendingA = new Promise<Response>(resolve => { resolveA = resolve; });
+    vi.mocked(fetch)
+      .mockImplementationOnce(() => pendingA) // A（p1）向け: 保留のまま
+      .mockResolvedValueOnce({
+        ok: true, status: 200,
+        json: async () => ({
+          refs: [{ projectId: 'p2', refTaskId: 'rb', createdAt: '2026-01-01' }],
+          tasks: [makeTask('rb', { projectId: 'pB' })],
+          projects: [{ id: 'pB', name: 'B先', color: null }],
+        }),
+      } as Response); // B（p2）向け: 即時解決
+
+    const { rerender } = renderHook(
+      ({ projectId }) => useProjectRefs(projectId),
+      { initialProps: { projectId: 'p1' } },
+    );
+    await act(async () => {}); // A の fetch は pendingA のまま止まる
+
+    rerender({ projectId: 'p2' });
+    await act(async () => {}); // B のロードが完了する
+
+    expect(useTaskStore.getState().refOwnerProjectId).toBe('p2');
+    expect(useTaskStore.getState().refTasks.map(t => t.id)).toEqual(['rb']);
+
+    // ここで A のレスポンスが遅れて解決する（stale）
+    await act(async () => {
+      resolveA({
+        ok: true, status: 200,
+        json: async () => ({
+          refs: [{ projectId: 'p1', refTaskId: 'ra', createdAt: '2026-01-01' }],
+          tasks: [makeTask('ra')],
+          projects: [{ id: 'p2', name: 'A先', color: null }],
+        }),
+      } as Response);
+    });
+
+    // B のデータのまま。A の stale レスポンスで上書きされていない
+    expect(useTaskStore.getState().refOwnerProjectId).toBe('p2');
+    expect(useTaskStore.getState().refTasks.map(t => t.id)).toEqual(['rb']);
+  });
+
+  it('stale なレスポンスの失敗ではエラートーストを出さない', async () => {
+    let rejectA!: (err: Error) => void;
+    const pendingA = new Promise<Response>((_, reject) => { rejectA = reject; });
+    vi.mocked(fetch)
+      .mockImplementationOnce(() => pendingA) // A（p1）向け: 保留のまま
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ refs: [], tasks: [], projects: [] }) } as Response); // B（p2）向け
+
+    const { rerender } = renderHook(
+      ({ projectId }) => useProjectRefs(projectId),
+      { initialProps: { projectId: 'p1' } },
+    );
+    await act(async () => {});
+    rerender({ projectId: 'p2' });
+    await act(async () => {});
+
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+
+    // A（stale）の fetch が後から失敗してもエラートーストは出ない
+    await act(async () => { rejectA(new Error('stale boom')); });
+    expect(useToastStore.getState().toasts.some(t => t.type === 'error')).toBe(false);
+  });
+
+  it('updateExternalPredecessors は refOwnerProjectId 不一致のとき upsertRefTask しない（PATCH成功時もエラーは出さない）', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ refs: [], tasks: [], projects: [] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ task: makeTask('r1', { predecessors: ['other'] }) }) } as Response);
+
+    const { result } = renderHook(() => useProjectRefs('p1'));
+    await act(async () => {});
+
+    // 別プロジェクトへ切り替わった状態（refOwnerProjectId が projectId と食い違う）を模す
+    useTaskStore.setState({ refOwnerProjectId: 'other-project' });
+
+    await act(async () => { await result.current.updateExternalPredecessors('r1', ['other']); });
+
+    expect(useTaskStore.getState().refTasks.find(t => t.id === 'r1')).toBeUndefined();
+    expect(useToastStore.getState().toasts.some(t => t.type === 'error')).toBe(false);
+  });
+
+  it('プロジェクト未選択（全削除など）へ切り替わっても loading が true のまま固着しない', async () => {
+    // 保留のまま解決しない fetch。切替後は世代違いで finally が破棄されるため、
+    // load() 側で projectId 未選択時に loading を落とせないと永久に true になる。
+    vi.mocked(fetch).mockImplementation(() => new Promise<Response>(() => {}));
+
+    const { result, rerender } = renderHook(
+      ({ projectId }) => useProjectRefs(projectId),
+      { initialProps: { projectId: 'p1' as string | undefined } },
+    );
+    await act(async () => {});
+    expect(result.current.loading).toBe(true);
+
+    rerender({ projectId: undefined });
+    await act(async () => {});
+    expect(result.current.loading).toBe(false);
   });
 });
 

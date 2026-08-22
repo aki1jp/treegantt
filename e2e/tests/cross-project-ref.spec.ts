@@ -91,4 +91,64 @@ test.describe('クロスプロジェクト参照（§5.8）', () => {
       await request.delete(`/api/v1/projects/${projectB.id}`);
     }
   });
+
+  test('参照追加後に別プロジェクトへ切り替えると、切替先には参照由来の行が残らない', async ({ page, request, projectId }) => {
+    // ── 準備: 参照先プロジェクトB とそのタスク、自プロジェクト(A)のタスクを API で作成 ──
+    const refProjectName = `E2E-ref-switch-${Date.now()}`;
+    const resB = await request.post('/api/v1/projects', { data: { name: refProjectName } });
+    expect(resB.ok()).toBeTruthy();
+    const { project: projectB } = await resB.json();
+
+    try {
+      const resExt = await request.post(`/api/v1/projects/${projectB.id}/tasks`, {
+        data: { title: 'E2E-switch-external-task', startDate: isoDateOffset(1), endDate: isoDateOffset(3) },
+      });
+      const { task: externalTask } = await resExt.json();
+
+      const resOwn = await request.post(`/api/v1/projects/${projectId}/tasks`, {
+        data: { title: 'E2E-switch-own-task', startDate: isoDateOffset(5), endDate: isoDateOffset(8) },
+      });
+      expect(resOwn.ok()).toBeTruthy();
+
+      // プロジェクトB はページロード後に API で作成したため、App のプロジェクト一覧に
+      // 含まれていない（一覧は初回ロード時に取得）。リロードして一覧に反映させる。
+      await page.reload();
+
+      const wbs = page.locator('[data-testid="wbs-panel"]');
+      await expect(wbs.getByText('E2E-switch-own-task')).toBeVisible();
+
+      // ── プロジェクトA で参照を追加（既存テストと同じ入口・操作） ──
+      await wbs.getByText('E2E-switch-own-task').click({ button: 'right' });
+      await page.getByRole('button', { name: '＋ 子追加' }).hover();
+      await page.getByRole('button', { name: '🔗 参照を追加' }).click();
+
+      await expect(page.getByText('🔗 クロスプロジェクト参照')).toBeVisible();
+      await page.getByLabel('参照先プロジェクト').selectOption(projectB.id);
+      await page.getByLabel('参照するタスク').selectOption(externalTask.id);
+      await page.getByRole('button', { name: '追加', exact: true }).click();
+
+      await expect(page.getByRole('button', { name: '解除' })).toBeVisible();
+      await page.getByRole('button', { name: '閉じる', exact: true }).click();
+
+      // A 側には合成グループ行・参照タスク行が表示される
+      await expect(wbs.getByText(`🔗 ${refProjectName}`)).toBeVisible();
+      await expect(wbs.getByText('🔗 E2E-switch-external-task')).toBeVisible();
+
+      // ── プロジェクトB（参照先）へ切り替え ──
+      await page.getByRole('button', { name: refProjectName }).click();
+
+      // 切替先の WBS には B 自身のタスクが（🔗 プレフィックス無しで）表示される
+      await expect(wbs.getByText('E2E-switch-external-task', { exact: true })).toBeVisible();
+
+      // A で追加した参照由来の合成グループ行・参照タスク行（🔗 プレフィックス）は
+      // 切替先には存在しない（A のタスク一覧が後着して混入するバグの回帰確認）
+      await expect(wbs.getByText(`🔗 ${refProjectName}`)).toHaveCount(0);
+      await expect(wbs.getByText('🔗 E2E-switch-external-task')).toHaveCount(0);
+
+      // A 自身のタスクも切替先には表示されない
+      await expect(wbs.getByText('E2E-switch-own-task')).toHaveCount(0);
+    } finally {
+      await request.delete(`/api/v1/projects/${projectB.id}`);
+    }
+  });
 });

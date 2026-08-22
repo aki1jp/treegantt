@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, cleanup } from '@testing-library/react';
 import { useProjectTasks } from '../hooks/useProjectTasks';
 import { useTaskStore } from '../store/taskStore';
 import { useToastStore } from '../store/toastStore';
@@ -24,6 +24,9 @@ beforeEach(() => {
   useToastStore.setState({ toasts: [] });
 });
 afterEach(() => {
+  // 前テストのフックが残ると needsReload 等のストア変更に反応して
+  // 後続テストの fetch を撹乱するため、毎回アンマウントする
+  cleanup();
   vi.unstubAllGlobals();
 });
 
@@ -95,6 +98,117 @@ describe('useProjectTasks', () => {
     useTaskStore.getState().setNeedsReload(true);
     await act(async () => {});
     expect(useToastStore.getState().toasts.some(t => t.type === 'error')).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// stale レスポンスガード: プロジェクト切替と取得の競合で他プロジェクトのタスクが
+// 表示されるのを防ぐ（A→B 切替後に A の遅延レスポンスが届いても無視すること）
+describe('useProjectTasks — stale レスポンスガード', () => {
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  it('A→B に切り替えた後で A の fetchAllTasks が遅延解決しても、ストアの tasks が A のもので上書きされない', async () => {
+    const defA = deferred<Response>();
+    const defB = deferred<Response>();
+    vi.mocked(fetch).mockImplementation((url: unknown) => {
+      const u = String(url);
+      if (u.includes('/projects/pA/')) return defA.promise;
+      if (u.includes('/projects/pB/')) return defB.promise;
+      return Promise.reject(new Error('unexpected url: ' + u));
+    });
+
+    const { rerender } = renderHook(
+      ({ projectId }) => useProjectTasks(projectId),
+      { initialProps: { projectId: 'pA' } },
+    );
+    await act(async () => {}); // A への取得が発火（未解決のまま）
+
+    rerender({ projectId: 'pB' });
+    await act(async () => {}); // B への取得が発火（未解決のまま）
+
+    // B のレスポンスが先に返る
+    await act(async () => {
+      defB.resolve({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('tB')], total: 1 }) } as Response);
+    });
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['tB']);
+
+    // 遅れて A のレスポンスが返っても、既に切り替わった B の表示を上書きしない
+    await act(async () => {
+      defA.resolve({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('tA')], total: 1 }) } as Response);
+    });
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['tB']);
+  });
+
+  it('stale なレスポンスの失敗ではエラートースト／error state を出さない', async () => {
+    const defA = deferred<Response>();
+    vi.mocked(fetch).mockImplementation((url: unknown) => {
+      const u = String(url);
+      if (u.includes('/projects/pA/')) return defA.promise;
+      if (u.includes('/projects/pB/')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ tasks: [], total: 0 }) } as Response);
+      }
+      return Promise.reject(new Error('unexpected url: ' + u));
+    });
+
+    const { result, rerender } = renderHook(
+      ({ projectId }) => useProjectTasks(projectId),
+      { initialProps: { projectId: 'pA' } },
+    );
+    await act(async () => {}); // A への取得が発火（未解決のまま）
+
+    rerender({ projectId: 'pB' });
+    await act(async () => {}); // B への取得が発火・解決（成功）
+
+    // 遅れて A の取得が失敗しても、既に B に切り替わっているので無視される
+    await act(async () => {
+      defA.reject(new Error('boom'));
+    });
+    expect(result.current.error).toBeNull();
+    expect(useToastStore.getState().toasts.some(t => t.type === 'error')).toBe(false);
+  });
+
+  it('reload 経路でも、A→B 切替後に届いた A の再取得レスポンスが B の表示を上書きしない', async () => {
+    const defAReload = deferred<Response>();
+    let aCalls = 0;
+    vi.mocked(fetch).mockImplementation((url: unknown) => {
+      const u = String(url);
+      if (u.includes('/projects/pA/')) {
+        aCalls += 1;
+        // 1回目＝切替時の初回取得（即解決）、2回目＝needsReload 経由の再取得（保留したまま）
+        return aCalls === 1
+          ? Promise.resolve({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('tA')], total: 1 }) } as Response)
+          : defAReload.promise;
+      }
+      if (u.includes('/projects/pB/')) {
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('tB')], total: 1 }) } as Response);
+      }
+      return Promise.reject(new Error('unexpected url: ' + u));
+    });
+
+    const { rerender } = renderHook(
+      ({ projectId }) => useProjectTasks(projectId),
+      { initialProps: { projectId: 'pA' } },
+    );
+    await act(async () => {});
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['tA']);
+
+    // import 後などの reload イベントで A の再取得が始まる（未解決のまま）
+    await act(async () => { useTaskStore.setState({ needsReload: true }); });
+
+    rerender({ projectId: 'pB' });
+    await act(async () => {});
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['tB']);
+
+    // 遅れて A の再取得が返っても、既に切り替わった B の表示を上書きしない
+    await act(async () => {
+      defAReload.resolve({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('tA2')], total: 1 }) } as Response);
+    });
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['tB']);
   });
 });
 

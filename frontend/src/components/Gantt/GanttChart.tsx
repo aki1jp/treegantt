@@ -12,6 +12,7 @@ import { buildTree, flattenTree, buildRowNumberMap, calcAllEffectiveProgress, in
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
+import { useRefData } from '../../hooks/useRefData';
 import { calcVisibleRange } from '../../utils/virtualRange';
 import { useDowLabels } from '../../i18n/dow';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -79,13 +80,16 @@ export function GanttChart({
   onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
   const {
-    tasks, refTasks, refProjects, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
+    tasks, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     resourceViewHeight, setResourceViewHeight,
     setWbsPanelOpen, setWbsHiddenCols,
   } = useTaskStore();
+  // クロスプロジェクト参照（§5.8）: 読み出しはストア直読みでなくこのフック経由に一本化する
+  // （持ち主 refOwnerProjectId が projectId と不一致なら空を返す＝最終防衛線）
+  const { refTasks, refProjects } = useRefData(projectId);
 
   const { t } = useTranslation();
   // 列見出しラベルは辞書から t() で引く（GanttChart/WbsPanel 共通の WBS_COL_LABEL_KEYS 経由, §9.11）

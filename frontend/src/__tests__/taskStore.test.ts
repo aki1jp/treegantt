@@ -373,34 +373,36 @@ describe('removeTasks', () => {
 
 // ─── クロスプロジェクト参照の非永続スロット（単位4）─────────────────
 describe('refTasks / refProjects', () => {
-  it('setRefData で refTasks・refProjects を一括更新する', () => {
+  it('setRefData で refTasks・refProjects・refOwnerProjectId を一括更新する', () => {
     const t = makeTask({ id: 'r1', projectId: 'p2' });
-    useTaskStore.getState().setRefData([t], [{ id: 'p2', name: 'B', color: null }]);
+    useTaskStore.getState().setRefData([t], [{ id: 'p2', name: 'B', color: null }], 'p1');
     expect(useTaskStore.getState().refTasks).toEqual([t]);
     expect(useTaskStore.getState().refProjects).toEqual([{ id: 'p2', name: 'B', color: null }]);
+    expect(useTaskStore.getState().refOwnerProjectId).toBe('p1');
   });
 
   it('upsertRefTask は未知の id なら追加する', () => {
-    useTaskStore.getState().setRefData([], []);
+    useTaskStore.getState().setRefData([], [], 'p1');
     useTaskStore.getState().upsertRefTask(makeTask({ id: 'r1', projectId: 'p2' }));
     expect(useTaskStore.getState().refTasks).toHaveLength(1);
   });
 
   it('upsertRefTask は既存の id なら置換する', () => {
     const r1 = makeTask({ id: 'r1', projectId: 'p2', title: '旧' });
-    useTaskStore.getState().setRefData([r1], []);
+    useTaskStore.getState().setRefData([r1], [], 'p1');
     useTaskStore.getState().upsertRefTask(makeTask({ id: 'r1', projectId: 'p2', title: '新' }));
     const refTasks = useTaskStore.getState().refTasks;
     expect(refTasks).toHaveLength(1);
     expect(refTasks[0].title).toBe('新');
   });
 
-  it('refTasks/refProjects は localStorage に保存されない（非永続）', () => {
-    useTaskStore.getState().setRefData([makeTask({ id: 'r1', projectId: 'p2' })], [{ id: 'p2', name: 'B', color: null }]);
+  it('refTasks/refProjects/refOwnerProjectId は localStorage に保存されない（非永続）', () => {
+    useTaskStore.getState().setRefData([makeTask({ id: 'r1', projectId: 'p2' })], [{ id: 'p2', name: 'B', color: null }], 'p1');
     const raw = localStorage.getItem('treegantt-ui');
     const saved = raw ? JSON.parse(raw).state : {};
     expect(saved).not.toHaveProperty('refTasks');
     expect(saved).not.toHaveProperty('refProjects');
+    expect(saved).not.toHaveProperty('refOwnerProjectId');
   });
 });
 
