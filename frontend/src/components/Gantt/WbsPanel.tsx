@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Task } from '../../types/task';
-import { textStartX } from '../../utils/wbsLayout';
+import { textStartX, wbsColWidth, type WbsColSizes } from '../../utils/wbsLayout';
 import { isReadonlyTask } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
 import { GanttLeftRow } from './GanttLeftRow';
@@ -28,6 +28,8 @@ interface Props {
   setWbsPanelOpen: (open: boolean) => void;
   leftTotal: number;
   visibleLeftCols: LeftCol[];
+  /** WBS パネル左端から title 列までの実測オフセット（列レイアウトの導出, §9.2）。 */
+  titleLeadingWidth: number;
   colWidths: { title: number; assignee: number };
   setColResize: (v: { key: string; startX: number; startWidth: number } | null) => void;
   dateColWidth: number;
@@ -86,7 +88,7 @@ const TH: React.CSSProperties = {
 export function WbsPanel(props: Props) {
   const {
     currentProjectId,
-    wbsPanelOpen, setWbsPanelOpen, leftTotal, visibleLeftCols, colWidths, setColResize,
+    wbsPanelOpen, setWbsPanelOpen, leftTotal, visibleLeftCols, titleLeadingWidth, colWidths, setColResize,
     dateColWidth, ganttHeaderH, totalHeaderH, wbsHiddenCols, setWbsHiddenCols,
     childCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
     handleWbsWheel, wbsPanelRef, wbsBodyRef, vStart, vEnd, uiRowHeight, uiFontSize,
@@ -99,6 +101,8 @@ export function WbsPanel(props: Props) {
 
   const { t } = useTranslation();
   const HIDEABLE_COLS = HIDEABLE_COL_KEYS.map(key => ({ key, label: t(WBS_COL_TOGGLE_LABEL_KEYS[key]) }));
+  // 列レイアウトの導出（相対座標, §9.2）に使う単一の真実源。
+  const sizes: WbsColSizes = { colWidths, dateColWidth };
 
   // WBS列表示設定ポップアップの開閉位置（このコンポーネント内でのみ完結する）
   const [wbsColMenuPos, setWbsColMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -131,7 +135,7 @@ export function WbsPanel(props: Props) {
               role="button"
               aria-label={t('wbs.show')}
               onClick={() => setWbsPanelOpen(true)}
-              style={{ ...TH, width: 36, cursor: 'pointer', alignSelf: 'stretch', height: 'auto', justifyContent: 'center' }}
+              style={{ ...TH, width: titleLeadingWidth, cursor: 'pointer', alignSelf: 'stretch', height: 'auto', justifyContent: 'center' }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#e0e7ff'; (e.currentTarget as HTMLElement).style.color = '#4f46e5'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--th-text-muted)'; }}
             >
@@ -141,9 +145,7 @@ export function WbsPanel(props: Props) {
 
           {/* WBS 開いているとき: 各列ヘッダーを描画 */}
           {wbsPanelOpen && visibleLeftCols.map(col => {
-            const w = (col.key === 'startDate' || col.key === 'endDate')
-              ? dateColWidth
-              : (colWidths[col.key as keyof typeof colWidths] ?? col.width);
+            const w = wbsColWidth(col.key, sizes);
             const resizable = RESIZABLE_COL_KEYS.has(col.key);
             const isTitleCol = col.key === 'title';
             return (
@@ -248,7 +250,7 @@ export function WbsPanel(props: Props) {
                   {showDropLine && (
                     <div data-drop-line style={{
                       position: 'absolute',
-                      left: textStartX(rowDropDepth ?? 0),
+                      left: textStartX(rowDropDepth ?? 0, titleLeadingWidth),
                       right: 0, top: -2,
                       height: 3, background: '#4f46e5',
                       borderRadius: 2, boxShadow: '0 0 6px rgba(79,70,229,0.5)',
@@ -283,7 +285,7 @@ export function WbsPanel(props: Props) {
             });
           })()}
           <div style={{ height: (flatRows.length - vEnd) * uiRowHeight, flexShrink: 0 }} />
-          <QuickAddRow onAdd={onQuickAdd} titleWidth={colWidths.title} assigneeWidth={colWidths.assignee} dateColWidth={dateColWidth} />
+          <QuickAddRow onAdd={onQuickAdd} cols={visibleLeftCols} sizes={sizes} />
           {/* 横スクロールバー分の高さを補完してガントとのスクロール同期ズレを防止 */}
           <div style={{ height: hScrollbarH, flexShrink: 0 }} />
         </div>

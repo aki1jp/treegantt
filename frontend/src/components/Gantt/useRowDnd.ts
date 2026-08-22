@@ -19,12 +19,19 @@ interface Params {
   onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => Promise<void>;
   /** クロスプロジェクト参照（§5.8）: 参照タスク・合成グループ行はドラッグ開始・ドロップ先の両方から除外する */
   currentProjectId?: string;
+  /**
+   * WBS パネル左端から title 列までの実測オフセット（列レイアウトの導出, §9.2）。
+   * 列の表示 ON/OFF・リサイズに追従させるため呼び出し側（GanttChart）から受け取る。
+   * 省略時は既定の「行」+「#」列ぶん（72px）にフォールバックする（同階層 sibling 間の
+   * クランプなど X 座標に依存しないテスト・呼び出し向け）。
+   */
+  titleLeadingWidth?: number;
 }
 
 // WBS 行の並び替え・親子変更・Ctrl/Cmd コピー（GanttChart から抽出、挙動不変, D4）。
 // wbsPanelRef はドラッグ時の X 座標から depth インジケーターを算出するために内部で保持し、
 // 呼び出し側は WBS パネル div に ref として渡す。
-export function useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, currentProjectId }: Params) {
+export function useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, currentProjectId, titleLeadingWidth = 72 }: Params) {
   const wbsPanelRef = useRef<HTMLDivElement>(null);
   const [rowDragId,    setRowDragId]    = useState<string | null>(null);
   const [rowDropIdx,   setRowDropIdx]   = useState<number | null>(null);
@@ -102,7 +109,7 @@ export function useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, current
       const panelLeft = wbsPanelRef.current?.getBoundingClientRect().left ?? 0;
       const mouseX = e.clientX - panelLeft;
       const maxDepth = rowBelow.depth <= rowAbove.depth ? rowAbove.depth : rowAbove.depth + 1;
-      depth = Math.min(Math.max(0, Math.floor((mouseX - textStartX(0)) / INDENT)), maxDepth);
+      depth = Math.min(Math.max(0, Math.floor((mouseX - textStartX(0, titleLeadingWidth)) / INDENT)), maxDepth);
     }
 
     setRowDropIdx(idx);

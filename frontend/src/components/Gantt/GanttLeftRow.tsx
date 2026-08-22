@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
 import { addDays, calcDuration } from '../../utils/ganttCalc';
-import { titlePaddingLeft } from '../../utils/wbsLayout';
+import { titlePaddingLeft, wbsColWidth, TOGGLE_W, TOGGLE_GAP, type WbsColSizes } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 import { TaskTooltip } from './TaskTooltip';
 import { STATUS_COLOR, PRIORITY_COLOR } from '../../utils/taskColors';
@@ -163,7 +163,13 @@ export const GanttLeftRow = memo(function GanttLeftRow({
     background: 'var(--th-input-bg)', color: 'var(--th-text)',
   };
 
+  // 列レイアウトの導出（相対座標, §9.2）に使う単一の真実源。
+  const sizes: WbsColSizes = { colWidths: { title: titleWidth, assignee: assigneeWidth }, dateColWidth };
+
   const show = (key: string) => wbsPanelOpen && !hiddenCols.includes(key);
+  // 「行」「#」列は設計書 §9.2 により wbsPanelOpen=false でも常時表示だが、
+  // ヘッダー・LEFT_TOTAL と基準を揃えるため hiddenCols だけは尊重する。
+  const showAlways = (key: string) => !hiddenCols.includes(key);
 
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
@@ -181,38 +187,38 @@ export const GanttLeftRow = memo(function GanttLeftRow({
         display: 'flex', background: rowBg,
         height: rowHeight, boxSizing: 'border-box',
         borderBottom: '1px solid var(--th-border)',
-        borderLeft: isRootParent ? '3px solid var(--th-border-strong)' : '3px solid transparent',
+        boxShadow: isRootParent ? 'inset 3px 0 0 var(--th-border-strong)' : undefined,
         ...readOnlyStyle,
       }}
       onContextMenu={e => { e.preventDefault(); if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setTooltipVisible(false); onRowContextMenu(e.clientX, e.clientY, task.id); }}
     >
       {/* No. (表示専用の通し番号: 全展開・フィルタなし基準で固定、詰め直さない) */}
-      <div data-testid="row-number" style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
+      {showAlways('rowNumber') && <div data-testid="row-number" style={{ ...CELL, width: wbsColWidth('rowNumber', sizes), justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
         {rowNumber}
-      </div>
+      </div>}
 
       {/* # (seq: 作成時発番・不変) */}
-      <div style={{ ...CELL, width: 36, justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
+      {showAlways('order') && <div style={{ ...CELL, width: wbsColWidth('order', sizes), justifyContent: 'center', color: 'var(--th-text-dim)', userSelect: 'none' }}>
         {task.isMilestone ? '◇' : task.seq}
-      </div>
+      </div>}
 
       {/* タイトル */}
-      {wbsPanelOpen && <div style={{ ...CELL, width: titleWidth, paddingLeft: indent }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3, width: '100%', overflow: 'hidden' }}>
+      {wbsPanelOpen && <div style={{ ...CELL, width: wbsColWidth('title', sizes), paddingLeft: indent }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: TOGGLE_GAP, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
             <button
               aria-label={isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
               onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
-              width: 16, height: 16, border: 'none', background: 'none', cursor: 'pointer',
+              width: TOGGLE_W, height: TOGGLE_W, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {isCollapsed ? '▶' : '▼'}
             </button>
           ) : depth > 0 ? (
-            <span style={{ width: 16, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
+            <span style={{ width: TOGGLE_W, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
           ) : (
-            <span style={{ width: 16, flexShrink: 0 }} />
+            <span style={{ width: TOGGLE_W, flexShrink: 0 }} />
           )}
           {editField === 'title' ? (
             <input ref={inputRef} style={INPUT_S} value={editVal}
@@ -238,7 +244,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* ステータス */}
-      {show('status') && <div style={{ ...CELL, width: 66 }}>
+      {show('status') && <div style={{ ...CELL, width: wbsColWidth('status', sizes) }}>
         {editField === 'status' ? (
           <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
             onChange={e => commit('status', e.target.value)}
@@ -258,7 +264,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* 優先度 */}
-      {show('priority') && <div style={{ ...CELL, width: 56 }}>
+      {show('priority') && <div style={{ ...CELL, width: wbsColWidth('priority', sizes) }}>
         {editField === 'priority' ? (
           <select style={{ ...INPUT_S, width: 'auto', fontSize: 11 }} value={editVal} autoFocus
             onChange={e => commit('priority', e.target.value)}
@@ -278,7 +284,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* 進捗 — 親タスクは自動計算・編集不可 */}
-      {show('progress') && <div style={{ ...CELL, width: 76 }}>
+      {show('progress') && <div style={{ ...CELL, width: wbsColWidth('progress', sizes) }}>
         {!hasChildren && editField === 'progress' ? (
           <input ref={inputRef} style={{ ...INPUT_S, width: 52 }} type="number" min={0} max={100} value={editVal}
             onChange={e => setEditVal(e.target.value)}
@@ -307,7 +313,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* 担当者 */}
-      {show('assignee') && <div style={{ ...CELL, width: assigneeWidth }}>
+      {show('assignee') && <div style={{ ...CELL, width: wbsColWidth('assignee', sizes) }}>
         {editField === 'assignee' ? (
           <>
             <input ref={inputRef} style={INPUT_S} value={editVal}
@@ -331,7 +337,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* 開始日 */}
-      {show('startDate') && <div style={{ ...CELL, width: dateColWidth }}>
+      {show('startDate') && <div style={{ ...CELL, width: wbsColWidth('startDate', sizes) }}>
         {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             max={task.endDate || undefined}
@@ -353,7 +359,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* 終了日（マイルストーンは開始日に同期する1点のため編集不可） */}
-      {show('endDate') && <div style={{ ...CELL, width: dateColWidth }}>
+      {show('endDate') && <div style={{ ...CELL, width: wbsColWidth('endDate', sizes) }}>
         {!endLocked && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
             min={task.startDate || undefined}
@@ -375,7 +381,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       </div>}
 
       {/* 期間（日数） */}
-      {show('duration') && <div style={{ ...CELL, width: 50 }}>
+      {show('duration') && <div style={{ ...CELL, width: wbsColWidth('duration', sizes) }}>
         {!hasChildren && editField === 'duration' ? (
           <input ref={inputRef}
             style={{ ...INPUT_S, width: 38 }} type="number" min={1} value={editVal}

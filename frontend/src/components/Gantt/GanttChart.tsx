@@ -25,20 +25,7 @@ import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
 import { WbsPanel } from './WbsPanel';
 import { HEADER_ROW_H, WBS_COL_LABEL_KEYS } from './ganttChartConstants';
-
-// ── 左パネル列定義（幅・キーのみ。ラベルは辞書から t() で引く, §9.11） ──────
-const LEFT_COL_DEFS = [
-  { key: 'rowNumber', width: 36  },
-  { key: 'order',     width: 36  },
-  { key: 'title',     width: 180 },
-  { key: 'status',    width: 66  },
-  { key: 'priority',  width: 56  },
-  { key: 'progress',  width: 76  },
-  { key: 'assignee',  width: 76  },
-  { key: 'startDate', width: 88  },
-  { key: 'endDate',   width: 88  },
-  { key: 'duration',  width: 50  },
-] as const;
+import { WBS_COL_DEFS, wbsColWidth, leadingWidth, type WbsColSizes } from '../../utils/wbsLayout';
 
 const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
@@ -102,7 +89,7 @@ export function GanttChart({
 
   const { t } = useTranslation();
   // 列見出しラベルは辞書から t() で引く（GanttChart/WbsPanel 共通の WBS_COL_LABEL_KEYS 経由, §9.11）
-  const LEFT_COLS = LEFT_COL_DEFS.map(c => ({ ...c, label: t(WBS_COL_LABEL_KEYS[c.key]) }));
+  const LEFT_COLS = WBS_COL_DEFS.map(c => ({ ...c, label: t(WBS_COL_LABEL_KEYS[c.key]) }));
 
   // クロスプロジェクト参照（§5.8）: 参照タスク＋合成グループ行を現プロジェクトのタスクに合成する。
   // displayTasks は filterTasks/includeAncestors の入力として使い、ツリー描画・依存矢印に反映する。
@@ -148,13 +135,17 @@ export function GanttChart({
   // フォントサイズに連動した日付列幅 (YYYY-MM-DD の10文字が収まる幅)
   const dateColWidth = 80 + (uiFontSize - 11) * 5; // 11px→80, 13px→90, 15px→100
 
+  // WBS 列サイズ（列定義からの導出の単一の真実源, §9.2）。ヘッダー・行・クイック
+  // 追加行・LEFT_TOTAL・行 D&D の位置計算はすべてこの sizes を経由する。
+  const sizes: WbsColSizes = { colWidths, dateColWidth };
+
   const visibleLeftCols = LEFT_COLS.filter(c => !wbsHiddenCols.includes(c.key));
   const LEFT_TOTAL = wbsPanelOpen
-    ? visibleLeftCols.reduce((s, c) => {
-        if (c.key === 'startDate' || c.key === 'endDate') return s + dateColWidth;
-        return s + (colWidths[c.key as keyof typeof colWidths] ?? c.width);
-      }, 0)
-    : 36;
+    ? visibleLeftCols.reduce((s, c) => s + wbsColWidth(c.key, sizes), 0)
+    : leadingWidth(visibleLeftCols, sizes);
+  // WBS パネル左端から title 列までの実測オフセット（既定 72px）。行 D&D のインデント
+  // 判定・ドロップラインの位置計算に使う（列の表示 ON/OFF・リサイズに追従させる）。
+  const titleLeadingWidth = leadingWidth(visibleLeftCols, sizes);
 
   const handleColMouseMove = useCallback((e: MouseEvent) => {
     const cr = colResizeRef.current;
@@ -324,7 +315,7 @@ export function GanttChart({
     wbsPanelRef, rowDragId, rowDropIdx, rowDropDepth, rowDropTarget,
     copiedTask, setCopiedTask,
     clearDrop, handleRowDragStart, handleRowDragOver, handleRowDrop,
-  } = useRowDnd({ flatRows, allTasks: displayTasks, onReorder, onCopyInsert, currentProjectId: projectId });
+  } = useRowDnd({ flatRows, allTasks: displayTasks, onReorder, onCopyInsert, currentProjectId: projectId, titleLeadingWidth });
 
   const svgRef = useRef<SVGSVGElement>(null);
   const wbsBodyRef      = useRef<HTMLDivElement>(null);
@@ -570,6 +561,7 @@ export function GanttChart({
         setWbsPanelOpen={setWbsPanelOpen}
         leftTotal={LEFT_TOTAL}
         visibleLeftCols={visibleLeftCols}
+        titleLeadingWidth={titleLeadingWidth}
         colWidths={colWidths}
         setColResize={setColResize}
         dateColWidth={dateColWidth}
