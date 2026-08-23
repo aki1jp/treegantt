@@ -2,12 +2,12 @@
 
 | 項目 | 内容 |
 |------|------|
-| 製品バージョン | **1.9.5** |
-| ドキュメント版 | 0.2.174 |
+| 製品バージョン | **1.9.6** |
+| ドキュメント版 | 0.2.175 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
-| ステータス | リリース（1.9.5） |
+| ステータス | リリース（1.9.6） |
 
 > 本書は **TreeGantt 1.0 の完全仕様書**である。本書のみを参照して現行アプリを再実装できることを目標とし、
 > 設計・仕様は各章の本文に記述する。巻末の「改訂履歴」は版数と設計上の要点の一覧であり、
@@ -108,7 +108,7 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 │   │   ├── ws/wsRoom.ts       WebSocketServer・room 管理・notifyRoom
 │   │   └── types/task.ts      Task / Project 型
 │   ├── Dockerfile            多段ビルド（dev / builder / runtime）
-│   └── package.json          version=1.9.5（/health が返す）
+│   └── package.json          version=1.9.6（/health が返す）
 ├── frontend/                 React SPA
 │   ├── src/
 │   │   ├── App.tsx           画面統合・オーケストレーション
@@ -118,7 +118,7 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 │   │   ├── store/taskStore.ts zustand（永続化付き）
 │   │   ├── types/task.ts     Task / Project 型
 │   │   └── utils/            ganttCalc / taskTree / api / importExport ほか
-│   └── package.json          version=1.9.5
+│   └── package.json          version=1.9.6
 ├── mcp/                      AI連携用 MCP サーバー（api/frontendとは独立。詳細は §18）
 │   ├── src/
 │   │   ├── index.ts          McpServer 起動・ツール登録・stdio transport 接続
@@ -1051,3 +1051,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.171 | 2026/8 | 期限遅れタスクのフィルタ（新設）を追加（§9.3・§7.1・§8.3）：ツールバーのフィルタ列に「期限」セレクタ（`filterOverdue`、`'' | 'overdue'`）を追加し、遅延判定（`endDate < 今日` かつ `status` が `done`/`pending` 以外）を `isOverdueTask`（`utils/ganttCalc.ts`）に一本化して §8.3 の期限超過赤表示と共有、`filterTasks`（`utils/sort.ts`）へ他フィルタと同じ AND 合成で追加（親子継承等の特別ロジックなし）。`filterOverdue` は他フィルタと同じく非永続（`partialize` 対象外）。イナズマ線ベースの進捗遅延（§8.3 の遅延赤帯）とは別概念で、本フィルタは期限超過のみを対象とする。 |
 | 0.2.172 | 2026/8 | §9.2 に「列レイアウトの導出（相対座標）」を新設：WBS の列幅・インデント・各行の左オフセットを列定義（`utils/wbsLayout.ts`）から導出する単一の真実源方式に統一し、ヘッダー・タスク行・クイック追加行・`LEFT_TOTAL`・行 D&D の位置計算がすべて同じ導出結果を参照することを規定。各コンポーネントへの固定 px 直書きを禁止し、`textStartX(depth, leading)` の `leading` を「`title` より左の表示中の列幅合計」と定義（列の表示 ON/OFF・リサイズ・フォントサイズ変更に自動追従）。あわせてルート親行の左端強調帯を `boxShadow: inset` で描画し行幅に加算しないこと、WBS パネル閉状態の幅も同じ導出値を用いることを明記。 |
 | 0.2.173 | 2026/8 | 製品バージョンを **1.9.5** に更新（ヘッダー・ステータス・構成図）。§9.2「列レイアウトの導出（相対座標）」（0.2.172）に基づく WBS 列レイアウトの実装統一をパッチリリースとして `CHANGELOG.md` の `[1.9.5]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
+| 0.2.175 | 2026/8 | 製品バージョンを **1.9.6** に更新（ヘッダー・ステータス・構成図）。クロスプロジェクト参照の stale データ対策（0.2.174）と api 依存の脆弱性解消をパッチリリースとして `CHANGELOG.md` の `[1.9.6]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
