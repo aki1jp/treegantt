@@ -140,7 +140,10 @@ export function TaskContextMenus({
                         key={ci}
                         title={c ?? t('contextMenu.colorReset')}
                         aria-label={c ?? t('contextMenu.colorReset')}
-                        onClick={() => { onInlineUpdate(task.id, { [field]: c }); close(); }}
+                        onClick={() => {
+                          if (task[field] !== c) onInlineUpdate(task.id, { [field]: c });
+                          close();
+                        }}
                         style={{
                           width: 18, height: 18, borderRadius: '50%', border: '1px solid #9ca3af',
                           background: c ?? '#ffffff', cursor: 'pointer', padding: 0, flexShrink: 0,
@@ -188,7 +191,10 @@ export function TaskContextMenus({
             onClick={() => {
               const target = taskById.get(depCtxMenu.toTaskId);
               if (target) {
-                onInlineUpdate(depCtxMenu.toTaskId, { predecessors: target.predecessors.filter(p => p !== depCtxMenu.fromTaskId) });
+                const filtered = target.predecessors.filter(p => p !== depCtxMenu.fromTaskId);
+                if (filtered.length !== target.predecessors.length) {
+                  onInlineUpdate(depCtxMenu.toTaskId, { predecessors: filtered });
+                }
               }
               closeDepCtxMenu();
             }}

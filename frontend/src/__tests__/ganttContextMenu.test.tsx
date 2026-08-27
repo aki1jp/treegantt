@@ -3,6 +3,7 @@ import type { Mock } from 'vitest';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
+import { TaskContextMenus } from '../components/Gantt/TaskContextMenus';
 import { useTaskStore } from '../store/taskStore';
 import type { Task, RefProject } from '../types/task';
 
@@ -224,6 +225,23 @@ describe('ガントバー右クリックメニュー（barCtxMenu）', () => {
       titleColor: expect.any(String),
     }));
   });
+
+  it('現在と同じ色をクリックしても onInlineUpdate は呼ばれない（無駄な更新の抑止, Stage 4）', () => {
+    const task = makeTask({ titleColor: '#000000' });
+    const { container } = renderChart([task]);
+
+    fireEvent.contextMenu(container.querySelector(`[data-task-id="${task.id}"]`)!);
+
+    // リセットボタン（✕）以外の最初の色ボタン（= '#000000'、task.titleColor と同じ）をクリック
+    const colorBtns = Array.from(screen.getAllByRole('button'))
+      .filter(b => b.getAttribute('title') !== 'リセット' && b.textContent === '');
+    expect(colorBtns.length).toBeGreaterThan(0);
+    fireEvent.click(colorBtns[0]);
+
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+    // メニューは閉じる
+    expect(screen.queryByText('編集（詳細）')).toBeNull();
+  });
 });
 
 // WBSパネル内のタスクタイトル要素を返す（SVGテキストと区別するため）
@@ -382,5 +400,60 @@ describe('コンテキストメニューの多言語対応（locale: en）', () 
 
     fireEvent.click(screen.getByText('Open referenced project'));
     expect(onOpenRefProject).toHaveBeenCalledWith('p2');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 4-b: 依存解除メニューの no-op ガード（TaskContextMenus を直接レンダリングして検証）
+describe('依存解除メニュー — filter 後の配列長が変わらないなら onInlineUpdate を呼ばない', () => {
+  function renderDepMenu(target: Task, onInlineUpdateFn: Mock, closeDepCtxMenu: Mock = vi.fn()) {
+    const taskById = new Map<string, Task>([[target.id, target]]);
+    return render(
+      <TaskContextMenus
+        barCtxMenu={null}
+        rowCtxMenu={null}
+        depCtxMenu={{ x: 0, y: 0, fromTaskId: 'from1', toTaskId: target.id }}
+        titleHeaderCtxMenu={null}
+        closeBarCtxMenu={NOOP}
+        closeRowCtxMenu={NOOP}
+        closeDepCtxMenu={closeDepCtxMenu}
+        closeTitleHeaderCtxMenu={NOOP}
+        taskById={taskById}
+        tasks={[target]}
+        copiedTask={null}
+        setCopiedTask={NOOP}
+        onEditTask={NOOP}
+        onDeleteTask={NOOP}
+        onInlineUpdate={onInlineUpdateFn}
+        onAddSubTask={NOOP}
+        onCopyInsert={NOOP}
+        collapseAll={NOOP}
+        expandToDepth={NOOP}
+        expandAll={NOOP}
+      />
+    );
+  }
+
+  it('fromTaskId が現在の predecessors に含まれる場合は従来どおり onInlineUpdate が呼ばれる', () => {
+    const target = makeTask({ id: 'to1', predecessors: ['from1', 'other'] });
+    const onInlineUpdateFn = vi.fn();
+    renderDepMenu(target, onInlineUpdateFn);
+
+    fireEvent.click(screen.getByText('依存を解除'));
+
+    expect(onInlineUpdateFn).toHaveBeenCalledWith('to1', { predecessors: ['other'] });
+  });
+
+  it('fromTaskId が既に predecessors に含まれていない場合（filter 後の配列長が変わらない）は onInlineUpdate を呼ばない', () => {
+    const target = makeTask({ id: 'to1', predecessors: ['other'] }); // 'from1' を含まない
+    const onInlineUpdateFn = vi.fn();
+    const closeDepCtxMenu = vi.fn();
+    renderDepMenu(target, onInlineUpdateFn, closeDepCtxMenu);
+
+    fireEvent.click(screen.getByText('依存を解除'));
+
+    expect(onInlineUpdateFn).not.toHaveBeenCalled();
+    // メニューは閉じる
+    expect(closeDepCtxMenu).toHaveBeenCalledOnce();
   });
 });
