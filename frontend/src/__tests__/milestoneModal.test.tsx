@@ -75,6 +75,71 @@ describe('MilestoneModal — backdrop クリックの閉じる/閉じない挙�
   });
 });
 
+describe('MilestoneModal — 差分保存（Stage 3）', () => {
+  it('既存マイルストーンを開いて何も変えずに保存 → onSave が呼ばれず onClose が呼ばれる', () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(<MilestoneModal task={makeMilestone()} allTasks={[]} onSave={onSave} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('1フィールド（担当者）だけ変えて保存 → onSave の引数はそのフィールドと title のみ', () => {
+    const onSave = vi.fn();
+    render(<MilestoneModal task={makeMilestone()} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '担当者A' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).toHaveBeenCalledOnce();
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(Object.keys(saved).sort()).toEqual(['assignee', 'title'].sort());
+    expect(saved.assignee).toBe('担当者A');
+  });
+
+  it('日付だけ変えて保存 → startDate・endDate の両方が patch に含まれる（マイルストーンは1点）', () => {
+    const onSave = vi.fn();
+    render(<MilestoneModal task={makeMilestone()} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getByLabelText('日付'), { target: { value: '2026-07-01' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(Object.keys(saved).sort()).toEqual(['endDate', 'startDate', 'title'].sort());
+    expect(saved.startDate).toBe('2026-07-01');
+    expect(saved.endDate).toBe('2026-07-01');
+  });
+
+  it('lost-update 回帰: status=wip・progress=50 のマイルストーンを開きタイトルだけ変更 → patch に status も progress も含まれない', () => {
+    const onSave = vi.fn();
+    render(
+      <MilestoneModal
+        task={makeMilestone({ status: 'wip', progress: 50 })}
+        allTasks={[]}
+        onSave={onSave}
+        onClose={NOOP}
+      />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更後タイトル' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(saved).not.toHaveProperty('status');
+    expect(saved).not.toHaveProperty('progress');
+    expect(saved.title).toBe('変更後タイトル');
+  });
+
+  it('新規作成（task なし）は従来どおり全フィールドが送られる', () => {
+    const onSave = vi.fn();
+    render(<MilestoneModal task={null} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '新規マイルストーン' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(Object.keys(saved).sort()).toEqual(
+      [
+        'title', 'assignee', 'startDate', 'endDate', 'isMilestone', 'predecessors',
+        'summary', 'description', 'status', 'priority', 'progress', 'parentId',
+      ].sort()
+    );
+  });
+});
+
 describe('MilestoneModal — 先行タスク候補のガード（v0.2.90）', () => {
   const normal = (o: Partial<Task> = {}) => makeMilestone({ isMilestone: false, ...o });
 

@@ -74,20 +74,37 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    onSave({
-      title:       title.trim(),
-      assignee,
-      startDate:   date || null,
-      endDate:     date || null,
-      isMilestone: true,
-      predecessors,
-      summary:     task?.summary     ?? '',
-      description: task?.description ?? '',
-      status:      task?.status      ?? 'todo',
-      priority:    task?.priority    ?? 'medium',
-      progress:    task?.progress    ?? 0,
-      parentId:    task?.parentId    ?? initialParentId ?? null,
-    });
+    if (task && !isDirty) { onClose(); return; }
+
+    if (!task) {
+      onSave({
+        title:       title.trim(),
+        assignee,
+        startDate:   date || null,
+        endDate:     date || null,
+        isMilestone: true,
+        predecessors,
+        summary:     '',
+        description: '',
+        status:      'todo',
+        priority:    'medium',
+        progress:    0,
+        parentId:    initialParentId ?? null,
+      });
+      return;
+    }
+
+    // 既存マイルストーンの編集: 実際に変更されたフィールドのみを送る
+    // （触っていない status/progress 等を古い値のまま読み直して送ると lost-update になる）。
+    const patch: Partial<Task> & { title: string } = { title: title.trim() };
+    if (dirtyFields.date) {
+      // マイルストーンは1点のため startDate === endDate を維持する
+      patch.startDate = date || null;
+      patch.endDate = date || null;
+    }
+    if (dirtyFields.assignee) patch.assignee = assignee;
+    if (dirtyFields.predecessors) patch.predecessors = predecessors;
+    onSave(patch);
   }
 
   const dirtyFields = {
