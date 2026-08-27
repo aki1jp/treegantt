@@ -108,6 +108,8 @@ export function useProjects() {
         const a = (value ?? []) as unknown[];
         const b = (current ?? []) as unknown[];
         if (a.length !== b.length) return false;
+        // 両辺に同じ比較関数を適用するため、既定の sort（文字列順）でも多重集合の一致判定として正しい。
+        // 要素型に依存しないので workingDays（number[]）以外のキーが増えても壊れない。
         const sortedA = [...a].sort();
         const sortedB = [...b].sort();
         return sortedA.every((v, i) => v === sortedB[i]);

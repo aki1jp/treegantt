@@ -382,6 +382,70 @@ describe('useProjects — patchProject no-op ガード', () => {
     await act(async () => { await result.current.renameProject(p1, 'SameName'); });
     expect(window.location.pathname).toBe('/p/SameName');
   });
+
+  // 境界値: falsy な値（0・空配列）を「未設定」と取り違えて no-op 判定しないこと
+  it('capacityMinutesPerDay: 0 のまま保存すると発行されず、0 から変更すると発行される', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: 0, workingDays: [1] };
+    const updated = { ...p1, capacityMinutesPerDay: 480 };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 0, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // 0 同士は変更なし
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2); // 0 → 480 は変更あり
+  });
+
+  it('capacityMinutesPerDay: 継承（null）から 0 への変更が falsy 判定で握り潰されない', async () => {
+    // `??` を `||` に書き換えると null と 0 が同一視され、この PATCH が発行されなくなる
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: null, workingDays: [1] };
+    const updated = { ...p1, capacityMinutesPerDay: 0 };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 0, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    expect(result.current.projects[0].capacityMinutesPerDay).toBe(0);
+  });
+
+  it('workingDays: 空配列のまま保存すると発行されず、要素を足すと発行される', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: 480, workingDays: [] };
+    const updated = { ...p1, workingDays: [1] };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // 空配列同士は変更なし
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2); // [] → [1] は変更あり
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
