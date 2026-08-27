@@ -111,31 +111,31 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       return;
     }
     // マイルストーンは1点: 開始日を編集したら終了日も同値に追従させる
-    if (task.isMilestone && field === 'startDate') {
-      onInlineUpdate(task.id, { startDate: myVal as string | null, endDate: myVal as string | null });
-      setEditField(null);
-      return;
-    }
-    // 開始日・終了日の前後矛盾チェック: 矛盾する場合は両方を新しい値にクランプ
-    if (field === 'startDate' && myVal && task.endDate && (myVal as string) > task.endDate) {
-      onInlineUpdate(task.id, { startDate: myVal as string, endDate: myVal as string });
-      setEditField(null);
-      return;
-    }
-    if (field === 'endDate' && myVal && task.startDate && (myVal as string) < task.startDate) {
-      onInlineUpdate(task.id, { startDate: myVal as string, endDate: myVal as string });
-      setEditField(null);
-      return;
-    }
-    onInlineUpdate(task.id, { [field]: myVal });
+    const patch: Partial<Task> =
+      task.isMilestone && field === 'startDate'
+        ? { startDate: myVal as string | null, endDate: myVal as string | null }
+        // 開始日・終了日の前後矛盾チェック: 矛盾する場合は両方を新しい値にクランプ
+        : field === 'startDate' && myVal && task.endDate && (myVal as string) > task.endDate
+        ? { startDate: myVal as string, endDate: myVal as string }
+        : field === 'endDate' && myVal && task.startDate && (myVal as string) < task.startDate
+        ? { startDate: myVal as string, endDate: myVal as string }
+        : { [field]: myVal };
+
+    // 実質変更なし（クリックしただけ／同じ値で確定）なら保存しない
+    const changed = Object.entries(patch).some(([k, v]) => (task[k as keyof Task] ?? null) !== (v ?? null));
+    if (!changed) { setEditField(null); return; }
+
+    onInlineUpdate(task.id, patch);
     setEditField(null);
   }
 
   function resolveConflict(useTheirs: boolean) {
     if (!conflict) return;
     if (!useTheirs) {
-      const parsed = isNaN(Number(conflict.myVal)) ? conflict.myVal : Number(conflict.myVal);
-      onInlineUpdate(task.id, { [conflict.field]: parsed });
+      // フィールド名で型を決める（値の見た目で数値かどうかを推測しない）。
+      // progress のみ数値、それ以外は文字列のまま送る
+      const value: string | number = conflict.field === 'progress' ? Number(conflict.myVal) : conflict.myVal;
+      onInlineUpdate(task.id, { [conflict.field]: value });
     }
     setConflict(null);
   }
@@ -148,7 +148,9 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   function commitDuration(raw: string) {
     const n = parseInt(raw, 10);
     if (isNaN(n) || n < 1 || !task.startDate) { setEditField(null); return; }
-    onInlineUpdate(task.id, { endDate: addDays(task.startDate, n - 1) });
+    const newEndDate = addDays(task.startDate, n - 1);
+    if (newEndDate === task.endDate) { setEditField(null); return; }
+    onInlineUpdate(task.id, { endDate: newEndDate });
     setEditField(null);
   }
 
