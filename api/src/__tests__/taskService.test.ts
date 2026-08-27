@@ -9,7 +9,7 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-const { createTask, getTask, listTasks, updateTask, deleteTaskSubtree, deleteTaskKeepChildren, reorderTasks, hasEffectiveChanges } =
+const { createTask, getTask, getTaskBasic, listTasks, updateTask, deleteTaskSubtree, deleteTaskKeepChildren, reorderTasks, hasEffectiveChanges, hasPredecessorChanges } =
   await import('../services/taskService.js');
 
 const PROJECT_ID = 'proj-test-1';
@@ -342,12 +342,13 @@ describe('taskService', () => {
       expect(hasEffectiveChanges(task, { isMilestone: false })).toBe(true);
     });
 
-    it('predecessors は順序を無視して比較し、未指定なら比較対象外', () => {
+    it('predecessors は見なくなった（hasPredecessorChanges に分離）ため、内容が違っても false', () => {
       createTask({ id: 'hec-p1', projectId: PROJECT_ID, title: 'P1' });
       createTask({ id: 'hec-p2', projectId: PROJECT_ID, title: 'P2' });
       const task = createTask({ id: 'hec-child', projectId: PROJECT_ID, title: 'Child', predecessors: ['hec-p1', 'hec-p2'] });
       expect(hasEffectiveChanges(task, { predecessors: ['hec-p2', 'hec-p1'] })).toBe(false);
-      expect(hasEffectiveChanges(task, { predecessors: ['hec-p1'] })).toBe(true);
+      expect(hasEffectiveChanges(task, { predecessors: ['hec-p1'] })).toBe(false);
+      expect(hasEffectiveChanges(task, { predecessors: [] })).toBe(false);
       expect(hasEffectiveChanges(task, { predecessors: undefined })).toBe(false);
     });
 
@@ -363,6 +364,54 @@ describe('taskService', () => {
       const task = createTask({ id: 'hec-with-parent', projectId: PROJECT_ID, title: 'Child', parentId: 'hec-parent' });
       expect(hasEffectiveChanges(task, { parentId: 'hec-parent' })).toBe(false);
       expect(hasEffectiveChanges(task, { parentId: null })).toBe(true);
+    });
+  });
+
+  describe('getTaskBasic', () => {
+    it('存在するIDなら Task を返し、predecessors は空配列（依存関係を引かない）', () => {
+      createTask({ id: 'gtb-p1', projectId: PROJECT_ID, title: 'P1' });
+      const created = createTask({ id: 'gtb-child', projectId: PROJECT_ID, title: 'Child', predecessors: ['gtb-p1'] });
+      expect(created.predecessors).toEqual(['gtb-p1']);
+
+      const basic = getTaskBasic('gtb-child');
+      expect(basic).not.toBeNull();
+      expect(basic!.id).toBe('gtb-child');
+      expect(basic!.title).toBe('Child');
+      expect(basic!.predecessors).toEqual([]);
+      expect(basic).not.toHaveProperty('successors');
+    });
+
+    it('存在しないIDなら null', () => {
+      expect(getTaskBasic('no-such-id')).toBeNull();
+    });
+  });
+
+  describe('hasPredecessorChanges', () => {
+    it('next が undefined なら false（クエリなしで判定できる）', () => {
+      const task = createTask({ id: 'hpc-1', projectId: PROJECT_ID, title: 'T1' });
+      expect(hasPredecessorChanges(task.id, undefined)).toBe(false);
+    });
+
+    it('同一内容（順序違い含む）なら false', () => {
+      createTask({ id: 'hpc-p1', projectId: PROJECT_ID, title: 'P1' });
+      createTask({ id: 'hpc-p2', projectId: PROJECT_ID, title: 'P2' });
+      const task = createTask({ id: 'hpc-child', projectId: PROJECT_ID, title: 'Child', predecessors: ['hpc-p1', 'hpc-p2'] });
+      expect(hasPredecessorChanges(task.id, ['hpc-p1', 'hpc-p2'])).toBe(false);
+      expect(hasPredecessorChanges(task.id, ['hpc-p2', 'hpc-p1'])).toBe(false);
+    });
+
+    it('要素の追加・削除・置換があれば true', () => {
+      createTask({ id: 'hpc2-p1', projectId: PROJECT_ID, title: 'P1' });
+      createTask({ id: 'hpc2-p2', projectId: PROJECT_ID, title: 'P2' });
+      const task = createTask({ id: 'hpc2-child', projectId: PROJECT_ID, title: 'Child', predecessors: ['hpc2-p1'] });
+      expect(hasPredecessorChanges(task.id, ['hpc2-p1', 'hpc2-p2'])).toBe(true); // 追加
+      expect(hasPredecessorChanges(task.id, [])).toBe(true); // 削除
+      expect(hasPredecessorChanges(task.id, ['hpc2-p2'])).toBe(true); // 置換
+    });
+
+    it('両方空なら false', () => {
+      const task = createTask({ id: 'hpc-empty', projectId: PROJECT_ID, title: 'Empty' });
+      expect(hasPredecessorChanges(task.id, [])).toBe(false);
     });
   });
 

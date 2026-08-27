@@ -682,6 +682,61 @@ describe('Tasks API — 実質変更なしの PATCH は保存・配信しない'
     expect(res.statusCode).toBe(404);
     expect(res.json().code).toBe('NOT_FOUND');
   });
+
+  describe('クエリ本数の回帰テスト（no-op ガードの二重ハイドレート解消）', () => {
+    function countQueries() {
+      const spy = vi.spyOn(testDb, 'prepare');
+      return {
+        total: () => spy.mock.calls.length,
+        matching: (re: RegExp) => spy.mock.calls.filter(([sql]) => re.test(sql as string)).length,
+        restore: () => spy.mockRestore(),
+      };
+    }
+
+    it('変更あり・predecessors なし: 6本（SELECT*(1) + SELECT id(1) + UPDATE(1) + getTask系3本）', async () => {
+      const task = await createTask({ title: '変更前', progress: 10 });
+      const counter = countQueries();
+      const res = await app.inject({
+        method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+        payload: { progress: 20 },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(counter.total()).toBe(6);
+      counter.restore();
+    });
+
+    it('変更なし・predecessors なし: 4本（SELECT*(1) + getTask系3本、UPDATEなし）', async () => {
+      const task = await createTask({ title: '同値2', progress: 30, status: 'wip' });
+      const counter = countQueries();
+      const res = await app.inject({
+        method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+        payload: { title: '同値2', progress: 30, status: 'wip' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(counter.total()).toBe(4);
+      expect(counter.matching(/UPDATE tasks/)).toBe(0);
+      counter.restore();
+    });
+
+    it('変更あり・列が変わっている＋predecessors あり: 短絡評価で hasPredecessorChanges 用の task_deps SELECT は発行されない', async () => {
+      const p1 = await createTask({ title: 'P1' });
+      const task = await createTask({ title: '変更前3', progress: 10, predecessors: [p1.id] });
+      const counter = countQueries();
+      const res = await app.inject({
+        method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+        payload: { progress: 20, predecessors: [p1.id] },
+      });
+      expect(res.statusCode).toBe(200);
+      // 内訳: getTaskBasic(1) + wouldCreateDepCycleDb のBFS(1) + updateTask内 SELECT id(1) + UPDATE(1)
+      //       + predecessors 再設定 DELETE(1) + INSERT(1) + 末尾 getTask 系(3) = 9
+      // これらは predecessors が req.body に含まれる限り既存仕様として発生するもの（本refactorの対象外）。
+      // 本refactorが保証するのは「hasPredecessorChanges 用の task_deps SELECT が短絡評価で
+      // 発行されないこと」のみなので、それを個別に検証する。
+      expect(counter.total()).toBe(9);
+      expect(counter.matching(/^SELECT predecessor_id FROM task_deps WHERE successor_id = \?$/)).toBe(0);
+      counter.restore();
+    });
+  });
 });
 
 describe('Tasks API — reorder のバリデーション', () => {

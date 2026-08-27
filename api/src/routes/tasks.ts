@@ -3,9 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   listTasks,
   getTask,
+  getTaskBasic,
   createTask,
   updateTask,
   hasEffectiveChanges,
+  hasPredecessorChanges,
   deleteTaskSubtree,
   deleteTaskKeepChildren,
   reorderTasks,
@@ -202,7 +204,9 @@ export async function taskRoutes(fastify: FastifyInstance) {
         },
       },
       async handler(req, reply) {
-        const currentTask = getTask(req.params.id);
+        // 差分判定・存在確認には列の値だけで足りるため、依存関係を引かない軽量取得を使う
+        // （predecessors/successors のハイドレートは no-op 応答時のみ getTask で行う）
+        const currentTask = getTaskBasic(req.params.id);
         if (!currentTask) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
 
         if (typeof req.body.parentId === 'string') {
@@ -241,7 +245,14 @@ export async function taskRoutes(fastify: FastifyInstance) {
           estimateMinutes: req.body.estimateMinutes as number | null | undefined,
         };
 
-        if (!hasEffectiveChanges(currentTask, input)) return { task: currentTask };
+        // `&&` の短絡評価に依存: hasEffectiveChanges が true（列に変更あり）の時点で
+        // hasPredecessorChanges は評価されず、task_deps への SELECT は発行されない
+        if (!hasEffectiveChanges(currentTask, input) && !hasPredecessorChanges(req.params.id, input.predecessors)) {
+          // no-op のときだけ、応答用に先行・後続を含む完全な形へハイドレートする
+          const full = getTask(req.params.id);
+          if (!full) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+          return { task: full };
+        }
 
         const task = updateTask(req.params.id, input);
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
