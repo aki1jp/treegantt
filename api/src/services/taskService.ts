@@ -238,6 +238,29 @@ const COLUMN_MAP: ColEntry[] = [
   ['estimateMinutes', 'estimate_minutes'],
 ];
 
+/**
+ * input が current に対して実質的な変更を含むかどうかを判定する。
+ * COLUMN_MAP の各キー（parentId を含む）と predecessors を走査し、
+ * input で指定（!== undefined）されたもののうち現在値と異なるものが1つでもあれば true。
+ * predecessors はソート済み配列同士で比較（順序非依存）。
+ */
+export function hasEffectiveChanges(current: TaskWithSuccessors, input: UpdateTaskInput): boolean {
+  for (const [key] of COLUMN_MAP) {
+    if (input[key] === undefined) continue;
+    const a = key === 'isMilestone' ? !!input[key] : input[key];
+    const b = current[key as keyof TaskWithSuccessors];
+    if ((a ?? null) !== (b ?? null)) return true;
+  }
+
+  if (input.predecessors !== undefined) {
+    const a = [...input.predecessors].sort();
+    const b = [...current.predecessors].sort();
+    if (a.length !== b.length || a.some((v, i) => v !== b[i])) return true;
+  }
+
+  return false;
+}
+
 export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccessors | null {
   const row = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
   if (!row) return null;

@@ -571,6 +571,119 @@ describe('Tasks API', () => {
   });
 });
 
+describe('Tasks API — 実質変更なしの PATCH は保存・配信しない', () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
+  let projectId: string;
+
+  beforeEach(async () => {
+    testDb = createTestDb();
+    app = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/projects',
+      payload: { name: 'NoOp Test Project' },
+    });
+    projectId = res.json().project.id;
+  });
+
+  afterEach(async () => {
+    await app.close();
+    testDb.close();
+  });
+
+  async function createTask(overrides = {}) {
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+      payload: { title: 'NoOp Task', ...overrides },
+    });
+    return res.json().task;
+  }
+
+  it('同じ値で PATCH しても 200 かつ notifyRoom は呼ばれず、updatedAt も変化しない', async () => {
+    const task = await createTask({ title: '同値', progress: 30, status: 'wip' });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { title: '同値', progress: 30, status: 'wip' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().task.updatedAt).toBe(task.updatedAt);
+    expect(vi.mocked(notifyRoom)).not.toHaveBeenCalled();
+  });
+
+  it('空ボディ {} の PATCH でも notifyRoom は呼ばれない', async () => {
+    const task = await createTask({ title: '空ボディ' });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(vi.mocked(notifyRoom)).not.toHaveBeenCalled();
+  });
+
+  it('値を1つ変えて PATCH すれば従来どおり task_updated が1回だけ配信される', async () => {
+    const task = await createTask({ title: '変更あり', progress: 10 });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+      payload: { progress: 20 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().task.progress).toBe(20);
+    const updatedCalls = vi.mocked(notifyRoom).mock.calls
+      .filter(([, msg]) => (msg as { type: string }).type === 'task_updated');
+    expect(updatedCalls).toHaveLength(1);
+  });
+
+  it('predecessors を同じ内容（順序違い含む）で送っても配信されない', async () => {
+    const p1 = await createTask({ title: 'P1' });
+    const p2 = await createTask({ title: 'P2' });
+    const child = await createTask({ title: 'Child', predecessors: [p1.id, p2.id] });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${child.id}`,
+      payload: { predecessors: [p2.id, p1.id] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(vi.mocked(notifyRoom)).not.toHaveBeenCalled();
+  });
+
+  it('predecessors の内容を変えれば配信される', async () => {
+    const p1 = await createTask({ title: 'P1' });
+    const p2 = await createTask({ title: 'P2' });
+    const child = await createTask({ title: 'Child', predecessors: [p1.id] });
+
+    vi.mocked(notifyRoom).mockClear();
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/${child.id}`,
+      payload: { predecessors: [p2.id] },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updatedCalls = vi.mocked(notifyRoom).mock.calls
+      .filter(([, msg]) => (msg as { type: string }).type === 'task_updated');
+    expect(updatedCalls).toHaveLength(1);
+  });
+
+  it('存在しない id への PATCH は従来どおり 404', async () => {
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/v1/tasks/no-such-id`,
+      payload: { title: 'X' },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe('NOT_FOUND');
+  });
+});
+
 describe('Tasks API — reorder のバリデーション', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let projectId: string;

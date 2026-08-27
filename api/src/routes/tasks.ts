@@ -5,6 +5,7 @@ import {
   getTask,
   createTask,
   updateTask,
+  hasEffectiveChanges,
   deleteTaskSubtree,
   deleteTaskKeepChildren,
   reorderTasks,
@@ -201,14 +202,16 @@ export async function taskRoutes(fastify: FastifyInstance) {
         },
       },
       async handler(req, reply) {
+        const currentTask = getTask(req.params.id);
+        if (!currentTask) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+
         if (typeof req.body.parentId === 'string') {
           if (req.body.parentId === req.params.id ||
               wouldCreateCycle(req.params.id, req.body.parentId)) {
             return reply.code(400).send({ error: 'Circular parentId detected', code: 'CYCLE_DETECTED' });
           }
-          const currentTask = getTask(req.params.id);
           const parent = getTask(req.body.parentId);
-          if (!parent || (currentTask && parent.projectId !== currentTask.projectId))
+          if (!parent || parent.projectId !== currentTask.projectId)
             return reply.code(400).send({ error: 'Invalid parentId', code: 'INVALID_PARENT' });
           if (parent.isMilestone)
             return reply.code(400).send({ error: 'Milestone cannot be a parent', code: 'MILESTONE_CANNOT_BE_PARENT' });
@@ -219,7 +222,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
             return reply.code(400).send({ error: 'Circular dependency detected', code: 'DEP_CYCLE_DETECTED' });
           }
         }
-        const task = updateTask(req.params.id, {
+        const input = {
           parentId:     req.body.parentId     as string | null | undefined,
           title:        req.body.title        as string | undefined,
           summary:      req.body.summary      as string | undefined,
@@ -236,7 +239,11 @@ export async function taskRoutes(fastify: FastifyInstance) {
           titleColor:   req.body.titleColor   as string | null | undefined,
           titleBgColor: req.body.titleBgColor as string | null | undefined,
           estimateMinutes: req.body.estimateMinutes as number | null | undefined,
-        });
+        };
+
+        if (!hasEffectiveChanges(currentTask, input)) return { task: currentTask };
+
+        const task = updateTask(req.params.id, input);
         if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
         notifyRoom(task.projectId, { type: 'task_updated', projectId: task.projectId, task });
         return { task };
