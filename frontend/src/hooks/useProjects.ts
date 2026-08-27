@@ -100,12 +100,32 @@ export function useProjects() {
     setCurrentProject(data.project);
   }
 
+  // body の各キーが project の現在値と同じかどうかを判定する（配列は内容比較、null/undefined は同一視）。
+  function isNoOpPatch(project: Project, body: Record<string, unknown>): boolean {
+    return Object.entries(body).every(([key, value]) => {
+      const current = (project as unknown as Record<string, unknown>)[key];
+      if (Array.isArray(value) || Array.isArray(current)) {
+        const a = (value ?? []) as unknown[];
+        const b = (current ?? []) as unknown[];
+        if (a.length !== b.length) return false;
+        const sortedA = [...a].sort();
+        const sortedB = [...b].sort();
+        return sortedA.every((v, i) => v === sortedB[i]);
+      }
+      return (value ?? null) === (current ?? null);
+    });
+  }
+
   // PATCH → 一覧の差し替え → currentProject の追従、の3連反復を共通化する。
   // 更新後の Project と（renameProject の URL 追従用に）新しい一覧を返す。
+  // body が現在値と全く同じ（実質変更なし）なら API を叩かずそのまま返す。
   async function patchProject(
     project: Project,
     body: Record<string, unknown>,
   ): Promise<{ updated: Project; next: Project[] }> {
+    if (isNoOpPatch(project, body)) {
+      return { updated: project, next: projectsRef.current };
+    }
     const data = await apiFetch(`/projects/${project.id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),

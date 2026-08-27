@@ -18,6 +18,15 @@ export interface ResourceSettingsModalProps {
   onClose: () => void;
 }
 
+// workingDays（曜日番号の配列）の内容一致を、順序に依存せず判定する
+function sameDays(a: number[], b: number[] | null): boolean {
+  if (b == null) return false;
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort((x, y) => x - y);
+  const sortedB = [...b].sort((x, y) => x - y);
+  return sortedA.every((v, i) => v === sortedB[i]);
+}
+
 const LABEL: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'var(--th-text-muted)' };
 const INPUT: React.CSSProperties = {
   padding: '6px 8px', border: '1px solid var(--th-input-border)', borderRadius: 4, fontSize: 14, width: 120,
@@ -53,6 +62,10 @@ export function ResourceSettingsModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (inheritable && inherit) {
+      if (initialCapacityMinutes == null && initialWorkingDays == null) {
+        onClose();
+        return;
+      }
       onSave({ capacityMinutesPerDay: null, workingDays: null });
       return;
     }
@@ -61,6 +74,10 @@ export function ResourceSettingsModal({
       workingDaysPerWeek: selectedDays.size || 5,
     }) ?? fallbackCapacityMinutes;
     const workingDays = [...selectedDays].sort((a, b) => a - b);
+    if (cap === initialCapacityMinutes && sameDays(workingDays, initialWorkingDays)) {
+      onClose();
+      return;
+    }
     onSave({ capacityMinutesPerDay: cap, workingDays });
   }
 
