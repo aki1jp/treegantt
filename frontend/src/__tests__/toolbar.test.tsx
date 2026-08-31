@@ -3,16 +3,17 @@
  * Toolbar — 2段レイアウト・折りたたみテスト
  */
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
-import { render, cleanup, fireEvent, screen } from '@testing-library/react';
+import { render, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { Toolbar } from '../components/Toolbar/Toolbar';
 import { useTaskStore } from '../store/taskStore';
 import { FRONTEND_VERSION } from '../version';
+import type { Task } from '../types/task';
 
 afterEach(() => { cleanup(); });
 
 const NOOP = vi.fn();
 
-function renderToolbar() {
+function renderToolbar(currentProjectId?: string) {
   return render(
     <Toolbar
       onAddTask={NOOP}
@@ -21,6 +22,7 @@ function renderToolbar() {
       onRestore={NOOP}
       onExportJson={NOOP}
       onExportCsv={NOOP}
+      currentProjectId={currentProjectId}
     />
   );
 }
@@ -37,8 +39,20 @@ beforeEach(() => {
     theme: 'auto',
     ganttBarOpen: true,
     locale: 'ja',
+    pinnedAssignees: {},
   });
 });
+
+/** 担当者フィルタのピン留めテスト用: 担当者付きタスクを1件作る */
+function makeAssigneeTask(id: string, assignee: string): Task {
+  return {
+    id, projectId: 'p1', parentId: null, title: id, summary: '', description: '',
+    status: 'todo', priority: 'medium', progress: 0, assignee,
+    startDate: null, endDate: null, isMilestone: false, predecessors: [],
+    seq: 1, order: 1, titleColor: null, titleBgColor: null, estimateMinutes: null,
+    createdAt: '', updatedAt: '',
+  };
+}
 
 describe('Toolbar 2段レイアウト', () => {
   it('行1に検索ボックスが存在する', () => {
@@ -567,5 +581,110 @@ describe('Toolbar i18n（locale="en"）', () => {
     const labels = Array.from(statusSelect.options).map(o => o.text);
     expect(labels).toContain('Not DONE/Pending');
     expect(labels).toContain('All');
+  });
+});
+
+// ─── 担当者フィルタ候補のピン留め（§9.3 pinnedAssignees）───────────────────
+describe('Toolbar 担当者フィルタ ピン留め', () => {
+  function setupTasks() {
+    useTaskStore.setState({
+      tasks: [
+        makeAssigneeTask('t1', 'Alice'),
+        makeAssigneeTask('t2', 'Bob'),
+        makeAssigneeTask('t3', 'Zoe'),
+      ],
+    });
+  }
+
+  function openListbox() {
+    const input = screen.getByLabelText('担当者で絞り込み');
+    fireEvent.focus(input);
+    return input as HTMLInputElement;
+  }
+
+  it('入力欄をクリック/フォーカスすると assignee-listbox が現れる', () => {
+    setupTasks();
+    renderToolbar('p1');
+    expect(screen.queryByTestId('assignee-listbox')).toBeNull();
+    openListbox();
+    expect(screen.getByTestId('assignee-listbox')).toBeTruthy();
+  });
+
+  it('ピン留めした担当者が、名前昇順では最後になる場合でもリスト先頭に来る', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.queryAllByTestId('assignee-option');
+    expect(options.length).toBeGreaterThan(0);
+    expect(within(options[0]).getByText('Zoe')).toBeTruthy();
+  });
+
+  it('assignee-pin-toggle を押すとストアの pinnedAssignees が更新され、リストは開いたままで filterAssignee も変わらない', () => {
+    setupTasks();
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    expect(zoeOption).toBeTruthy();
+    fireEvent.click(within(zoeOption).getByTestId('assignee-pin-toggle'));
+    expect(useTaskStore.getState().pinnedAssignees.p1).toContain('Zoe');
+    expect(useTaskStore.getState().filterAssignee).toBe('');
+    expect(screen.getByTestId('assignee-listbox')).toBeTruthy();
+  });
+
+  it('別の currentProjectId でレンダーするとピン留めセクションが出ない（プロジェクト独立）', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p2');
+    openListbox();
+    expect(screen.queryByTestId('assignee-pinned-section')).toBeNull();
+  });
+
+  it('入力テキストで候補が絞り込まれる', () => {
+    setupTasks();
+    renderToolbar('p1');
+    const input = openListbox();
+    fireEvent.change(input, { target: { value: 'Al' } });
+    const options = screen.getAllByTestId('assignee-option');
+    expect(options.length).toBe(1);
+    expect(within(options[0]).getByText('Alice')).toBeTruthy();
+  });
+
+  it('候補の名前ボタンをクリックすると filterAssignee が設定されリストが閉じる', () => {
+    setupTasks();
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const bobOption = options.find(o => within(o).queryByText('Bob'))!;
+    expect(bobOption).toBeTruthy();
+    fireEvent.click(within(bobOption).getByTestId('assignee-option-select'));
+    expect(useTaskStore.getState().filterAssignee).toBe('Bob');
+    expect(screen.queryByTestId('assignee-listbox')).toBeNull();
+  });
+
+  it('ピン留めされているが現プロジェクトのタスクに存在しない担当者は表示されない', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Nobody');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    expect(options.some(o => within(o).queryByText('Nobody'))).toBe(false);
+  });
+
+  it('currentProjectId 未指定でも落ちず、セクション見出しの無いフラットなリストになる', () => {
+    setupTasks();
+    renderToolbar();
+    openListbox();
+    expect(screen.queryByTestId('assignee-pinned-section')).toBeNull();
+    expect(screen.queryByTestId('assignee-others-section')).toBeNull();
+    expect(screen.getAllByTestId('assignee-option').length).toBe(3);
+  });
+
+  it('既存の✕クリアの挙動は引き続き通る', () => {
+    useTaskStore.setState({ filterAssignee: 'Alice' });
+    renderToolbar('p1');
+    fireEvent.click(screen.getByTitle('担当者フィルターをクリア'));
+    expect(useTaskStore.getState().filterAssignee).toBe('');
   });
 });

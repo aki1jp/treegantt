@@ -88,6 +88,55 @@ describe('a11y — Toolbar', () => {
   });
 });
 
+// ─── Toolbar 担当者フィルタ combobox ロール（§9.3 pinnedAssignees / §9.10）──
+describe('a11y — Toolbar 担当者フィルタ combobox', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useTaskStore.setState({
+      tasks: [makeTask({ id: 't1', assignee: 'Alice' })],
+      needsReload: false,
+      filterStatus: '', filterAssignee: '', filterPriority: '', filterSearch: '',
+      zoomLevel: 'week', ganttStartDate: '', ganttPeriod: '3m',
+      showLightningLine: true, showWeekend: true, showCriticalPath: false, showResourceView: true,
+      uiFontSize: 13, uiRowHeight: 36,
+      ganttHeaderLevels: { year: true, month: true, week: true, day: true },
+      theme: 'auto', ganttBarOpen: true,
+    });
+  });
+
+  function renderToolbar() {
+    return render(
+      <Toolbar onAddTask={NOOP} onAddMilestone={NOOP} onImport={NOOP} onRestore={NOOP}
+        onExportJson={NOOP} onExportCsv={NOOP} />
+    );
+  }
+
+  it('getByLabelText("担当者で絞り込み") が引き続き通る', () => {
+    renderToolbar();
+    expect(screen.getByLabelText('担当者で絞り込み')).toBeTruthy();
+  });
+
+  it('入力欄が role="combobox" を持ち、開くと aria-expanded="true" になる', () => {
+    renderToolbar();
+    const input = screen.getByLabelText('担当者で絞り込み');
+    expect(input.getAttribute('role')).toBe('combobox');
+    expect(input.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.focus(input);
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('開いたリストが role="listbox"、候補行が role="option" を持つ', () => {
+    renderToolbar();
+    const input = screen.getByLabelText('担当者で絞り込み');
+    fireEvent.focus(input);
+    const listbox = screen.getByTestId('assignee-listbox');
+    expect(listbox.getAttribute('role')).toBe('listbox');
+    const options = screen.getAllByTestId('assignee-option');
+    expect(options.length).toBeGreaterThan(0);
+    options.forEach(o => expect(o.getAttribute('role')).toBe('option'));
+  });
+});
+
 // ─── ProjectTabs ────────────────────────────────────────────────────────────
 describe('a11y — ProjectTabs', () => {
   function makeProject(id: string, name: string): Project {
