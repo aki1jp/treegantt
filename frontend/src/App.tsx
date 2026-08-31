@@ -419,6 +419,7 @@ export default function App() {
               onOpenResourceSettings={() => setSettingsModal('app')}
               onOpenRefManager={() => setRefManagerOpen(true)}
               backendVersion={backendVersion ?? undefined}
+              currentProjectId={currentProject?.id}
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <GanttChart

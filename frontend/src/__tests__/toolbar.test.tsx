@@ -136,31 +136,31 @@ describe('Toolbar フィルタインライン表示', () => {
     expect(prioritySelect).toBeTruthy();
   });
 
-  it('行2（展開時）に担当者コンボボックス（input[list]）が直接表示される', () => {
+  it('行2（展開時）に担当者コンボボックス（role="combobox"）が直接表示される', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const combobox = row2.querySelector('input[list="assignee-datalist"]');
+    const combobox = row2.querySelector('input[role="combobox"]');
     expect(combobox).toBeTruthy();
   });
 
   it('担当者コンボボックスに自由テキストを入力するとストアが更新される', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const combobox = row2.querySelector('input[list="assignee-datalist"]') as HTMLInputElement;
+    const combobox = row2.querySelector('input[role="combobox"]') as HTMLInputElement;
     fireEvent.change(combobox, { target: { value: 'Alice' } });
     expect(useTaskStore.getState().filterAssignee).toBe('Alice');
   });
 
-  it('担当者コンボボックスにdatalistが存在する', () => {
+  it('担当者コンボボックスはネイティブdatalistを使わない（自前listbox、§9.3）', () => {
     renderToolbar();
-    const datalist = document.getElementById('assignee-datalist');
-    expect(datalist).toBeTruthy();
+    expect(document.getElementById('assignee-datalist')).toBeNull();
+    expect(document.querySelector('datalist')).toBeNull();
   });
 
   it('担当者コンボボックスのプレースホルダーは「すべて」', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const combobox = row2.querySelector('input[list="assignee-datalist"]') as HTMLInputElement;
+    const combobox = row2.querySelector('input[role="combobox"]') as HTMLInputElement;
     expect(combobox.placeholder).toBe('すべて');
   });
 
@@ -186,7 +186,7 @@ describe('Toolbar フィルタインライン表示', () => {
     useTaskStore.setState({ filterAssignee: 'Alice' });
     renderToolbar();
     const wrapper = screen.getByTestId('assignee-combobox');
-    const combobox = wrapper.querySelector('input[list="assignee-datalist"]');
+    const combobox = wrapper.querySelector('input[role="combobox"]');
     const clearBtn = wrapper.querySelector('[title="担当者フィルターをクリア"]');
     expect(combobox).toBeTruthy();
     expect(clearBtn).toBeTruthy();
@@ -686,5 +686,76 @@ describe('Toolbar 担当者フィルタ ピン留め', () => {
     renderToolbar('p1');
     fireEvent.click(screen.getByTitle('担当者フィルターをクリア'));
     expect(useTaskStore.getState().filterAssignee).toBe('');
+  });
+
+  it('絞り込み結果でその他が0件のときは assignee-others-section を出さない（見出しだけの空セクション防止）', () => {
+    // 候補が全員ピン留めされている（＝その他セクションに入る候補が無い）状況を再現する
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    useTaskStore.getState().toggleAssigneePin('p1', 'Bob');
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    expect(screen.getByTestId('assignee-pinned-section')).toBeTruthy();
+    expect(screen.queryByTestId('assignee-others-section')).toBeNull();
+    expect(screen.getAllByTestId('assignee-option').length).toBe(3);
+  });
+
+  it('担当者名に空白が含まれても候補行の id が空白を含まない有効な値になる（HTML の id 仕様）', () => {
+    useTaskStore.setState({
+      tasks: [makeAssigneeTask('t1', '山田 太郎'), makeAssigneeTask('t2', 'Bob')],
+    });
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const taroOption = options.find(o => within(o).queryByText('山田 太郎'))!;
+    expect(taroOption).toBeTruthy();
+    expect(taroOption.id).toBeTruthy();
+    expect(taroOption.id).not.toMatch(/\s/);
+  });
+
+  it('↓キーでアクティブにした候補の id を aria-activedescendant が指し続ける（名前に空白があっても）', () => {
+    useTaskStore.setState({
+      tasks: [makeAssigneeTask('t1', '山田 太郎'), makeAssigneeTask('t2', 'Bob')],
+    });
+    renderToolbar('p1');
+    const input = openListbox();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const options = screen.getAllByTestId('assignee-option');
+    const activeId = input.getAttribute('aria-activedescendant');
+    expect(activeId).toBeTruthy();
+    const activeOption = options.find(o => o.id === activeId);
+    expect(activeOption).toBeTruthy();
+  });
+
+  it('リストが閉じているとき aria-controls は付与されない（存在しない要素への参照防止）', () => {
+    setupTasks();
+    renderToolbar('p1');
+    const input = screen.getByLabelText('担当者で絞り込み');
+    expect(input.hasAttribute('aria-controls')).toBe(false);
+    openListbox();
+    expect(input.getAttribute('aria-controls')).toBe('assignee-listbox');
+  });
+
+  it('ピン留めトグルで並び替わった後も activeIndex は同じ候補を指し続ける（ハイライトのずれ防止）', () => {
+    setupTasks();
+    renderToolbar('p1');
+    const input = openListbox();
+    // Bob をアクティブにする（Alice, Bob, Zoe の昇順で2番目）
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    let options = screen.getAllByTestId('assignee-option');
+    let activeId = input.getAttribute('aria-activedescendant');
+    const activeBefore = options.find(o => o.id === activeId)!;
+    expect(within(activeBefore).getByText('Bob')).toBeTruthy();
+
+    // Zoe をピン留めして先頭セクションへ移動させても Bob がアクティブなまま
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    fireEvent.click(within(zoeOption).getByTestId('assignee-pin-toggle'));
+
+    options = screen.getAllByTestId('assignee-option');
+    activeId = input.getAttribute('aria-activedescendant');
+    const activeAfter = options.find(o => o.id === activeId)!;
+    expect(within(activeAfter).getByText('Bob')).toBeTruthy();
   });
 });
