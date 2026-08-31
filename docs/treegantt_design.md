@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.6** |
-| ドキュメント版 | 0.2.176 |
+| ドキュメント版 | 0.2.177 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -427,9 +427,9 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 ### 7.1 状態管理（`store/taskStore.ts`、zustand + persist）
 - データ：`tasks`、`needsReload`。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`/`refOwnerProjectId`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。`refOwnerProjectId` は参照データの取得元プロジェクトを示し、`setRefData` で他の2値と同時更新する（読み出し側は現在プロジェクトと一致するときのみ使う。§5.8）。
-- フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterColor`（`'' | '*' | string`。`'*'`＝色付き、それ以外は実効色の一致、§9.3）、`filterOverdue`（`'' | 'overdue'`。`'overdue'`＝期限超過のみ、§9.3）、`filterSearch`。
+- フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterColor`（`'' | '*' | string`。`'*'`＝色付き、それ以外は実効色の一致、§9.3）、`filterOverdue`（`'' | 'overdue'`。`'overdue'`＝期限超過のみ、§9.3）、`filterSearch`。フィルタ値はいずれも永続化しない（担当者候補のピン留め `pinnedAssignees` は「フィルタ値」ではなく UI 設定として別途永続化する。§9.3）。
 - ガント表示：`zoomLevel`(既定 day)、`ganttStartDate`、`ganttPeriod`(既定 3m)、`showLightningLine/Weekend/CriticalPath/ResourceView/TodayLine/Milestones`、`milestoneHighlightColor`(#8b5cf6)、`uiFontSize`(13)、`uiRowHeight`(36)、`ganttHeaderLevels`(month/day=true)、`depArrowStyle`(bezier)。
-- レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`。
+- レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`、`pinnedAssignees`（担当者フィルタ候補のピン留め。`Record<projectId, string[]>`、§9.3）。
 - 差分適用アクション：`upsertTask`/`removeTasks`/`applyOrders`（未変更タスクの参照を保ち `React.memo` 行の再描画を最小化）。
 - 永続化：`partialize` で UI 設定のみ `localStorage('treegantt-ui')` に保存（tasks は保存しない）。
 - リソース設定（capacity/workingDays のアプリ既定）は **localStorage に載せず**、別の非永続ストア `settingsStore`（zustand）に保持する。起動時に `GET /api/v1/settings` から取得（取得失敗時はハードコード既定 480／月〜金）。サーバが真実＝全ユーザー共有。プロジェクト個別の上書きは各 `Project` に同梱され、実効値は `duration.ts` の解決ヘルパで算出する（§9.8）。
@@ -570,8 +570,9 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 
 ### 9.3 ツールバー
 - 操作：タスク追加・マイルストーン追加・ハンバーガー（Import 追記/レストア、Export JSON/CSV、**バージョン表示**、API仕様書（Swagger UI を新規タブで開く。URL は `utils/api.ts` の `API_DOCS_URL` = 既存 `API_BASE`（`VITE_API_URL` 優先・未設定時 `hostname:4000` へフォールバック）+ `/docs`）)。
-- フィルタ：ステータス（「DONE/保留以外」=`!done` 含む）・優先度・担当者（部分一致・datalist 補完・クリア）・**色**・**期限**・タスク検索。
+- フィルタ：ステータス（「DONE/保留以外」=`!done` 含む）・優先度・担当者（部分一致・候補ドロップダウン・ピン留め・クリア）・**色**・**期限**・タスク検索。
   - **担当者フィルタの親子継承**：担当者フィルタは、タスク自身の担当者が一致する場合に加え、**祖先タスクのいずれかが一致する場合もそのタスクを表示する**（自分が担当する親タスク配下の子タスクは、子の担当者に関わらず全て表示）。判定は `parentId` を遡る再帰で、任意の深さの子孫に及ぶ。マイルストーンは従来どおり常に表示。他フィルタ（ステータス／優先度／色／検索）は各タスク自身の値で AND 判定する（親子継承しない）。
+  - **担当者候補のピン留め（`pinnedAssignees`）**：担当者フィルタの候補リストは、ネイティブ `<datalist>` ではなく自前のポップアップ listbox で描画する（`datalist` はブラウザ描画のため、並べ替え・区切り・最大高さ・ピン操作をアプリ側から制御できないため）。候補の収集元は従来どおり `getUniqueAssignees`（現プロジェクトのタスクから動的収集、`ganttCalc.ts`）。**表示順は「ピン留めセクション → 区切り → その他」の二段構成**とし、各セクション内は名前の昇順（`getUniqueAssignees` のソート順を踏襲）。これによりピン留めした担当者は候補数によらず常にリスト先頭に現れる。`pinnedAssignees` は **`Record<projectId, string[]>`** で、**ピン留めはプロジェクト単位に独立**する（あるプロジェクトのピンが別プロジェクトの候補リストに混ざらない）。現プロジェクトの候補に存在しない名前は表示しないが、キーからは削除しない（担当者が一時的にいなくなってもピンを失わないため）。プロジェクトが未確定のときはピン UI を出さず、単一セクションのフラットな候補リストとして振る舞う。入力テキストがあるときは両セクションとも部分一致（`includes`）で絞り込み、0 件なら「該当なし」を表示する。ピントグルは候補行内の専用ボタンで、押しても listbox は閉じず `filterAssignee` も変更しない（候補の選択とピン操作は別操作）。listbox には最大高さを設け、溢れた分のみリスト内でスクロールさせる（担当者が多いプロジェクトで候補リストが画面を埋めるのを防ぐ）。永続化は `treegantt-ui`（§7.1）に含めるが、**フィルタ値ではなく UI 設定**として扱うため `resetUi`（表示設定リセット）の対象には含めない（`wbsHiddenCols` と同じ扱い）。
   - **色フィルタ（`filterColor`）**：右クリック色パレット（`TaskContextMenus`）で設定する `titleColor`（文字色）／`titleBgColor`（背景色）は独立に設定できるため、色フィルタの同一性判定は両者を一本化した「実効色」＝`titleBgColor ?? titleColor`（背景色を優先し、背景色が未設定＝`null` のときのみ文字色で判定）で行う。両方とも `null` のタスクは「無色」として扱う。選択肢は `<select aria-label="色で絞り込み">` で、①`''`＝「すべて」（既定）、②`'*'`＝「色付き」（実効色が非 `null` の全タスク）、③現在のタスクで使用中の実効色ごと（`getUniqueTaskColors`、`ganttCalc.ts`。担当者フィルタの `getUniqueAssignees` と同じ「タスク一覧から動的収集してソート」パターン。各 `<option>` は色つきの丸印文字（`●`）で簡易スウォッチを表示）。`filterTasks`（`utils/sort.ts`）内で他フィルタ（status/priority/assignee）と同じ合成（AND）で扱い、親子継承などの特別なロジックは持たない。参照タスク（クロスプロジェクト参照の合成行）にも他フィルタと同様に適用され、特別扱いしない。フィルタ後ツリーの祖先再表示（`includeAncestors`、直下）は他フィルタと共通の挙動のまま変更しない。
   - **期限フィルタ（`filterOverdue`）**：選択肢は「すべて」（`''`、既定）と「遅延中」（`'overdue'`）。遅延の定義は `endDate` が今日より前（ISO 正規化して辞書順比較、§5.1）かつステータスが `done`/`pending` 以外。判定は `isOverdueTask`（`utils/ganttCalc.ts`）に一本化し、§8.3 のガントバーの期限超過赤表示と同一の判定を共有する。`filterTasks`（`utils/sort.ts`）内で他フィルタと同じ AND 合成で扱い、親子継承などの特別ロジックは持たない。参照タスクにも同様に適用し特別扱いしない。`includeAncestors` による祖先再表示の挙動は変更しない（親タスクの日付は派生値のため親自身は一致しないが、遅延した子孫があれば構造保持で表示される）。**イナズマ線ベースの進捗遅延（§8.3 の遅延赤帯）とは別概念**であり、このフィルタは期限超過のみを対象とする。
   - **フィルタ後ツリーの祖先再表示（構造保持、`includeAncestors`）**：上記の継承（祖先が一致→子孫を表示）とは**逆方向**に、フィルタ結果（`filterTasks` 適用後の一覧）に子孫が残った場合、その**祖先自身は担当者が一致していなくても**ツリー表示の階層を保つために画面には表示される。この「表示専用祖先」はフィルタの一致結果（一覧・件数）には含まれないが、WBS/ガントの行としては可視であり、`taskIndex`（行位置）には含まれる。依存矢印など「その行が画面に見えているか」を扱う処理は、フィルタ結果の一覧ではなく、この表示専用祖先を含めた可視集合を基準に判定しなければならない（§8.5）。
@@ -634,6 +635,7 @@ API 呼び出し失敗などユーザーに伝えるべきエラーは、`alert(
 
 - **アイコン/記号のみのボタンには `aria-label` を必須とする**：可視テキストを持たないボタン（`▷`/`◁`/`☰`/`∧`/`∨`/`⊟`/`⊞`/`✕`/`▶`/`▼` 等の記号・絵文字のみ、または色見本のみで文字を持たない色選択ボタン）は、視覚的な `title`（ツールチップ）だけでなく `aria-label` で操作内容を明示する。対象：`GanttChart`（WBS 開閉トグル・展開/折りたたみボタン群・タイトル文字色/背景色パレット）、`GanttLeftRow`（行の展開/折りたたみトグル）、`Toolbar`（ハンバーガーメニュー・フィルタクリア・開始日リセット・文字サイズボタン）、`ProjectTabs`（タブ右クリックメニューの色選択パレット）。可視テキストを持つボタン（例：「＋ タスク追加」「キャンセル」等）は対象外。
 - **フィルタ入力の関連付け**：`Toolbar` のフィルタ用 `<input>`/`<select>`（検索・ステータス・優先度・担当者・ズーム・開始日・表示期間）は、視覚的にはラベル文言（`<span>`）を隣接表示しつつ、支援技術向けに `aria-label` で同等の名前を持たせる（`<label htmlFor>` と同等の効果を、既存の視覚レイアウトを変えずに得るため `aria-label` 方式を採用）。
+- **担当者フィルタのコンボボックス**：自前ポップアップ listbox 化（§9.3）に伴い、入力欄に `role="combobox"`・`aria-expanded`・`aria-controls`・`aria-activedescendant` を、候補リストに `role="listbox"`、各候補行に `role="option"`・`aria-selected` を付与する。キーボードは ↑↓ で候補移動、Enter で確定、Escape / Tab で閉じる。上記の `aria-label` 方式（「担当者で絞り込み」）は維持する。
 - **自動チェック（`axe-core`）の導入**：手動整備した aria-label 方針の再発防止・回帰検出のため、`axe-core` によるアクセシビリティ自動チェックを導入した。
   - **フロントのユニット/コンポーネントテスト**：`frontend/src/__tests__/a11yAxe.ts`（共通ヘルパー）が `axe-core` を直接呼び出す（`jest-axe` 相当のカスタムマッチャは導入せず、`axe.run(container)` の戻り値をそのまま assert する軽量な方式）。フラグメント単体（ページ全体のランドマーク・`<html lang>` 等を前提としない DOM 断片）を検証するため、`region`/`landmark-one-main`/`html-has-lang` 等のページレベルルールは除外して実行する。対象は主要画面・コンポーネント（`Toolbar`/`TaskModal`/`MilestoneModal`/`ConflictDialog`/`RefManagerModal`/`GanttChart` の主要行、`a11yAxe.test.tsx`）で、**critical/serious の違反ゼロ**を assert する（moderate/minor は許容リストの対象とする方針だが、本導入時点でユニットレベルでは該当なし）。
   - **E2E**：`e2e/tests/a11y.spec.ts`（`@axe-core/playwright`）が、実際に起動したアプリのメイン画面（ガント表示）に対して自動チェックを実行する。**`color-contrast` ルールは除外する**：jsdom（ユニットテスト）では信頼できる算出ができず「incomplete」判定に留まる一方、実ブラウザ（E2E）では実際の計算結果として大量に検出されうるため、コントラスト比の監査自体は §17.2 の将来課題としてまとめて別途実施する方針とし、本導入では対象外にする。critical/serious（`color-contrast` を除く）の違反ゼロを assert する。
@@ -1057,3 +1059,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.173 | 2026/8 | 製品バージョンを **1.9.5** に更新（ヘッダー・ステータス・構成図）。§9.2「列レイアウトの導出（相対座標）」（0.2.172）に基づく WBS 列レイアウトの実装統一をパッチリリースとして `CHANGELOG.md` の `[1.9.5]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
 | 0.2.175 | 2026/8 | 製品バージョンを **1.9.6** に更新（ヘッダー・ステータス・構成図）。クロスプロジェクト参照の stale データ対策（0.2.174）と api 依存の脆弱性解消をパッチリリースとして `CHANGELOG.md` の `[1.9.6]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
 | 0.2.176 | 2026/8 | **実質変更なしの更新を行わない方針**を追加（§5.1・§6.1・§9.2・§9.4・§7.2）。更新系 API は送られたフィールドがすべて現在値と等しい場合に DB 更新も `notifyRoom` も行わず現在の状態を返す（空ボディ含む）。WBS のインライン編集はセルをクリックしただけ・同じ値を入力し直しただけでは保存 API を発行せず（競合検知とは別の判定として併存させる）、モーダル（`TaskModal`/`MilestoneModal`）は変更されたフィールドのみを送り、編集対象でないフィールドを送り返さない（モーダル表示中に他クライアントが更新した値を巻き戻す lost-update の防止）。行 D&D の reorder ペイロードは `ord`/`parent_id` が実際に変わる行のみに絞る。製品バージョンは変更なし。 |
+| 0.2.177 | 2026/8 | §9.3 に「担当者候補のピン留め（`pinnedAssignees`）」を新設：担当者フィルタの候補をネイティブ `<datalist>` から自前ポップアップ listbox に置き換え、「ピン留めセクション → 区切り → その他」の二段構成でピン留めした担当者を常にリスト先頭へ表示することを規定。ピンは `Record<projectId, string[]>` としてプロジェクト単位に独立させ、`treegantt-ui` に永続化しつつ `resetUi` の対象外とする。あわせて §7.1（`pinnedAssignees` の追加・フィルタ値との区別）・§9.10（combobox/listbox/option ロールとキーボード操作）を更新。 |
