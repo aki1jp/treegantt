@@ -841,5 +841,29 @@ describe('Toolbar 担当者フィルタ ピン留め', () => {
       expect(maxHeight).toBeGreaterThan(expected - 20);
       expect(maxHeight).toBeLessThan(expected + 20);
     });
+
+    it('ビューポートが極端に低い場合でも listbox がビューポート下端をはみ出さない（固定下限で底上げしない）', () => {
+      const originalInnerHeight = window.innerHeight;
+      Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: 150 });
+      try {
+        HTMLElement.prototype.getBoundingClientRect = vi.fn(function (this: HTMLElement) {
+          return {
+            top: 20, bottom: 40, left: 0, right: 100, width: 100, height: 20,
+            x: 0, y: 20, toJSON() { return this; },
+          } as DOMRect;
+        });
+
+        setupTasks();
+        renderToolbar('p1');
+        openListbox();
+        const listbox = screen.getByTestId('assignee-listbox');
+        const top = parseFloat(listbox.style.top);
+        const maxHeight = parseFloat(listbox.style.maxHeight);
+
+        expect(top + maxHeight).toBeLessThanOrEqual(window.innerHeight);
+      } finally {
+        Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: originalInnerHeight });
+      }
+    });
   });
 });

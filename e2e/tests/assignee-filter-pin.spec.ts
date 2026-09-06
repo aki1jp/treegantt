@@ -35,8 +35,10 @@ test.describe('担当者フィルタ ピン留め', () => {
   });
 
   test('担当者候補が多いとき、listboxがビューポート下端近くまで伸びる（固定240px上限の撤廃）', async ({ page, request, projectId }) => {
-    // 担当者20名分のタスクを投入し、候補リストが240pxの固定上限では収まらない量にする
-    const assignees = Array.from({ length: 20 }, (_, i) => `E2E-Assignee-${String(i).padStart(2, '0')}`);
+    // 候補の実高さが「開いた位置からビューポート下端までの利用可能高さ」を確実に超える量を投入する。
+    // 1行あたり約24px・利用可能高さは 720px のビューポートで約590pxのため、40名なら約960pxで確実に超える。
+    // （20名だと約480pxで利用可能高さに収まってしまい、listbox は内容なりの高さで止まる＝下端まで伸びない）
+    const assignees = Array.from({ length: 40 }, (_, i) => `E2E-Assignee-${String(i).padStart(2, '0')}`);
     for (const assignee of assignees) {
       const res = await request.post(`/api/v1/projects/${projectId}/tasks`, {
         data: { title: `E2E-height-${assignee}`, assignee },
@@ -59,11 +61,39 @@ test.describe('担当者フィルタ ピン留め', () => {
     expect(viewportSize).not.toBeNull();
     const viewportHeight = viewportSize!.height;
 
-    // 開いた位置からビューポート下端までいっぱいに広がっている（下端の余白は僅か）
+    // 内容が入りきらないので、開いた位置からビューポート下端までいっぱいに広がる（下端の余白は僅か）
     const gapToBottom = viewportHeight - (box!.y + box!.height);
     expect(gapToBottom).toBeLessThan(24);
 
     // 固定240px上限だった旧実装より明確に大きい
     expect(box!.height).toBeGreaterThan(300);
+
+    // 溢れた分はリスト内スクロールで見られる（画面外へはみ出さない）
+    const overflows = await listbox.evaluate(el => el.scrollHeight > el.clientHeight);
+    expect(overflows).toBeTruthy();
+  });
+
+  test('候補が少ないときはlistboxを無理に引き伸ばさず内容なりの高さになる', async ({ page, request, projectId }) => {
+    for (const assignee of ['Alice', 'Bob', 'Carol']) {
+      const res = await request.post(`/api/v1/projects/${projectId}/tasks`, {
+        data: { title: `E2E-short-${assignee}`, assignee },
+      });
+      expect(res.ok()).toBeTruthy();
+    }
+
+    await page.reload();
+    await page.getByLabel('担当者で絞り込み').click();
+
+    const listbox = page.getByTestId('assignee-listbox');
+    await expect(listbox).toBeVisible();
+
+    const box = await listbox.boundingBox();
+    const viewportHeight = page.viewportSize()!.height;
+
+    // 3名分の高さしかないので下端までは伸びない
+    expect(box!.height).toBeLessThan(viewportHeight / 2);
+    // スクロールも発生しない
+    const overflows = await listbox.evaluate(el => el.scrollHeight > el.clientHeight);
+    expect(overflows).toBeFalsy();
   });
 });

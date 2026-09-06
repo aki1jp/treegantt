@@ -23,6 +23,22 @@ const dropdownStyle: React.CSSProperties = {
   boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
 };
 
+// 画面下端に残す余白
+const LISTBOX_BOTTOM_MARGIN = 8;
+
+/**
+ * listbox の表示位置と高さを算出する（§9.3：開いた位置からビューポート下端までの
+ * 利用可能な高さいっぱい、それでも足りない分はリスト内スクロール）。
+ * 下限を固定値で底上げすると、ビューポートが極端に低い（余白が下限未満の）ときに
+ * listbox がビューポート外へはみ出すため、0 未満にだけクランプする。
+ */
+function computeListboxPos(wrapper: HTMLDivElement) {
+  const r = wrapper.getBoundingClientRect();
+  const top = r.bottom + 4;
+  const maxHeight = Math.max(0, window.innerHeight - top - LISTBOX_BOTTOM_MARGIN);
+  return { top, left: r.left, maxHeight };
+}
+
 /**
  * 担当者フィルタの候補ポップアップ（§9.3 pinnedAssignees / §9.10）。
  * ネイティブ <datalist> ではなく自前 listbox で描画し、ピン留めした担当者を
@@ -38,7 +54,7 @@ export function AssigneeFilter({ value, options, onChange, currentProjectId }: P
   // インデックスではなく名前で「現在アクティブな候補」を保持する。
   // インデックス保持だと並び替え後に別候補を指してしまう。
   const [activeName, setActiveName] = useState<string | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // 外側クリックで閉じる（Toolbar.tsx のハンバーガーメニューと同じパターン）
@@ -50,11 +66,17 @@ export function AssigneeFilter({ value, options, onChange, currentProjectId }: P
     return () => document.removeEventListener('mousedown', onOutside);
   }, [open]);
 
-  function openList() {
-    if (!open && wrapperRef.current) {
-      const r = wrapperRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 4, left: r.left });
+  // 開いている間のウィンドウリサイズに追従して listbox の高さを再計算する
+  useEffect(() => {
+    function onResize() {
+      if (wrapperRef.current) setPos(computeListboxPos(wrapperRef.current));
     }
+    if (open) window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [open]);
+
+  function openList() {
+    if (!open && wrapperRef.current) setPos(computeListboxPos(wrapperRef.current));
     setActiveName(null);
     setOpen(true);
   }
@@ -143,11 +165,14 @@ export function AssigneeFilter({ value, options, onChange, currentProjectId }: P
             title={isPinnedName ? t('toolbar.filter.assigneeUnpin') : t('toolbar.filter.assigneePin')}
             onClick={(e) => { e.stopPropagation(); toggleAssigneePin(currentProjectId!, name); }}
             style={{
-              border: 'none', background: 'none', cursor: 'pointer', fontSize: 12,
-              padding: '4px 8px', color: isPinnedName ? '#4f46e5' : 'var(--th-text-muted)',
+              border: 'none', background: 'none', cursor: 'pointer', fontSize: 14,
+              padding: '4px 8px', borderRadius: 4,
+              color: isPinnedName ? '#4f46e5' : 'var(--th-text-ph)',
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#e0e7ff'; e.currentTarget.style.color = '#4f46e5'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = isPinnedName ? '#4f46e5' : 'var(--th-text-ph)'; }}
           >
-            {isPinnedName ? '📌' : '📍'}
+            {isPinnedName ? '★' : '☆'}
           </button>
         )}
       </div>
@@ -193,7 +218,7 @@ export function AssigneeFilter({ value, options, onChange, currentProjectId }: P
           role="listbox"
           style={{
             position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
-            minWidth: 180, maxHeight: 240, overflowY: 'auto',
+            minWidth: 180, maxHeight: pos.maxHeight, overflowY: 'auto',
             ...dropdownStyle,
           }}
         >
