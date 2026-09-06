@@ -758,4 +758,88 @@ describe('Toolbar 担当者フィルタ ピン留め', () => {
     const activeAfter = options.find(o => o.id === activeId)!;
     expect(within(activeAfter).getByText('Bob')).toBeTruthy();
   });
+
+  it('ピン留め済みの行のピントグルは★を表示し、未ピンの行は☆を表示する', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    const aliceOption = options.find(o => within(o).queryByText('Alice'))!;
+    expect(within(zoeOption).getByTestId('assignee-pin-toggle').textContent).toBe('★');
+    expect(within(aliceOption).getByTestId('assignee-pin-toggle').textContent).toBe('☆');
+  });
+
+  it('ピントグルに絵文字（📌/📍）を使っていない', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const listbox = screen.getByTestId('assignee-listbox');
+    expect(listbox.textContent).not.toContain('📌');
+    expect(listbox.textContent).not.toContain('📍');
+  });
+
+  it('ピン留め済みトグルのstyle.colorが未ピンのものと異なる（色が状態差として機能している回帰確認）', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    const aliceOption = options.find(o => within(o).queryByText('Alice'))!;
+    const pinnedColor = within(zoeOption).getByTestId('assignee-pin-toggle').style.color;
+    const unpinnedColor = within(aliceOption).getByTestId('assignee-pin-toggle').style.color;
+    expect(pinnedColor).not.toBe('');
+    expect(unpinnedColor).not.toBe('');
+    expect(pinnedColor).not.toBe(unpinnedColor);
+  });
+
+  it('未ピンの行にもピントグルが常時表示される（hoverなしでもDOMに存在する）', () => {
+    setupTasks();
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    // setupTasks の Alice/Bob/Zoe はいずれも未ピン
+    for (const option of options) {
+      expect(within(option).getByTestId('assignee-pin-toggle')).toBeTruthy();
+    }
+  });
+
+  describe('listbox の高さ（ビューポート下端までの利用可能な高さ）', () => {
+    let originalGetBoundingClientRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+    beforeEach(() => {
+      originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    });
+
+    afterEach(() => {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    });
+
+    it('maxHeightが固定の240pxではなく、window.innerHeightから算出された値になる', () => {
+      // jsdom はレイアウトを持たないため getBoundingClientRect は常に0を返す。
+      // 入力欄（コンボボックスのラッパー）の位置をスタブして与える。
+      HTMLElement.prototype.getBoundingClientRect = vi.fn(function (this: HTMLElement) {
+        return {
+          top: 80, bottom: 100, left: 0, right: 100, width: 100, height: 20,
+          x: 0, y: 80, toJSON() { return this; },
+        } as DOMRect;
+      });
+
+      setupTasks();
+      renderToolbar('p1');
+      openListbox();
+      const listbox = screen.getByTestId('assignee-listbox');
+      const maxHeight = parseFloat(listbox.style.maxHeight);
+
+      expect(listbox.style.maxHeight).not.toBe('240px');
+      expect(maxHeight).not.toBe(240);
+      // window.innerHeight(jsdom既定768) - (bottom(100)+4) - 8 ≒ 656 付近
+      const expected = window.innerHeight - (100 + 4) - 8;
+      expect(maxHeight).toBeGreaterThan(expected - 20);
+      expect(maxHeight).toBeLessThan(expected + 20);
+    });
+  });
 });
