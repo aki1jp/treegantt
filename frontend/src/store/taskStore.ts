@@ -41,6 +41,9 @@ interface TaskStore {
   ganttBarOpen:       boolean;
   wbsPanelOpen:       boolean;
   wbsHiddenCols:      string[];
+  // 担当者フィルタ候補のピン留め（§9.3）: projectId -> ピン留めされた担当者名。
+  // フィルタ値ではなく UI 設定として扱うため uiInitialState には入れず resetUi の対象外にする。
+  pinnedAssignees:    Record<string, string[]>;
   depArrowStyle:      DepArrowStyle;
   setTasks:               (tasks: Task[]) => void;
   upsertTask:             (task: Task) => void;
@@ -68,6 +71,7 @@ interface TaskStore {
   setGanttBarOpen:        (open: boolean) => void;
   setWbsPanelOpen:        (open: boolean) => void;
   setWbsHiddenCols:       (cols: string[]) => void;
+  toggleAssigneePin:      (projectId: string, name: string) => void;
   setDepArrowStyle:       (s: DepArrowStyle) => void;
   resetUi:                () => void;
 }
@@ -109,6 +113,7 @@ export const useTaskStore = create<TaskStore>()(
       ganttBarOpen:      true,
       wbsPanelOpen:      true,
       wbsHiddenCols:     [] as string[],
+      pinnedAssignees:   {} as Record<string, string[]>,
       ...uiInitialState,
       setTasks:               (tasks) => set({ tasks }),
       // 差分適用アクション（v2.63）: 全置換を避け、未変更タスクの参照を維持して
@@ -169,6 +174,20 @@ export const useTaskStore = create<TaskStore>()(
       setGanttBarOpen:        (ganttBarOpen) => set({ ganttBarOpen }),
       setWbsPanelOpen:        (wbsPanelOpen) => set({ wbsPanelOpen }),
       setWbsHiddenCols:       (wbsHiddenCols) => set({ wbsHiddenCols }),
+      toggleAssigneePin:      (projectId, name) => set((s) => {
+        if (!projectId || !name) return s;
+        const current = s.pinnedAssignees[projectId] ?? [];
+        const next = current.includes(name)
+          ? current.filter(n => n !== name)
+          : [...current, name];
+        const pinnedAssignees = { ...s.pinnedAssignees };
+        if (next.length === 0) {
+          delete pinnedAssignees[projectId];
+        } else {
+          pinnedAssignees[projectId] = next;
+        }
+        return { pinnedAssignees };
+      }),
       setDepArrowStyle:       (depArrowStyle) => set({ depArrowStyle }),
       resetUi:                () => set(uiInitialState),
     }),
@@ -194,6 +213,7 @@ export const useTaskStore = create<TaskStore>()(
         ganttBarOpen:      s.ganttBarOpen,
         wbsPanelOpen:      s.wbsPanelOpen,
         wbsHiddenCols:     s.wbsHiddenCols,
+        pinnedAssignees:   s.pinnedAssignees,
         depArrowStyle:     s.depArrowStyle,
       }),
     },

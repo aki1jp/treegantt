@@ -6,6 +6,7 @@ import { useTaskStore } from '../../store/taskStore';
 import { useTranslation } from '../../i18n/useTranslation';
 import { FRONTEND_VERSION } from '../../version';
 import { API_DOCS_URL } from '../../utils/api';
+import { AssigneeFilter } from './AssigneeFilter';
 
 interface Props {
   onAddTask: () => void;
@@ -18,6 +19,8 @@ interface Props {
   /** クロスプロジェクト参照（§5.8）: 未指定時は「🔗 参照」ボタンを表示しない */
   onOpenRefManager?: () => void;
   backendVersion?: string;
+  /** クロスプロジェクト参照ではなく現プロジェクトのID（担当者ピン留め §9.3 用）。未指定ならピン UI は出ない */
+  currentProjectId?: string;
 }
 
 const BTN: React.CSSProperties = {
@@ -85,7 +88,7 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
   );
 }
 
-export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, onOpenRefManager, backendVersion }: Props) {
+export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, onOpenRefManager, backendVersion, currentProjectId }: Props) {
   const {
     tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
@@ -311,32 +314,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
 
           <div style={FILTER_GROUP}>
             <span style={LABEL}>{t('toolbar.filter.assigneeLabel')}</span>
-            <div data-testid="assignee-combobox" style={{ position: 'relative', display: 'inline-flex' }}>
-              <input
-                type="text"
-                list="assignee-datalist"
-                placeholder={t('toolbar.filter.all')}
-                aria-label={t('toolbar.filter.assigneeAriaLabel')}
-                value={filterAssignee}
-                onChange={e => setFilter({ filterAssignee: e.target.value })}
-                style={{ ...SELECT, width: 100, paddingRight: filterAssignee ? 22 : undefined }}
-              />
-              <datalist id="assignee-datalist">
-                {assigneeOptions.map(a => <option key={a} value={a} />)}
-              </datalist>
-              {filterAssignee && (
-                <button
-                  style={{
-                    position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
-                    border: 'none', background: 'none', padding: '0 2px',
-                    fontSize: 10, lineHeight: 1, cursor: 'pointer', color: 'var(--th-text-muted)',
-                  }}
-                  onClick={() => setFilter({ filterAssignee: '' })}
-                  title={t('toolbar.filter.assigneeClear')}
-                  aria-label={t('toolbar.filter.assigneeClear')}
-                >✕</button>
-              )}
-            </div>
+            <AssigneeFilter
+              value={filterAssignee}
+              options={assigneeOptions}
+              onChange={v => setFilter({ filterAssignee: v })}
+              currentProjectId={currentProjectId}
+            />
           </div>
 
           <div style={FILTER_GROUP}>

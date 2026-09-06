@@ -3,16 +3,17 @@
  * Toolbar — 2段レイアウト・折りたたみテスト
  */
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest';
-import { render, cleanup, fireEvent, screen } from '@testing-library/react';
+import { render, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { Toolbar } from '../components/Toolbar/Toolbar';
 import { useTaskStore } from '../store/taskStore';
 import { FRONTEND_VERSION } from '../version';
+import type { Task } from '../types/task';
 
 afterEach(() => { cleanup(); });
 
 const NOOP = vi.fn();
 
-function renderToolbar() {
+function renderToolbar(currentProjectId?: string) {
   return render(
     <Toolbar
       onAddTask={NOOP}
@@ -21,6 +22,7 @@ function renderToolbar() {
       onRestore={NOOP}
       onExportJson={NOOP}
       onExportCsv={NOOP}
+      currentProjectId={currentProjectId}
     />
   );
 }
@@ -37,8 +39,20 @@ beforeEach(() => {
     theme: 'auto',
     ganttBarOpen: true,
     locale: 'ja',
+    pinnedAssignees: {},
   });
 });
+
+/** 担当者フィルタのピン留めテスト用: 担当者付きタスクを1件作る */
+function makeAssigneeTask(id: string, assignee: string): Task {
+  return {
+    id, projectId: 'p1', parentId: null, title: id, summary: '', description: '',
+    status: 'todo', priority: 'medium', progress: 0, assignee,
+    startDate: null, endDate: null, isMilestone: false, predecessors: [],
+    seq: 1, order: 1, titleColor: null, titleBgColor: null, estimateMinutes: null,
+    createdAt: '', updatedAt: '',
+  };
+}
 
 describe('Toolbar 2段レイアウト', () => {
   it('行1に検索ボックスが存在する', () => {
@@ -122,31 +136,31 @@ describe('Toolbar フィルタインライン表示', () => {
     expect(prioritySelect).toBeTruthy();
   });
 
-  it('行2（展開時）に担当者コンボボックス（input[list]）が直接表示される', () => {
+  it('行2（展開時）に担当者コンボボックス（role="combobox"）が直接表示される', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const combobox = row2.querySelector('input[list="assignee-datalist"]');
+    const combobox = row2.querySelector('input[role="combobox"]');
     expect(combobox).toBeTruthy();
   });
 
   it('担当者コンボボックスに自由テキストを入力するとストアが更新される', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const combobox = row2.querySelector('input[list="assignee-datalist"]') as HTMLInputElement;
+    const combobox = row2.querySelector('input[role="combobox"]') as HTMLInputElement;
     fireEvent.change(combobox, { target: { value: 'Alice' } });
     expect(useTaskStore.getState().filterAssignee).toBe('Alice');
   });
 
-  it('担当者コンボボックスにdatalistが存在する', () => {
+  it('担当者コンボボックスはネイティブdatalistを使わない（自前listbox、§9.3）', () => {
     renderToolbar();
-    const datalist = document.getElementById('assignee-datalist');
-    expect(datalist).toBeTruthy();
+    expect(document.getElementById('assignee-datalist')).toBeNull();
+    expect(document.querySelector('datalist')).toBeNull();
   });
 
   it('担当者コンボボックスのプレースホルダーは「すべて」', () => {
     renderToolbar();
     const row2 = screen.getByTestId('toolbar-row2');
-    const combobox = row2.querySelector('input[list="assignee-datalist"]') as HTMLInputElement;
+    const combobox = row2.querySelector('input[role="combobox"]') as HTMLInputElement;
     expect(combobox.placeholder).toBe('すべて');
   });
 
@@ -172,7 +186,7 @@ describe('Toolbar フィルタインライン表示', () => {
     useTaskStore.setState({ filterAssignee: 'Alice' });
     renderToolbar();
     const wrapper = screen.getByTestId('assignee-combobox');
-    const combobox = wrapper.querySelector('input[list="assignee-datalist"]');
+    const combobox = wrapper.querySelector('input[role="combobox"]');
     const clearBtn = wrapper.querySelector('[title="担当者フィルターをクリア"]');
     expect(combobox).toBeTruthy();
     expect(clearBtn).toBeTruthy();
@@ -567,5 +581,289 @@ describe('Toolbar i18n（locale="en"）', () => {
     const labels = Array.from(statusSelect.options).map(o => o.text);
     expect(labels).toContain('Not DONE/Pending');
     expect(labels).toContain('All');
+  });
+});
+
+// ─── 担当者フィルタ候補のピン留め（§9.3 pinnedAssignees）───────────────────
+describe('Toolbar 担当者フィルタ ピン留め', () => {
+  function setupTasks() {
+    useTaskStore.setState({
+      tasks: [
+        makeAssigneeTask('t1', 'Alice'),
+        makeAssigneeTask('t2', 'Bob'),
+        makeAssigneeTask('t3', 'Zoe'),
+      ],
+    });
+  }
+
+  function openListbox() {
+    const input = screen.getByLabelText('担当者で絞り込み');
+    fireEvent.focus(input);
+    return input as HTMLInputElement;
+  }
+
+  it('入力欄をクリック/フォーカスすると assignee-listbox が現れる', () => {
+    setupTasks();
+    renderToolbar('p1');
+    expect(screen.queryByTestId('assignee-listbox')).toBeNull();
+    openListbox();
+    expect(screen.getByTestId('assignee-listbox')).toBeTruthy();
+  });
+
+  it('ピン留めした担当者が、名前昇順では最後になる場合でもリスト先頭に来る', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.queryAllByTestId('assignee-option');
+    expect(options.length).toBeGreaterThan(0);
+    expect(within(options[0]).getByText('Zoe')).toBeTruthy();
+  });
+
+  it('assignee-pin-toggle を押すとストアの pinnedAssignees が更新され、リストは開いたままで filterAssignee も変わらない', () => {
+    setupTasks();
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    expect(zoeOption).toBeTruthy();
+    fireEvent.click(within(zoeOption).getByTestId('assignee-pin-toggle'));
+    expect(useTaskStore.getState().pinnedAssignees.p1).toContain('Zoe');
+    expect(useTaskStore.getState().filterAssignee).toBe('');
+    expect(screen.getByTestId('assignee-listbox')).toBeTruthy();
+  });
+
+  it('別の currentProjectId でレンダーするとピン留めセクションが出ない（プロジェクト独立）', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p2');
+    openListbox();
+    expect(screen.queryByTestId('assignee-pinned-section')).toBeNull();
+  });
+
+  it('入力テキストで候補が絞り込まれる', () => {
+    setupTasks();
+    renderToolbar('p1');
+    const input = openListbox();
+    fireEvent.change(input, { target: { value: 'Al' } });
+    const options = screen.getAllByTestId('assignee-option');
+    expect(options.length).toBe(1);
+    expect(within(options[0]).getByText('Alice')).toBeTruthy();
+  });
+
+  it('候補の名前ボタンをクリックすると filterAssignee が設定されリストが閉じる', () => {
+    setupTasks();
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const bobOption = options.find(o => within(o).queryByText('Bob'))!;
+    expect(bobOption).toBeTruthy();
+    fireEvent.click(within(bobOption).getByTestId('assignee-option-select'));
+    expect(useTaskStore.getState().filterAssignee).toBe('Bob');
+    expect(screen.queryByTestId('assignee-listbox')).toBeNull();
+  });
+
+  it('ピン留めされているが現プロジェクトのタスクに存在しない担当者は表示されない', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Nobody');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    expect(options.some(o => within(o).queryByText('Nobody'))).toBe(false);
+  });
+
+  it('currentProjectId 未指定でも落ちず、セクション見出しの無いフラットなリストになる', () => {
+    setupTasks();
+    renderToolbar();
+    openListbox();
+    expect(screen.queryByTestId('assignee-pinned-section')).toBeNull();
+    expect(screen.queryByTestId('assignee-others-section')).toBeNull();
+    expect(screen.getAllByTestId('assignee-option').length).toBe(3);
+  });
+
+  it('既存の✕クリアの挙動は引き続き通る', () => {
+    useTaskStore.setState({ filterAssignee: 'Alice' });
+    renderToolbar('p1');
+    fireEvent.click(screen.getByTitle('担当者フィルターをクリア'));
+    expect(useTaskStore.getState().filterAssignee).toBe('');
+  });
+
+  it('絞り込み結果でその他が0件のときは assignee-others-section を出さない（見出しだけの空セクション防止）', () => {
+    // 候補が全員ピン留めされている（＝その他セクションに入る候補が無い）状況を再現する
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    useTaskStore.getState().toggleAssigneePin('p1', 'Bob');
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    expect(screen.getByTestId('assignee-pinned-section')).toBeTruthy();
+    expect(screen.queryByTestId('assignee-others-section')).toBeNull();
+    expect(screen.getAllByTestId('assignee-option').length).toBe(3);
+  });
+
+  it('担当者名に空白が含まれても候補行の id が空白を含まない有効な値になる（HTML の id 仕様）', () => {
+    useTaskStore.setState({
+      tasks: [makeAssigneeTask('t1', '山田 太郎'), makeAssigneeTask('t2', 'Bob')],
+    });
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const taroOption = options.find(o => within(o).queryByText('山田 太郎'))!;
+    expect(taroOption).toBeTruthy();
+    expect(taroOption.id).toBeTruthy();
+    expect(taroOption.id).not.toMatch(/\s/);
+  });
+
+  it('↓キーでアクティブにした候補の id を aria-activedescendant が指し続ける（名前に空白があっても）', () => {
+    useTaskStore.setState({
+      tasks: [makeAssigneeTask('t1', '山田 太郎'), makeAssigneeTask('t2', 'Bob')],
+    });
+    renderToolbar('p1');
+    const input = openListbox();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const options = screen.getAllByTestId('assignee-option');
+    const activeId = input.getAttribute('aria-activedescendant');
+    expect(activeId).toBeTruthy();
+    const activeOption = options.find(o => o.id === activeId);
+    expect(activeOption).toBeTruthy();
+  });
+
+  it('リストが閉じているとき aria-controls は付与されない（存在しない要素への参照防止）', () => {
+    setupTasks();
+    renderToolbar('p1');
+    const input = screen.getByLabelText('担当者で絞り込み');
+    expect(input.hasAttribute('aria-controls')).toBe(false);
+    openListbox();
+    expect(input.getAttribute('aria-controls')).toBe('assignee-listbox');
+  });
+
+  it('ピン留めトグルで並び替わった後も activeIndex は同じ候補を指し続ける（ハイライトのずれ防止）', () => {
+    setupTasks();
+    renderToolbar('p1');
+    const input = openListbox();
+    // Bob をアクティブにする（Alice, Bob, Zoe の昇順で2番目）
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    let options = screen.getAllByTestId('assignee-option');
+    let activeId = input.getAttribute('aria-activedescendant');
+    const activeBefore = options.find(o => o.id === activeId)!;
+    expect(within(activeBefore).getByText('Bob')).toBeTruthy();
+
+    // Zoe をピン留めして先頭セクションへ移動させても Bob がアクティブなまま
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    fireEvent.click(within(zoeOption).getByTestId('assignee-pin-toggle'));
+
+    options = screen.getAllByTestId('assignee-option');
+    activeId = input.getAttribute('aria-activedescendant');
+    const activeAfter = options.find(o => o.id === activeId)!;
+    expect(within(activeAfter).getByText('Bob')).toBeTruthy();
+  });
+
+  it('ピン留め済みの行のピントグルは★を表示し、未ピンの行は☆を表示する', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    const aliceOption = options.find(o => within(o).queryByText('Alice'))!;
+    expect(within(zoeOption).getByTestId('assignee-pin-toggle').textContent).toBe('★');
+    expect(within(aliceOption).getByTestId('assignee-pin-toggle').textContent).toBe('☆');
+  });
+
+  it('ピントグルに絵文字（📌/📍）を使っていない', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const listbox = screen.getByTestId('assignee-listbox');
+    expect(listbox.textContent).not.toContain('📌');
+    expect(listbox.textContent).not.toContain('📍');
+  });
+
+  it('ピン留め済みトグルのstyle.colorが未ピンのものと異なる（色が状態差として機能している回帰確認）', () => {
+    setupTasks();
+    useTaskStore.getState().toggleAssigneePin('p1', 'Zoe');
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    const zoeOption = options.find(o => within(o).queryByText('Zoe'))!;
+    const aliceOption = options.find(o => within(o).queryByText('Alice'))!;
+    const pinnedColor = within(zoeOption).getByTestId('assignee-pin-toggle').style.color;
+    const unpinnedColor = within(aliceOption).getByTestId('assignee-pin-toggle').style.color;
+    expect(pinnedColor).not.toBe('');
+    expect(unpinnedColor).not.toBe('');
+    expect(pinnedColor).not.toBe(unpinnedColor);
+  });
+
+  it('未ピンの行にもピントグルが常時表示される（hoverなしでもDOMに存在する）', () => {
+    setupTasks();
+    renderToolbar('p1');
+    openListbox();
+    const options = screen.getAllByTestId('assignee-option');
+    // setupTasks の Alice/Bob/Zoe はいずれも未ピン
+    for (const option of options) {
+      expect(within(option).getByTestId('assignee-pin-toggle')).toBeTruthy();
+    }
+  });
+
+  describe('listbox の高さ（ビューポート下端までの利用可能な高さ）', () => {
+    let originalGetBoundingClientRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+    beforeEach(() => {
+      originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    });
+
+    afterEach(() => {
+      HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    });
+
+    it('maxHeightが固定の240pxではなく、window.innerHeightから算出された値になる', () => {
+      // jsdom はレイアウトを持たないため getBoundingClientRect は常に0を返す。
+      // 入力欄（コンボボックスのラッパー）の位置をスタブして与える。
+      HTMLElement.prototype.getBoundingClientRect = vi.fn(function (this: HTMLElement) {
+        return {
+          top: 80, bottom: 100, left: 0, right: 100, width: 100, height: 20,
+          x: 0, y: 80, toJSON() { return this; },
+        } as DOMRect;
+      });
+
+      setupTasks();
+      renderToolbar('p1');
+      openListbox();
+      const listbox = screen.getByTestId('assignee-listbox');
+      const maxHeight = parseFloat(listbox.style.maxHeight);
+
+      expect(listbox.style.maxHeight).not.toBe('240px');
+      expect(maxHeight).not.toBe(240);
+      // window.innerHeight(jsdom既定768) - (bottom(100)+4) - 8 ≒ 656 付近
+      const expected = window.innerHeight - (100 + 4) - 8;
+      expect(maxHeight).toBeGreaterThan(expected - 20);
+      expect(maxHeight).toBeLessThan(expected + 20);
+    });
+
+    it('ビューポートが極端に低い場合でも listbox がビューポート下端をはみ出さない（固定下限で底上げしない）', () => {
+      const originalInnerHeight = window.innerHeight;
+      Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: 150 });
+      try {
+        HTMLElement.prototype.getBoundingClientRect = vi.fn(function (this: HTMLElement) {
+          return {
+            top: 20, bottom: 40, left: 0, right: 100, width: 100, height: 20,
+            x: 0, y: 20, toJSON() { return this; },
+          } as DOMRect;
+        });
+
+        setupTasks();
+        renderToolbar('p1');
+        openListbox();
+        const listbox = screen.getByTestId('assignee-listbox');
+        const top = parseFloat(listbox.style.top);
+        const maxHeight = parseFloat(listbox.style.maxHeight);
+
+        expect(top + maxHeight).toBeLessThanOrEqual(window.innerHeight);
+      } finally {
+        Object.defineProperty(window, 'innerHeight', { writable: true, configurable: true, value: originalInnerHeight });
+      }
+    });
   });
 });

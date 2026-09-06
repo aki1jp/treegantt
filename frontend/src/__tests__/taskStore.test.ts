@@ -38,6 +38,7 @@ beforeEach(() => {
     theme: 'auto',
     locale: 'ja',
     ganttBarOpen: true,
+    pinnedAssignees: {},
   });
 });
 
@@ -260,6 +261,57 @@ describe('UI設定の永続化', () => {
     expect(saved).not.toHaveProperty('filterColor');
     expect(saved).not.toHaveProperty('filterOverdue');
     expect(saved).not.toHaveProperty('filterSearch');
+  });
+});
+
+// ─── 担当者フィルタ候補のピン留め（§9.3 pinnedAssignees）─────────────────
+describe('pinnedAssignees', () => {
+  it('初期値は空オブジェクト', () => {
+    // beforeEach の setState に潰されないよう、ストア自身の初期状態を見る
+    expect(useTaskStore.getInitialState().pinnedAssignees).toEqual({});
+  });
+
+  it('toggleAssigneePin("p1", "Alice") で追加される', () => {
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    expect(useTaskStore.getState().pinnedAssignees.p1).toEqual(['Alice']);
+  });
+
+  it('もう一度呼ぶと解除され、配列が空になったらキーごと消えて {} に戻る', () => {
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    expect(useTaskStore.getState().pinnedAssignees).toEqual({});
+    expect(useTaskStore.getState().pinnedAssignees).not.toHaveProperty('p1');
+  });
+
+  it('複数名をピン留めできる（解除は該当名のみ）', () => {
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    useTaskStore.getState().toggleAssigneePin('p1', 'Bob');
+    expect(useTaskStore.getState().pinnedAssignees.p1).toEqual(['Alice', 'Bob']);
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    expect(useTaskStore.getState().pinnedAssignees.p1).toEqual(['Bob']);
+  });
+
+  it('プロジェクト独立：p1にピンしてもp2は未定義のまま', () => {
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    expect(useTaskStore.getState().pinnedAssignees.p2).toBeUndefined();
+  });
+});
+
+describe('pinnedAssignees の永続化', () => {
+  function getSaved() {
+    const raw = localStorage.getItem('treegantt-ui');
+    return raw ? JSON.parse(raw).state : {};
+  }
+
+  it('treegantt-ui（localStorage）に永続化される', () => {
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    expect(getSaved().pinnedAssignees).toEqual({ p1: ['Alice'] });
+  });
+
+  it('resetUi() を呼んでもピンが消えない', () => {
+    useTaskStore.getState().toggleAssigneePin('p1', 'Alice');
+    useTaskStore.getState().resetUi();
+    expect(useTaskStore.getState().pinnedAssignees).toEqual({ p1: ['Alice'] });
   });
 });
 
