@@ -248,6 +248,149 @@ describe('GanttLeftRow インライン編集 — マイルストーン', () => {
   });
 });
 
+// ─── 無変更ガード（実質変更なしなら保存しない）──────────────────────────────────
+
+describe('GanttLeftRow インライン編集 — 無変更ガード', () => {
+  it('タイトルを変えずに blur しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask(), onInlineUpdate);
+    fireEvent.click(screen.getByText('元のタイトル'));
+    fireEvent.blur(screen.getByRole('textbox'));
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('タイトルを変えずに Enter で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask(), onInlineUpdate);
+    fireEvent.click(screen.getByText('元のタイトル'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('進捗を変えずに blur しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ progress: 40 }), onInlineUpdate);
+    fireEvent.click(screen.getByText('40%'));
+    fireEvent.blur(screen.getByRole('spinbutton'));
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('進捗を変えずに Enter で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ progress: 40 }), onInlineUpdate);
+    fireEvent.click(screen.getByText('40%'));
+    fireEvent.keyDown(screen.getByRole('spinbutton'), { key: 'Enter' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('担当者を変えずに blur しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ assignee: '山田' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('山田'));
+    fireEvent.blur(screen.getByRole('textbox'));
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('担当者を変えずに Enter で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ assignee: '山田' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('山田'));
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('開始日を変えずに blur しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-05-01'));
+    fireEvent.blur(document.querySelector('input[type="date"]')!);
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('開始日を変えずに Enter で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-05-01'));
+    fireEvent.keyDown(document.querySelector('input[type="date"]')!, { key: 'Enter' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('終了日を変えずに blur しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ startDate: '2026-06-01', endDate: '2026-06-10' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-06-10'));
+    fireEvent.blur(document.querySelector('input[type="date"]')!);
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('終了日を変えずに Enter で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ startDate: '2026-06-01', endDate: '2026-06-10' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-06-10'));
+    fireEvent.keyDown(document.querySelector('input[type="date"]')!, { key: 'Enter' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('期間を変えずに blur しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('10'));
+    fireEvent.blur(screen.getByRole('spinbutton'));
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('期間を変えずに Enter で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('10'));
+    fireEvent.keyDown(screen.getByRole('spinbutton'), { key: 'Enter' });
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('マイルストーン行で開始日を同じ値で確定しても onInlineUpdate は呼ばれない', () => {
+    const onInlineUpdate = vi.fn();
+    const task = makeTask({ isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+    renderRow(task, onInlineUpdate);
+    fireEvent.click(screen.getAllByText('2026-06-01')[0]);
+    fireEvent.blur(document.querySelector('input[type="date"]')!);
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('マイルストーン行で開始日を違う値で確定すると startDate/endDate 両方が送られる（既存挙動の回帰防止）', () => {
+    const onInlineUpdate = vi.fn();
+    const task = makeTask({ isMilestone: true, startDate: '2026-06-01', endDate: '2026-06-01' });
+    renderRow(task, onInlineUpdate);
+    fireEvent.click(screen.getAllByText('2026-06-01')[0]);
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: '2026-07-01' } });
+    fireEvent.blur(dateInput);
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { startDate: '2026-07-01', endDate: '2026-07-01' });
+  });
+
+  it('開始日クランプ（終了日より後の値）は従来どおり両方送られる', () => {
+    const onInlineUpdate = vi.fn();
+    const task = makeTask({ startDate: '2026-05-01', endDate: '2026-05-10' });
+    renderRow(task, onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-05-01'));
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: '2026-05-15' } });
+    fireEvent.blur(dateInput);
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { startDate: '2026-05-15', endDate: '2026-05-15' });
+  });
+
+  it("title が '123' のタスクで競合を起こし「自分の変更を適用する」を選ぶと文字列 '123' で呼ばれる", () => {
+    const onInlineUpdate = vi.fn();
+    const { rerender } = renderRow(makeTask({ title: '元のタイトル' }), onInlineUpdate);
+    fireEvent.click(screen.getByText('元のタイトル'));
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '123' } });
+    rerender(<GanttLeftRow {...rowProps(makeTask({ title: 'リモートの変更' }), onInlineUpdate)} />);
+    fireEvent.blur(input);
+    fireEvent.click(screen.getByText('自分の変更を適用する'));
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { title: '123' });
+  });
+});
+
 // ─── タイトルホバーツールチップ ────────────────────────────────────────────────
 
 describe('GanttLeftRow タイトルホバーツールチップ', () => {

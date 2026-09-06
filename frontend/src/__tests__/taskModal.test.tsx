@@ -111,21 +111,24 @@ describe('TaskModal — 説明フィールドのタブ切り替え', () => {
 });
 
 describe('TaskModal — 開始日・終了日バリデーション', () => {
+  // Stage 3（差分保存）以降、既存タスクの無変更保存は onSave を呼ばず onClose するため、
+  // 以下は実際に日付を編集して isDirty にした上でスワップ／保持の挙動を検証する。
   it('終了日 < 開始日のとき保存すると日付が自動スワップされる', () => {
     const onSave = vi.fn();
     render(
       <TaskModal
-        task={makeTask({ startDate: '2026-06-10', endDate: '2026-06-01' })}
+        task={makeTask({ startDate: '2026-06-01', endDate: '2026-06-10' })}
         allTasks={[]}
         onSave={onSave}
         onClose={NOOP}
       />
     );
+    fireEvent.change(screen.getByLabelText('開始日'), { target: { value: '2026-06-15' } });
     fireEvent.click(screen.getByRole('button', { name: /保存/ }));
     expect(onSave).toHaveBeenCalledOnce();
     const saved = onSave.mock.calls[0][0] as Partial<Task>;
-    expect(saved.startDate).toBe('2026-06-01');
-    expect(saved.endDate).toBe('2026-06-10');
+    expect(saved.startDate).toBe('2026-06-10');
+    expect(saved.endDate).toBe('2026-06-15');
   });
 
   it('終了日 >= 開始日のとき日付はそのまま保存される', () => {
@@ -138,9 +141,10 @@ describe('TaskModal — 開始日・終了日バリデーション', () => {
         onClose={NOOP}
       />
     );
+    fireEvent.change(screen.getByLabelText('開始日'), { target: { value: '2026-06-02' } });
     fireEvent.click(screen.getByRole('button', { name: /保存/ }));
     const saved = onSave.mock.calls[0][0] as Partial<Task>;
-    expect(saved.startDate).toBe('2026-06-01');
+    expect(saved.startDate).toBe('2026-06-02');
     expect(saved.endDate).toBe('2026-06-10');
   });
 
@@ -148,16 +152,72 @@ describe('TaskModal — 開始日・終了日バリデーション', () => {
     const onSave = vi.fn();
     render(
       <TaskModal
-        task={makeTask({ startDate: '2026-06-01', endDate: null })}
+        task={makeTask({ startDate: null, endDate: null })}
         allTasks={[]}
         onSave={onSave}
         onClose={NOOP}
       />
     );
+    fireEvent.change(screen.getByLabelText('開始日'), { target: { value: '2026-06-01' } });
     fireEvent.click(screen.getByRole('button', { name: /保存/ }));
     const saved = onSave.mock.calls[0][0] as Partial<Task>;
     expect(saved.startDate).toBe('2026-06-01');
     expect(saved.endDate).toBeNull();
+  });
+});
+
+describe('TaskModal — 差分保存（Stage 3）', () => {
+  it('既存タスクを開いて何も変えずに保存 → onSave が呼ばれず onClose が呼ばれる', () => {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={onSave} onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('1フィールド（サマリ）だけ変えて保存 → onSave の引数はそのフィールドと title のみ', () => {
+    const onSave = vi.fn();
+    render(<TaskModal task={makeTask()} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getByLabelText('サマリ'), { target: { value: '新しいサマリ' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).toHaveBeenCalledOnce();
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(Object.keys(saved).sort()).toEqual(['summary', 'title'].sort());
+    expect(saved.summary).toBe('新しいサマリ');
+  });
+
+  it('lost-update 回帰: タイトルだけ変更 → 他クライアントが変更したかもしれない status/progress は patch に含まれない', () => {
+    const onSave = vi.fn();
+    render(
+      <TaskModal
+        task={makeTask({ status: 'wip', progress: 50 })}
+        allTasks={[]}
+        onSave={onSave}
+        onClose={NOOP}
+      />
+    );
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '変更後タイトル' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(saved).not.toHaveProperty('status');
+    expect(saved).not.toHaveProperty('progress');
+    expect(saved.title).toBe('変更後タイトル');
+  });
+
+  it('新規作成（task なし）は従来どおり全フィールドが送られる', () => {
+    const onSave = vi.fn();
+    render(<TaskModal task={null} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '新規タスク' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    const saved = onSave.mock.calls[0][0] as Partial<Task>;
+    expect(Object.keys(saved).sort()).toEqual(
+      [
+        'title', 'summary', 'description', 'status', 'priority', 'progress',
+        'assignee', 'estimateMinutes', 'startDate', 'endDate', 'isMilestone',
+        'parentId', 'predecessors',
+      ].sort()
+    );
   });
 });
 

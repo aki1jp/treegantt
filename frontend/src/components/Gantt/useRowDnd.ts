@@ -226,12 +226,20 @@ export function useRowDnd({ flatRows, allTasks, onReorder, onCopyInsert, current
     // 参照タスク・合成グループ行（読み取り専用, §5.8）は reorder ペイロードから除外する。
     // これらは他プロジェクト所属／実在しない合成行のため、そのまま送ると
     // reorder API のプロジェクト境界検証に失敗する。
+    //
+    // ペイロード最小化: 全行に連番 i+1 を振り直した「あるべき最終状態」を作った上で、
+    // 現在値（order・parentId とも）と一致する行は送信対象から落とす。落とした行は
+    // 既にその値を持っているため、DB の最終状態は全件送った場合と一致する（不変条件）。
+    // parentId を含む行（移動した本人が親替えされた場合）は order が同じでも必ず残す。
+    const currentOrderById = new Map(allTasks.map(t => [t.id, t.order]));
     const orders = fullWithoutMoved
       .filter(t => !isReadonlyTask(t, currentProjectId))
       .map((t, i) => ({
         id: t.id, order: i + 1,
         ...(t.id === moved.id && parentIdChanged ? { parentId: newParentId } : {}),
-      }));
+      }))
+      .filter(o => o.order !== currentOrderById.get(o.id) || 'parentId' in o);
+    if (orders.length === 0) { clearDrop(); return; }
     void onReorder(orders);
     clearDrop();
   }

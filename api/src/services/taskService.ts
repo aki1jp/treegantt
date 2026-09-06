@@ -139,6 +139,18 @@ export function getTask(id: string): TaskWithSuccessors | null {
   return attachDeps([rawToTask(row)])[0];
 }
 
+/**
+ * 差分判定・存在確認用の軽量取得。依存関係（predecessors/successors）は引かない
+ * （`SELECT * FROM tasks` の1クエリのみ）。
+ * 戻り値の `predecessors` は常に空配列（`rawToTask` の既定値）なので、
+ * 差分判定に使ってはいけない（predecessors の差分判定は `hasPredecessorChanges` を使うこと）。
+ */
+export function getTaskBasic(id: string): Task | null {
+  const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as RawTask | undefined;
+  if (!row) return null;
+  return rawToTask(row);
+}
+
 export interface CreateTaskInput {
   id: string;
   projectId: string;
@@ -237,6 +249,41 @@ const COLUMN_MAP: ColEntry[] = [
   ['titleBgColor', 'title_bg_color'],
   ['estimateMinutes', 'estimate_minutes'],
 ];
+
+/**
+ * input が current に対して実質的な変更を含むかどうかを判定する。
+ * COLUMN_MAP の各キー（parentId を含む）のみを走査し、input で指定（!== undefined）
+ * されたもののうち現在値と異なるものが1つでもあれば true。
+ * predecessors はここでは対象外（依存関係テーブルの参照が必要なため `hasPredecessorChanges` を使う）。
+ */
+export function hasEffectiveChanges(current: Task, input: UpdateTaskInput): boolean {
+  for (const [key] of COLUMN_MAP) {
+    if (input[key] === undefined) continue;
+    const a = key === 'isMilestone' ? !!input[key] : input[key];
+    const b = current[key as keyof Task];
+    if ((a ?? null) !== (b ?? null)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * id の現在の先行タスク集合と next を（順序無視で）比較する。
+ * next が undefined なら「predecessors は今回の更新対象外」を意味するのでクエリを発行せず false を返す。
+ * それ以外は task_deps を1クエリだけ引いて（`attachDeps` は使わない＝後続は引かない）比較する。
+ */
+export function hasPredecessorChanges(id: string, next: string[] | undefined): boolean {
+  if (next === undefined) return false;
+
+  const rows = db
+    .prepare('SELECT predecessor_id FROM task_deps WHERE successor_id = ?')
+    .all(id) as { predecessor_id: string }[];
+  const current = rows.map(r => r.predecessor_id);
+
+  const a = [...next].sort();
+  const b = current.sort();
+  return a.length !== b.length || a.some((v, i) => v !== b[i]);
+}
 
 export function updateTask(id: string, input: UpdateTaskInput): TaskWithSuccessors | null {
   const row = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);

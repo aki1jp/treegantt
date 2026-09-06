@@ -119,24 +119,49 @@ export function TaskModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    if (task && !isDirty) { onClose(); return; }
     let sd = startDate || null;
     let ed = endDate || null;
     if (sd && ed && ed < sd) { [sd, ed] = [ed, sd]; }
-    onSave({
-      title: title.trim(),
-      summary,
-      description,
-      status,
-      priority,
-      progress,
-      assignee,
-      estimateMinutes: parseDuration(estimateText, { capacityMinutes, workingDaysPerWeek }),
-      startDate: sd,
-      endDate: ed,
-      isMilestone: false,
-      parentId: parentId || null,
-      predecessors,
-    });
+
+    if (!task) {
+      onSave({
+        title: title.trim(),
+        summary,
+        description,
+        status,
+        priority,
+        progress,
+        assignee,
+        estimateMinutes: parseDuration(estimateText, { capacityMinutes, workingDaysPerWeek }),
+        startDate: sd,
+        endDate: ed,
+        isMilestone: false,
+        parentId: parentId || null,
+        predecessors,
+      });
+      return;
+    }
+
+    // 既存タスクの編集: 実際に変更されたフィールドのみを送る（無駄な PATCH / lost-update の回避）。
+    const patch: Partial<Task> & { title: string } = { title: title.trim() };
+    if (dirtyFields.summary) patch.summary = summary;
+    if (dirtyFields.description) patch.description = description;
+    if (dirtyFields.status) patch.status = status;
+    if (dirtyFields.priority) patch.priority = priority;
+    if (dirtyFields.progress) patch.progress = progress;
+    if (dirtyFields.assignee) patch.assignee = assignee;
+    if (dirtyFields.estimateMinutes) {
+      patch.estimateMinutes = parseDuration(estimateText, { capacityMinutes, workingDaysPerWeek });
+    }
+    // 開始日・終了日は入れ替えが起きうるため、どちらかが変更されていれば両方を送る
+    if (dirtyFields.startDate || dirtyFields.endDate) {
+      patch.startDate = sd;
+      patch.endDate = ed;
+    }
+    if (dirtyFields.parentId) patch.parentId = parentId || null;
+    if (dirtyFields.predecessors) patch.predecessors = predecessors;
+    onSave(patch);
   }
 
   function togglePredecessor(id: string) {

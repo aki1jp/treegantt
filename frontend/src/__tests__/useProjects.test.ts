@@ -4,8 +4,9 @@ import { renderHook, act } from '@testing-library/react';
 import { useProjects } from '../hooks/useProjects';
 import { useToastStore } from '../store/toastStore';
 import { useTaskStore } from '../store/taskStore';
+import type { Project } from '../types/task';
 
-function makeProject(id: string, name: string) {
+function makeProject(id: string, name: string): Project {
   return { id, name, color: null, capacityMinutesPerDay: null, workingDays: null, createdAt: '2026-01-01' };
 }
 
@@ -284,6 +285,166 @@ describe('useProjects — 初回ロード失敗（D1: トースト + 再試行�
     await act(async () => { result.current.retry(); });
     expect(result.current.error).toBeNull();
     expect(result.current.projects).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// no-op ガード（Stage 5-b）: patchProject は変更がなければ PATCH を発行しない
+describe('useProjects — patchProject no-op ガード', () => {
+  function mockLoad(projects: ReturnType<typeof makeProject>[]) {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ projects }),
+    } as Response);
+  }
+
+  it('updateProjectColor: 現在と同じ色を渡すと PATCH の fetch が発行されない', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), color: '#ff0000' };
+    mockLoad([p1]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // 初回ロードのみ
+
+    await act(async () => { await result.current.updateProjectColor(p1, '#ff0000'); });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // 増えない
+    expect(result.current.projects[0].color).toBe('#ff0000');
+  });
+
+  it('updateProjectColor: 違う色を渡すと PATCH の fetch が発行される', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), color: '#ff0000' };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: { ...p1, color: '#00ff00' } }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => { await result.current.updateProjectColor(p1, '#00ff00'); });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    expect(result.current.projects[0].color).toBe('#00ff00');
+  });
+
+  it('renameProject: 同じ名前を渡すと PATCH の fetch が発行されない', async () => {
+    const p1 = makeProject('p1', 'Same Name');
+    mockLoad([p1]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => { await result.current.renameProject(p1, 'Same Name'); });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it('updateProjectResource: 同じキャパ・同じ稼働日（順不同）を渡すと PATCH の fetch が発行されない', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] };
+    mockLoad([p1]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [5, 4, 3, 2, 1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+  });
+
+  it('updateProjectResource: 稼働日が異なれば PATCH の fetch が発行される', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5] };
+    const updated = { ...p1, workingDays: [1, 2, 3, 4, 5, 6] };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [1, 2, 3, 4, 5, 6] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    expect(result.current.projects[0].workingDays).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('renameProject: no-op でも next（projects 一覧）を使った URL 追従は現在のアドレスのまま壊れない', async () => {
+    const p1 = makeProject('p1', 'SameName');
+    mockLoad([p1]);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    act(() => { result.current.setCurrentProject(p1); });
+    expect(window.location.pathname).toBe('/p/SameName');
+
+    await act(async () => { await result.current.renameProject(p1, 'SameName'); });
+    expect(window.location.pathname).toBe('/p/SameName');
+  });
+
+  // 境界値: falsy な値（0・空配列）を「未設定」と取り違えて no-op 判定しないこと
+  it('capacityMinutesPerDay: 0 のまま保存すると発行されず、0 から変更すると発行される', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: 0, workingDays: [1] };
+    const updated = { ...p1, capacityMinutesPerDay: 480 };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 0, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // 0 同士は変更なし
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2); // 0 → 480 は変更あり
+  });
+
+  it('capacityMinutesPerDay: 継承（null）から 0 への変更が falsy 判定で握り潰されない', async () => {
+    // `??` を `||` に書き換えると null と 0 が同一視され、この PATCH が発行されなくなる
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: null, workingDays: [1] };
+    const updated = { ...p1, capacityMinutesPerDay: 0 };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 0, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    expect(result.current.projects[0].capacityMinutesPerDay).toBe(0);
+  });
+
+  it('workingDays: 空配列のまま保存すると発行されず、要素を足すと発行される', async () => {
+    const p1 = { ...makeProject('p1', 'Alpha'), capacityMinutesPerDay: 480, workingDays: [] };
+    const updated = { ...p1, workingDays: [1] };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ projects: [p1] }) } as Response)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ project: updated }) } as Response);
+
+    const { result } = renderHook(() => useProjects());
+    await act(async () => {});
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // 空配列同士は変更なし
+
+    await act(async () => {
+      await result.current.updateProjectResource(p1, { capacityMinutesPerDay: 480, workingDays: [1] });
+    });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2); // [] → [1] は変更あり
   });
 });
 
