@@ -440,25 +440,25 @@ export default function App() {
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {tasksLoaded ? (
-              <GanttChart
-                projectId={currentProject.id}
-                onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
-                onDeleteTask={handleDeleteTask}
-                onInlineUpdate={handleInlineUpdate}
-                onShiftSubtree={handleShiftSubtree}
-                onQuickAdd={handleQuickAdd}
-                onAddSubTask={handleAddSubTask}
-                onAddSubMilestone={handleAddSubMilestone}
-                onReorder={handleReorder}
-                onCopyInsert={handleCopyInsert}
-                capacityMinutesPerDay={effectiveCapacityMinutes}
-                workingDays={effectiveWorkingDays}
-                onAddRef={() => setRefManagerOpen(true)}
-                onUpdateExternalDeps={handleUpdateExternalDeps}
-                onOpenRefProject={handleOpenRefProject}
-                onRemoveRef={(refTaskId) => { projectRefs.remove(refTaskId).catch(() => {}); }}
-                onRefreshRefs={() => { void projectRefs.refresh(); }}
-              />
+                <GanttChart
+                  projectId={currentProject.id}
+                  onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
+                  onDeleteTask={handleDeleteTask}
+                  onInlineUpdate={handleInlineUpdate}
+                  onShiftSubtree={handleShiftSubtree}
+                  onQuickAdd={handleQuickAdd}
+                  onAddSubTask={handleAddSubTask}
+                  onAddSubMilestone={handleAddSubMilestone}
+                  onReorder={handleReorder}
+                  onCopyInsert={handleCopyInsert}
+                  capacityMinutesPerDay={effectiveCapacityMinutes}
+                  workingDays={effectiveWorkingDays}
+                  onAddRef={() => setRefManagerOpen(true)}
+                  onUpdateExternalDeps={handleUpdateExternalDeps}
+                  onOpenRefProject={handleOpenRefProject}
+                  onRemoveRef={(refTaskId) => { projectRefs.remove(refTaskId).catch(() => {}); }}
+                  onRefreshRefs={() => { void projectRefs.refresh(); }}
+                />
               ) : <DelayedLoading />}
             </div>
           </>

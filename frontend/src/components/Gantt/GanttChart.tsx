@@ -136,7 +136,9 @@ export function GanttChart({
   const assigneeOptions = assigneeOptionsRef.current;
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
-  const [colWidths, setColWidths] = useState({ title: 180, assignee: 76 });
+  // store に置いてプロジェクト切替（アンマウント）をまたいで維持する（非永続）
+  const colWidths = useTaskStore(s => s.wbsColWidths);
+  const setColWidths = useTaskStore(s => s.setWbsColWidths);
   const [colResize, setColResize] = useState<{ key: string; startX: number; startWidth: number } | null>(null);
   const colResizeRef = useRef<typeof colResize>(null);
   useEffect(() => { colResizeRef.current = colResize; }, [colResize]);
@@ -164,7 +166,7 @@ export function GanttChart({
       ...prev,
       [cr.key]: Math.max(minW, cr.startWidth + e.clientX - cr.startX),
     }));
-  }, []);
+  }, [setColWidths]);
 
   const handleColMouseUp = useCallback(() => setColResize(null), []);
 

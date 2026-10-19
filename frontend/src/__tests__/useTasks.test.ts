@@ -452,17 +452,14 @@ describe('await 後の書き込みは tasksOwnerProjectId が呼び出し時と�
     expect(useTaskStore.getState().tasksOwnerProjectId).toBe('B');
   });
 
-  it('deleteTask 失敗（subtree / single）: A のタスクは混入しない', async () => {
-    for (const mode of ['subtree', 'single'] as const) {
-      useTaskStore.getState().setTasks([taskA()], 'A');
-      const p = pendingFetch();
-      const pending = useTasks('A').deleteTask('a1', mode);
-      const assertion = expect(pending).rejects.toThrow();
-      switchToB();
-      p.reject(new Error('boom'));
-      await assertion;
-      expect(ids()).toEqual(['b1']);
-    }
+  it.each(['subtree', 'single'] as const)('deleteTask 失敗（%s）: A のタスクは混入しない', async (mode) => {
+    const p = pendingFetch();
+    const pending = useTasks('A').deleteTask('a1', mode);
+    const assertion = expect(pending).rejects.toThrow();
+    switchToB();
+    p.reject(new Error('boom'));
+    await assertion;
+    expect(ids()).toEqual(['b1']);
   });
 
   it('reorderTasks 失敗: A のタスクは混入しない', async () => {

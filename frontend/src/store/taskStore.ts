@@ -49,6 +49,9 @@ interface TaskStore {
   // フィルタ値ではなく UI 設定として扱うため uiInitialState には入れず resetUi の対象外にする。
   pinnedAssignees:    Record<string, string[]>;
   depArrowStyle:      DepArrowStyle;
+  // WBS のタイトル・担当者列の幅。GanttChart がプロジェクト切替でアンマウントされても維持するため store に置く（非永続）。
+  wbsColWidths:       { title: number; assignee: number };
+  setWbsColWidths:    (updater: (prev: { title: number; assignee: number }) => { title: number; assignee: number }) => void;
   setTasks:               (tasks: Task[], ownerProjectId?: string | null) => void;
   upsertTask:             (task: Task) => void;
   setRefData:             (refTasks: Task[], refProjects: RefProject[], ownerProjectId: string | null) => void;
@@ -119,6 +122,7 @@ export const useTaskStore = create<TaskStore>()(
       wbsPanelOpen:      true,
       wbsHiddenCols:     [] as string[],
       pinnedAssignees:   {} as Record<string, string[]>,
+      wbsColWidths:      { title: 180, assignee: 76 },
       ...uiInitialState,
       setTasks:               (tasks, ownerProjectId) => set(ownerProjectId === undefined ? { tasks } : { tasks, tasksOwnerProjectId: ownerProjectId }),
       // 差分適用アクション（v2.63）: 全置換を避け、未変更タスクの参照を維持して
@@ -194,6 +198,7 @@ export const useTaskStore = create<TaskStore>()(
         return { pinnedAssignees };
       }),
       setDepArrowStyle:       (depArrowStyle) => set({ depArrowStyle }),
+      setWbsColWidths:        (updater) => set((s) => ({ wbsColWidths: updater(s.wbsColWidths) })),
       resetUi:                () => set(uiInitialState),
     }),
     {
