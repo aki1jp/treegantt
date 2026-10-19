@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import type { Task } from '../../types/task';
 import type { ZoomLevel } from '../../types/task';
-import { dateToX, type LightningPoint } from '../../utils/ganttCalc';
+import { addDays, dateToX, type LightningPoint } from '../../utils/ganttCalc';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { canCreateOnRow, isReadonlyTask } from '../../utils/refTasks';
 import { GanttBar } from './GanttBar';
@@ -71,6 +72,21 @@ export function GanttSvgBody({
   startCreateDrag, startLinkDrag,
   handleBarMoveStart, handleBarResizeLeftStart, handleBarResizeRightStart, handleBarClick,
 }: Props) {
+  // 親バードラッグ中のみ: ドラッグ親＋その子孫（表示中の行）の ID 集合と移動日数
+  const shiftDays = dragState?.isParent ? (dragPreview?.deltaDays ?? 0) : 0;
+  const shiftedIds = useMemo(() => {
+    if (!dragState?.isParent || shiftDays === 0) return null;
+    const rootId = dragState.taskId;
+    const ids = new Set<string>([rootId]);
+    for (const { task } of flatRows) {
+      let cur: Task | undefined = task;
+      for (let n = 0; cur && n < 100; n++) {
+        if (cur.parentId === rootId) { ids.add(task.id); break; }
+        cur = cur.parentId ? taskById.get(cur.parentId) : undefined;
+      }
+    }
+    return ids;
+  }, [dragState, shiftDays, flatRows, taskById]);
   return (
     <svg ref={svgRef} width={totalWidth} height={Math.max(totalHeight, 1)} style={{ display: 'block' }}
       onMouseMove={e => {
@@ -132,8 +148,20 @@ export function GanttSvgBody({
       {/* タスクバー（仮想化: 可視範囲のみ・rowIndex は絶対インデックス） */}
       {flatRows.slice(vStart, vEnd).map(({ task }, sliceIdx) => {
         const i = vStart + sliceIdx;
-        const preview = dragPreview?.taskId === task.id ? dragPreview : null;
+        let preview = dragPreview?.taskId === task.id ? dragPreview : null;
         const isParent = (childCount.get(task.id) ?? 0) > 0;
+        // 親バードラッグ中: 親自身と表示中の子孫を Δ日ずらしてプレビュー（§8.3）
+        const shiftDelta = shiftedIds && shiftedIds.has(task.id) ? shiftDays : 0;
+        let dispStart = isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined;
+        let dispEnd   = isParent ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined;
+        if (shiftDelta !== 0) {
+          if (isParent) {
+            dispStart = dispStart ? addDays(dispStart, shiftDelta) : dispStart;
+            dispEnd   = dispEnd   ? addDays(dispEnd,   shiftDelta) : dispEnd;
+          } else if (task.startDate) {
+            preview = { taskId: task.id, startDate: addDays(task.startDate, shiftDelta), endDate: addDays(task.endDate ?? task.startDate, shiftDelta) };
+          }
+        }
         return (
           <GanttBar
             key={task.id}
@@ -147,8 +175,8 @@ export function GanttSvgBody({
             isParent={isParent}
             isCollapsed={collapsed.has(task.id)}
             effectiveProgress={isParent ? progressMap.get(task.id) : undefined}
-            displayStart={isParent ? (parentSpanMap.get(task.id)?.startDate ?? null) : undefined}
-            displayEnd={isParent   ? (parentSpanMap.get(task.id)?.endDate   ?? null) : undefined}
+            displayStart={dispStart}
+            displayEnd={dispEnd}
             milestoneColor={task.isMilestone ? milestoneColorOf(task.titleColor, milestoneHighlightColor) : undefined}
             readOnly={isReadonlyTask(task, currentProjectId)}
             onMoveStart={handleBarMoveStart}
