@@ -347,3 +347,66 @@ describe('batchCreateTasks', () => {
     expect(body.tasks).toHaveLength(2);
   });
 });
+
+describe('shiftSubtree', () => {
+  const seed = () => useTaskStore.setState({
+    tasks: [
+      makeTask({ id: 'root', startDate: '2026-01-05', endDate: '2026-01-06' }),
+      makeTask({ id: 'c1', parentId: 'root', startDate: '2026-01-05', endDate: '2026-01-07' }),
+      makeTask({ id: 'g1', parentId: 'c1', startDate: '2026-01-06', endDate: '2026-01-06', isMilestone: true }),
+      makeTask({ id: 'nodate', parentId: 'root' }),
+      makeTask({ id: 'other', startDate: '2026-01-05', endDate: '2026-01-06' }),
+    ],
+  });
+  const get = (id: string) => useTaskStore.getState().tasks.find(t => t.id === id)!;
+
+  it('子孫（孫・マイルストーン含む）だけを楽観的にずらし、日付なし・サブツリー外・自身は不変', async () => {
+    seed();
+    let resolve!: (v: Response) => void;
+    vi.mocked(fetch).mockReturnValue(new Promise<Response>(r => { resolve = r; }));
+    const { shiftSubtree } = useTasks('p1');
+    const pending = shiftSubtree('root', 2);
+    expect(get('c1').startDate).toBe('2026-01-07');
+    expect(get('c1').endDate).toBe('2026-01-09');
+    expect(get('g1').startDate).toBe('2026-01-08');
+    expect(get('nodate').startDate).toBeNull();
+    expect(get('other').startDate).toBe('2026-01-05');
+    expect(get('root').startDate).toBe('2026-01-05');
+    resolve({ ok: true, status: 200, json: async () => ({ tasks: [get('c1'), get('g1')] }) } as Response);
+    await pending;
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[0]).toContain('/projects/p1/tasks/root/shift');
+    expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ days: 2 });
+  });
+
+  it('成功時はレスポンスの tasks で upsert する', async () => {
+    seed();
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ tasks: [makeTask({ id: 'c1', parentId: 'root', startDate: '2026-01-20', endDate: '2026-01-21' })] }),
+    } as Response);
+    await useTasks('p1').shiftSubtree('root', 2);
+    expect(get('c1').startDate).toBe('2026-01-20');
+  });
+
+  it('失敗時はロールバックして throw する', async () => {
+    seed();
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false, status: 500, json: async () => ({ error: 'boom' }),
+    } as Response);
+    await expect(useTasks('p1').shiftSubtree('root', 2)).rejects.toThrow();
+    expect(get('c1').startDate).toBe('2026-01-05');
+    expect(get('g1').startDate).toBe('2026-01-06');
+  });
+
+  it('parentId が循環していても無限ループしない', async () => {
+    useTaskStore.setState({
+      tasks: [
+        makeTask({ id: 'a', parentId: 'b', startDate: '2026-01-05', endDate: '2026-01-05' }),
+        makeTask({ id: 'b', parentId: 'a', startDate: '2026-01-05', endDate: '2026-01-05' }),
+      ],
+    });
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, json: async () => ({ tasks: [] }) } as Response);
+    await useTasks('p1').shiftSubtree('a', 1);
+  });
+});

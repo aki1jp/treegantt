@@ -157,3 +157,21 @@ describe('fetchAllTasks', () => {
     expect(vi.mocked(fetch).mock.calls.length).toBeLessThanOrEqual(2);
   });
 });
+
+describe('shiftSubtree', () => {
+  beforeEach(() => { vi.stubGlobal('fetch', vi.fn()); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('POST /projects/:id/tasks/:taskId/shift に days を送り tasks を返す', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200, json: async () => ({ tasks: [{ id: 'c1' }] }),
+    } as Response);
+    const { shiftSubtree } = await import('../utils/api');
+    const result = await shiftSubtree('p1', 't1', -3);
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call[0]).toContain('/api/v1/projects/p1/tasks/t1/shift');
+    expect((call[1] as RequestInit).method).toBe('POST');
+    expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ days: -3 });
+    expect(result).toEqual([{ id: 'c1' }]);
+  });
+});
