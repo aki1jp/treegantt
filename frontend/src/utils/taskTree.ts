@@ -104,7 +104,7 @@ export function resolveVisibleId(
   return null;
 }
 
-// 全タスクの実効進捗（親=子の平均、葉=自身の progress）を post-order DFS 1パスで
+// 全タスクの実効進捗（親=集計対象の子の平均、葉=自身の progress。保留の葉は親の平均から除外）を post-order DFS 1パスで
 // まとめて計算する。結果 Map がメモを兼ねるため各タスクは1回しか計算されない。
 // 循環 parentId は「計算中セット」で検出して 0 を返す（calcEffectiveProgress と同仕様）。
 export function calcAllEffectiveProgress(
@@ -115,6 +115,9 @@ export function calcAllEffectiveProgress(
   const inProgress = new Set<string>();
   const byId = new Map(tasks.map(t => [t.id, t]));
 
+  // 集計から除外される（保留の葉、または子が全て除外された親）タスク ID
+  const excluded = new Set<string>();
+
   const visit = (taskId: string): number => {
     const cached = result.get(taskId);
     if (cached !== undefined) return cached;
@@ -122,12 +125,20 @@ export function calcAllEffectiveProgress(
     const children = childrenMap.get(taskId);
     let value: number;
     if (!children || children.length === 0) {
-      value = byId.get(taskId)?.progress ?? 0;
+      const task = byId.get(taskId);
+      value = task?.progress ?? 0;
+      if (task?.status === 'pending') excluded.add(taskId);
     } else {
       inProgress.add(taskId);
-      const total = children.reduce((sum, c) => sum + visit(c.id), 0);
+      let total = 0;
+      let count = 0;
+      for (const c of children) {
+        const v = visit(c.id);
+        if (!excluded.has(c.id)) { total += v; count++; }
+      }
       inProgress.delete(taskId);
-      value = Math.round(total / children.length);
+      if (count === 0) excluded.add(taskId);
+      value = count === 0 ? 0 : Math.round(total / count);
     }
     result.set(taskId, value);
     return value;
@@ -150,23 +161,29 @@ export function calcEffectiveProgress(
   const memo = new Map<string, number>();
   const inProgress = new Set(visited);
 
+  const excluded = new Set<string>();
+
   const visit = (id: string): number => {
     const cached = memo.get(id);
     if (cached !== undefined) return cached;
     if (inProgress.has(id)) return 0;
+    const children = (childCountMap.get(id) ?? 0) === 0 ? [] : (childrenMap.get(id) ?? []);
     let value: number;
-    if ((childCountMap.get(id) ?? 0) === 0) {
-      value = byId.get(id)?.progress ?? 0;
+    if (children.length === 0) {
+      const task = byId.get(id);
+      value = task?.progress ?? 0;
+      if (task?.status === 'pending') excluded.add(id);
     } else {
-      const children = childrenMap.get(id) ?? [];
-      if (children.length === 0) {
-        value = byId.get(id)?.progress ?? 0;
-      } else {
-        inProgress.add(id);
-        const total = children.reduce((sum, c) => sum + visit(c.id), 0);
-        inProgress.delete(id);
-        value = Math.round(total / children.length);
+      inProgress.add(id);
+      let total = 0;
+      let count = 0;
+      for (const c of children) {
+        const v = visit(c.id);
+        if (!excluded.has(c.id)) { total += v; count++; }
       }
+      inProgress.delete(id);
+      if (count === 0) excluded.add(id);
+      value = count === 0 ? 0 : Math.round(total / count);
     }
     memo.set(id, value);
     return value;

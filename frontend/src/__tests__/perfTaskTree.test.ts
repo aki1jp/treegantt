@@ -12,24 +12,37 @@ import { genLargeTasks } from './fixtures/genLargeTasks';
 // ---- 参照実装（v2.59 時点のアルゴリズムをそのまま固定したもの）----
 // O(N) 化リファクタリング（v2.60）後も挙動が変わっていないことを証明するための基準。
 
+// 新仕様：保留（pending）の葉は親の平均から除外。子が全て除外された親は 0 で、上位集計からも除外される。
+function refEffectiveProgressEx(
+  taskId: string,
+  childCountMap: Map<string, number>,
+  allTasks: Task[],
+  visited: Set<string> = new Set(),
+): { value: number; excluded: boolean } {
+  if (visited.has(taskId)) return { value: 0, excluded: false };
+  visited.add(taskId);
+  const self = allTasks.find(t => t.id === taskId);
+  const children = (childCountMap.get(taskId) ?? 0) === 0
+    ? []
+    : allTasks.filter(t => t.parentId === taskId);
+  if (children.length === 0) {
+    return { value: self?.progress ?? 0, excluded: self?.status === 'pending' };
+  }
+  const included = children
+    .map(c => refEffectiveProgressEx(c.id, childCountMap, allTasks, new Set(visited)))
+    .filter(r => !r.excluded);
+  if (included.length === 0) return { value: 0, excluded: true };
+  const total = included.reduce((sum, r) => sum + r.value, 0);
+  return { value: Math.round(total / included.length), excluded: false };
+}
+
 function refEffectiveProgress(
   taskId: string,
   childCountMap: Map<string, number>,
   allTasks: Task[],
   visited: Set<string> = new Set(),
 ): number {
-  if (visited.has(taskId)) return 0;
-  visited.add(taskId);
-  if ((childCountMap.get(taskId) ?? 0) === 0) {
-    return allTasks.find(t => t.id === taskId)?.progress ?? 0;
-  }
-  const children = allTasks.filter(t => t.parentId === taskId);
-  if (children.length === 0) return allTasks.find(t => t.id === taskId)?.progress ?? 0;
-  const total = children.reduce(
-    (sum, c) => sum + refEffectiveProgress(c.id, childCountMap, allTasks, new Set(visited)),
-    0,
-  );
-  return Math.round(total / children.length);
+  return refEffectiveProgressEx(taskId, childCountMap, allTasks, visited).value;
 }
 
 function refParentSpanMap(
