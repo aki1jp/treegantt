@@ -11,7 +11,7 @@
  *  - バー幅が極端に短い（<12px）→ テキスト非表示
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, fireEvent } from '@testing-library/react';
 import { GanttBar } from '../components/Gantt/GanttBar';
 import type { Task } from '../types/task';
 import dayjs from 'dayjs';
@@ -423,5 +423,38 @@ describe('GanttBar 進捗遅延の赤帯', () => {
       end:   addDays(todayStr(), 10).replace(/-/g, '/'),
     });
     expect(band(container)).toBeTruthy();
+  });
+});
+
+describe('GanttBar 親タスクの移動ドラッグ入口（§8.3）', () => {
+  function renderParent(readOnly: boolean, onMoveStart = vi.fn()) {
+    const r = render(
+      <svg>
+        <GanttBar
+          task={BASE_TASK} minDate={MIN} zoom="month" rowIndex={0} isParent readOnly={readOnly}
+          onMoveStart={onMoveStart} onResizeLeftStart={NOOP} onResizeRightStart={NOOP} onClick={NOOP}
+        />
+      </svg>
+    );
+    return { ...r, onMoveStart };
+  }
+
+  it('親バーの mousedown（左ボタン）で onMoveStart が呼ばれる', () => {
+    const { container, onMoveStart } = renderParent(false);
+    const zone = container.querySelector('rect[data-parent-move="true"]')!;
+    expect(zone).toBeTruthy();
+    fireEvent.mouseDown(zone, { button: 0 });
+    expect(onMoveStart).toHaveBeenCalledWith(expect.anything(), 't1');
+  });
+
+  it('右ボタンでは onMoveStart が呼ばれない', () => {
+    const { container, onMoveStart } = renderParent(false);
+    fireEvent.mouseDown(container.querySelector('rect[data-parent-move="true"]')!, { button: 2 });
+    expect(onMoveStart).not.toHaveBeenCalled();
+  });
+
+  it('readOnly の親バーには移動入口がない', () => {
+    const { container } = renderParent(true);
+    expect(container.querySelector('rect[data-parent-move="true"]')).toBeNull();
   });
 });

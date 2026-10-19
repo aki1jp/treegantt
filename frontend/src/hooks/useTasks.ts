@@ -1,6 +1,8 @@
 import type { Task } from '../types/task';
 import { useTaskStore } from '../store/taskStore';
-import { apiFetch } from '../utils/api';
+import { apiFetch, shiftSubtree as shiftSubtreeApi } from '../utils/api';
+import { addDays } from '../utils/ganttCalc';
+import { buildChildrenMap } from '../utils/taskTree';
 
 export function useTasks(projectId: string) {
   // REST POST → サーバーが全クライアントへ task_created をブロードキャスト
@@ -97,5 +99,42 @@ export function useTasks(projectId: string) {
     return tasks;
   }
 
-  return { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks };
+  // 親タスク配下の日付一括シフト: 子孫を楽観的にずらす → POST shift → レスポンスで upsert
+  // 失敗時はロールバックして throw。サーバーは tasks_updated をブロードキャストする
+  async function shiftSubtree(taskId: string, days: number): Promise<void> {
+    const store = useTaskStore.getState();
+    const prev = store.tasks;
+    // 子孫収集（parentId→children の Map による O(N) 走査。visited により循環でも停止、根自身は除外）
+    const childrenMap = buildChildrenMap(prev);
+    const descendants = new Set<string>();
+    const stack = [taskId];
+    while (stack.length > 0) {
+      for (const c of childrenMap.get(stack.pop()!) ?? []) {
+        if (c.id === taskId || descendants.has(c.id)) continue;
+        descendants.add(c.id);
+        stack.push(c.id);
+      }
+    }
+    // ロールバック用に、実際にシフトする子孫の元の値だけを保持する
+    const originals: Task[] = [];
+    for (const t of prev) {
+      if (!descendants.has(t.id) || (!t.startDate && !t.endDate)) continue;
+      originals.push(t);
+      store.upsertTask({
+        ...t,
+        startDate: t.startDate ? addDays(t.startDate, days) : t.startDate,
+        endDate: t.endDate ? addDays(t.endDate, days) : t.endDate,
+      });
+    }
+    try {
+      const updated = await shiftSubtreeApi(projectId, taskId, days);
+      for (const t of updated) useTaskStore.getState().upsertTask(t);
+    } catch (e) {
+      // 子孫だけ元に戻す（待機中に WS で届いた他タスクの更新は巻き戻さない）
+      for (const t of originals) useTaskStore.getState().upsertTask(t);
+      throw e;
+    }
+  }
+
+  return { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks, shiftSubtree };
 }

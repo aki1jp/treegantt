@@ -369,3 +369,16 @@ describe('applyMessage tasks_deleted（v2.66）', () => {
     expect(useTaskStore.getState().tasks[0].title).toBe('新');
   });
 });
+
+describe('applyMessage tasks_updated', () => {
+  it('受信した tasks を upsert する（既存は更新、未知は追加）', () => {
+    useTaskStore.setState({ tasks: [makeTask({ id: 'u1', startDate: '2026-01-05' })] });
+    applyMessage({
+      type: 'tasks_updated', projectId: 'p1',
+      tasks: [makeTask({ id: 'u1', startDate: '2026-01-08' }), makeTask({ id: 'u2' })],
+    });
+    const tasks = useTaskStore.getState().tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks.find(t => t.id === 'u1')?.startDate).toBe('2026-01-08');
+  });
+});

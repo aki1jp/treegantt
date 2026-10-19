@@ -49,4 +49,39 @@ test.describe('ガントバーのドラッグ（日付変更=PATCH・クロス�
     // 「更新に失敗しました」アラートが出ていないこと（出ていれば本文に残る）
     await expect(page.getByText(/更新に失敗しました/)).toHaveCount(0);
   });
+
+  test('親のサマリーバーをドラッグすると子孫の日付が一括でずれ、日付なしの子は変わらない', async ({ page, request, projectId }) => {
+    const post = async (data: Record<string, unknown>) => {
+      const res = await request.post(`/api/v1/projects/${projectId}/tasks`, { data });
+      expect(res.ok()).toBeTruthy();
+      return (await res.json()).task as { id: string };
+    };
+    const parent = await post({ title: 'E2E-shift-parent' });
+    const child = await post({ title: 'E2E-shift-child', parentId: parent.id, startDate: isoDateOffset(2), endDate: isoDateOffset(5) });
+    const grand = await post({ title: 'E2E-shift-grand', parentId: child.id, startDate: isoDateOffset(3), endDate: isoDateOffset(4) });
+    const undated = await post({ title: 'E2E-shift-undated', parentId: parent.id });
+
+    const handle = page.locator(`[data-task-id="${parent.id}"] rect[data-parent-move="true"]`);
+    await expect(handle).toBeVisible();
+    const box = await handle.boundingBox();
+    if (!box) throw new Error('親バーの座標が取得できない');
+
+    // 日幅 28px なので +84px = +3日
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx + 84, cy, { steps: 10 });
+    await page.mouse.up();
+
+    const get = async (id: string) => (await (await request.get(`/api/v1/tasks/${id}`)).json()).task;
+    await expect.poll(async () => (await get(child.id)).startDate, { timeout: 10_000 }).toBe(isoDateOffset(5));
+    expect((await get(child.id)).endDate).toBe(isoDateOffset(8));
+    expect((await get(grand.id)).startDate).toBe(isoDateOffset(6));
+    expect((await get(grand.id)).endDate).toBe(isoDateOffset(7));
+    const u = await get(undated.id);
+    expect(u.startDate ?? null).toBeNull();
+    expect(u.endDate ?? null).toBeNull();
+    await expect(page.getByText(/更新に失敗しました/)).toHaveCount(0);
+  });
 });

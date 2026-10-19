@@ -127,7 +127,10 @@ export const GanttBar = memo(function GanttBar({
         {/* 上部横バー */}
         <rect x={x} y={y} width={width} height={topH} rx={2}
           fill={barColor + 'cc'} stroke={barColor} strokeWidth={1}
-          filter={isCritical ? 'url(#critical-glow)' : undefined} />
+          filter={isCritical ? 'url(#critical-glow)' : undefined}
+          data-parent-move={readOnly ? undefined : 'true'}
+          style={readOnly ? undefined : { cursor: dragPreview ? 'grabbing' : 'grab' }}
+          onMouseDown={readOnly ? undefined : (e => { if (e.button !== 0) return; e.stopPropagation(); onMoveStart(e, task.id); })} />
         {/* 進捗オーバーレイ */}
         {displayProgress > 0 && (
           <rect x={x} y={y} width={parentProgressWidth} height={topH} rx={2}

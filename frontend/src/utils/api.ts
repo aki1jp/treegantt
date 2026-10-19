@@ -89,6 +89,14 @@ export async function updateProjectResource(
   return data.project;
 }
 
+// ── 親タスク配下の日付一括シフト（§5.2 shift）──────────────────────────────
+export async function shiftSubtree(projectId: string, taskId: string, days: number): Promise<Task[]> {
+  const data = (await apiFetch(`/projects/${projectId}/tasks/${taskId}/shift`, {
+    method: 'POST', body: JSON.stringify({ days }),
+  })) as { tasks: Task[] };
+  return data.tasks;
+}
+
 // ── クロスプロジェクト参照（task_refs, §5.8）───────────────────────────────
 export async function fetchProjectRefs(
   projectId: string,

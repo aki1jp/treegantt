@@ -50,6 +50,8 @@ interface Props {
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
+  /** 親タスクのバードラッグで配下の日付を一括シフトする（§9.4） */
+  onShiftSubtree?: (id: string, days: number) => void;
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
   onAddSubMilestone?: (parentId: string) => void;
@@ -75,7 +77,7 @@ interface Props {
 }
 
 export function GanttChart({
-  projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onAddRef, onReorder, onCopyInsert,
+  projectId, onEditTask, onDeleteTask, onInlineUpdate, onShiftSubtree, onQuickAdd, onAddSubTask, onAddSubMilestone, onAddRef, onReorder, onCopyInsert,
   capacityMinutesPerDay, workingDays,
   onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
@@ -348,10 +350,10 @@ export function GanttChart({
 
   // ── バー移動・左右リサイズ・作成ドラッグ ──
   const {
-    dragState, dragPreview, dragStateRef,
+    dragState, dragPreview, dragStateRef, suppressClickRef,
     handleBarMoveStart, handleBarResizeLeftStart, handleBarResizeRightStart,
     startCreateDrag, cancelDrag,
-  } = useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef, currentProjectId: projectId });
+  } = useBarDrag({ dayWidth, min, onInlineUpdate, onShiftSubtree, parentSpanMapRef, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef, currentProjectId: projectId });
 
   // App から渡るコールバックは再レンダリングごとに再生成されるため、
   // 最新値 ref + 安定 useCallback に変換して React.memo 行コンポーネントへ渡す
@@ -370,8 +372,8 @@ export function GanttChart({
     setBarCtxMenu(null);
   }, []);
   const handleBarClick = useCallback((task: Task) => {
-    if (!dragStateRef.current && !linkDragStateRef.current) onEditTaskRef.current(task);
-  }, [dragStateRef, linkDragStateRef]);
+    if (!dragStateRef.current && !linkDragStateRef.current && !suppressClickRef.current) onEditTaskRef.current(task);
+  }, [dragStateRef, linkDragStateRef, suppressClickRef]);
 
   // ガントパネルの水平スクロールバー高さを検出してWBSスクロール同期ズレを防止
   const [hScrollbarH, setHScrollbarH] = useState(0);

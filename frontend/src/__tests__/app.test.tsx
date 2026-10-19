@@ -30,6 +30,7 @@ vi.mock('../components/Gantt/GanttChart', () => ({
   GanttChart: (props: {
     onDeleteTask: (id: string) => void;
     onInlineUpdate: (id: string, patch: Partial<Task>) => void;
+    onShiftSubtree?: (id: string, days: number) => void;
     onQuickAdd: (title: string) => void;
     onCopyInsert: (source: Task, parentId: string | null, afterTaskId: string | null, beforeTaskId?: string | null) => void;
     onReorder: (orders: { id: string; order: number; parentId?: string | null }[]) => void;
@@ -40,6 +41,8 @@ vi.mock('../components/Gantt/GanttChart', () => ({
       <button onClick={() => props.onInlineUpdate('t1', { title: '更新後' })}>inline-update</button>
       <button onClick={() => props.onInlineUpdate('r1', { title: '更新後' })}>inline-update-r1-title</button>
       <button onClick={() => props.onInlineUpdate('r1', { predecessors: ['t1'] })}>inline-update-r1-preds</button>
+      <button onClick={() => props.onShiftSubtree?.('t1', 3)}>shift-t1</button>
+      <button onClick={() => props.onShiftSubtree?.('r1', 3)}>shift-r1</button>
       <button onClick={() => props.onQuickAdd('新規タスク')}>quick-add</button>
       <button onClick={() => props.onCopyInsert(
         { ...PARENT_TASK }, null, 'parent', null,
@@ -79,6 +82,7 @@ interface RouterState {
   tasksByProject: Record<string, Task[]>;
   failPatch?: boolean;
   failReorder?: boolean;
+  failShift?: boolean;
   failHealth?: boolean;
   failSettings?: boolean;
   requests: { url: string; method: string; body?: unknown }[];
@@ -122,6 +126,11 @@ function makeFetchMock(state: RouterState) {
       const newTasks = (body.tasks as Record<string, unknown>[]).map((t, i) =>
         makeTask({ id: `new-${i}`, title: t.title as string, parentId: null }));
       return jsonResponse({ tasks: newTasks });
+    }
+
+    if (url.match(/\/tasks\/[^/?]+\/shift$/) && method === 'POST') {
+      if (state.failShift) return jsonResponse({ error: 'shift failed' }, false, 500);
+      return jsonResponse({ tasks: [] });
     }
 
     if (url.includes('/tasks/reorder') && method === 'PATCH') {
@@ -283,6 +292,26 @@ describe('App — エラー経路（D1: トースト表示）', () => {
     });
     // 楽観的更新がロールバックされ、元のタイトルに戻る
     expect(useTaskStore.getState().tasks[0].title).toBe(originalTitle);
+  });
+
+  it('親タスク配下シフトが失敗するとロールバックしてエラートーストを表示する', async () => {
+    routerState.failShift = true;
+    routerState.tasksByProject.p1 = [
+      makeTask({ id: 't1', startDate: '2026-01-05', endDate: '2026-01-06' }),
+      makeTask({ id: 'c1', parentId: 't1', startDate: '2026-01-05', endDate: '2026-01-06' }),
+    ];
+    render(<App />);
+    await waitFor(() => expect(useTaskStore.getState().tasks).toHaveLength(2));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('shift-t1'));
+    });
+
+    await waitFor(() => {
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.type === 'error' && t.message.includes('更新に失敗しました'))).toBe(true);
+    });
+    expect(useTaskStore.getState().tasks.find(t => t.id === 'c1')?.startDate).toBe('2026-01-05');
   });
 
   it('行D&Dの並び替えが失敗するとロールバックしてエラートーストを表示する', async () => {

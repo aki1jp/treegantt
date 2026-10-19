@@ -55,7 +55,7 @@ export default function App() {
   useTheme();
   useWebSocket(currentProject?.id ?? null);
 
-  const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks } = useTasks(currentProject?.id ?? '');
+  const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks, shiftSubtree } = useTasks(currentProject?.id ?? '');
   // クロスプロジェクト参照（§5.8）: プロジェクト切替でスナップショットロード（R1）
   const projectRefs = useProjectRefs(currentProject?.id);
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
@@ -164,6 +164,19 @@ export default function App() {
   // tasks / refTasks のどちらかから id のタスクを引く（クロスプロジェクト参照, §5.8）
   function findAnyTask(id: string): Task | undefined {
     return tasks.find(t => t.id === id) ?? refTasks.find(t => t.id === id);
+  }
+
+  async function handleShiftSubtree(id: string, days: number) {
+    const task = findAnyTask(id);
+    if (task && isReadonlyTask(task, currentProject?.id)) {
+      showToast(t('app.toast.refReadonly'), 'error');
+      return;
+    }
+    try {
+      await shiftSubtree(id, days);
+    } catch (err) {
+      showToast(t('app.toast.updateFailed', { message: apiErrorMessage(err, locale) }), 'error');
+    }
   }
 
   // 多層防御（§5.8）: 参照タスク（readonly）への更新は、predecessors 単独のときのみ
@@ -427,6 +440,7 @@ export default function App() {
                 onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
                 onDeleteTask={handleDeleteTask}
                 onInlineUpdate={handleInlineUpdate}
+                onShiftSubtree={handleShiftSubtree}
                 onQuickAdd={handleQuickAdd}
                 onAddSubTask={handleAddSubTask}
                 onAddSubMilestone={handleAddSubMilestone}

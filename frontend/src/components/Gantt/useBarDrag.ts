@@ -15,17 +15,22 @@ export interface DragState {
   origStart: string;
   origEnd: string;
   anchorRelX?: number;  // create ドラッグ用：クリック時の絶対 relX
+  isParent?: boolean;   // 親バーの move（配下一括シフト, §8.3）
 }
 export interface DragPreview {
   taskId: string;
   startDate: string;
   endDate: string;
+  /** 親バードラッグ時のみ: 配下を含めた移動日数 */
+  deltaDays?: number;
 }
 
 interface Params {
   dayWidth: number;
   min: Date;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
+  onShiftSubtree?: (id: string, days: number) => void;
+  parentSpanMapRef?: { current: Map<string, { startDate: string | null; endDate: string | null }> };
   childCountRef: { current: Map<string, number> };
   taskByIdRef: { current: Map<string, Task> };
   linkDragStateRef: { current: unknown | null };
@@ -35,13 +40,15 @@ interface Params {
 }
 
 // バー移動・左右リサイズ・作成ドラッグの状態・イベントハンドラ（GanttChart から抽出、挙動不変, D4）。
-export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef, currentProjectId }: Params) {
+export function useBarDrag({ dayWidth, min, onInlineUpdate, onShiftSubtree, parentSpanMapRef, childCountRef, taskByIdRef, linkDragStateRef, ganttPanelRef, currentProjectId }: Params) {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const dragStateRef  = useRef<DragState | null>(null);
   // 作成ドラッグが開始閾値（CREATE_DRAG_THRESHOLD_PX）を超えたか。超えるまでプレビューを作らない。
   const createArmedRef = useRef(false);
+  // 親バーのシフト確定直後の click を無視するためのフラグ
+  const suppressClickRef = useRef(false);
 
   useEffect(() => { dragPreviewRef.current = dragPreview; }, [dragPreview]);
   useEffect(() => { dragStateRef.current  = dragState;   }, [dragState]);
@@ -72,13 +79,22 @@ export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskB
       newEnd   = currentDate >= dragState.origStart ? currentDate : dragState.origStart;
     }
 
-    setDragPreview({ taskId: dragState.taskId, startDate: newStart, endDate: newEnd });
+    setDragPreview({ taskId: dragState.taskId, startDate: newStart, endDate: newEnd, ...(dragState.isParent ? { deltaDays: delta } : {}) });
   }, [dragState, dayWidth, min]);
 
   const handleMouseUp = useCallback(() => {
     const preview = dragPreviewRef.current;
     if (dragState) {
-      if (dragState.type === 'create') {
+      if (dragState.isParent) {
+        // 親バー: Δ≠0 なら配下一括シフト（onInlineUpdate は呼ばない）。Δ=0 はクリック扱い
+        const delta = preview?.deltaDays ?? 0;
+        if (delta !== 0) {
+          onShiftSubtree?.(dragState.taskId, delta);
+          // ドラッグ直後に発火する click でモーダルが開かないようにする
+          suppressClickRef.current = true;
+          setTimeout(() => { suppressClickRef.current = false; }, 0);
+        }
+      } else if (dragState.type === 'create') {
         if (preview) {
           onInlineUpdate(preview.taskId, { startDate: preview.startDate, endDate: preview.endDate });
         }
@@ -90,7 +106,7 @@ export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskB
     createArmedRef.current = false;
     setDragState(null);
     setDragPreview(null);
-  }, [dragState, onInlineUpdate]);
+  }, [dragState, onInlineUpdate, onShiftSubtree]);
 
   useEffect(() => {
     if (!dragState) return;
@@ -105,10 +121,24 @@ export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskB
   const startDrag = useCallback((e: React.MouseEvent, taskId: string, type: DragType) => {
     if (e.button !== 0) return;
     if (linkDragStateRef.current) return; // リンクドラッグ中は move/resize を無効化
-    if ((childCountRef.current.get(taskId) ?? 0) > 0) return; // 親バーは移動・リサイズ不可
     const task = taskByIdRef.current.get(taskId);
-    if (!task?.startDate) return;
+    if (!task) return;
     if (isReadonlyTask(task, currentProjectId)) return; // 参照タスクは読み取り専用（§5.8）
+    if ((childCountRef.current.get(taskId) ?? 0) > 0) {
+      // 親バーは move のみ許可（配下一括シフト, §8.3）。起点は親の表示スパン
+      if (type !== 'move') return;
+      const span = parentSpanMapRef?.current.get(taskId);
+      if (!span?.startDate) return;
+      e.preventDefault();
+      setDragState({
+        taskId, type, isParent: true,
+        startClientX: e.clientX,
+        origStart: span.startDate,
+        origEnd: span.endDate ?? span.startDate,
+      });
+      return;
+    }
+    if (!task.startDate) return;
     e.preventDefault();
     setDragState({
       taskId, type,
@@ -116,7 +146,7 @@ export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskB
       origStart: task.startDate,
       origEnd: task.endDate ?? task.startDate,
     });
-  }, [linkDragStateRef, childCountRef, taskByIdRef, currentProjectId]);
+  }, [linkDragStateRef, childCountRef, taskByIdRef, parentSpanMapRef, currentProjectId]);
   const handleBarMoveStart        = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'move'),         [startDrag]);
   const handleBarResizeLeftStart  = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-left'),  [startDrag]);
   const handleBarResizeRightStart = useCallback((e: React.MouseEvent, id: string) => startDrag(e, id, 'resize-right'), [startDrag]);
@@ -143,7 +173,7 @@ export function useBarDrag({ dayWidth, min, onInlineUpdate, childCountRef, taskB
   }, []);
 
   return {
-    dragState, dragPreview, dragStateRef,
+    dragState, dragPreview, dragStateRef, suppressClickRef,
     handleBarMoveStart, handleBarResizeLeftStart, handleBarResizeRightStart,
     startCreateDrag, cancelDrag,
   };

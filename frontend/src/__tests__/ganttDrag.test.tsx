@@ -8,6 +8,8 @@ import type { Task } from '../types/task';
 
 const NOOP = vi.fn();
 let onInlineUpdate: Mock;
+let onShiftSubtree: Mock;
+let onEditTask: Mock;
 
 let seq = 0;
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -29,6 +31,8 @@ const DAY_W = 8;
 beforeEach(() => {
   seq = 0;
   onInlineUpdate = vi.fn();
+  onShiftSubtree = vi.fn();
+  onEditTask = vi.fn();
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
   localStorage.clear();
@@ -57,9 +61,10 @@ function renderChart(tasks: Task[]) {
   useTaskStore.setState({ tasks });
   return render(
     <GanttChart
-      onEditTask={NOOP}
+      onEditTask={onEditTask}
       onDeleteTask={NOOP}
       onInlineUpdate={onInlineUpdate}
+      onShiftSubtree={onShiftSubtree}
       onQuickAdd={NOOP}
       onAddSubTask={NOOP}
       onReorder={NOOP} onCopyInsert={NOOP}
@@ -407,5 +412,79 @@ describe('土日背景: pointer-events（作成ドラッグ妨害防止）', () 
     weekendRects.forEach(r => {
       expect(r.getAttribute('pointer-events')).toBe('none');
     });
+  });
+});
+
+
+// ── 親バードラッグ（配下一括シフト, §8.3） ──
+function getParentMoveZone(container: HTMLElement): SVGRectElement | null {
+  return container.querySelector<SVGRectElement>('rect[data-parent-move="true"]');
+}
+function barRects(container: HTMLElement, id: string): SVGRectElement[] {
+  return Array.from(container.querySelectorAll<SVGRectElement>(`[data-task-id="${id}"] rect`));
+}
+
+describe('ガントバードラッグ: 親バー（配下一括シフト）', () => {
+  function family() {
+    const parent = makeTask({ id: 'P', startDate: null, endDate: null });
+    const child = makeTask({ id: 'C', parentId: 'P', startDate: '2026-06-10', endDate: '2026-06-15' });
+    return { parent, child };
+  }
+
+  it('親バーを右に2日ドラッグして離すと onShiftSubtree(親ID, 2) が呼ばれ onInlineUpdate は呼ばれない', () => {
+    const { parent, child } = family();
+    const { container } = renderChart([parent, child]);
+    const zone = getParentMoveZone(container)!;
+    expect(zone).toBeTruthy();
+    fireEvent.mouseDown(zone, { button: 0, clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 100 + 2 * DAY_W });
+    fireEvent.mouseUp(window);
+    expect(onShiftSubtree).toHaveBeenCalledWith('P', 2);
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+  });
+
+  it('左へのドラッグは負の日数になる', () => {
+    const { parent, child } = family();
+    const { container } = renderChart([parent, child]);
+    fireEvent.mouseDown(getParentMoveZone(container)!, { button: 0, clientX: 200 });
+    fireEvent.mouseMove(window, { clientX: 200 - 3 * DAY_W });
+    fireEvent.mouseUp(window);
+    expect(onShiftSubtree).toHaveBeenCalledWith('P', -3);
+  });
+
+  it('Δ=0 では onShiftSubtree を呼ばない', () => {
+    const { parent, child } = family();
+    const { container } = renderChart([parent, child]);
+    fireEvent.mouseDown(getParentMoveZone(container)!, { button: 0, clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 103 });
+    fireEvent.mouseUp(window);
+    expect(onShiftSubtree).not.toHaveBeenCalled();
+  });
+
+  it('Esc でキャンセルすると onShiftSubtree は呼ばれない', () => {
+    const { parent, child } = family();
+    const { container } = renderChart([parent, child]);
+    fireEvent.mouseDown(getParentMoveZone(container)!, { button: 0, clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 100 + 2 * DAY_W });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.mouseUp(window);
+    expect(onShiftSubtree).not.toHaveBeenCalled();
+  });
+
+  it('親バーにはリサイズハンドルがない', () => {
+    const { parent, child } = family();
+    const { container } = renderChart([parent, child]);
+    expect(barRects(container, 'P').some(r => r.style.cursor === 'ew-resize')).toBe(false);
+  });
+
+  it('ドラッグ中は子孫バーが Δ日ずれてプレビューされる', () => {
+    const { parent, child } = family();
+    const { container } = renderChart([parent, child]);
+    const before = Number(barRects(container, 'C')[0].getAttribute('x'));
+    fireEvent.mouseDown(getParentMoveZone(container)!, { button: 0, clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 100 + 2 * DAY_W });
+    const after = Number(barRects(container, 'C')[0].getAttribute('x'));
+    expect(after - before).toBe(2 * DAY_W);
+    fireEvent.mouseUp(window);
   });
 });
