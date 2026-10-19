@@ -9,6 +9,7 @@ import { useTranslation } from './i18n/useTranslation';
 import { apiErrorMessage, dictionaries } from './i18n/apiError';
 import { Toolbar } from './components/Toolbar/Toolbar';
 import { GanttChart } from './components/Gantt/GanttChart';
+import { DelayedLoading } from './components/DelayedLoading';
 import { TaskModal } from './components/TaskModal/TaskModal';
 import { MilestoneModal } from './components/MilestoneModal/MilestoneModal';
 import { ProjectTabs } from './components/ProjectTabs/ProjectTabs';
@@ -53,7 +54,7 @@ export default function App() {
   // （持ち主 refOwnerProjectId が現在プロジェクトと不一致なら空を返す＝最終防衛線）
   const { refTasks, refProjects } = useRefData(currentProject?.id);
   // タスク本体も同様に持ち主照合を通す（切替中は旧プロジェクトのタスクを空として扱う）
-  const { tasks } = useProjectTaskData(currentProject?.id);
+  const { tasks, loaded: tasksLoaded } = useProjectTaskData(currentProject?.id);
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);
@@ -438,6 +439,7 @@ export default function App() {
               currentProjectId={currentProject?.id}
             />
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              {tasksLoaded ? (
               <GanttChart
                 projectId={currentProject.id}
                 onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
@@ -457,6 +459,7 @@ export default function App() {
                 onRemoveRef={(refTaskId) => { projectRefs.remove(refTaskId).catch(() => {}); }}
                 onRefreshRefs={() => { void projectRefs.refresh(); }}
               />
+              ) : <DelayedLoading />}
             </div>
           </>
         )
