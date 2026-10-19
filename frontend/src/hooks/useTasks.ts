@@ -1,6 +1,7 @@
 import type { Task } from '../types/task';
 import { useTaskStore } from '../store/taskStore';
-import { apiFetch } from '../utils/api';
+import { apiFetch, shiftSubtree as shiftSubtreeApi } from '../utils/api';
+import { addDays } from '../utils/ganttCalc';
 
 export function useTasks(projectId: string) {
   // REST POST → サーバーが全クライアントへ task_created をブロードキャスト
@@ -97,5 +98,40 @@ export function useTasks(projectId: string) {
     return tasks;
   }
 
-  return { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks };
+  // 親タスク配下の日付一括シフト: 子孫を楽観的にずらす → POST shift → レスポンスで upsert
+  // 失敗時はロールバックして throw。サーバーは tasks_updated をブロードキャストする
+  async function shiftSubtree(taskId: string, days: number): Promise<void> {
+    const store = useTaskStore.getState();
+    const prev = store.tasks;
+    // 子孫収集（visited により parentId 循環でも停止する）
+    const descendants = new Set<string>();
+    let frontier = [taskId];
+    while (frontier.length > 0) {
+      const next: string[] = [];
+      for (const t of prev) {
+        if (t.parentId && frontier.includes(t.parentId) && t.id !== taskId && !descendants.has(t.id)) {
+          descendants.add(t.id);
+          next.push(t.id);
+        }
+      }
+      frontier = next;
+    }
+    for (const t of prev) {
+      if (!descendants.has(t.id) || (!t.startDate && !t.endDate)) continue;
+      store.upsertTask({
+        ...t,
+        startDate: t.startDate ? addDays(t.startDate, days) : t.startDate,
+        endDate: t.endDate ? addDays(t.endDate, days) : t.endDate,
+      });
+    }
+    try {
+      const updated = await shiftSubtreeApi(projectId, taskId, days);
+      for (const t of updated) useTaskStore.getState().upsertTask(t);
+    } catch (e) {
+      store.setTasks(prev);
+      throw e;
+    }
+  }
+
+  return { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks, shiftSubtree };
 }

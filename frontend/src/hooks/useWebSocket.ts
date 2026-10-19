@@ -27,6 +27,13 @@ export function applyMessage(msg: Record<string, unknown>) {
       }
       break;
     }
+    // 親タスク配下の一括シフト: 更新された子孫をまとめて反映
+    case 'tasks_updated': {
+      for (const task of (msg.tasks as Task[])) {
+        store.upsertTask(task);
+      }
+      break;
+    }
     case 'tasks_deleted': {
       store.removeTasks(msg.ids as string[]);
       break;

@@ -55,7 +55,7 @@ export default function App() {
   useTheme();
   useWebSocket(currentProject?.id ?? null);
 
-  const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks } = useTasks(currentProject?.id ?? '');
+  const { createTask, updateTask, deleteTask, reorderTasks, batchCreateTasks, shiftSubtree } = useTasks(currentProject?.id ?? '');
   // クロスプロジェクト参照（§5.8）: プロジェクト切替でスナップショットロード（R1）
   const projectRefs = useProjectRefs(currentProject?.id);
   const { fileInputRef, handleExportJson, handleExportCsv, handleImportClick, handleFileChange } =
@@ -170,6 +170,19 @@ export default function App() {
   // 専用経路（tasks スロットを汚染しない updateExternalPredecessors）へ回し、
   // それ以外のフィールドを含む更新は拒否する。他の8経路のガードをすり抜けても
   // ここで最終的に弾く／正しい経路へ振り分ける。
+  async function handleShiftSubtree(id: string, days: number) {
+    const task = findAnyTask(id);
+    if (task && isReadonlyTask(task, currentProject?.id)) {
+      showToast(t('app.toast.refReadonly'), 'error');
+      return;
+    }
+    try {
+      await shiftSubtree(id, days);
+    } catch (err) {
+      showToast(t('app.toast.updateFailed', { message: apiErrorMessage(err, locale) }), 'error');
+    }
+  }
+
   async function handleInlineUpdate(id: string, patch: Partial<Task>) {
     const task = findAnyTask(id);
     if (task && isReadonlyTask(task, currentProject?.id)) {
@@ -427,6 +440,7 @@ export default function App() {
                 onEditTask={(task) => { setModalIsMilestone(task.isMilestone); setModalTask(task); }}
                 onDeleteTask={handleDeleteTask}
                 onInlineUpdate={handleInlineUpdate}
+                onShiftSubtree={handleShiftSubtree}
                 onQuickAdd={handleQuickAdd}
                 onAddSubTask={handleAddSubTask}
                 onAddSubMilestone={handleAddSubMilestone}

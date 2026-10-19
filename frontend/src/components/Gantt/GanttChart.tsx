@@ -50,6 +50,8 @@ interface Props {
   onEditTask: (task: Task) => void;
   onDeleteTask: (id: string) => void;
   onInlineUpdate: (id: string, patch: Partial<Task>) => void;
+  /** 親タスクのバードラッグで配下の日付を一括シフトする（§9.4） */
+  onShiftSubtree?: (id: string, days: number) => void;
   onQuickAdd: (title: string) => Promise<void>;
   onAddSubTask: (parentId: string) => void;
   onAddSubMilestone?: (parentId: string) => void;
@@ -75,7 +77,7 @@ interface Props {
 }
 
 export function GanttChart({
-  projectId, onEditTask, onDeleteTask, onInlineUpdate, onQuickAdd, onAddSubTask, onAddSubMilestone, onAddRef, onReorder, onCopyInsert,
+  projectId, onEditTask, onDeleteTask, onInlineUpdate, onShiftSubtree: _onShiftSubtree, onQuickAdd, onAddSubTask, onAddSubMilestone, onAddRef, onReorder, onCopyInsert,
   capacityMinutesPerDay, workingDays,
   onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
