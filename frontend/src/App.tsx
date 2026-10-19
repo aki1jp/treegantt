@@ -166,10 +166,6 @@ export default function App() {
     return tasks.find(t => t.id === id) ?? refTasks.find(t => t.id === id);
   }
 
-  // 多層防御（§5.8）: 参照タスク（readonly）への更新は、predecessors 単独のときのみ
-  // 専用経路（tasks スロットを汚染しない updateExternalPredecessors）へ回し、
-  // それ以外のフィールドを含む更新は拒否する。他の8経路のガードをすり抜けても
-  // ここで最終的に弾く／正しい経路へ振り分ける。
   async function handleShiftSubtree(id: string, days: number) {
     const task = findAnyTask(id);
     if (task && isReadonlyTask(task, currentProject?.id)) {
@@ -183,6 +179,10 @@ export default function App() {
     }
   }
 
+  // 多層防御（§5.8）: 参照タスク（readonly）への更新は、predecessors 単独のときのみ
+  // 専用経路（tasks スロットを汚染しない updateExternalPredecessors）へ回し、
+  // それ以外のフィールドを含む更新は拒否する。他の8経路のガードをすり抜けても
+  // ここで最終的に弾く／正しい経路へ振り分ける。
   async function handleInlineUpdate(id: string, patch: Partial<Task>) {
     const task = findAnyTask(id);
     if (task && isReadonlyTask(task, currentProject?.id)) {

@@ -2,6 +2,7 @@ import type { Task } from '../types/task';
 import { useTaskStore } from '../store/taskStore';
 import { apiFetch, shiftSubtree as shiftSubtreeApi } from '../utils/api';
 import { addDays } from '../utils/ganttCalc';
+import { buildChildrenMap } from '../utils/taskTree';
 
 export function useTasks(projectId: string) {
   // REST POST → サーバーが全クライアントへ task_created をブロードキャスト
@@ -103,21 +104,22 @@ export function useTasks(projectId: string) {
   async function shiftSubtree(taskId: string, days: number): Promise<void> {
     const store = useTaskStore.getState();
     const prev = store.tasks;
-    // 子孫収集（visited により parentId 循環でも停止する）
+    // 子孫収集（parentId→children の Map による O(N) 走査。visited により循環でも停止、根自身は除外）
+    const childrenMap = buildChildrenMap(prev);
     const descendants = new Set<string>();
-    let frontier = [taskId];
-    while (frontier.length > 0) {
-      const next: string[] = [];
-      for (const t of prev) {
-        if (t.parentId && frontier.includes(t.parentId) && t.id !== taskId && !descendants.has(t.id)) {
-          descendants.add(t.id);
-          next.push(t.id);
-        }
+    const stack = [taskId];
+    while (stack.length > 0) {
+      for (const c of childrenMap.get(stack.pop()!) ?? []) {
+        if (c.id === taskId || descendants.has(c.id)) continue;
+        descendants.add(c.id);
+        stack.push(c.id);
       }
-      frontier = next;
     }
+    // ロールバック用に、実際にシフトする子孫の元の値だけを保持する
+    const originals: Task[] = [];
     for (const t of prev) {
       if (!descendants.has(t.id) || (!t.startDate && !t.endDate)) continue;
+      originals.push(t);
       store.upsertTask({
         ...t,
         startDate: t.startDate ? addDays(t.startDate, days) : t.startDate,
@@ -128,7 +130,8 @@ export function useTasks(projectId: string) {
       const updated = await shiftSubtreeApi(projectId, taskId, days);
       for (const t of updated) useTaskStore.getState().upsertTask(t);
     } catch (e) {
-      store.setTasks(prev);
+      // 子孫だけ元に戻す（待機中に WS で届いた他タスクの更新は巻き戻さない）
+      for (const t of originals) useTaskStore.getState().upsertTask(t);
       throw e;
     }
   }
