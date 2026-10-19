@@ -14,7 +14,6 @@ vi.mock('../ws/wsRoom.js', () => ({
   wss: { on: vi.fn() },
 }));
 
-
 const buildApp = () => buildTestApp({ compression: true, projects: true, tasks: true });
 
 describe('レスポンス圧縮（v2.67）', () => {

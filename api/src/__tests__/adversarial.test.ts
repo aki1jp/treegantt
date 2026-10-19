@@ -13,7 +13,6 @@ vi.mock('../ws/wsRoom.js', () => ({
   wss: { on: vi.fn() },
 }));
 
-
 const buildApp = () => buildTestApp({
   cors: true, auth: true, health: true, projects: true, tasks: true, importExport: true,
 });
