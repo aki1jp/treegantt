@@ -1,7 +1,9 @@
 import Database from 'better-sqlite3';
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import Fastify, { type FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -10,29 +12,73 @@ export function createTestDb(): Database.Database {
   const db = new Database(':memory:');
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  const sql001 = readFileSync(join(__dirname, '../db/migrations/001_init.sql'), 'utf-8');
-  db.exec(sql001);
-  const sql002 = readFileSync(join(__dirname, '../db/migrations/002_parent.sql'), 'utf-8');
-  db.exec(sql002);
-  const sql003 = readFileSync(join(__dirname, '../db/migrations/003_milestone.sql'), 'utf-8');
-  db.exec(sql003);
-  const sql004 = readFileSync(join(__dirname, '../db/migrations/004_seq.sql'), 'utf-8');
-  db.exec(sql004);
-  const sql005 = readFileSync(join(__dirname, '../db/migrations/005_pending_status.sql'), 'utf-8');
-  db.exec(sql005);
-  const sql006 = readFileSync(join(__dirname, '../db/migrations/006_task_colors.sql'), 'utf-8');
-  db.exec(sql006);
-  const sql007 = readFileSync(join(__dirname, '../db/migrations/007_project_color.sql'), 'utf-8');
-  db.exec(sql007);
-  const sql008 = readFileSync(join(__dirname, '../db/migrations/008_next_seq.sql'), 'utf-8');
-  db.exec(sql008);
-  const sql009 = readFileSync(join(__dirname, '../db/migrations/009_task_estimate.sql'), 'utf-8');
-  db.exec(sql009);
-  const sql010 = readFileSync(join(__dirname, '../db/migrations/010_app_settings.sql'), 'utf-8');
-  db.exec(sql010);
-  const sql011 = readFileSync(join(__dirname, '../db/migrations/011_project_resource_overrides.sql'), 'utf-8');
-  db.exec(sql011);
-  const sql012 = readFileSync(join(__dirname, '../db/migrations/012_task_refs.sql'), 'utf-8');
-  db.exec(sql012);
+  // 本番 db/client.ts と同じく、番号順（ファイル名昇順）で全マイグレーションを適用する
+  const dir = join(__dirname, '../db/migrations');
+  for (const f of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(join(dir, f), 'utf-8'));
+  }
   return db;
+}
+
+/** buildTestApp で登録するルート/プラグイン（指定したものだけ登録。登録順は固定） */
+export interface TestAppOptions {
+  /** @fastify/cors（既定オプション） */
+  cors?: boolean;
+  /** registerJsonBodyParser */
+  jsonParser?: boolean;
+  /** registerCompression */
+  compression?: boolean;
+  /** authPlugin */
+  auth?: boolean;
+  /** healthRoutes */
+  health?: boolean;
+  /** projectRoutes（/api/v1） */
+  projects?: boolean;
+  /** taskRoutes（/api/v1） */
+  tasks?: boolean;
+  /** importExportRoutes（/api/v1） */
+  importExport?: boolean;
+  /** settingsRoutes（/api/v1） */
+  settings?: boolean;
+}
+
+/**
+ * テスト用 Fastify を組み立てる。登録順: cors → jsonParser → compression → auth → health →
+ * projects → tasks → importExport → settings。
+ * ルート等は動的 import するため、呼び出し側テストファイルの
+ * `vi.mock('../db/client.js')` / `vi.mock('../ws/wsRoom.js')`（hoist 済み）が適用される。
+ */
+export async function buildTestApp(opts: TestAppOptions = {}): Promise<FastifyInstance> {
+  const app = Fastify();
+  const prefix = { prefix: '/api/v1' };
+  if (opts.cors) await app.register(cors);
+  if (opts.jsonParser) (await import('../plugins/jsonParser.js')).registerJsonBodyParser(app);
+  if (opts.compression) await (await import('../plugins/compression.js')).registerCompression(app);
+  if (opts.auth) await app.register((await import('../plugins/auth.js')).authPlugin);
+  if (opts.health) await app.register((await import('../routes/health.js')).healthRoutes);
+  if (opts.projects) await app.register((await import('../routes/projects.js')).projectRoutes, prefix);
+  if (opts.tasks) await app.register((await import('../routes/tasks.js')).taskRoutes, prefix);
+  if (opts.importExport) await app.register((await import('../routes/importExport.js')).importExportRoutes, prefix);
+  if (opts.settings) await app.register((await import('../routes/settings.js')).settingsRoutes, prefix);
+  await app.ready();
+  return app;
+}
+
+/** プロジェクトを作成して project オブジェクトを返す（name 既定 'P'） */
+export async function createProject(app: FastifyInstance, body: Record<string, unknown> = {}) {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P', ...body } });
+  return res.json().project;
+}
+
+/** タスク作成リクエストを送り、レスポンスをそのまま返す（異常系の検証用。body は補完せずそのまま送る） */
+export function postTask(app: FastifyInstance, projectId: string, body: Record<string, unknown>) {
+  return app.inject({
+    method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+    payload: body,
+  });
+}
+
+/** タスクを作成して task オブジェクトを返す（title 既定 'Task'） */
+export async function createTask(app: FastifyInstance, projectId: string, body: Record<string, unknown> = {}) {
+  return (await postTask(app, projectId, { title: 'Task', ...body })).json().task;
 }

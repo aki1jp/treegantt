@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDb } from './helpers.js';
+import { createTestDb, buildTestApp } from './helpers.js';
 import type Database from 'better-sqlite3';
-import Fastify from 'fastify';
 
 let testDb: Database.Database;
 
@@ -9,17 +8,9 @@ vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
 }));
 
-const { registerJsonBodyParser } = await import('../plugins/jsonParser.js');
-const { settingsRoutes } = await import('../routes/settings.js');
 const { getSettings, updateSettings, DEFAULT_SETTINGS } = await import('../services/settingsService.js');
 
-async function buildApp() {
-  const app = Fastify();
-  registerJsonBodyParser(app);
-  await app.register(settingsRoutes, { prefix: '/api/v1' });
-  await app.ready();
-  return app;
-}
+const buildApp = () => buildTestApp({ jsonParser: true, settings: true });
 
 describe('settingsService', () => {
   beforeEach(() => { testDb = createTestDb(); });
