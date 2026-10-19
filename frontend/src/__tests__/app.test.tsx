@@ -486,3 +486,82 @@ describe('App — 本体文言の i18n（locale="en"）', () => {
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('Delete project "プロジェクト1"?'));
   });
 });
+
+describe('App — プロジェクト切替中の遅延読み込み表示（§5.8）', () => {
+  // p2 のタスク取得だけを保留できる fetch（保留解除/失敗は呼び出し側が制御）
+  function stubDeferredP2() {
+    const base = makeFetchMock(routerState);
+    let release: () => void = () => {};
+    let fail = false;
+    const gate = new Promise<void>(res => { release = res; });
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (/\/projects\/p2\/tasks\?/.test(url) && (init?.method ?? 'GET') === 'GET') {
+        await gate;
+        if (fail) return jsonResponse({ error: 'boom' }, false, 500);
+      }
+      return base(url, init);
+    }));
+    return { release: () => release(), failNext: () => { fail = true; } };
+  }
+
+  async function settle(ms = 0) {
+    await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+  }
+
+  async function renderAndSwitchToP2() {
+    routerState.projects = [makeProject('p1', 'プロジェクト1'), makeProject('p2', 'プロジェクト2')];
+    routerState.tasksByProject.p2 = [makeTask({ id: 'x1', projectId: 'p2', title: 'P2タスク' })];
+    useTaskStore.setState({ tasks: [], tasksOwnerProjectId: null, locale: 'ja' });
+    const ctl = stubDeferredP2();
+    render(<App />);
+    await settle(50);
+    expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy();
+    fireEvent.click(screen.getByText('プロジェクト2'));
+    return ctl;
+  }
+
+  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: false }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('切替中は250ms未満では何も出さず、250ms以上で読み込み表示を出す。ガントは描画しない', async () => {
+    await renderAndSwitchToP2();
+    await settle(100);
+    expect(screen.queryByTestId('tasks-loading')).toBeNull();
+    expect(screen.queryByTestId('gantt-chart-stub')).toBeNull();
+    await settle(200);
+    const el = screen.getByTestId('tasks-loading');
+    expect(el.getAttribute('role')).toBe('status');
+    expect(screen.queryByTestId('gantt-chart-stub')).toBeNull();
+  });
+
+  it('取得完了でガントが出て読み込み表示が消える', async () => {
+    const ctl = await renderAndSwitchToP2();
+    await settle(300);
+    expect(screen.getByTestId('tasks-loading')).toBeTruthy();
+    ctl.release();
+    await settle(50);
+    expect(screen.queryByTestId('tasks-loading')).toBeNull();
+    expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy();
+  });
+
+  it('250ms未満で取得が完了したら読み込み表示を一切出さない', async () => {
+    const ctl = await renderAndSwitchToP2();
+    await settle(100);
+    ctl.release();
+    await settle(50);
+    await settle(500);
+    expect(screen.queryByTestId('tasks-loading')).toBeNull();
+    expect(screen.getByTestId('gantt-chart-stub')).toBeTruthy();
+  });
+
+  it('取得失敗時は読み込み表示でなく tasksError 表示（再試行）を優先する', async () => {
+    const ctl = await renderAndSwitchToP2();
+    ctl.failNext();
+    await settle(300);
+    ctl.release();
+    await settle(50);
+    expect(screen.queryByTestId('tasks-loading')).toBeNull();
+    expect(screen.getByText('再試行')).toBeTruthy();
+    expect(screen.queryByTestId('gantt-chart-stub')).toBeNull();
+  });
+});
