@@ -49,11 +49,11 @@ interface RenderOpts {
 }
 
 function renderChart(tasks: Task[], opts: RenderOpts = {}) {
-  useTaskStore.setState({ tasks });
+  useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks });
   const onReorder    = opts.onReorder    ?? NOOP;
   const onCopyInsert = opts.onCopyInsert ?? NOOP;
   return render(
-    <GanttChart
+    <GanttChart projectId="p1"
       onEditTask={NOOP}
       onDeleteTask={NOOP}
       onInlineUpdate={NOOP}

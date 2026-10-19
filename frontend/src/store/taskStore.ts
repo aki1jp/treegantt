@@ -8,6 +8,10 @@ export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; 
 
 interface TaskStore {
   tasks:              Task[];
+  // `tasks` が「どのプロジェクトのタスクか」。全置換（setTasks に ownerProjectId を渡す）と同時に更新し、
+  // 省略時・upsert 等の部分更新では変えない。読み出し側（useProjectTaskData）は現在プロジェクトと一致するときだけ
+  // 実データを使う（切替中に旧タスクが参照扱いで描画される問題の対策）。非永続（partialize に含めない）。
+  tasksOwnerProjectId: string | null;
   // クロスプロジェクト参照（§5.8）: 現プロジェクトの `tasks` とは分離した非永続スロット。
   // setTasks の全置換・WS 反映・フィルタ処理との干渉を避けるため（partialize に含めない）。
   refTasks:           Task[];
@@ -45,7 +49,7 @@ interface TaskStore {
   // フィルタ値ではなく UI 設定として扱うため uiInitialState には入れず resetUi の対象外にする。
   pinnedAssignees:    Record<string, string[]>;
   depArrowStyle:      DepArrowStyle;
-  setTasks:               (tasks: Task[]) => void;
+  setTasks:               (tasks: Task[], ownerProjectId?: string | null) => void;
   upsertTask:             (task: Task) => void;
   setRefData:             (refTasks: Task[], refProjects: RefProject[], ownerProjectId: string | null) => void;
   upsertRefTask:          (task: Task) => void;
@@ -98,6 +102,7 @@ export const useTaskStore = create<TaskStore>()(
   persist(
     (set) => ({
       tasks:             [],
+      tasksOwnerProjectId: null as string | null,
       refTasks:          [] as Task[],
       refProjects:       [] as RefProject[],
       refOwnerProjectId: null as string | null,
@@ -115,7 +120,7 @@ export const useTaskStore = create<TaskStore>()(
       wbsHiddenCols:     [] as string[],
       pinnedAssignees:   {} as Record<string, string[]>,
       ...uiInitialState,
-      setTasks:               (tasks) => set({ tasks }),
+      setTasks:               (tasks, ownerProjectId) => set(ownerProjectId === undefined ? { tasks } : { tasks, tasksOwnerProjectId: ownerProjectId }),
       // 差分適用アクション（v2.63）: 全置換を避け、未変更タスクの参照を維持して
       // React.memo 行コンポーネントの再レンダリングを最小化する
       upsertTask:             (task) => set((s) => ({

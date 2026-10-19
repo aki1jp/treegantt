@@ -47,7 +47,7 @@ describe('a11y — Toolbar', () => {
   function renderToolbar() {
     return render(
       <Toolbar onAddTask={NOOP} onAddMilestone={NOOP} onImport={NOOP} onRestore={NOOP}
-        onExportJson={NOOP} onExportCsv={NOOP} />
+        onExportJson={NOOP} onExportCsv={NOOP} currentProjectId="p1" />
     );
   }
 
@@ -93,7 +93,7 @@ describe('a11y — Toolbar 担当者フィルタ combobox', () => {
   beforeEach(() => {
     localStorage.clear();
     useTaskStore.setState({
-      tasks: [makeTask({ id: 't1', assignee: 'Alice' })],
+      tasksOwnerProjectId: 'p1', tasks: [makeTask({ id: 't1', assignee: 'Alice' })],
       needsReload: false,
       filterStatus: '', filterAssignee: '', filterPriority: '', filterSearch: '',
       zoomLevel: 'week', ganttStartDate: '', ganttPeriod: '3m',
@@ -107,7 +107,7 @@ describe('a11y — Toolbar 担当者フィルタ combobox', () => {
   function renderToolbar() {
     return render(
       <Toolbar onAddTask={NOOP} onAddMilestone={NOOP} onImport={NOOP} onRestore={NOOP}
-        onExportJson={NOOP} onExportCsv={NOOP} />
+        onExportJson={NOOP} onExportCsv={NOOP} currentProjectId="p1" />
     );
   }
 
@@ -201,9 +201,9 @@ describe('a11y — GanttChart', () => {
   afterEach(() => { vi.useRealTimers(); });
 
   function renderChart(tasks: Task[]) {
-    useTaskStore.setState({ tasks });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks });
     return render(
-      <GanttChart
+      <GanttChart projectId="p1"
         onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
       />

@@ -22,7 +22,7 @@ function exportFileName(project: Project, ext: string): string {
 export function useImportExport(
   currentProject: Project | null,
   tasks: Task[],
-  setTasks: (tasks: Task[]) => void,
+  setTasks: (tasks: Task[], ownerProjectId?: string | null) => void,
 ) {
   const [importMode, setImportMode] = useState<'append' | 'restore' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +56,7 @@ export function useImportExport(
         body: JSON.stringify({ tasks: importedTasks, mode }),
       });
       const data = await apiFetch(`/projects/${currentProject.id}/tasks`);
-      setTasks(data.tasks as Task[]);
+      setTasks(data.tasks as Task[], currentProject.id);
     } catch (err) {
       // 空 dep 相当のクロージャで locale を固定しないよう、catch 実行時点の最新 locale を読み直す
       const currentLocale = useTaskStore.getState().locale;

@@ -24,6 +24,7 @@ import { buildCopyBatch, computeCopyInsertOrder } from './utils/copyBatch';
 import { useProjectTasks } from './hooks/useProjectTasks';
 import { useProjectRefs } from './hooks/useProjectRefs';
 import { useRefData } from './hooks/useRefData';
+import { useProjectTaskData } from './hooks/useProjectTaskData';
 import { isReadonlyTask } from './utils/refTasks';
 import { showToast } from './store/toastStore';
 import { ToastContainer } from './components/Toast/Toast';
@@ -41,7 +42,7 @@ export default function App() {
   const [refManagerOpen, setRefManagerOpen] = useState(false);
   const [backendVersion, setBackendVersion] = useState<string | null>(null);
 
-  const { tasks, setTasks, theme, setTheme, locale, setLocale } = useTaskStore();
+  const { setTasks, theme, setTheme, locale, setLocale } = useTaskStore();
   const { t } = useTranslation();
   const {
     projects, currentProject, setCurrentProject, loading, error: projectsError, retry: retryProjects,
@@ -51,6 +52,8 @@ export default function App() {
   // クロスプロジェクト参照（§5.8）: 読み出しはストア直読みでなくこのフック経由に一本化する
   // （持ち主 refOwnerProjectId が現在プロジェクトと不一致なら空を返す＝最終防衛線）
   const { refTasks, refProjects } = useRefData(currentProject?.id);
+  // タスク本体も同様に持ち主照合を通す（切替中は旧プロジェクトのタスクを空として扱う）
+  const { tasks } = useProjectTaskData(currentProject?.id);
 
   useTheme();
   useWebSocket(currentProject?.id ?? null);

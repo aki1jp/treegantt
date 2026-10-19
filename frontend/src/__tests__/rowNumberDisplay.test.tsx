@@ -51,9 +51,9 @@ afterEach(() => {
 });
 
 function renderChart(tasks: Task[], filterOverrides: Partial<ReturnType<typeof useTaskStore.getState>> = {}) {
-  useTaskStore.setState({ tasks, ...filterOverrides });
+  useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks, ...filterOverrides });
   return render(
-    <GanttChart
+    <GanttChart projectId="p1"
       onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
       onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
     />
@@ -156,10 +156,10 @@ describe('「行」列: フィルタで隠れた兄弟がいる状態でのD&D�
     const B = makeTask({ title: 'B', order: 2, status: 'done' }); // フィルタで非表示
     const C = makeTask({ title: 'C', order: 3, status: 'todo' });
     const onReorder = vi.fn().mockResolvedValue(undefined);
-    useTaskStore.setState({ tasks: [A, B, C], filterStatus: '!done' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [A, B, C], filterStatus: '!done' });
 
     const { getByTestId, rerender } = render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} onCopyInsert={NOOP} />
     );
 
@@ -179,9 +179,9 @@ describe('「行」列: フィルタで隠れた兄弟がいる状態でのD&D�
 
     // 返ってきた order を適用してフィルタを解除し、行番号が矛盾なく昇順になることを確認
     const updated = [A, B, C].map(t => ({ ...t, order: orderMap.get(t.id) ?? t.order }));
-    useTaskStore.setState({ tasks: updated, filterStatus: '' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: updated, filterStatus: '' });
     rerender(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} onCopyInsert={NOOP} />
     );
 

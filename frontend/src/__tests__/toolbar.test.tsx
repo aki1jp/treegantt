@@ -261,6 +261,7 @@ describe('Toolbar 色フィルタ', () => {
 
   it('タスクで使用中の色が選択肢として動的に追加される', () => {
     useTaskStore.setState({
+      tasksOwnerProjectId: 'p1',
       tasks: [
         {
           id: 't1', projectId: 'p1', parentId: null, title: 'A', summary: '', description: '',
@@ -271,7 +272,7 @@ describe('Toolbar 色フィルタ', () => {
         },
       ],
     });
-    renderToolbar();
+    renderToolbar('p1');
     const select = screen.getByLabelText('色で絞り込み') as HTMLSelectElement;
     expect(Array.from(select.options).some(o => o.value === '#ef4444')).toBe(true);
   });
@@ -588,6 +589,7 @@ describe('Toolbar i18n（locale="en"）', () => {
 describe('Toolbar 担当者フィルタ ピン留め', () => {
   function setupTasks() {
     useTaskStore.setState({
+      tasksOwnerProjectId: 'p1',
       tasks: [
         makeAssigneeTask('t1', 'Alice'),
         makeAssigneeTask('t2', 'Bob'),
@@ -672,13 +674,12 @@ describe('Toolbar 担当者フィルタ ピン留め', () => {
     expect(options.some(o => within(o).queryByText('Nobody'))).toBe(false);
   });
 
-  it('currentProjectId 未指定でも落ちず、セクション見出しの無いフラットなリストになる', () => {
+  it('currentProjectId 未指定でも落ちない（持ち主不一致のため候補は空）', () => {
     setupTasks();
     renderToolbar();
-    openListbox();
+    expect(screen.queryAllByTestId('assignee-option').length).toBe(0);
     expect(screen.queryByTestId('assignee-pinned-section')).toBeNull();
     expect(screen.queryByTestId('assignee-others-section')).toBeNull();
-    expect(screen.getAllByTestId('assignee-option').length).toBe(3);
   });
 
   it('既存の✕クリアの挙動は引き続き通る', () => {

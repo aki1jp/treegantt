@@ -71,7 +71,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   useTaskStore.setState({
-    tasks: makeTasks(),
+    tasks: makeTasks(), tasksOwnerProjectId: 'p1',
     needsReload: false,
     filterStatus: '',
     filterAssignee: '',
@@ -94,7 +94,7 @@ beforeEach(() => {
 
 function renderChart() {
   return render(
-    <GanttChart
+    <GanttChart projectId="p1"
       onEditTask={NOOP}
       onDeleteTask={NOOP}
       onInlineUpdate={NOOP}

@@ -69,7 +69,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 
 function renderChart() {
   return render(
-    <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+    <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
       onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
   );
 }
@@ -111,7 +111,7 @@ function quickAddRoot(container: HTMLElement): HTMLElement {
 
 describe('WBS列レイアウト — 既定状態', () => {
   beforeEach(() => {
-    useTaskStore.setState({ tasks: [makeTask()], ganttStartDate: '2026-05-01' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], ganttStartDate: '2026-05-01' });
   });
 
   it('クイック追加行の title セル左オフセットがタスク行の title セル左オフセットと一致する', () => {
@@ -174,7 +174,7 @@ describe('WBS列レイアウト — 総幅の一致（クイック追加行・�
   }
 
   it('既定状態: 4箇所の総幅が一致する', () => {
-    useTaskStore.setState({ tasks: [makeTask()], ganttStartDate: '2026-05-01' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], ganttStartDate: '2026-05-01' });
     expectAllTotalsMatch();
   });
 
@@ -198,19 +198,19 @@ describe('WBS列レイアウト — フォントサイズ連動（日付列幅�
   }
 
   it('uiFontSize=11（dateColWidth=80）でも総幅が一致する', () => {
-    useTaskStore.setState({ tasks: [makeTask()], ganttStartDate: '2026-05-01', uiFontSize: 11 });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], ganttStartDate: '2026-05-01', uiFontSize: 11 });
     expectAllTotalsMatch();
   });
 
   it('uiFontSize=15（dateColWidth=100）でも総幅が一致する', () => {
-    useTaskStore.setState({ tasks: [makeTask()], ganttStartDate: '2026-05-01', uiFontSize: 15 });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], ganttStartDate: '2026-05-01', uiFontSize: 15 });
     expectAllTotalsMatch();
   });
 });
 
 describe('WBS列レイアウト — WBSパネル閉状態', () => {
   it('パネルが閉じているときタスク行の全セル幅合計がパネル幅と一致する（列が欠けない）', () => {
-    useTaskStore.setState({ tasks: [makeTask()], ganttStartDate: '2026-05-01', wbsPanelOpen: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], ganttStartDate: '2026-05-01', wbsPanelOpen: false });
     const { getByTestId } = renderChart();
     const wbsPanel = getByTestId('wbs-panel');
     const panelWidth = parseFloat(wbsPanel.style.width);

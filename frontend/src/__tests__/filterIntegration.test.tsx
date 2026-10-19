@@ -46,9 +46,9 @@ afterEach(() => {
 });
 
 function renderChart(tasks: Task[], filterOverrides: Partial<ReturnType<typeof useTaskStore.getState>> = {}) {
-  useTaskStore.setState({ tasks, ...filterOverrides });
+  useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks, ...filterOverrides });
   return render(
-    <GanttChart
+    <GanttChart projectId="p1"
       onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
       onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
     />

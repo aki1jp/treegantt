@@ -67,7 +67,7 @@ function renderChart(
   refProjects: RefProject[] = [],
 ) {
   // renderChart は常に projectId="p1" で描画するため、参照データの持ち主も 'p1' に揃える
-  useTaskStore.setState({ tasks, refTasks, refProjects, refOwnerProjectId: 'p1' });
+  useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks, refTasks, refProjects, refOwnerProjectId: 'p1' });
   return render(
     <GanttChart
       projectId="p1"
@@ -137,7 +137,7 @@ describe('クロスプロジェクト参照 — 描画統合', () => {
     const own = makeTask({ id: 'own1', projectId: 'p1' });
     const ref = makeTask({ id: 'ref1', projectId: 'p2', parentId: null });
     // renderChart は projectId='p1' で描画するが、ストア上の持ち主は 'pA'（別プロジェクト）のまま
-    useTaskStore.setState({ tasks: [own], refTasks: [ref], refProjects, refOwnerProjectId: 'pA' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [own], refTasks: [ref], refProjects, refOwnerProjectId: 'pA' });
     render(
       <GanttChart
         projectId="p1"

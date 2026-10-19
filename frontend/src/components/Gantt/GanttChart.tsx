@@ -13,6 +13,7 @@ import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
 import { useRefData } from '../../hooks/useRefData';
+import { useProjectTaskData } from '../../hooks/useProjectTaskData';
 import { calcVisibleRange } from '../../utils/virtualRange';
 import { useDowLabels } from '../../i18n/dow';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -82,7 +83,7 @@ export function GanttChart({
   onUpdateExternalDeps, onOpenRefProject, onRemoveRef, onRefreshRefs,
 }: Props) {
   const {
-    tasks, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
+    filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
@@ -92,6 +93,8 @@ export function GanttChart({
   // クロスプロジェクト参照（§5.8）: 読み出しはストア直読みでなくこのフック経由に一本化する
   // （持ち主 refOwnerProjectId が projectId と不一致なら空を返す＝最終防衛線）
   const { refTasks, refProjects } = useRefData(projectId);
+  // タスク本体も持ち主照合を通す（切替中の旧プロジェクトのタスクが参照扱いで描画されるのを防ぐ）
+  const { tasks } = useProjectTaskData(projectId);
 
   const { t } = useTranslation();
   // 列見出しラベルは辞書から t() で引く（GanttChart/WbsPanel 共通の WBS_COL_LABEL_KEYS 経由, §9.11）
