@@ -546,3 +546,49 @@ export function batchCreateTasks(
 
   return createdIds.map(id => getTask(id)!);
 }
+
+/** ISO `YYYY-MM-DD` に days 日を加算する（UTC ベース。タイムゾーンでずれない） */
+function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * 対象タスクの全子孫（自身を除く）のうち日付を持つものの startDate/endDate を days 日加算する
+ * （単一トランザクション）。更新されたタスクを返す。更新 0 件なら UPDATE せず空配列。
+ */
+export function shiftSubtreeDates(rootId: string, days: number): TaskWithSuccessors[] {
+  const rows = db
+    .prepare(
+      `WITH RECURSIVE sub(id) AS (
+         SELECT id FROM tasks WHERE id = ?
+         UNION
+         SELECT t.id FROM tasks t JOIN sub ON t.parent_id = sub.id
+       )
+       SELECT t.* FROM tasks t JOIN sub ON t.id = sub.id
+       WHERE t.id != ? AND (t.start_date IS NOT NULL OR t.end_date IS NOT NULL)`
+    )
+    .all(rootId, rootId) as RawTask[];
+  if (rows.length === 0) return [];
+
+  const upd = db.prepare('UPDATE tasks SET start_date = ?, end_date = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const r of rows) {
+      upd.run(
+        r.start_date === null ? null : addDaysIso(r.start_date, days),
+        r.end_date === null ? null : addDaysIso(r.end_date, days),
+        r.id
+      );
+    }
+  })();
+
+  const ids = rows.map(r => r.id);
+  const out: Task[] = [];
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const part = ids.slice(i, i + CHUNK);
+    const ph = part.map(() => '?').join(',');
+    out.push(...(db.prepare(`SELECT * FROM tasks WHERE id IN (${ph})`).all(...part) as RawTask[]).map(rawToTask));
+  }
+  return attachDeps(out);
+}

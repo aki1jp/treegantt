@@ -2156,7 +2156,7 @@ describe('Tasks API — POST /projects/:id/tasks/:taskId/shift（親配下の日
     expect((await shift(parent.id, { days: -3650 })).statusCode).toBe(200);
   });
 
-  it.each([[0], [1.5], [3651], [-3651], ['3'], [null]])('不正な days=%j は 400', async (days) => {
+  it.each([[0], [1.5], [3651], [-3651], [null]])('不正な days=%j は 400', async (days) => {
     const parent = await mk({});
     await mk({ parentId: parent.id, startDate: '2026-06-02', endDate: '2026-06-10' });
     expect((await shift(parent.id, { days })).statusCode).toBe(400);

@@ -14,6 +14,7 @@ import {
   wouldCreateCycle,
   wouldCreateDepCycleDb,
   batchCreateTasks,
+  shiftSubtreeDates,
   type BatchTaskInput,
 } from '../services/taskService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
@@ -295,6 +296,35 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
       return reply.code(204).send();
     },
+  );
+
+  // 親タスク配下の一括日付シフト（§5.2）。自身は更新せず、日付を持つ全子孫を days 日加算する
+  fastify.post<{ Params: { id: string; taskId: string }; Body: { days: number } }>(
+    '/projects/:id/tasks/:taskId/shift',
+    {
+      schema: {
+        tags: ['Tasks'],
+        summary: '親タスク配下の日付一括シフト',
+        body: {
+          type: 'object',
+          required: ['days'],
+          properties: {
+            days: { type: 'integer', minimum: -3650, maximum: 3650, not: { const: 0 } },
+          },
+        },
+      },
+      async handler(req, reply) {
+        const task = getTaskBasic(req.params.taskId);
+        if (!task) return reply.code(404).send({ error: 'Task not found', code: 'NOT_FOUND' });
+        if (task.projectId !== req.params.id)
+          return reply.code(400).send({ error: 'Task does not belong to project', code: 'INVALID_PROJECT' });
+        const tasks = shiftSubtreeDates(req.params.taskId, req.body.days);
+        if (tasks.length > 0) {
+          notifyRoom(req.params.id, { type: 'tasks_updated', projectId: req.params.id, tasks });
+        }
+        return { tasks };
+      },
+    }
   );
 
   // サブツリー一括作成（v2.69）
