@@ -399,6 +399,23 @@ describe('shiftSubtree', () => {
     expect(get('g1').startDate).toBe('2026-01-06');
   });
 
+  it('失敗時のロールバックは子孫だけで、待機中に届いた他タスクの更新は巻き戻さない', async () => {
+    seed();
+    let reject!: (e: unknown) => void;
+    vi.mocked(fetch).mockReturnValue(new Promise<Response>((_, r) => { reject = r; }));
+    const pending = useTasks('p1').shiftSubtree('root', 2);
+    const assertion = expect(pending).rejects.toThrow();
+    // API 待機中に WS で別タスクの更新が届く
+    useTaskStore.getState().upsertTask({ ...get('other'), title: 'WS更新', startDate: '2026-03-01' });
+    reject(new Error('boom'));
+    await assertion;
+    expect(get('other').title).toBe('WS更新');
+    expect(get('other').startDate).toBe('2026-03-01');
+    expect(get('c1').startDate).toBe('2026-01-05');
+    expect(get('c1').endDate).toBe('2026-01-07');
+    expect(get('g1').startDate).toBe('2026-01-06');
+  });
+
   it('parentId が循環していても無限ループしない', async () => {
     useTaskStore.setState({
       tasks: [
