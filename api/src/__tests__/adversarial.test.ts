@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDb, buildTestApp } from './helpers.js';
+import { createTestDb, buildTestApp, createProject, postTask } from './helpers.js';
 import type Database from 'better-sqlite3';
 
 let testDb: Database.Database;
@@ -20,23 +20,9 @@ const buildApp = () => buildTestApp({
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 
-async function mkProject(app: App, name = 'P') {
-  const res = await app.inject({
-    method: 'POST', url: '/api/v1/projects',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name }),
-  });
-  return res.json().project.id as string;
-}
+const mkProject = async (app: App, name = 'P') => (await createProject(app, { name })).id as string;
 
-async function mkTask(app: App, projectId: string, body: Record<string, unknown>) {
-  return app.inject({
-    method: 'POST',
-    url: `/api/v1/projects/${projectId}/tasks`,
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
+const mkTask = (app: App, projectId: string, body: Record<string, unknown>) => postTask(app, projectId, body);
 
 describe('API 悪意テスト — 入力バリデーション', () => {
   let app: App;

@@ -63,3 +63,22 @@ export async function buildTestApp(opts: TestAppOptions = {}): Promise<FastifyIn
   await app.ready();
   return app;
 }
+
+/** プロジェクトを作成して project オブジェクトを返す（name 既定 'P'） */
+export async function createProject(app: FastifyInstance, body: Record<string, unknown> = {}) {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P', ...body } });
+  return res.json().project;
+}
+
+/** タスク作成リクエストを送り、レスポンスをそのまま返す（異常系の検証用。body は補完せずそのまま送る） */
+export function postTask(app: FastifyInstance, projectId: string, body: Record<string, unknown>) {
+  return app.inject({
+    method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+    payload: body,
+  });
+}
+
+/** タスクを作成して task オブジェクトを返す（title 既定 'Task'） */
+export async function createTask(app: FastifyInstance, projectId: string, body: Record<string, unknown> = {}) {
+  return (await postTask(app, projectId, { title: 'Task', ...body })).json().task;
+}

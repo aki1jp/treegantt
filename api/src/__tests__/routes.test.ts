@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createTestDb, buildTestApp } from './helpers.js';
+import { createTestDb, buildTestApp, createProject, createTask as createTaskIn } from './helpers.js';
 import type Database from 'better-sqlite3';
 import { notifyRoom } from '../ws/wsRoom.js';
 
@@ -221,11 +221,7 @@ describe('Tasks API', () => {
     testDb = createTestDb();
     app = await buildApp();
 
-    const res = await app.inject({
-      method: 'POST', url: '/api/v1/projects',
-      payload: { name: 'Test Project' },
-    });
-    projectId = res.json().project.id;
+    projectId = (await createProject(app, { name: 'Test Project' })).id;
   });
 
   afterEach(async () => {
@@ -234,13 +230,8 @@ describe('Tasks API', () => {
     testDb.close();
   });
 
-  async function createTask(overrides = {}) {
-    const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-      payload: { title: 'Test Task', ...overrides },
-    });
-    return res.json().task;
-  }
+  const createTask = (overrides = {}) =>
+    createTaskIn(app, projectId, { title: 'Test Task', ...overrides });
 
   it('GET /api/v1/projects/:id/tasks returns empty list', async () => {
     const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/tasks` });
@@ -562,11 +553,7 @@ describe('Tasks API — 実質変更なしの PATCH は保存・配信しない'
     testDb = createTestDb();
     app = await buildApp();
 
-    const res = await app.inject({
-      method: 'POST', url: '/api/v1/projects',
-      payload: { name: 'NoOp Test Project' },
-    });
-    projectId = res.json().project.id;
+    projectId = (await createProject(app, { name: 'NoOp Test Project' })).id;
   });
 
   afterEach(async () => {
@@ -574,13 +561,8 @@ describe('Tasks API — 実質変更なしの PATCH は保存・配信しない'
     testDb.close();
   });
 
-  async function createTask(overrides = {}) {
-    const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-      payload: { title: 'NoOp Task', ...overrides },
-    });
-    return res.json().task;
-  }
+  const createTask = (overrides = {}) =>
+    createTaskIn(app, projectId, { title: 'NoOp Task', ...overrides });
 
   it('同じ値で PATCH しても 200 かつ notifyRoom は呼ばれず、updatedAt も変化しない', async () => {
     const task = await createTask({ title: '同値', progress: 30, status: 'wip' });
@@ -730,18 +712,13 @@ describe('Tasks API — reorder のバリデーション', () => {
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    projectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P1' } })).json().project.id;
-    otherProjectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
+    projectId = (await createProject(app, { name: 'P1' })).id;
+    otherProjectId = (await createProject(app, { name: 'P2' })).id;
   });
   afterEach(async () => { await app.close(); testDb.close(); });
 
-  async function createTask(pid: string, overrides = {}) {
-    const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${pid}/tasks`,
-      payload: { title: 'Test Task', ...overrides },
-    });
-    return res.json().task;
-  }
+  const createTask = (pid: string, overrides = {}) =>
+    createTaskIn(app, pid, { title: 'Test Task', ...overrides });
 
   it('reorder: 自分自身を parentId に指定すると 400（循環）', async () => {
     const task = await createTask(projectId, { title: 'T' });
@@ -869,8 +846,8 @@ describe('Tasks API — parentId バリデーション', () => {
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    projectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P1' } })).json().project.id;
-    otherProjectId = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
+    projectId = (await createProject(app, { name: 'P1' })).id;
+    otherProjectId = (await createProject(app, { name: 'P2' })).id;
   });
   afterEach(async () => { await app.close(); testDb.close(); });
 
@@ -946,11 +923,7 @@ describe('Import/Export API', () => {
     testDb = createTestDb();
     app = await buildApp();
 
-    const res = await app.inject({
-      method: 'POST', url: '/api/v1/projects',
-      payload: { name: 'Export Test' },
-    });
-    projectId = res.json().project.id;
+    projectId = (await createProject(app, { name: 'Export Test' })).id;
   });
 
   afterEach(async () => {
@@ -1655,11 +1628,7 @@ describe('Tasks API — 削除WS通知の一括化（v2.66）', () => {
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    const res = await app.inject({
-      method: 'POST', url: '/api/v1/projects',
-      payload: { name: 'WS Test Project' },
-    });
-    projectId = res.json().project.id;
+    projectId = (await createProject(app, { name: 'WS Test Project' })).id;
   });
 
   afterEach(async () => {
@@ -1667,13 +1636,8 @@ describe('Tasks API — 削除WS通知の一括化（v2.66）', () => {
     testDb.close();
   });
 
-  async function createTask(overrides = {}) {
-    const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-      payload: { title: 'WS Task', ...overrides },
-    });
-    return res.json().task;
-  }
+  const createTask = (overrides = {}) =>
+    createTaskIn(app, projectId, { title: 'WS Task', ...overrides });
 
   it('subtree 削除: 削除ID全件を含む tasks_deleted を1通だけ送る', async () => {
     const root = await createTask({ title: '親' });
@@ -1724,11 +1688,7 @@ describe('Tasks Batch API — POST /projects/:id/tasks/batch', () => {
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    const res = await app.inject({
-      method: 'POST', url: '/api/v1/projects',
-      payload: { name: 'Batch Test Project' },
-    });
-    projectId = res.json().project.id;
+    projectId = (await createProject(app, { name: 'Batch Test Project' })).id;
   });
 
   afterEach(async () => {
@@ -1953,17 +1913,12 @@ describe('Tasks API — 依存循環検証（task_deps 全域・DEP_CYCLE_DETECT
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    pid = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P' } })).json().project.id;
+    pid = (await createProject(app, { name: 'P' })).id;
   });
   afterEach(async () => { await app.close(); testDb.close(); });
 
-  async function mkTask(projectId: string, body: Record<string, unknown> = {}) {
-    const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-      payload: { title: 'T', ...body },
-    });
-    return res.json().task as { id: string; predecessors: string[] };
-  }
+  const mkTask = (projectId: string, body: Record<string, unknown> = {}) =>
+    createTaskIn(app, projectId, { title: 'T', ...body });
 
   it('同一プロジェクト内の依存循環（A→B→A）は更新時に 400 DEP_CYCLE_DETECTED', async () => {
     const a = await mkTask(pid, { title: 'A' });
@@ -1983,8 +1938,8 @@ describe('Tasks API — 依存循環検証（task_deps 全域・DEP_CYCLE_DETECT
 
   it('3プロジェクト跨ぎの循環（A(P1)→B(P2)→C(P3)→A）は 400 DEP_CYCLE_DETECTED', async () => {
     const p1 = pid;
-    const p2 = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
-    const p3 = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P3' } })).json().project.id;
+    const p2 = (await createProject(app, { name: 'P2' })).id;
+    const p3 = (await createProject(app, { name: 'P3' })).id;
 
     const a = await mkTask(p1, { title: 'A' });
     const b = await mkTask(p2, { title: 'B', predecessors: [a.id] });
@@ -2023,7 +1978,7 @@ describe('Tasks API — 依存循環検証（task_deps 全域・DEP_CYCLE_DETECT
   });
 
   it('循環のない正当なクロスプロジェクト依存は 200 で作成できる', async () => {
-    const p2 = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
+    const p2 = (await createProject(app, { name: 'P2' })).id;
     const a = await mkTask(pid, { title: 'A' });
 
     const res = await app.inject({
@@ -2042,8 +1997,7 @@ describe('Tasks API — POST /projects/:id/tasks/:taskId/shift（親配下の日
   beforeEach(async () => {
     testDb = createTestDb();
     app = await buildApp();
-    const res = await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P' } });
-    projectId = res.json().project.id;
+    projectId = (await createProject(app, { name: 'P' })).id;
     vi.mocked(notifyRoom).mockClear();
   });
 
@@ -2052,13 +2006,8 @@ describe('Tasks API — POST /projects/:id/tasks/:taskId/shift（親配下の日
     testDb.close();
   });
 
-  async function mk(overrides = {}, pid = projectId) {
-    const res = await app.inject({
-      method: 'POST', url: `/api/v1/projects/${pid}/tasks`,
-      payload: { title: 'T', ...overrides },
-    });
-    return res.json().task;
-  }
+  const mk = (overrides = {}, pid = projectId) =>
+    createTaskIn(app, pid, { title: 'T', ...overrides });
   async function shift(taskId: string, body: unknown, pid = projectId) {
     return app.inject({ method: 'POST', url: `/api/v1/projects/${pid}/tasks/${taskId}/shift`, payload: body as object });
   }
@@ -2203,7 +2152,7 @@ describe('Tasks API — POST /projects/:id/tasks/:taskId/shift（親配下の日
   });
 
   it('他プロジェクトのタスクは 400 で更新されない', async () => {
-    const p2 = (await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name: 'P2' } })).json().project.id;
+    const p2 = (await createProject(app, { name: 'P2' })).id;
     const parent = await mk({}, p2);
     const child = await mk({ parentId: parent.id, startDate: '2026-06-02', endDate: '2026-06-10' }, p2);
     const res = await shift(parent.id, { days: 1 });

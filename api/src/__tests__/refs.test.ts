@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createTestDb } from './helpers.js';
+import { createTestDb, createProject, createTask } from './helpers.js';
 import type Database from 'better-sqlite3';
 
 let testDb: Database.Database;
@@ -17,16 +17,11 @@ const { buildApp } = await import('../app.js');
 type App = Awaited<ReturnType<typeof buildApp>>;
 
 async function mkProject(app: App, name = 'P', color: string | null = null) {
-  const res = await app.inject({ method: 'POST', url: '/api/v1/projects', payload: { name, color } });
-  return res.json().project as { id: string; name: string; color: string | null };
+  return (await createProject(app, { name, color })) as { id: string; name: string; color: string | null };
 }
 
 async function mkTask(app: App, projectId: string, body: Record<string, unknown> = {}) {
-  const res = await app.inject({
-    method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
-    payload: { title: 'Task', ...body },
-  });
-  return res.json().task as { id: string; parentId: string | null; predecessors: string[] };
+  return (await createTask(app, projectId, body)) as { id: string; parentId: string | null; predecessors: string[] };
 }
 
 function addRef(app: App, projectId: string, refTaskId: string) {
