@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.7** |
-| ドキュメント版 | 0.2.182 |
+| ドキュメント版 | 0.2.183 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -381,7 +381,7 @@ interface TaskRef {
 
 #### フロントエンド仕様（実装済み）
 
-- **ストア**：`taskStore` に非永続スロット `refTasks`/`refProjects`（アクション `setRefData`/`upsertRefTask`）を追加し、既存 `tasks` スロットとは分離する（`setTasks` の全置換・WS 反映・フィルタ処理との干渉を避けるため。`partialize` に含めず localStorage へ永続化しない）。取得・追加・解除・跨ぎ依存更新は `hooks/useProjectRefs.ts` が担い、プロジェクト切替時にスナップショットをロードする（R1）。参照データには「どのプロジェクトのために取得したものか」を示す `refOwnerProjectId` を併せて保持し、`setRefData` は `refTasks`/`refProjects`/`refOwnerProjectId` の3値を常に同時に更新する（持ち主だけがズレた状態を作らない）。読み出し側は `refOwnerProjectId` が現在プロジェクトと一致するときのみ参照データを使い、不一致なら**空として扱う**。あわせて `useProjectRefs` は発火のたびに世代を採番し、コールバック実行時点で最新世代でない（stale な）レスポンスはストアへ反映せずエラートーストも出さない（プロジェクト切替だけでなく、同一プロジェクトでの再読み込み連打でも直近の1件だけが勝つ）。これは「プロジェクト切替と参照取得の非同期レスポンスが競合すると、切替後のプロジェクトに切替前の参照行が混入して見える」ことを防ぐための二層の防御であり、同じ理由から `updateExternalPredecessors` の `upsertRefTask` も持ち主一致時のみ行う。
+- **ストア**：`taskStore` に非永続スロット `refTasks`/`refProjects`（アクション `setRefData`/`upsertRefTask`）を追加し、既存 `tasks` スロットとは分離する（`setTasks` の全置換・WS 反映・フィルタ処理との干渉を避けるため。`partialize` に含めず localStorage へ永続化しない）。取得・追加・解除・跨ぎ依存更新は `hooks/useProjectRefs.ts` が担い、プロジェクト切替時にスナップショットをロードする（R1）。参照データには「どのプロジェクトのために取得したものか」を示す `refOwnerProjectId` を併せて保持し、`setRefData` は `refTasks`/`refProjects`/`refOwnerProjectId` の3値を常に同時に更新する（持ち主だけがズレた状態を作らない）。読み出し側は `refOwnerProjectId` が現在プロジェクトと一致するときのみ参照データを使い、不一致なら**空として扱う**。あわせて `useProjectRefs` は発火のたびに世代を採番し、コールバック実行時点で最新世代でない（stale な）レスポンスはストアへ反映せずエラートーストも出さない（プロジェクト切替だけでなく、同一プロジェクトでの再読み込み連打でも直近の1件だけが勝つ）。これは「プロジェクト切替と参照取得の非同期レスポンスが競合すると、切替後のプロジェクトに切替前の参照行が混入して見える」ことを防ぐための二層の防御であり、同じ理由から `updateExternalPredecessors` の `upsertRefTask` も持ち主一致時のみ行う。`tasks` 本体にも同じ持ち主照合を設ける：`taskStore` の非永続スロット `tasksOwnerProjectId`（`partialize` に含めない）は `tasks` がどのプロジェクトのタスクかを示し、タスクを全置換する経路（`useProjectTasks` の切替時取得・reload 取得、`useImportExport` の Import 反映）は `setTasks(tasks, ownerProjectId)` で持ち主も同時に記録する。楽観的更新のロールバック等 `ownerProjectId` を省略した `setTasks` と、`upsertTask`/WS 等の部分更新は持ち主を変えない。読み出しは `hooks/useProjectTaskData.ts` の `useProjectTaskData(currentProjectId)` に一本化し、持ち主が現在プロジェクトと一致するときだけ `{ tasks, loaded: true }` を返し、不一致（切替直後〜取得完了前）は空配列（モジュール定数）と `loaded: false` を返す。これにより切替中に旧プロジェクトのタスクが `task.projectId !== currentProjectId` の判定で淡色＋🔗の参照タスクとして描画されることを防ぐ。切替中（`loaded: false`）は 250ms 遅延の読み込み表示を出し、その間ガント本体の編集は不可とし、空状態メッセージも出さない。
 - **描画（合成グループ行）**：参照先プロジェクトごとに合成グループ Task（`id = "ref:<projectId>"`、`order` はガント末尾に固定表示されるよう `1e9 + idx`、`titleBgColor` に参照先プロジェクトの色）を生成し、参照タスクの `parentId`（参照セット外を指す場合）をこのグループ行に差し替えてから既存のツリー描画・折りたたみ・行仮想化・依存矢印機構に渡す（`utils/refTasks.ts` の `mergeRefTasks()`。`GanttChart` で `displayTasks` として `filterTasks`/`includeAncestors` の入力に用いる）。クリティカルパス・リソースビュー・担当者候補は現在プロジェクトのみを入力とし、意味論を変えない。
 - **読み取り専用ガード**：`isReadonlyTask(task, currentProjectId)` を、インライン編集（`GanttLeftRow` の `readOnly` prop）・バードラッグ/リサイズ（`useBarDrag` 早期 return＋`GanttBar` ハンドル非表示）・作成ドラッグ（`canCreateOnRow`）・リンクドラッグ・行 D&D（`useRowDnd`。ドラッグ開始拒否・ドロップ先からの除外・reorder ペイロードからの除外）・右クリックメニュー・タスク詳細モーダル・削除（`App.handleDeleteTask`）の**8経路**すべてに配布し、参照タスクに対する編集操作を no-op にする（多層防御：`App.handleInlineUpdate` は readonly タスクへの patch が `predecessors` 単独のときのみ専用経路へ回し、それ以外は拒否してトースト表示）。参照行は淡色表示＋🔗 アイコンで区別する。
 - **参照行の右クリックメニュー**：参照タスク行・合成グループ行は専用メニュー（「参照先プロジェクトを開く」「参照を解除」（グループ行にはなし）「参照を再読み込み」）を表示し、通常の編集・削除・色変更は出さない。
@@ -428,7 +428,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 ## 7. フロントエンド設計
 
 ### 7.1 状態管理（`store/taskStore.ts`、zustand + persist）
-- データ：`tasks`、`needsReload`。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`/`refOwnerProjectId`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。`refOwnerProjectId` は参照データの取得元プロジェクトを示し、`setRefData` で他の2値と同時更新する（読み出し側は現在プロジェクトと一致するときのみ使う。§5.8）。
+- データ：`tasks`、`tasksOwnerProjectId`（`tasks` の取得元プロジェクト。非永続。§5.8）、`needsReload`。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`/`refOwnerProjectId`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。`refOwnerProjectId` は参照データの取得元プロジェクトを示し、`setRefData` で他の2値と同時更新する（読み出し側は現在プロジェクトと一致するときのみ使う。§5.8）。
 - フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterColor`（`'' | '*' | string`。`'*'`＝色付き、それ以外は実効色の一致、§9.3）、`filterOverdue`（`'' | 'overdue'`。`'overdue'`＝期限超過のみ、§9.3）、`filterSearch`。フィルタ値はいずれも永続化しない（担当者候補のピン留め `pinnedAssignees` は「フィルタ値」ではなく UI 設定として別途永続化する。§9.3）。
 - ガント表示：`zoomLevel`(既定 day)、`ganttStartDate`、`ganttPeriod`(既定 3m)、`showLightningLine/Weekend/CriticalPath/ResourceView/TodayLine/Milestones`、`milestoneHighlightColor`(#8b5cf6)、`uiFontSize`(13)、`uiRowHeight`(36)、`ganttHeaderLevels`(month/day=true)、`depArrowStyle`(bezier)。
 - レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`、`pinnedAssignees`（担当者フィルタ候補のピン留め。`Record<projectId, string[]>`、§9.3）。
@@ -468,7 +468,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `ErrorBoundary` | `App` 全体を包む描画エラーの捕捉（§7.4） |
 
 ### 7.3 hooks / utils
-- hooks：`useTasks`（楽観的 CRUD・batch・`shiftSubtree`）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9。取得を発火した時点のプロジェクトが現在も選択中のときだけ結果を反映し、切替と競合した後着レスポンスは破棄する）、`useProjectRefs`（クロスプロジェクト参照のロード/追加/解除/跨ぎ依存更新 `updateExternalPredecessors`, §5.8）、`useRefData`（参照データの読み出し口。`refOwnerProjectId` が現在プロジェクトと一致するときだけ `refTasks`/`refProjects` を返す, §5.8）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
+- hooks：`useTasks`（楽観的 CRUD・batch・`shiftSubtree`）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9。取得を発火した時点のプロジェクトが現在も選択中のときだけ結果を反映し、切替と競合した後着レスポンスは破棄する。全置換時は `setTasks(tasks, projectId)` で持ち主 `tasksOwnerProjectId` を同時に記録する）、`useProjectTaskData`（タスクの読み出し口。`tasksOwnerProjectId` が現在プロジェクトと一致するときだけ `{ tasks, loaded: true }` を返し、不一致は空＋`loaded: false`。切替中は旧プロジェクトのタスクを描画せず、250ms 遅延の読み込み表示を出してガント本体の編集を不可にし空状態メッセージも出さない, §5.8）、`useProjectRefs`（クロスプロジェクト参照のロード/追加/解除/跨ぎ依存更新 `updateExternalPredecessors`, §5.8）、`useRefData`（参照データの読み出し口。`refOwnerProjectId` が現在プロジェクトと一致するときだけ `refTasks`/`refProjects` を返す, §5.8）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
 - utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`refTasks`（`mergeRefTasks`/`isReadonlyTask`/`refGroupId`/`canCreateOnRow`, §5.8）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`・`fetchProjectRefs`/`addProjectRef`/`removeProjectRef`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`/`copyBatch`（サブツリーコピーの batch API 入力構築・挿入順計算, `handleCopyInsert` から抽出）、`menuPos`、`portConfig`、`theme`。
 
 ### 7.4 エラー処理（`ErrorBoundary`）
@@ -1067,3 +1067,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.180 | 2026/10 | §8.3 の親進捗の集計仕様を変更：保留（`status === 'pending'`）の葉タスクを親の算術平均から除外し、子が全て保留の親は上位集計からも除外（表示値 0）。親自身の status は判定に使わない（§8.6 の方針を維持）。マイルストーン・日付スパン・イナズマ線は変更なし。 |
 | 0.2.181 | 2026/10 | §5.2・§8.3・§9.4 に、ガントで親タスクのバーをドラッグすると配下の全子孫の日付を一括シフトする仕様を追加（親は移動のみ可・リサイズ不可）。`POST /tasks/:taskId/shift` と WS `tasks_updated` を新設。MCP への追加は対象外。 |
 | 0.2.182 | 2026/10 | §5.2 の shift API に、非 ISO 日付（`YYYY/M/D`・時刻付き）の解釈と ISO への正規化、解釈不能な日付の据え置き、子孫列挙のプロジェクト内限定を明記。 |
+| 0.2.183 | 2026/10 | プロジェクト切替中に旧プロジェクトのタスクを参照タスク（淡色＋🔗）として表示しない仕様を追加（§5.8・§7.3）。`tasks` にも `refOwnerProjectId` と同様の持ち主照合（非永続スロット `tasksOwnerProjectId`、`setTasks(tasks, ownerProjectId)`、読み出し口 `useProjectTaskData` が `{ tasks, loaded }` を返す）を設け、切替中は旧タスクを描画しない。読み込み中は 250ms 遅延の読み込み表示を出し、その間ガント本体の編集は不可・空状態メッセージも出さない。 |
