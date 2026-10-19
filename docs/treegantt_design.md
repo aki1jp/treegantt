@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.7** |
-| ドキュメント版 | 0.2.180 |
+| ドキュメント版 | 0.2.181 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -283,6 +283,7 @@ interface TaskRef {
 | GET | `/api/v1/projects/:id/tasks` | タスク一覧（query: status/assignee/priority/limit/offset）。`{tasks,total}` |
 | POST | `/api/v1/projects/:id/tasks` | タスク作成 |
 | PATCH | `/api/v1/projects/:id/tasks/reorder` | 並び替え（orders[]） |
+| POST | `/api/v1/projects/:id/tasks/:taskId/shift` | 親タスク配下の一括日付シフト（body `{days}`：0 を除く整数・絶対値 3650 以下。対象不在 404／他プロジェクト 400。再帰 CTE で全子孫を確定し、日付を持つ子孫の `startDate`/`endDate` を ISO `YYYY-MM-DD` で `days` 日加算して単一トランザクションで更新、`{tasks}` を返す。日付なしの子孫は不変・ステータスによる除外なし・フィルタ/折りたたみの影響なし。対象自身は更新しない。変更 0 件なら UPDATE も WS 配信もしない（§5.1）。サブツリー外の依存先は自動シフトしない） |
 | POST | `/api/v1/projects/:id/tasks/batch` | サブツリー一括作成（parentRef でツリー指定） |
 | GET | `/api/v1/tasks/:id` | 単一取得 |
 | PATCH | `/api/v1/tasks/:id` | 更新 |
@@ -407,6 +408,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `tasks_created` | `{projectId, tasks[]}` | バッチ作成 |
 | `tasks_deleted` | `{projectId, ids[]}` | 削除（subtree/single 共通） |
 | `tasks_reordered` | `{projectId, orders[]}` | 並び替え・single 削除の付替え |
+| `tasks_updated` | `{projectId, tasks[]}` | サブツリー一括シフト（1 通のみ。受信側は各タスクを upsert） |
 | `reload` | `{projectId}` | Import 後の全件再取得指示 |
 | `task_deleted`（旧） | `{projectId, id}` | 互換のため受信のみ残置 |
 
@@ -466,7 +468,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 | `ErrorBoundary` | `App` 全体を包む描画エラーの捕捉（§7.4） |
 
 ### 7.3 hooks / utils
-- hooks：`useTasks`（楽観的 CRUD・batch）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9。取得を発火した時点のプロジェクトが現在も選択中のときだけ結果を反映し、切替と競合した後着レスポンスは破棄する）、`useProjectRefs`（クロスプロジェクト参照のロード/追加/解除/跨ぎ依存更新 `updateExternalPredecessors`, §5.8）、`useRefData`（参照データの読み出し口。`refOwnerProjectId` が現在プロジェクトと一致するときだけ `refTasks`/`refProjects` を返す, §5.8）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
+- hooks：`useTasks`（楽観的 CRUD・batch・`shiftSubtree`）、`useProjects`、`useProjectTasks`（選択中プロジェクトのタスク取得・切替時/reload時再取得・失敗時トースト＋再試行, §9.9。取得を発火した時点のプロジェクトが現在も選択中のときだけ結果を反映し、切替と競合した後着レスポンスは破棄する）、`useProjectRefs`（クロスプロジェクト参照のロード/追加/解除/跨ぎ依存更新 `updateExternalPredecessors`, §5.8）、`useRefData`（参照データの読み出し口。`refOwnerProjectId` が現在プロジェクトと一致するときだけ `refTasks`/`refProjects` を返す, §5.8）、`useWebSocket`、`useImportExport`、`useTheme`、`useBarDrag`（`GanttChart`: バー移動/左右リサイズ/作成ドラッグの状態・イベント）、`useLinkDrag`（`GanttChart`: 依存リンクドラッグの状態・イベント・ホバー中バー判定）、`useRowDnd`（`GanttChart`: WBS 行の並び替え・親子変更・Ctrl/Cmd コピーの状態・イベント）。
 - utils：`ganttCalc`（座標・範囲・CPM・ヘッダー）、`taskTree`（ツリー構築・実効進捗 O(N)）、`refTasks`（`mergeRefTasks`/`isReadonlyTask`/`refGroupId`/`canCreateOnRow`, §5.8）、`virtualRange`（可視行）、`api`（fetch ラッパ・`fetchHealth`・`fetchProjectRefs`/`addProjectRef`/`removeProjectRef`）、`importExport`、`sort`、`taskColors`、`workloadCalc`、`duration`（予定工数の「トークン⇄分」変換・実効リソース設定の解決）、`wbsLayout`、`copyDeps`/`copyTitle`/`copyBatch`（サブツリーコピーの batch API 入力構築・挿入順計算, `handleCopyInsert` から抽出）、`menuPos`、`portConfig`、`theme`。
 
 ### 7.4 エラー処理（`ErrorBoundary`）
@@ -491,7 +493,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 - **親サマリーバー**：上部横バー＋左右の下向き三角。描画位置・進捗は**子孫の派生値**を使う。
   - 期間：`calcParentSpanMap`（子孫の min start / max end、O(N) post-order）＝ `displayStart/displayEnd`。
   - 進捗：`calcAllEffectiveProgress`（葉=自身、親=直接の子の実効進捗の算術平均・再帰・四捨五入。O(N)）。**保留（`status === 'pending'`）の葉は親の平均の分母・分子から除外**する（葉自身の値は自身の `progress` のまま）。親は「除外されていない子」だけで平均し（各階層で四捨五入）、子が全て除外される親（配下の葉がすべて保留）は親自身も上位の集計から除外し、表示値は 0 とする。親自身の `status` は判定に使わない（親はステータスを集計しない方針・§8.6 を維持）。マイルストーン・日付スパン・イナズマ線のルールは変更なし。`calcEffectiveProgress`（参照実装）も同仕様。
-  - 親は移動/リサイズ不可（ハンドルなし）。
+  - 親は**移動のみ可**（左右リサイズは不可・ハンドルなし）。親バーの移動は配下の全子孫を一括シフトする（§9.4）。
 - マイルストーン：日付セル中心 `cx=dateToX(start)+dayWidth/2` に菱形、ラベルは右。**菱形・ラベルの基本色は §8.2 と同じ規則（個別 `titleColor` を最優先、未設定時のみ統一 `milestoneHighlightColor`）で決める。** 期限超過/クリティカルのときは従来どおり状態色（赤/黄）で上書きする（状態強調 > 基本色）。**移動・リサイズ用のハンドルは持たず、菱形クリックでモーダルを開くのみ（ガント上で動かせない）**。`endDate` は常に `startDate` と同値（1点）。
 - **遅延赤帯**：進捗到達点（イナズマ線頂点＝`calcVertexX`、§8.6）が**現在時刻 `nowX` より左**＝スケジュール遅延のとき、バー上の `[頂点X, min(nowX, 終了X)]` 区間に赤帯を重ねる（今を越えてバー終端を超える分はバー内にクランプ）。前倒し/オントラック（頂点が `nowX` 以右）は区間ゼロで非表示。展開中の親はスキップ。**従来の期限超過（`endDate < 今日` でバー全体を薄赤）とは独立に併存**する。
 - 期限超過・遅延の日付比較は **`normalizeDateStr` で ISO 化してから**行うため、`/` 区切り等の非 ISO 形式でも正しく判定される（§5.1）。期限超過の判定は `isOverdueTask`（`utils/ganttCalc.ts`）に一本化し、§9.3 の期限フィルタ（`filterOverdue`）と共有する。
@@ -580,7 +582,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
   - **「マイル」トグル**（ヘッダー段グループ内）は **ヘッダーのマイルストーン表示（◆マーカー行・日付セル強調・列ハイライト帯）のみ** を ON/OFF する（§8.2）。WBS のマイルストーン行・本体の菱形バーは常時表示で、このトグルでは消えない（行のフィルタリングではない）。
 
 ### 9.4 操作（ドラッグ等）
-- バードラッグ：移動・左右リサイズ（1 日スナップ）。親バーは不可。**マイルストーンも移動・リサイズ不可**（菱形にドラッグ入口を持たせず、クリックでモーダルを開くのみ。`endDate` は常に `startDate` と同値の1点として扱う）。
+- バードラッグ：移動・左右リサイズ（1 日スナップ）。**親バーは移動のみ可（リサイズ不可）**：ドラッグ量 Δ 日を、親の全子孫のうち日付を持つタスク（葉・マイルストーン含む、`startDate`/`endDate` とも）へ加算する（`POST /tasks/:taskId/shift`、§5.2）。日付なしタスクは不変、ステータスによる除外なし、フィルタで非表示・折りたたみ中の子孫もサーバー側の再帰 CTE で確定して含める。サブツリー外の後続タスク（依存先）は自動シフトしない（葉バーの移動と同じ）。参照タスク（§5.8）の親は `isReadonlyTask` ガードによりドラッグ不可。ドラッグ中は親サマリーバーと表示中の子孫バーを Δ 日ずらしてプレビュー描画し、Esc キャンセルは既存動作と同じ。ドラッグ量 0 はクリック扱い（モーダルを開く）で、Δ=0 では API を呼ばない。失敗時は楽観的更新をロールバックしエラートースト。フロントは `api.shiftSubtree` → `useTasks.shiftSubtree`（楽観的更新＋ロールバック）→ `App.handleShiftSubtree`（try/catch＋トースト）→ `GanttChart` の `onShiftSubtree`、`useBarDrag` が親の move を許可。**マイルストーンも移動・リサイズ不可**（菱形にドラッグ入口を持たせず、クリックでモーダルを開くのみ。`endDate` は常に `startDate` と同値の1点として扱う）。
 - 作成ドラッグ：開始日が未設定の葉タスク（非親・非マイルストーン）の行は crosshair で、行背景をドラッグして開始/終了日を作成できる。**クリックの手ぶれによる誤作成を防ぐため、mousedown 位置から `CREATE_DRAG_THRESHOLD_PX`（既定 4px）以上ドラッグして初めて作成対象になる**（閾値未満の mouseup では日付を作らない。閾値を一度超えればその後は通常追従＝スティッキー）。アンカーセル内に収まるドラッグは 1 日タスクを作成する。土日背景・マイルストーン列背景などのオーバーレイ `<rect>` は `pointer-events: none` を付与し、行背景のマウスイベントを妨げない（土日列上でも作成ドラッグが機能する）。
 - 依存付与：バー hover で右端コネクタドット → ドラッグして別バーへドロップ（自己参照・循環・祖先子孫・日付なしは禁止）。**マイルストーンは後続（終点）にのみ接続可**＝通常タスクのコネクタドットからマイルストーンへドロップできるが、マイルストーン自身はコネクタドットを出さない（先行＝始点にはなれない）。マイルストーンの先行タスクは `MilestoneModal` の「先行タスク」欄でも設定でき、候補は非マイルストーン・循環/祖先子孫を除外する。コネクタドットはバーの移動・リサイズドラッグ中（`dragState` 非 null）は非表示にする（操作の邪魔にならないよう）。コネクタドットの表示可否を `canStartLink`（`hoveredBarId && !linkDragState && !dragState`）として一か所で判定する。
 - WBS 行ドラッグ：並び替え・親子変更（depth インジケーター）。Ctrl/Cmd で「コピー」（サブツリー再帰コピー、`tasks/batch` 1 リクエスト、predecessors は内部参照のみ再マップ）。
@@ -1063,3 +1065,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.178 | 2026/9 | §9.3 の担当者候補ピン留めの UI を改善：ピントグルの状態表示を `★`/`☆` の塗りつぶし／中抜き＋色に変更（絵文字は CSS の `color` が効かず状態差を付けられないため不採用と明記）。listbox の高さを固定の最大高さからビューポート下端までの利用可能高さいっぱいに変更し、ウィンドウリサイズに追従することを規定。 |
 | 0.2.179 | 2026/9 | 製品バージョンを **1.9.7** に更新（ヘッダー・ステータス・構成図）。担当者フィルタ候補のピン留め（0.2.177・0.2.178）と、実質変更なしの更新を行わない no-op ガード（0.2.176）をまとめてパッチリリースとして `CHANGELOG.md` の `[1.9.7]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
 | 0.2.180 | 2026/10 | §8.3 の親進捗の集計仕様を変更：保留（`status === 'pending'`）の葉タスクを親の算術平均から除外し、子が全て保留の親は上位集計からも除外（表示値 0）。親自身の status は判定に使わない（§8.6 の方針を維持）。マイルストーン・日付スパン・イナズマ線は変更なし。 |
+| 0.2.181 | 2026/10 | §5.2・§8.3・§9.4 に、ガントで親タスクのバーをドラッグすると配下の全子孫の日付を一括シフトする仕様を追加（親は移動のみ可・リサイズ不可）。`POST /tasks/:taskId/shift` と WS `tasks_updated` を新設。MCP への追加は対象外。 |
