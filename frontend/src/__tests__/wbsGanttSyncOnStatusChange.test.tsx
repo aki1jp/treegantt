@@ -81,9 +81,9 @@ describe('WBS/ガント同期: ステータス変更でのフィルタ除外', (
     ];
     const target = tasks[2];
 
-    useTaskStore.setState({ tasks, filterStatus: '!done' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks, filterStatus: '!done' });
     render(
-      <GanttChart
+      <GanttChart projectId="p1"
         onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
       />
@@ -125,9 +125,9 @@ describe('WBS/ガント同期: ステータス変更でのフィルタ除外', (
     ];
     const target = tasks[2];
 
-    useTaskStore.setState({ tasks, filterStatus: '!done' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks, filterStatus: '!done' });
     render(
-      <GanttChart
+      <GanttChart projectId="p1"
         onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP}
       />

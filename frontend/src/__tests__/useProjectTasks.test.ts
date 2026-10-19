@@ -20,7 +20,7 @@ function makeTask(id: string): Task {
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn());
-  useTaskStore.setState({ tasks: [], needsReload: false });
+  useTaskStore.setState({ tasks: [], tasksOwnerProjectId: null, needsReload: false });
   useToastStore.setState({ toasts: [] });
 });
 afterEach(() => {
@@ -209,6 +209,36 @@ describe('useProjectTasks — stale レスポンスガード', () => {
       defAReload.resolve({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('tA2')], total: 1 }) } as Response);
     });
     expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['tB']);
+  });
+
+  it('取得結果を持ち主 tasksOwnerProjectId と同時にストアへ反映する', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true, status: 200,
+      json: async () => ({ tasks: [makeTask('t1')], total: 1 }),
+    } as Response);
+    renderHook(() => useProjectTasks('p1'));
+    await act(async () => {});
+    expect(useTaskStore.getState().tasksOwnerProjectId).toBe('p1');
+  });
+
+  it('切替後に届いた旧プロジェクトの後着レスポンスで tasks / 持ち主を上書きしない', async () => {
+    let resolveOld!: (r: Response) => void;
+    const oldRes = new Promise<Response>(r => { resolveOld = r; });
+    const newTask = { ...makeTask('n1'), projectId: 'p2' };
+    vi.mocked(fetch)
+      .mockReturnValueOnce(oldRes)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ tasks: [newTask], total: 1 }) } as Response);
+
+    const { rerender } = renderHook(({ id }) => useProjectTasks(id), { initialProps: { id: 'p1' } });
+    rerender({ id: 'p2' });
+    await act(async () => {});
+    expect(useTaskStore.getState().tasksOwnerProjectId).toBe('p2');
+
+    await act(async () => {
+      resolveOld({ ok: true, status: 200, json: async () => ({ tasks: [makeTask('o1')], total: 1 }) } as Response);
+    });
+    expect(useTaskStore.getState().tasks.map(t => t.id)).toEqual(['n1']);
+    expect(useTaskStore.getState().tasksOwnerProjectId).toBe('p2');
   });
 });
 

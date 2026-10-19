@@ -45,7 +45,7 @@ beforeEach(() => {
 describe('GanttChart スクロール分離レイアウト', () => {
   function renderChart() {
     return render(
-      <GanttChart
+      <GanttChart projectId="p1"
         onEditTask={NOOP}
         onDeleteTask={NOOP}
         onInlineUpdate={NOOP}
@@ -147,7 +147,7 @@ describe('親タスク WBS日付セル 読み取り専用スタイル', () => {
   }
 
   function renderWithParentChild() {
-    useTaskStore.setState({
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1',
       tasks: [
         makeTask({ id: 'parent', title: '親タスク', startDate: '2026-05-01', endDate: '2026-05-31' }),
         makeTask({ id: 'child',  title: '子タスク', parentId: 'parent', startDate: '2026-05-01', endDate: '2026-05-15' }),
@@ -156,7 +156,7 @@ describe('親タスク WBS日付セル 読み取り専用スタイル', () => {
       showResourceView: false,
     });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -197,7 +197,7 @@ describe('ガントヘッダー 曜日表示', () => {
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
     });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP} onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP} onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
 
@@ -241,9 +241,9 @@ describe('WBS 行D&D — インライン編集中のテキスト選択干渉防�
   };
 
   function renderWithTask() {
-    useTaskStore.setState({ tasks: [TASK], ganttStartDate: '2026-05-01', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [TASK], ganttStartDate: '2026-05-01', showResourceView: false });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -307,9 +307,9 @@ describe('WBS 行D&D — ドロップ位置インジケーター', () => {
   }
 
   function renderWithTwoTasks() {
-    useTaskStore.setState({ tasks: makeTwoTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: makeTwoTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -393,9 +393,9 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
   }
 
   function renderWith3Tasks(onReorder = vi.fn()) {
-    useTaskStore.setState({ tasks: makeThreeTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: makeThreeTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} onCopyInsert={NOOP} />
     );
   }
@@ -471,9 +471,9 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
   }
 
   function renderWith4Tasks(onReorder = vi.fn()) {
-    useTaskStore.setState({ tasks: makeFourTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: makeFourTasks(), ganttStartDate: '2026-05-01', showResourceView: false });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={onReorder} onCopyInsert={NOOP} />
     );
   }
@@ -585,7 +585,7 @@ describe('WBS 行D&D — マウス位置によるインデント深さ選択', (
       ganttStartDate: '2026-05-01', showResourceView: false,
     });
     const { getByTestId } = render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={vi.fn()} onCopyInsert={NOOP} />
     );
     const wbsPanel = getByTestId('wbs-panel');
@@ -618,12 +618,12 @@ describe('WBS 日付インライン編集 — blur で確定', () => {
 
   beforeEach(() => {
     onInlineUpdate.mockClear();
-    useTaskStore.setState({ tasks: [makeEditTask()], ganttStartDate: '2026-05-01', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeEditTask()], ganttStartDate: '2026-05-01', showResourceView: false });
   });
 
   function renderEditChart() {
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -698,7 +698,7 @@ describe('WBS/ガントヘッダー高さ同期（ResizeObserver）', () => {
 
   function renderChart() {
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -754,12 +754,12 @@ describe('WBS 日付バリデーション — 開始日・終了日の前後矛�
 
   beforeEach(() => {
     onInlineUpdate.mockClear();
-    useTaskStore.setState({ tasks: [makeTask2()], ganttStartDate: '2026-05-01', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask2()], ganttStartDate: '2026-05-01', showResourceView: false });
   });
 
   function renderValidationChart() {
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={onInlineUpdate}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -832,7 +832,7 @@ describe('マイルストーン強調 UI', () => {
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
     });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -882,7 +882,7 @@ describe('マイルストーン強調 UI', () => {
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
     });
     const { getByTestId, container } = render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
     // ヘッダーの ◆ マーカー行は出ない
@@ -902,7 +902,7 @@ describe('マイルストーン強調 UI', () => {
       ganttHeaderLevels: { year: false, month: false, week: false, day: true },
     });
     const { getByTestId } = render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
     const ganttHeader = getByTestId('gantt-header');
@@ -926,7 +926,7 @@ describe('マイルストーン強調 UI', () => {
       ganttHeaderLevels: { year: false, month: true, week: true, day: true },
     });
     const { getByTestId } = render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
     const ganttHeader = getByTestId('gantt-header');
@@ -967,9 +967,9 @@ describe('WBS/ガント列見出し i18n（locale="en"）', () => {
   function renderChart() {
     // 子タスクなしのフラットな1件（タイトル列見出しに ExpandCollapseButtons が
     // 混ざらないようにし、列見出しテキストのみを厳密比較できるようにする）
-    useTaskStore.setState({ tasks: [makeTask()], locale: 'en', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], locale: 'en', showResourceView: false });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -1033,9 +1033,9 @@ describe('WBS列表示設定ポップアップの完全形表示（日本語ロ�
   function renderChart() {
     // 子タスクなしのフラットな1件（タイトル列見出しに ExpandCollapseButtons が
     // 混ざらないようにし、列見出しテキストのみを厳密比較できるようにする）
-    useTaskStore.setState({ tasks: [makeTask()], locale: 'ja', showResourceView: false });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: [makeTask()], locale: 'ja', showResourceView: false });
     return render(
-      <GanttChart onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
+      <GanttChart projectId="p1" onEditTask={NOOP} onDeleteTask={NOOP} onInlineUpdate={NOOP}
         onQuickAdd={NOOP} onAddSubTask={NOOP} onReorder={NOOP} onCopyInsert={NOOP} />
     );
   }
@@ -1078,7 +1078,7 @@ describe('WBS列表示設定ポップアップの完全形表示（日本語ロ�
 describe('GanttChart i18n（locale="en"）— ガントパネル aria-label', () => {
   function renderChart() {
     return render(
-      <GanttChart
+      <GanttChart projectId="p1"
         onEditTask={NOOP}
         onDeleteTask={NOOP}
         onInlineUpdate={NOOP}
@@ -1101,7 +1101,7 @@ describe('GanttChart i18n（locale="en"）— ガントパネル aria-label', ()
 describe('GanttChart 既定（locale="ja"）— ガントパネル aria-label', () => {
   function renderChart() {
     return render(
-      <GanttChart
+      <GanttChart projectId="p1"
         onEditTask={NOOP}
         onDeleteTask={NOOP}
         onInlineUpdate={NOOP}

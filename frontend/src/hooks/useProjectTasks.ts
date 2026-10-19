@@ -36,12 +36,13 @@ export function useProjectTasks(
   // 表示されないよう、発火時の projectId が今も現在プロジェクトかを検証してから反映する）。
   useEffect(() => {
     if (!projectId) return;
+    const requestedProjectId = projectId;
     let alive = true;
     setError(null);
     fetchAllTasks(projectId)
       .then(d => {
         if (!alive) return;
-        setTasks(d.tasks);
+        setTasks(d.tasks, requestedProjectId);
         onLoadedRef.current?.(d.total);
       })
       .catch((err: Error) => {
@@ -70,7 +71,7 @@ export function useProjectTasks(
     fetchAllTasks(projectId)
       .then(d => {
         if (projectIdRef.current !== requestedProjectId) return;
-        setTasks(d.tasks);
+        setTasks(d.tasks, requestedProjectId);
       })
       .catch((err: Error) => {
         if (projectIdRef.current !== requestedProjectId) return;

@@ -67,7 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   useTaskStore.setState({
-    tasks: TASKS,
+    tasks: TASKS, tasksOwnerProjectId: 'p1',
     needsReload: false,
     filterStatus: '',
     filterAssignee: '',
@@ -90,7 +90,7 @@ beforeEach(() => {
 
 function renderChart() {
   return render(
-    <GanttChart
+    <GanttChart projectId="p1"
       onEditTask={NOOP}
       onDeleteTask={NOOP}
       onInlineUpdate={NOOP}
@@ -132,7 +132,7 @@ describe('GanttChart 派生計算のメモ化（v2.61）', () => {
     const spanCallsBefore = vi.mocked(calcParentSpanMap).mock.calls.length;
 
     const updated = TASKS.map(t => (t.id === 'c1' ? { ...t, progress: 99 } : t));
-    act(() => { useTaskStore.setState({ tasks: updated }); });
+    act(() => { useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: updated }); });
 
     expect(vi.mocked(calcParentSpanMap).mock.calls.length).toBeGreaterThan(spanCallsBefore);
   });

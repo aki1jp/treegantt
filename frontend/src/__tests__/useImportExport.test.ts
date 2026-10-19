@@ -119,7 +119,7 @@ describe('useImportExport — handleFileChange (JSON)', () => {
       await result.current.handleFileChange(event);
     });
 
-    expect(setTasks).toHaveBeenCalledWith([importedTask]);
+    expect(setTasks).toHaveBeenCalledWith([importedTask], 'p1');
   });
 
   it('CSV ファイル名は CSV パーサーに渡される', async () => {

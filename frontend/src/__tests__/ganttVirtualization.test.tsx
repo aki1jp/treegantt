@@ -7,7 +7,7 @@
  *   （jsdom では ResizeObserver がないためビューポート高さはフォールバック 800px）
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
 import { calcVisibleRange } from '../utils/virtualRange';
@@ -15,12 +15,15 @@ import { genLargeTasks } from './fixtures/genLargeTasks';
 
 const NOOP = vi.fn();
 
+// 持ち主照合・参照タスク判定（projectId 一致）を通すため、生成タスクの projectId を揃える
+const largeTasks = (n: number, projectId = 'p1') => genLargeTasks(n).map(t => ({ ...t, projectId }));
+
 afterEach(() => { cleanup(); });
 
 beforeEach(() => {
   localStorage.clear();
   useTaskStore.setState({
-    tasks: genLargeTasks(1000),
+    tasks: largeTasks(1000), tasksOwnerProjectId: 'p1',
     needsReload: false,
     filterStatus: '',
     filterAssignee: '',
@@ -43,7 +46,7 @@ beforeEach(() => {
   });
 });
 
-function renderChart(projectId?: string) {
+function renderChart(projectId: string = 'p1') {
   return render(
     <GanttChart
       projectId={projectId}
@@ -162,7 +165,7 @@ describe('プロジェクト切り替え時の白画面対策', () => {
 
     // 行数の少ないプロジェクトに切り替わった状況を再現（tasks を 20 件へ置換）。
     // scrollTop state は過大（10800）なまま残る。
-    useTaskStore.setState({ tasks: genLargeTasks(20) });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks: largeTasks(20) });
 
     // 置換後の再レンダリングが反映されるまで待つ（旧描画の行数から変化したら反映済み）。
     await waitFor(() =>
@@ -195,6 +198,9 @@ describe('プロジェクト切り替え時の白画面対策', () => {
         onCopyInsert={NOOP}
       />
     );
+
+    // 新プロジェクトのタスクが届く（持ち主 p2 の取得完了）
+    act(() => { useTaskStore.setState({ tasksOwnerProjectId: 'p2', tasks: largeTasks(1000, 'p2') }); });
 
     // 先頭行が再び描画され、DOM スクロール位置も 0 に戻る
     await waitFor(() => {

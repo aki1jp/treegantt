@@ -4,6 +4,7 @@ import type { GanttPeriod } from '../../utils/ganttCalc';
 import { todayStr, getUniqueAssignees, getUniqueTaskColors } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 import { useTranslation } from '../../i18n/useTranslation';
+import { useProjectTaskData } from '../../hooks/useProjectTaskData';
 import { FRONTEND_VERSION } from '../../version';
 import { API_DOCS_URL } from '../../utils/api';
 import { AssigneeFilter } from './AssigneeFilter';
@@ -90,7 +91,6 @@ function ToggleBtn({ active, label, title, onClick }: { active: boolean; label: 
 
 export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExportJson, onExportCsv, onOpenResourceSettings, onOpenRefManager, backendVersion, currentProjectId }: Props) {
   const {
-    tasks,
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
     ganttStartDate, ganttPeriod,
     showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
@@ -100,6 +100,7 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
     setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
   const { t } = useTranslation();
+  const { tasks } = useProjectTaskData(currentProjectId);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos,  setMenuPos]  = useState<{ top: number; right: number } | null>(null);

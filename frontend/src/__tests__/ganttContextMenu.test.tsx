@@ -57,9 +57,9 @@ afterEach(() => {
 });
 
 function renderChart(tasks: Task[]) {
-  useTaskStore.setState({ tasks });
+  useTaskStore.setState({ tasksOwnerProjectId: 'p1', tasks });
   return render(
-    <GanttChart
+    <GanttChart projectId="p1"
       onEditTask={onEditTask}
       onDeleteTask={onDeleteTask}
       onInlineUpdate={onInlineUpdate}
@@ -368,7 +368,7 @@ describe('コンテキストメニューの多言語対応（locale: en）', () 
     const onOpenRefProject = vi.fn();
     const onRemoveRef = vi.fn();
     const onRefreshRefs = vi.fn();
-    useTaskStore.setState({ locale: 'en', tasks: [own], refTasks: [ref], refProjects, refOwnerProjectId: 'p1' });
+    useTaskStore.setState({ tasksOwnerProjectId: 'p1', locale: 'en', tasks: [own], refTasks: [ref], refProjects, refOwnerProjectId: 'p1' });
 
     render(
       <GanttChart

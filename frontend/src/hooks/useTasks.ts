@@ -4,28 +4,38 @@ import { apiFetch, shiftSubtree as shiftSubtreeApi } from '../utils/api';
 import { addDays } from '../utils/ganttCalc';
 import { buildChildrenMap } from '../utils/taskTree';
 
+// 呼び出し時点の tasks の持ち主を捕捉し、await 後に「まだ同じプロジェクトのタスクか」を判定する。
+// 操作中にプロジェクトが切り替わった場合、成功時の反映・失敗時のロールバックとも書き込まない
+// （旧プロジェクトのタスクが切替後の tasks に混入するのを防ぐ。§5.8）。
+function captureOwner(): () => boolean {
+  const owner = useTaskStore.getState().tasksOwnerProjectId;
+  return () => useTaskStore.getState().tasksOwnerProjectId === owner;
+}
+
 export function useTasks(projectId: string) {
   // REST POST → サーバーが全クライアントへ task_created をブロードキャスト
   async function createTask(input: Partial<Task> & { title: string }): Promise<Task> {
+    const sameOwner = captureOwner();
     const data = await apiFetch(`/projects/${projectId}/tasks`, {
       method: 'POST',
       body: JSON.stringify({ ...input, predecessors: input.predecessors ?? [] }),
     });
     // 楽観的追加（ブロードキャストより先に到着する場合の保険）
-    useTaskStore.getState().upsertTask(data.task as Task);
+    if (sameOwner()) useTaskStore.getState().upsertTask(data.task as Task);
     return data.task as Task;
   }
 
   // 楽観的更新 → REST PATCH → サーバーが全クライアントへ task_updated をブロードキャスト
   async function updateTask(id: string, patch: Partial<Task>): Promise<void> {
     const store = useTaskStore.getState();
+    const sameOwner = captureOwner();
     const prev = store.tasks;
     const existing = prev.find(t => t.id === id);
     if (existing) store.upsertTask({ ...existing, ...patch });
     try {
       await apiFetch(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
     } catch (e) {
-      store.setTasks(prev);
+      if (sameOwner()) store.setTasks(prev);
       throw e;
     }
   }
@@ -34,6 +44,7 @@ export function useTasks(projectId: string) {
   // mode='subtree'（デフォルト）: 子孫ごと削除 / mode='single': 子を祖父母に付け替えて本体のみ削除
   async function deleteTask(id: string, mode: 'subtree' | 'single' = 'subtree'): Promise<void> {
     const store = useTaskStore.getState();
+    const sameOwner = captureOwner();
     const prev = store.tasks;
 
     // 削除IDへの依存（predecessors）の除去は store.removeTasks が一括で行う
@@ -61,7 +72,7 @@ export function useTasks(projectId: string) {
     try {
       await apiFetch(`/tasks/${id}?mode=${mode}`, { method: 'DELETE' });
     } catch (e) {
-      store.setTasks(prev);
+      if (sameOwner()) store.setTasks(prev);
       throw e;
     }
   }
@@ -69,6 +80,7 @@ export function useTasks(projectId: string) {
   // 楽観的並び替え → REST PATCH → サーバーが全クライアントへ tasks_reordered をブロードキャスト
   async function reorderTasks(orders: { id: string; order: number; parentId?: string | null }[]): Promise<void> {
     const store = useTaskStore.getState();
+    const sameOwner = captureOwner();
     const prev = store.tasks;
     store.applyOrders(orders);
     try {
@@ -77,7 +89,7 @@ export function useTasks(projectId: string) {
         body: JSON.stringify({ orders }),
       });
     } catch (e) {
-      store.setTasks(prev);
+      if (sameOwner()) store.setTasks(prev);
       throw e;
     }
   }
@@ -87,14 +99,15 @@ export function useTasks(projectId: string) {
     inputs: { parentRef: number | null; title: string; [key: string]: unknown }[],
     parentId: string | null,
   ): Promise<Task[]> {
+    const sameOwner = captureOwner();
     const data = await apiFetch(`/projects/${projectId}/tasks/batch`, {
       method: 'POST',
       body: JSON.stringify({ parentId, tasks: inputs }),
     });
     const tasks = data.tasks as Task[];
     // 楽観的追加（WS ブロードキャストより先に到着する場合の保険）
-    for (const task of tasks) {
-      useTaskStore.getState().upsertTask(task);
+    if (sameOwner()) {
+      for (const task of tasks) useTaskStore.getState().upsertTask(task);
     }
     return tasks;
   }
@@ -103,6 +116,7 @@ export function useTasks(projectId: string) {
   // 失敗時はロールバックして throw。サーバーは tasks_updated をブロードキャストする
   async function shiftSubtree(taskId: string, days: number): Promise<void> {
     const store = useTaskStore.getState();
+    const sameOwner = captureOwner();
     const prev = store.tasks;
     // 子孫収集（parentId→children の Map による O(N) 走査。visited により循環でも停止、根自身は除外）
     const childrenMap = buildChildrenMap(prev);
@@ -128,10 +142,10 @@ export function useTasks(projectId: string) {
     }
     try {
       const updated = await shiftSubtreeApi(projectId, taskId, days);
-      for (const t of updated) useTaskStore.getState().upsertTask(t);
+      if (sameOwner()) for (const t of updated) useTaskStore.getState().upsertTask(t);
     } catch (e) {
       // 子孫だけ元に戻す（待機中に WS で届いた他タスクの更新は巻き戻さない）
-      for (const t of originals) useTaskStore.getState().upsertTask(t);
+      if (sameOwner()) for (const t of originals) useTaskStore.getState().upsertTask(t);
       throw e;
     }
   }
