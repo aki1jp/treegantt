@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createTestDb } from './helpers.js';
 import type Database from 'better-sqlite3';
 
-// 本番と同じ db/wsRoom をテスト用に差し替える（routes.test.ts と同パターン）
+// 本番と同じ db/wsRoom をテスト用に差し替える（routes.*.test.ts と同パターン）
 let testDb: Database.Database;
 vi.mock('../db/client.js', () => ({
   get db() { return testDb; },
