@@ -2167,6 +2167,52 @@ describe('Tasks API — POST /projects/:id/tasks/:taskId/shift（親配下の日
     expect((await shift(parent.id, {})).statusCode).toBe(400);
   });
 
+  it('YYYY/M/D 形式の日付は解釈され ISO に正規化される', async () => {
+    const parent = await mk({});
+    const child = await mk({ parentId: parent.id });
+    testDb.prepare('UPDATE tasks SET start_date = ?, end_date = ? WHERE id = ?').run('2026/9/1', '2026/9/5', child.id);
+    const res = await shift(parent.id, { days: 2 });
+    expect(res.statusCode).toBe(200);
+    const t = await get(child.id);
+    expect(t.startDate).toBe('2026-09-03');
+    expect(t.endDate).toBe('2026-09-07');
+  });
+
+  it('時刻付き日付も解釈される', async () => {
+    const parent = await mk({});
+    const child = await mk({ parentId: parent.id });
+    testDb.prepare('UPDATE tasks SET start_date = ?, end_date = ? WHERE id = ?').run('2026-09-01T00:00:00', '2026-09-02 12:00', child.id);
+    expect((await shift(parent.id, { days: 2 })).statusCode).toBe(200);
+    const t = await get(child.id);
+    expect(t.startDate).toBe('2026-09-03');
+    expect(t.endDate).toBe('2026-09-04');
+  });
+
+  it('解釈不能な日付は据え置かれ 200（解釈できる側だけ加算）', async () => {
+    const parent = await mk({});
+    const bad = await mk({ parentId: parent.id });
+    const half = await mk({ parentId: parent.id });
+    testDb.prepare('UPDATE tasks SET start_date = ?, end_date = ? WHERE id = ?').run('abc', 'xyz', bad.id);
+    testDb.prepare('UPDATE tasks SET start_date = ?, end_date = ? WHERE id = ?').run('abc', '2026-09-01', half.id);
+    vi.mocked(notifyRoom).mockClear();
+    const res = await shift(parent.id, { days: 2 });
+    expect(res.statusCode).toBe(200);
+    const b = await get(bad.id);
+    expect([b.startDate, b.endDate]).toEqual(['abc', 'xyz']);
+    const h = await get(half.id);
+    expect([h.startDate, h.endDate]).toEqual(['abc', '2026-09-03']);
+    expect(res.json().tasks.map((t: { id: string }) => t.id)).toEqual([half.id]);
+  });
+
+  it('循環 parentId があっても停止する', async () => {
+    const parent = await mk({ startDate: '2026-06-01', endDate: '2026-06-02' });
+    const child = await mk({ parentId: parent.id, startDate: '2026-06-02', endDate: '2026-06-03' });
+    testDb.prepare('UPDATE tasks SET parent_id = ? WHERE id = ?').run(child.id, parent.id);
+    const res = await shift(parent.id, { days: 1 });
+    expect(res.statusCode).toBe(200);
+    expect((await get(child.id)).startDate).toBe('2026-06-03');
+  });
+
   it('存在しないタスクは 404', async () => {
     const res = await shift('no-such-task', { days: 1 });
     expect(res.statusCode).toBe(404);
