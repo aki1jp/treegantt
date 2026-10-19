@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createTestDb } from './helpers.js';
+import { createTestDb, buildTestApp } from './helpers.js';
 import type Database from 'better-sqlite3';
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
 
 let testDb: Database.Database;
 
@@ -15,23 +13,10 @@ vi.mock('../ws/wsRoom.js', () => ({
   wss: { on: vi.fn() },
 }));
 
-const { healthRoutes }       = await import('../routes/health.js');
-const { projectRoutes }      = await import('../routes/projects.js');
-const { taskRoutes }         = await import('../routes/tasks.js');
-const { importExportRoutes } = await import('../routes/importExport.js');
-const { authPlugin }         = await import('../plugins/auth.js');
 
-async function buildApp() {
-  const app = Fastify();
-  await app.register(cors);
-  await app.register(authPlugin);
-  await app.register(healthRoutes);
-  await app.register(projectRoutes,    { prefix: '/api/v1' });
-  await app.register(taskRoutes,       { prefix: '/api/v1' });
-  await app.register(importExportRoutes, { prefix: '/api/v1' });
-  await app.ready();
-  return app;
-}
+const buildApp = () => buildTestApp({
+  cors: true, auth: true, health: true, projects: true, tasks: true, importExport: true,
+});
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { gunzipSync } from 'node:zlib';
-import Fastify from 'fastify';
-import { createTestDb } from './helpers.js';
+import { createTestDb, buildTestApp } from './helpers.js';
 import type Database from 'better-sqlite3';
 
 let testDb: Database.Database;
@@ -15,18 +14,8 @@ vi.mock('../ws/wsRoom.js', () => ({
   wss: { on: vi.fn() },
 }));
 
-const { registerCompression } = await import('../plugins/compression.js');
-const { taskRoutes } = await import('../routes/tasks.js');
-const { projectRoutes } = await import('../routes/projects.js');
 
-async function buildApp() {
-  const app = Fastify({ logger: false });
-  await registerCompression(app);
-  await app.register(projectRoutes, { prefix: '/api/v1' });
-  await app.register(taskRoutes, { prefix: '/api/v1' });
-  await app.ready();
-  return app;
-}
+const buildApp = () => buildTestApp({ compression: true, projects: true, tasks: true });
 
 describe('レスポンス圧縮（v2.67）', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
