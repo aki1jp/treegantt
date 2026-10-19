@@ -427,3 +427,101 @@ describe('shiftSubtree', () => {
     await useTasks('p1').shiftSubtree('a', 1);
   });
 });
+
+describe('await 後の書き込みは tasksOwnerProjectId が呼び出し時と一致するときのみ', () => {
+  const taskA = () => makeTask({ id: 'a1', projectId: 'A', title: 'A-task' });
+  const taskB = () => makeTask({ id: 'b1', projectId: 'B', title: 'B-task' });
+  const ids = () => useTaskStore.getState().tasks.map(t => t.id);
+  const switchToB = () => useTaskStore.getState().setTasks([taskB()], 'B');
+  function pendingFetch() {
+    let resolve!: (r: Response) => void;
+    let reject!: (e: unknown) => void;
+    vi.mocked(fetch).mockReturnValue(new Promise<Response>((res, rej) => { resolve = res; reject = rej; }));
+    return { resolve: (b: unknown) => resolve({ ok: true, status: 200, json: async () => b } as Response), reject: (e: unknown) => reject(e) };
+  }
+  beforeEach(() => { useTaskStore.getState().setTasks([taskA()], 'A'); });
+
+  it('updateTask 失敗: 切替後の B のタスクが残り、A のタスクは混入しない', async () => {
+    const p = pendingFetch();
+    const pending = useTasks('A').updateTask('a1', { title: '変更' });
+    const assertion = expect(pending).rejects.toThrow();
+    switchToB();
+    p.reject(new Error('boom'));
+    await assertion;
+    expect(ids()).toEqual(['b1']);
+    expect(useTaskStore.getState().tasksOwnerProjectId).toBe('B');
+  });
+
+  it('deleteTask 失敗（subtree / single）: A のタスクは混入しない', async () => {
+    for (const mode of ['subtree', 'single'] as const) {
+      useTaskStore.getState().setTasks([taskA()], 'A');
+      const p = pendingFetch();
+      const pending = useTasks('A').deleteTask('a1', mode);
+      const assertion = expect(pending).rejects.toThrow();
+      switchToB();
+      p.reject(new Error('boom'));
+      await assertion;
+      expect(ids()).toEqual(['b1']);
+    }
+  });
+
+  it('reorderTasks 失敗: A のタスクは混入しない', async () => {
+    const p = pendingFetch();
+    const pending = useTasks('A').reorderTasks([{ id: 'a1', order: 5 }]);
+    const assertion = expect(pending).rejects.toThrow();
+    switchToB();
+    p.reject(new Error('boom'));
+    await assertion;
+    expect(ids()).toEqual(['b1']);
+  });
+
+  it('createTask 成功: 切替後の B に A のタスクを追加しない（戻り値は返す）', async () => {
+    const p = pendingFetch();
+    const pending = useTasks('A').createTask({ title: '新' });
+    switchToB();
+    p.resolve({ task: makeTask({ id: 'new', projectId: 'A' }) });
+    expect((await pending).id).toBe('new');
+    expect(ids()).toEqual(['b1']);
+  });
+
+  it('batchCreateTasks 成功: B に混入しない', async () => {
+    const p = pendingFetch();
+    const pending = useTasks('A').batchCreateTasks([{ parentRef: null, title: 'x' }], null);
+    switchToB();
+    p.resolve({ tasks: [makeTask({ id: 'n1', projectId: 'A' })] });
+    await pending;
+    expect(ids()).toEqual(['b1']);
+  });
+
+  it('shiftSubtree 成功/失敗: B に混入しない', async () => {
+    const seed = () => useTaskStore.getState().setTasks([
+      makeTask({ id: 'a1', projectId: 'A', startDate: '2026-01-05', endDate: '2026-01-05' }),
+      makeTask({ id: 'a2', projectId: 'A', parentId: 'a1', startDate: '2026-01-05', endDate: '2026-01-05' }),
+    ], 'A');
+    seed();
+    let p = pendingFetch();
+    let pending = useTasks('A').shiftSubtree('a1', 1);
+    switchToB();
+    p.resolve({ tasks: [makeTask({ id: 'a2', projectId: 'A', parentId: 'a1', startDate: '2026-01-06', endDate: '2026-01-06' })] });
+    await pending;
+    expect(ids()).toEqual(['b1']);
+
+    seed();
+    p = pendingFetch();
+    pending = useTasks('A').shiftSubtree('a1', 1);
+    const assertion = expect(pending).rejects.toThrow();
+    switchToB();
+    p.reject(new Error('boom'));
+    await assertion;
+    expect(ids()).toEqual(['b1']);
+  });
+
+  it('切替が無ければ従来どおり反映・ロールバックされる', async () => {
+    const p = pendingFetch();
+    const pending = useTasks('A').updateTask('a1', { title: '変更' });
+    const assertion = expect(pending).rejects.toThrow();
+    p.reject(new Error('boom'));
+    await assertion;
+    expect(useTaskStore.getState().tasks[0].title).toBe('A-task');
+  });
+});
