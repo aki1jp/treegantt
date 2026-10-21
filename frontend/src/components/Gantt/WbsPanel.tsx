@@ -90,6 +90,7 @@ const TH: React.CSSProperties = {
 export function WbsPanel(props: Props) {
   const {
     currentProjectId,
+    colResizing,
     wbsPanelOpen, setWbsPanelOpen, leftTotal, visibleLeftCols, titleLeadingWidth, colWidths, setColResize,
     dateColWidth, ganttHeaderH, totalHeaderH, wbsHiddenCols, setWbsHiddenCols,
     childCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
@@ -121,7 +122,7 @@ export function WbsPanel(props: Props) {
       <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
         flexShrink: 0, width: leftTotal, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
-        transition: 'width 0.15s ease',
+        transition: colResizing ? 'none' : 'width 0.15s ease',
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{

@@ -66,19 +66,19 @@ export const DEFAULT_WBS_COL_WIDTHS: Readonly<WbsColWidths> = { title: defWidth(
 /** WBS の title/assignee 列のリサイズ下限（GanttChart のドラッグ下限・復元時検証で共有） */
 export const COL_MIN_WIDTHS: Readonly<WbsColWidths> = { title: 80, assignee: 50 };
 
-/** localStorage から復元した列幅を検証する。有限 number でない／下限未満の列だけ既定値にする。 */
-export function sanitizeWbsColWidths(raw: unknown): WbsColWidths {
-  const src = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
-  const pick = (key: 'title' | 'assignee'): number => {
-    const v = src[key];
-    return typeof v === 'number' && Number.isFinite(v) && v >= COL_MIN_WIDTHS[key]
-      ? v : DEFAULT_WBS_COL_WIDTHS[key];
-  };
-  return { title: pick('title'), assignee: pick('assignee') };
-}
-
 /** 列幅を [最小幅, maxWidth] に収める。上限が最小幅より小さい場合は最小幅を優先する。 */
 export function clampWbsColWidth(key: keyof WbsColWidths, v: number, maxWidth: number): number {
-  void key; void maxWidth;
-  return v; // スタブ（実装前）
+  return Math.max(COL_MIN_WIDTHS[key], Math.min(maxWidth, v));
+}
+
+/** localStorage から復元した列幅を検証する。有限 number でない／下限未満の列は既定値、
+ *  上限（既定は表示領域の幅）を超える列は上限まで縮める。 */
+export function sanitizeWbsColWidths(raw: unknown, maxWidth: number = window.innerWidth): WbsColWidths {
+  const src = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const pick = (key: keyof WbsColWidths): number => {
+    const v = src[key];
+    return typeof v === 'number' && Number.isFinite(v) && v >= COL_MIN_WIDTHS[key]
+      ? clampWbsColWidth(key, v, maxWidth) : DEFAULT_WBS_COL_WIDTHS[key];
+  };
+  return { title: pick('title'), assignee: pick('assignee') };
 }
