@@ -15,6 +15,8 @@ export interface GanttLeftRowProps {
   rowNumber?: number;
   depth: number;
   hasChildren: boolean;
+  /** 全子がフィルタで非表示のときの直接の子の件数（それ以外は 0, §9.3）。 */
+  hiddenChildCount?: number;
   isCollapsed: boolean;
   effectiveProgress: number;
   fontSize: number;
@@ -38,7 +40,7 @@ export interface GanttLeftRowProps {
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttLeftRow = memo(function GanttLeftRow({
-  task, rowNumber = 0, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
+  task, rowNumber = 0, depth, hasChildren, hiddenChildCount = 0, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
@@ -179,6 +181,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   // ヘッダー・LEFT_TOTAL と基準を揃えるため hiddenCols だけは尊重する。
   const showAlways = (key: string) => !hiddenCols.includes(key);
 
+  const hiddenLabel = t('wbs.row.hiddenChildren', { n: hiddenChildCount });
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
   const rowBg = task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)');
@@ -213,7 +216,18 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       {/* タイトル */}
       {wbsPanelOpen && <div style={{ ...CELL, width: wbsColWidth('title', sizes), paddingLeft: indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: TOGGLE_GAP, width: '100%', overflow: 'hidden' }}>
-          {hasChildren ? (
+          {hasChildren && hiddenChildCount > 0 ? (
+            <button
+              aria-label={hiddenLabel}
+              title={hiddenLabel}
+              onClick={e => { e.stopPropagation(); showToast(t('wbs.row.hiddenChildrenToast', { n: hiddenChildCount }), 'info'); }} style={{
+              width: TOGGLE_W, height: TOGGLE_W, border: 'none', background: 'none', cursor: 'pointer',
+              padding: 0, fontSize: 9, color: 'var(--th-text-ph)', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              ▶
+            </button>
+          ) : hasChildren ? (
             <button
               aria-label={isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
               onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
@@ -246,6 +260,12 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               {readOnly && !isRefGroupId(task.id) && '🔗 '}
               {task.title}
             </span>
+          )}
+          {hasChildren && hiddenChildCount > 0 && (
+            <span data-testid="hidden-children-badge" title={hiddenLabel} style={{
+              flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
+              borderRadius: 8, color: 'var(--th-text-ph)', border: '1px solid var(--th-border)',
+            }}>+{hiddenChildCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>

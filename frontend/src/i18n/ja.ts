@@ -227,6 +227,8 @@ export const ja = {
 
   'wbs.row.expand': '展開',
   'wbs.row.collapse': '折りたたむ',
+  'wbs.row.hiddenChildren': '子タスク {n} 件はフィルタで非表示',
+  'wbs.row.hiddenChildrenToast': '子タスク {n} 件はフィルタで非表示です。フィルタを解除すると表示されます',
   'wbs.row.progressAutoTitle': '子タスクの平均（自動計算）',
   'wbs.row.dateAutoTitle': '子タスクの日付から自動計算',
   'wbs.row.milestoneEndSyncTitle': 'マイルストーンの終了日は開始日に同期',

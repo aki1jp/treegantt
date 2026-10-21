@@ -185,6 +185,12 @@ export function GanttChart({
   const { roots, childCount: treeChildCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
   // 親判定（子を持つか）はフィルタ前の全タスク基準（§9.3）。ツリー構造・表示行は上のフィルタ後ベースのまま。
   const childCount = useMemo(() => buildChildCountMap(displayTasks), [displayTasks]);
+  // 全タスクでは子を持つが表示中の子が 0 件の親 → 直接の子の件数（§9.3）
+  const hiddenChildCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const [id, n] of childCount) if ((treeChildCount.get(id) ?? 0) === 0 && n > 0) m.set(id, n);
+    return m;
+  }, [childCount, treeChildCount]);
   const flatRows = useMemo(() => flattenTree(roots, collapsed), [roots, collapsed]);
 
   const collapseAll    = () => setCollapsed(new Set(treeChildCount.keys()));
@@ -583,6 +589,7 @@ export function GanttChart({
         wbsHiddenCols={wbsHiddenCols}
         setWbsHiddenCols={setWbsHiddenCols}
         childCount={childCount}
+        hiddenChildCount={hiddenChildCount}
         collapseAll={collapseAll}
         expandToDepth={expandToDepth}
         expandAll={expandAll}
