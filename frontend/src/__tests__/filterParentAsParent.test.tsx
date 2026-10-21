@@ -113,3 +113,15 @@ describe('子の一部だけ表示されている親（§9.3）', () => {
     expect(cells.map(c => c.textContent)).toEqual(['2026-10-01', '2026-10-10']);
   });
 });
+
+describe('イナズマ線（§9.3）', () => {
+  it('子が全て非表示の親は折りたたみ時と同様に親の期間・進捗で頂点を持つ', () => {
+    const q = makeTask({ id: 'Q', title: 'Leaf', status: 'wip', progress: 50,
+      startDate: '2026-10-01', endDate: '2026-10-10' });
+    const { container } = renderChart([...family(), q], { filterStatus: '!done', showLightningLine: true });
+    const line = container.querySelector('polyline');
+    expect(line).toBeTruthy();
+    const ys = line!.getAttribute('points')!.split(' ').map(p => Number(p.split(',')[1]));
+    expect(ys).toEqual([18, 54]); // P（0 行目）と Q（1 行目）の行中央
+  });
+});
