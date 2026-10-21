@@ -284,5 +284,17 @@ describe('TOOL_DEFINITIONS', () => {
       expect(findTool('update_task').inputSchema.titleColor).toBeUndefined();
       expect(findTool('update_task').inputSchema.order).toBeUndefined();
     });
+
+    it.each(['create_task', 'update_task'])('%s: startDate/endDate は YYYY-MM-DD のみ許可（null/省略は可）', (name) => {
+      for (const field of ['startDate', 'endDate'] as const) {
+        const schema = findTool(name).inputSchema[field];
+        expect(schema.safeParse('202610-10-21').success).toBe(false);
+        expect(schema.safeParse('2026/10/21').success).toBe(false);
+        expect(schema.safeParse('2026-1-5').success).toBe(false);
+        expect(schema.safeParse('2026-10-21').success).toBe(true);
+        expect(schema.safeParse(null).success).toBe(true);
+        expect(schema.safeParse(undefined).success).toBe(true);
+      }
+    });
   });
 });

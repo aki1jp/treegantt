@@ -644,4 +644,49 @@ describe('Tasks API — 削除WS通知の一括化（v2.66）', () => {
     const orders = (reorderedMsgs[0][1] as { orders: { id: string }[] }).orders;
     expect(orders.map(o => o.id)).toContain(child.id);
   });
+
+  describe('日付フィールドの形式検証（YYYY-MM-DD）', () => {
+    const BAD = ['202610-10-21', '2026/10/21', '2026-1-5'];
+
+    it.each(BAD)('POST で startDate=%s は 400', async (bad) => {
+      const res = await app.inject({
+        method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+        payload: { title: 'T', startDate: bad },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it.each(BAD)('POST で endDate=%s は 400', async (bad) => {
+      const res = await app.inject({
+        method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+        payload: { title: 'T', endDate: bad },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it.each(BAD)('PATCH で startDate/endDate=%s は 400', async (bad) => {
+      const task = await createTask();
+      for (const field of ['startDate', 'endDate']) {
+        const res = await app.inject({
+          method: 'PATCH', url: `/api/v1/tasks/${task.id}`,
+          payload: { [field]: bad },
+        });
+        expect(res.statusCode).toBe(400);
+      }
+    });
+
+    it('正しい YYYY-MM-DD と null は POST/PATCH とも成功する', async () => {
+      const res = await app.inject({
+        method: 'POST', url: `/api/v1/projects/${projectId}/tasks`,
+        payload: { title: 'T', startDate: '2026-10-21', endDate: null },
+      });
+      expect(res.statusCode).toBe(201);
+      const id = res.json().task?.id ?? res.json().id;
+      const patch = await app.inject({
+        method: 'PATCH', url: `/api/v1/tasks/${id}`,
+        payload: { startDate: null, endDate: '2026-10-22' },
+      });
+      expect(patch.statusCode).toBe(200);
+    });
+  });
 });
