@@ -27,7 +27,7 @@ import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
 import { WbsPanel } from './WbsPanel';
 import { HEADER_ROW_H, WBS_COL_LABEL_KEYS } from './ganttChartConstants';
-import { WBS_COL_DEFS, COL_MIN_WIDTHS, wbsColWidth, leadingWidth, type WbsColSizes } from '../../utils/wbsLayout';
+import { WBS_COL_DEFS, COL_MIN_WIDTHS, wbsColWidth, leadingWidth, type WbsColSizes, type WbsColWidths } from '../../utils/wbsLayout';
 
 // バー移動/リサイズ/作成ドラッグ・依存リンクドラッグの状態は useBarDrag/useLinkDrag に分離（D4）。
 // CREATE_DRAG_THRESHOLD_PX は既存の import 元（テスト等）互換のためここから再エクスポートする。
@@ -134,7 +134,7 @@ export function GanttChart({
   const assigneeOptions = assigneeOptionsRef.current;
 
   // 列幅（タイトル・担当者はドラッグでリサイズ可）
-  // store に置いてプロジェクト切替（アンマウント）をまたいで維持する（非永続）
+  // store に置いてプロジェクト切替（アンマウント）をまたいで維持する（永続化・全プロジェクト共通, §7.1）
   const colWidths = useTaskStore(s => s.wbsColWidths);
   const setColWidths = useTaskStore(s => s.setWbsColWidths);
   const [colResize, setColResize] = useState<{ key: string; startX: number; startWidth: number } | null>(null);
@@ -159,7 +159,7 @@ export function GanttChart({
   const handleColMouseMove = useCallback((e: MouseEvent) => {
     const cr = colResizeRef.current;
     if (!cr) return;
-    const minW = COL_MIN_WIDTHS[cr.key] ?? 40;
+    const minW = COL_MIN_WIDTHS[cr.key as keyof WbsColWidths] ?? 40;
     setColWidths(prev => ({
       ...prev,
       [cr.key]: Math.max(minW, cr.startWidth + e.clientX - cr.startX),
