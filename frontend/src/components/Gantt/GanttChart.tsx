@@ -8,7 +8,7 @@ import {
   buildMultiLevelHeaders, dateToX, getUniqueAssignees,
   calcParentSpanMap, assignMilestoneLanes, isMilestoneXVisible, measureMilestoneLabel,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, buildRowNumberMap, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
+import { buildTree, buildChildCountMap, flattenTree, buildRowNumberMap, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
@@ -182,10 +182,18 @@ export function GanttChart({
   // 「概念上のツリー全ノード」であり、resolveVisibleId の親チェーン遡り（§8.5）は折りたたみで
   // 隠れているノードも辿る必要があるため、taskById もここから構築する（flatRows からは作らない）。
   const treeTasks = useMemo(() => includeAncestors(sorted, displayTasks), [sorted, displayTasks]);
-  const { roots, childCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
+  const { roots, childCount: treeChildCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
+  // 親判定（子を持つか）はフィルタ前の全タスク基準（§9.3）。ツリー構造・表示行は上のフィルタ後ベースのまま。
+  const childCount = useMemo(() => buildChildCountMap(displayTasks), [displayTasks]);
+  // 全タスクでは子を持つが表示中の子が 0 件の親 → 直接の子の件数（§9.3）
+  const hiddenChildCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const [id, n] of childCount) if ((treeChildCount.get(id) ?? 0) === 0 && n > 0) m.set(id, n);
+    return m;
+  }, [childCount, treeChildCount]);
   const flatRows = useMemo(() => flattenTree(roots, collapsed), [roots, collapsed]);
 
-  const collapseAll    = () => setCollapsed(new Set(childCount.keys()));
+  const collapseAll    = () => setCollapsed(new Set(treeChildCount.keys()));
   const expandAll      = () => setCollapsed(new Set());
   const expandToDepth  = (depth: number) => {
     const acc = new Set<string>();
@@ -272,8 +280,9 @@ export function GanttChart({
   const totalHeaderH = headerRows.length * HEADER_ROW_H + milestoneHeaderH + 2;
 
   // 親タスクの進捗・表示スパン事前計算（O(N) 1パス版）
-  const progressMap   = useMemo(() => calcAllEffectiveProgress(sorted), [sorted]);
-  const parentSpanMap = useMemo(() => calcParentSpanMap(sorted), [sorted]);
+  // フィルタ前の全タスク基準（§9.3）: 非表示の子も集計に含める。
+  const progressMap   = useMemo(() => calcAllEffectiveProgress(displayTasks), [displayTasks]);
+  const parentSpanMap = useMemo(() => calcParentSpanMap(displayTasks), [displayTasks]);
 
   // 実効日付ヘルパー: 親タスク（子を持つ）は表示スパン（parentSpanMap）、葉は生値を返す。
   // ガントバー・依存矢印・コネクタドット等の座標を親サマリーバーの描画位置と一致させる。
@@ -290,14 +299,15 @@ export function GanttChart({
       task: r.task,
       effectiveProgress: progressMap.get(r.task.id) ?? 0,
       hasChildren: (childCount.get(r.task.id) ?? 0) > 0,
-      isCollapsed: collapsed.has(r.task.id),
+      // 表示中の子が無い親（子が全てフィルタで非表示）は、子が頂点を描かないので折りたたみ時と同様に親自身で頂点を持つ
+      isCollapsed: collapsed.has(r.task.id) || hiddenChildCount.has(r.task.id),
       effectiveStart: effStartDate(r.task),
       effectiveEnd:   effEndDate(r.task),
     })),
     min,
     zoomLevel,
     uiRowHeight,
-  ), [flatRows, progressMap, childCount, collapsed, effStartDate, effEndDate, min, zoomLevel, uiRowHeight]);
+  ), [flatRows, progressMap, childCount, hiddenChildCount, collapsed, effStartDate, effEndDate, min, zoomLevel, uiRowHeight]);
 
   // クリティカルパス（現プロジェクトのみ, §5.8）
   const criticalSet = useMemo(
@@ -579,6 +589,7 @@ export function GanttChart({
         wbsHiddenCols={wbsHiddenCols}
         setWbsHiddenCols={setWbsHiddenCols}
         childCount={childCount}
+        hiddenChildCount={hiddenChildCount}
         collapseAll={collapseAll}
         expandToDepth={expandToDepth}
         expandAll={expandAll}

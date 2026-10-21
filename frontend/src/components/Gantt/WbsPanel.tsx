@@ -42,6 +42,8 @@ interface Props {
   setWbsHiddenCols: (cols: string[]) => void;
   // 展開/折りたたみ
   childCount: Map<string, number>;
+  /** 全子がフィルタで非表示の親 → 直接の子の件数（§9.3）。 */
+  hiddenChildCount: Map<string, number>;
   collapseAll: () => void;
   expandToDepth: (depth: number) => void;
   expandAll: () => void;
@@ -94,7 +96,7 @@ export function WbsPanel(props: Props) {
     colResizing,
     wbsPanelOpen, setWbsPanelOpen, leftTotal, visibleLeftCols, titleLeadingWidth, colWidths, setColResize,
     dateColWidth, ganttHeaderH, totalHeaderH, wbsHiddenCols, setWbsHiddenCols,
-    childCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
+    childCount, hiddenChildCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
     handleWbsWheel, wbsPanelRef, wbsBodyRef, vStart, vEnd, uiRowHeight, uiFontSize,
     flatRows, rowNumberMap, collapsed, progressMap, parentSpanMap, assigneeOptions,
     toggleCollapse, handleInlineUpdate, handleRowContextMenu,
@@ -266,6 +268,7 @@ export function WbsPanel(props: Props) {
                     rowNumber={rowNumberMap.get(task.id) ?? 0}
                     depth={depth}
                     hasChildren={(childCount.get(task.id) ?? 0) > 0}
+                    hiddenChildCount={hiddenChildCount.get(task.id) ?? 0}
                     isCollapsed={collapsed.has(task.id)}
                     effectiveProgress={progressMap.get(task.id) ?? task.progress}
                     fontSize={uiFontSize}

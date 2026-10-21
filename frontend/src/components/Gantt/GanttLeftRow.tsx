@@ -7,7 +7,7 @@ import { TaskTooltip } from './TaskTooltip';
 import { STATUS_COLOR, PRIORITY_COLOR } from '../../utils/taskColors';
 import { isRefGroupId } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
-import { showToast } from '../../store/toastStore';
+import { showToast, useToastStore } from '../../store/toastStore';
 
 export interface GanttLeftRowProps {
   task: Task;
@@ -15,6 +15,8 @@ export interface GanttLeftRowProps {
   rowNumber?: number;
   depth: number;
   hasChildren: boolean;
+  /** 全子がフィルタで非表示のときの直接の子の件数（それ以外は 0, §9.3）。 */
+  hiddenChildCount?: number;
   isCollapsed: boolean;
   effectiveProgress: number;
   fontSize: number;
@@ -38,7 +40,7 @@ export interface GanttLeftRowProps {
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttLeftRow = memo(function GanttLeftRow({
-  task, rowNumber = 0, depth, hasChildren, isCollapsed, effectiveProgress, fontSize, rowHeight,
+  task, rowNumber = 0, depth, hasChildren, hiddenChildCount = 0, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
@@ -179,6 +181,9 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   // ヘッダー・LEFT_TOTAL と基準を揃えるため hiddenCols だけは尊重する。
   const showAlways = (key: string) => !hiddenCols.includes(key);
 
+  // 子が全てフィルタで非表示の親（§9.3）: トグルは ▶ 固定・押しても折りたたまず通知のみ
+  const allChildrenHidden = hasChildren && hiddenChildCount > 0;
+  const hiddenLabel = t('wbs.row.hiddenChildren', { n: hiddenChildCount });
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
   const rowBg = task.titleBgColor ?? (isRootParent ? 'var(--th-bg-parent)' : 'var(--th-bg)');
@@ -215,13 +220,21 @@ export const GanttLeftRow = memo(function GanttLeftRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: TOGGLE_GAP, width: '100%', overflow: 'hidden' }}>
           {hasChildren ? (
             <button
-              aria-label={isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
-              onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
+              aria-label={allChildrenHidden ? hiddenLabel : isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
+              title={allChildrenHidden ? hiddenLabel : undefined}
+              onClick={e => {
+                e.stopPropagation();
+                if (!allChildrenHidden) { onToggleCollapse(task.id); return; }
+                // フィルタ前から折りたたまれていた親は、フィルタ解除だけでは子が見えないため案内を変える
+                const msg = t(isCollapsed ? 'wbs.row.hiddenChildrenToastCollapsed' : 'wbs.row.hiddenChildrenToast', { n: hiddenChildCount });
+                // 連打で同じ通知が積み重ならないよう、表示中なら出さない
+                if (!useToastStore.getState().toasts.some(x => x.message === msg)) showToast(msg, 'info');
+              }} style={{
               width: TOGGLE_W, height: TOGGLE_W, border: 'none', background: 'none', cursor: 'pointer',
-              padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
+              padding: 0, fontSize: 9, color: allChildrenHidden ? 'var(--th-text-ph)' : 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {isCollapsed ? '▶' : '▼'}
+              {allChildrenHidden || isCollapsed ? '▶' : '▼'}
             </button>
           ) : depth > 0 ? (
             <span style={{ width: TOGGLE_W, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
@@ -246,6 +259,14 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               {readOnly && !isRefGroupId(task.id) && '🔗 '}
               {task.title}
             </span>
+          )}
+          {allChildrenHidden && (
+            <span data-testid="hidden-children-badge" title={hiddenLabel} style={{
+              flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
+              // 親タスクの配色で強調（両テーマでコントラスト比 4.5:1 以上, §9.3）
+              borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
+              border: '1px solid var(--th-border-strong)', fontWeight: 700,
+            }}>+{hiddenChildCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>
