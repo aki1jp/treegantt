@@ -13,8 +13,11 @@ export function titlePaddingLeft(depth: number): number {
   return TITLE_PAD + depth * INDENT;
 }
 
+/** WBS の title/assignee 列の幅（ユーザーリサイズ値） */
+export type WbsColWidths = { title: number; assignee: number };
+
 export type WbsColSizes = {
-  colWidths: { title: number; assignee: number };
+  colWidths: WbsColWidths;
   dateColWidth: number;
 };
 
@@ -53,4 +56,29 @@ export function leadingWidth(visibleCols: readonly { key: string }[], sizes: Wbs
  *  leading は呼び出し側が leadingWidth() で算出して渡す（列の表示 ON/OFF・リサイズに追従させるため）。 */
 export function textStartX(depth: number, leading: number): number {
   return leading + TITLE_PAD + TOGGLE_W + TOGGLE_GAP + depth * INDENT;
+}
+
+const defWidth = (key: keyof WbsColWidths): number => WBS_COL_DEFS.find(c => c.key === key)!.width;
+
+/** WBS の title/assignee 列の既定幅（store 初期値・リセット・復元時検証の既定値で共有）。WBS_COL_DEFS から導出する */
+export const DEFAULT_WBS_COL_WIDTHS: Readonly<WbsColWidths> = { title: defWidth('title'), assignee: defWidth('assignee') };
+
+/** WBS の title/assignee 列のリサイズ下限（GanttChart のドラッグ下限・復元時検証で共有） */
+export const COL_MIN_WIDTHS: Readonly<WbsColWidths> = { title: 80, assignee: 50 };
+
+/** 列幅を [最小幅, maxWidth] に収める。上限が最小幅より小さい場合は最小幅を優先する。 */
+export function clampWbsColWidth(key: keyof WbsColWidths, v: number, maxWidth: number): number {
+  return Math.max(COL_MIN_WIDTHS[key], Math.min(maxWidth, v));
+}
+
+/** localStorage から復元した列幅を検証する。有限 number でない／下限未満の列は既定値、
+ *  上限（既定は表示領域の幅）を超える列は上限まで縮める。 */
+export function sanitizeWbsColWidths(raw: unknown, maxWidth: number = window.innerWidth): WbsColWidths {
+  const src = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const pick = (key: keyof WbsColWidths): number => {
+    const v = src[key];
+    return typeof v === 'number' && Number.isFinite(v) && v >= COL_MIN_WIDTHS[key]
+      ? clampWbsColWidth(key, v, maxWidth) : DEFAULT_WBS_COL_WIDTHS[key];
+  };
+  return { title: pick('title'), assignee: pick('assignee') };
 }

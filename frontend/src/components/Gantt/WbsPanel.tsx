@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Task } from '../../types/task';
-import { textStartX, wbsColWidth, type WbsColSizes } from '../../utils/wbsLayout';
+import { DEFAULT_WBS_COL_WIDTHS, textStartX, wbsColWidth, type WbsColSizes, type WbsColWidths } from '../../utils/wbsLayout';
 import { isReadonlyTask } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
 import { GanttLeftRow } from './GanttLeftRow';
@@ -14,7 +14,8 @@ import { HEADER_ROW_H, WBS_COL_TOGGLE_LABEL_KEYS } from './ganttChartConstants';
 // 分かりやすさを優先するため）。
 const HIDEABLE_COL_KEYS = ['status', 'priority', 'progress', 'assignee', 'startDate', 'endDate', 'duration'] as const;
 
-const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
+// リサイズ可能な列は既定幅（＝最小幅・上限の対象）を持つ列に限る（キー集合を1か所から導出）
+const RESIZABLE_COL_KEYS: ReadonlySet<string> = new Set(Object.keys(DEFAULT_WBS_COL_WIDTHS));
 
 type LeftCol = { key: string; label: string; width: number };
 type FlatRow = { task: Task; depth: number };
@@ -25,12 +26,14 @@ interface Props {
   currentProjectId?: string;
   // レイアウト・列
   wbsPanelOpen: boolean;
+  /** 列幅ドラッグ中か（true の間は width のアニメーションを止める） */
+  colResizing: boolean;
   setWbsPanelOpen: (open: boolean) => void;
   leftTotal: number;
   visibleLeftCols: LeftCol[];
   /** WBS パネル左端から title 列までの実測オフセット（列レイアウトの導出, §9.2）。 */
   titleLeadingWidth: number;
-  colWidths: { title: number; assignee: number };
+  colWidths: WbsColWidths;
   setColResize: (v: { key: string; startX: number; startWidth: number } | null) => void;
   dateColWidth: number;
   ganttHeaderH: number;
@@ -88,6 +91,7 @@ const TH: React.CSSProperties = {
 export function WbsPanel(props: Props) {
   const {
     currentProjectId,
+    colResizing,
     wbsPanelOpen, setWbsPanelOpen, leftTotal, visibleLeftCols, titleLeadingWidth, colWidths, setColResize,
     dateColWidth, ganttHeaderH, totalHeaderH, wbsHiddenCols, setWbsHiddenCols,
     childCount, collapseAll, expandToDepth, expandAll, setTitleHeaderCtxMenu,
@@ -119,7 +123,7 @@ export function WbsPanel(props: Props) {
       <div data-testid="wbs-panel" ref={wbsPanelRef} onWheel={handleWbsWheel} style={{
         flexShrink: 0, width: leftTotal, display: 'flex', flexDirection: 'column',
         overflow: 'hidden', borderRight: '2px solid var(--th-border-strong)', background: 'var(--th-bg)',
-        transition: 'width 0.15s ease',
+        transition: colResizing ? 'none' : 'width 0.15s ease',
       }}>
         {/* WBS ヘッダー（高さをガントヘッダーに合わせる） */}
         <div data-testid="wbs-header" style={{

@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.8** |
-| ドキュメント版 | 0.2.186 |
+| ドキュメント版 | 0.2.188 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -430,10 +430,10 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
 ## 7. フロントエンド設計
 
 ### 7.1 状態管理（`store/taskStore.ts`、zustand + persist）
-- データ：`tasks`、`tasksOwnerProjectId`（`tasks` の取得元プロジェクト。非永続。§5.8）、`needsReload`、`wbsColWidths`（WBS のタイトル・担当者列の幅。非永続。プロジェクト切替で GanttChart がアンマウントされても維持する）。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`/`refOwnerProjectId`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。`refOwnerProjectId` は参照データの取得元プロジェクトを示し、`setRefData` で他の2値と同時更新する（読み出し側は現在プロジェクトと一致するときのみ使う。§5.8）。
+- データ：`tasks`、`tasksOwnerProjectId`（`tasks` の取得元プロジェクト。非永続。§5.8）、`needsReload`。クロスプロジェクト参照（§5.8）の `refTasks`/`refProjects`/`refOwnerProjectId`（`setRefData`/`upsertRefTask`）は非永続スロットとして併置し、`tasks` とは分離する。`refOwnerProjectId` は参照データの取得元プロジェクトを示し、`setRefData` で他の2値と同時更新する（読み出し側は現在プロジェクトと一致するときのみ使う。§5.8）。
 - フィルタ：`filterStatus`（`'' | TaskStatus | '!done'`）、`filterAssignee`、`filterPriority`、`filterColor`（`'' | '*' | string`。`'*'`＝色付き、それ以外は実効色の一致、§9.3）、`filterOverdue`（`'' | 'overdue'`。`'overdue'`＝期限超過のみ、§9.3）、`filterSearch`。フィルタ値はいずれも永続化しない（担当者候補のピン留め `pinnedAssignees` は「フィルタ値」ではなく UI 設定として別途永続化する。§9.3）。
 - ガント表示：`zoomLevel`(既定 day)、`ganttStartDate`、`ganttPeriod`(既定 3m)、`showLightningLine/Weekend/CriticalPath/ResourceView/TodayLine/Milestones`、`milestoneHighlightColor`(#8b5cf6)、`uiFontSize`(13)、`uiRowHeight`(36)、`ganttHeaderLevels`(month/day=true)、`depArrowStyle`(bezier)。
-- レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`、`pinnedAssignees`（担当者フィルタ候補のピン留め。`Record<projectId, string[]>`、§9.3）。
+- レイアウト：`theme`(auto)、`ganttBarOpen`、`wbsPanelOpen`、`wbsHiddenCols`、`pinnedAssignees`（担当者フィルタ候補のピン留め。`Record<projectId, string[]>`、§9.3）、`wbsColWidths`（WBS のタイトル・担当者列のユーザーリサイズ幅。既定 `{ title: 180, assignee: 76 }`。**永続化し全プロジェクト共通**＝リロード後もプロジェクト切替後も維持する。ツールバーの「デフォルト」（`resetUi`）で既定値に戻す。localStorage から復元する際、各値が有限の数値でない・最小幅（title 80px／assignee 50px。リサイズ時の下限と同じ）未満の場合はその列だけ既定値に戻す。**上限は列ごとにブラウザの表示領域の幅（`window.innerWidth`）**とし、ドラッグ中と復元時に適用する（復元時に上限を超えていれば既定値ではなく上限まで縮める。上限が最小幅より小さい場合は最小幅を優先する。ページ表示後のウィンドウリサイズには追従しない））。
 - 差分適用アクション：`upsertTask`/`removeTasks`/`applyOrders`（未変更タスクの参照を保ち `React.memo` 行の再描画を最小化）。
 - 永続化：`partialize` で UI 設定のみ `localStorage('treegantt-ui')` に保存（tasks は保存しない）。
 - リソース設定（capacity/workingDays のアプリ既定）は **localStorage に載せず**、別の非永続ストア `settingsStore`（zustand）に保持する。起動時に `GET /api/v1/settings` から取得（取得失敗時はハードコード既定 480／月〜金）。サーバが真実＝全ユーザー共有。プロジェクト個別の上書きは各 `Project` に同梱され、実効値は `duration.ts` の解決ヘルパで算出する（§9.8）。
@@ -571,6 +571,7 @@ API は変更後 `notifyRoom(projectId, message)` で同 room の全接続へ JS
   - テキスト開始 X：`textStartX(depth, leading)` = `leading`（`title` より左の**表示中**の列幅合計）＋ `TITLE_PAD` ＋ `TOGGLE_W` ＋ `TOGGLE_GAP` ＋ `depth * INDENT`。列の表示 ON/OFF・リサイズ・フォントサイズ変更に自動追従する。
   - 行の左端装飾（ルート親行の強調帯）は `boxShadow: inset` で描画し、行の幅に加算しない（`borderLeft` だとヘッダーと本体が帯の太さぶんずれる）。
   - WBS パネルを閉じた状態（`wbsPanelOpen=false`）の幅も同じ導出値（`title` より左の常時表示列の合計）を用いる。
+  - WBS パネルの幅の変化は、開閉（◁/▷）・列の表示切替では `width 0.15s ease` でアニメーションする。**タイトル・担当者列のドラッグリサイズ中はアニメーションを止め（`transition: none`）、ガントの開始位置をリアルタイムに追従させる**。
 - **無変更なら保存しない**：セル編集の確定（blur / Enter）時、確定値が編集開始前のタスクの現在値と等しい場合は保存 API を発行しない。セルをクリックしただけ・同じ値を入力し直しただけの操作でサーバー更新と WebSocket 配信（§6.1）を起こさないための規定である。期間列も、入力日数から再計算した `endDate` が現在値と等しければ発行しない。マイルストーンの開始日追従・開始/終了日の前後矛盾クランプについても、確定後の `startDate`/`endDate` の組が現在値と一致するなら発行しない。Escape による取り消しが保存されないのは従来どおり。なお競合検知（編集開始時の値とタスクの現在値の比較）は「他クライアントが変更したか」の判定であり、この無変更判定とは別物として両方を行う。
 
 ### 9.3 ツールバー
@@ -1074,3 +1075,5 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.184 | 2026/10 | §8.1 に描画範囲の仕様を明記し、開始日が空（自動）のときもタスク日付で範囲を伸ばさず「既定開始日＋表示期間」ちょうどで打ち切るよう変更した（従来は期間を最低幅としてタスクの最遅日付＋5日まで伸ばしていた）。手動指定時と同じ規則に揃え、描画量を最大 730 日分に抑える。製品バージョンは変更なし。 |
 | 0.2.185 | 2026/10 | §5.1 に日付フィールドの形式検証を追加。タスク作成・更新・一括更新 API は `startDate`/`endDate` を `YYYY-MM-DD`（または null）に限定し不正形式を 400 で拒否、MCP 書き込みツールの zod スキーマも同じ制約に揃える（§18.2）。フロントは日付入力に `min`/`max` 既定値を付けて年を 4 桁に制限し、保存前に `isValidDateStr` で検証して不正ならトーストで通知し保存しない。製品バージョンは変更なし。 |
 | 0.2.186 | 2026/10 | 製品バージョンを **1.9.8** に更新（ヘッダー・ステータス・構成図）。保留タスクの親進捗集計からの除外（0.2.180）、親タスクのバードラッグによる配下一括シフト（0.2.181・0.2.182）、プロジェクト切替中の旧タスク非表示（0.2.183）、ガント描画範囲の表示期間での打ち切り（0.2.184）、日付フィールドの形式検証（0.2.185）をまとめてパッチリリースとして `CHANGELOG.md` の `[1.9.8]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
+| 0.2.187 | 2026/10 | §7.1 の `wbsColWidths`（WBS のタイトル・担当者列の幅）を非永続から永続（`treegantt-ui`、全プロジェクト共通）に変更し、リロード後も幅を維持する。ツールバーの「デフォルト」で既定値に戻し、復元時に不正値・最小幅未満の値はその列だけ既定値に戻す。製品バージョンは変更なし。 |
+| 0.2.188 | 2026/10 | §7.1 の `wbsColWidths` に上限（列ごとにブラウザの表示領域の幅 `window.innerWidth`。ドラッグ中と復元時に適用し、復元時は上限まで縮める）を追加。§9.2 に、列のドラッグリサイズ中は WBS パネル幅のアニメーションを止めてガントの開始位置をリアルタイムに追従させる仕様を追加（開閉・列の表示切替のアニメーションは維持）。製品バージョンは変更なし。 |
