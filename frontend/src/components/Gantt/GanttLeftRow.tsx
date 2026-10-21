@@ -7,7 +7,7 @@ import { TaskTooltip } from './TaskTooltip';
 import { STATUS_COLOR, PRIORITY_COLOR } from '../../utils/taskColors';
 import { isRefGroupId } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
-import { showToast } from '../../store/toastStore';
+import { showToast, useToastStore } from '../../store/toastStore';
 
 export interface GanttLeftRowProps {
   task: Task;
@@ -220,7 +220,13 @@ export const GanttLeftRow = memo(function GanttLeftRow({
             <button
               aria-label={hiddenLabel}
               title={hiddenLabel}
-              onClick={e => { e.stopPropagation(); showToast(t('wbs.row.hiddenChildrenToast', { n: hiddenChildCount }), 'info'); }} style={{
+              onClick={e => {
+                e.stopPropagation();
+                // フィルタ前から折りたたまれていた親は、フィルタ解除だけでは子が見えないため案内を変える
+                const msg = t(isCollapsed ? 'wbs.row.hiddenChildrenToastCollapsed' : 'wbs.row.hiddenChildrenToast', { n: hiddenChildCount });
+                // 連打で同じ通知が積み重ならないよう、表示中なら出さない
+                if (!useToastStore.getState().toasts.some(x => x.message === msg)) showToast(msg, 'info');
+              }} style={{
               width: TOGGLE_W, height: TOGGLE_W, border: 'none', background: 'none', cursor: 'pointer',
               padding: 0, fontSize: 9, color: 'var(--th-text-ph)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',

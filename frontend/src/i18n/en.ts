@@ -228,8 +228,9 @@ export const en = {
 
   'wbs.row.expand': 'Expand',
   'wbs.row.collapse': 'Collapse',
-  'wbs.row.hiddenChildren': '{n} child tasks hidden by filter',
-  'wbs.row.hiddenChildrenToast': '{n} child tasks are hidden by the filter. Clear the filter to show them.',
+  'wbs.row.hiddenChildren': 'Child tasks hidden by filter: {n}',
+  'wbs.row.hiddenChildrenToast': 'Child tasks hidden by the filter: {n}. Clear the filter to show them.',
+  'wbs.row.hiddenChildrenToastCollapsed': 'Child tasks hidden by the filter: {n}. Clear the filter and expand the task to show them.',
   'wbs.row.progressAutoTitle': 'Average of child tasks (auto-calculated)',
   'wbs.row.dateAutoTitle': 'Automatically calculated from child task dates',
   'wbs.row.milestoneEndSyncTitle': 'Milestone end date is synced to the start date',
