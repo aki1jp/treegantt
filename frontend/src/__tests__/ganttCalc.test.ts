@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, normalizeDateStr, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, normalizeDateStr, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder, isValidDateStr } from '../utils/ganttCalc';
 import { DOW_LABELS_JA } from '../i18n/dow';
 import type { Task } from '../types/task';
 
@@ -872,5 +872,16 @@ describe('computeInsertOrder', () => {
     const siblings = [s('a', 2), s('b', 4)];
     const result = computeInsertOrder(siblings, 'x', null);
     expect(result).toBe(5);
+  });
+});
+
+describe('isValidDateStr', () => {
+  it('実在する YYYY-MM-DD は true', () => {
+    expect(isValidDateStr('2026-10-21')).toBe(true);
+  });
+  it('年が5桁以上・区切り違い・ゼロ詰めなし・実在しない日付・空は false', () => {
+    for (const s of ['202610-10-21', '2026/10/21', '2026-1-5', '2026-02-30', '']) {
+      expect(isValidDateStr(s)).toBe(false);
+    }
   });
 });

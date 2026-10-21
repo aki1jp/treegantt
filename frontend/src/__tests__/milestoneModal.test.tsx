@@ -6,6 +6,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, screen, act } from '@testing-library/react';
 import { MilestoneModal } from '../components/MilestoneModal/MilestoneModal';
 import { useTaskStore } from '../store/taskStore';
+import { useToastStore } from '../store/toastStore';
 import type { Task } from '../types/task';
 
 afterEach(() => { cleanup(); });
@@ -263,5 +264,25 @@ describe('MilestoneModal i18n（locale="en"）', () => {
     render(<MilestoneModal task={makeMilestone()} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+  });
+});
+
+describe('MilestoneModal — 日付形式の検証', () => {
+  beforeEach(() => { useToastStore.setState({ toasts: [] }); });
+
+  it('年6桁の不正な日付で保存 → onSave が呼ばれずエラートーストを表示', () => {
+    const onSave = vi.fn();
+    render(<MilestoneModal task={makeMilestone()} allTasks={[]} onSave={onSave} onClose={NOOP} />);
+    fireEvent.change(screen.getByLabelText('日付'), { target: { value: '202610-10-21' } });
+    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(useToastStore.getState().toasts[0]?.type).toBe('error');
+  });
+
+  it('日付入力に min/max 属性が付く', () => {
+    render(<MilestoneModal task={null} allTasks={[]} onSave={NOOP} onClose={NOOP} />);
+    const el = screen.getByLabelText('日付') as HTMLInputElement;
+    expect(el.min).toBe('1000-01-01');
+    expect(el.max).toBe('9999-12-31');
   });
 });

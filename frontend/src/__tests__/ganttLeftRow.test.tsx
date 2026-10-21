@@ -3,6 +3,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { GanttLeftRow } from '../components/Gantt/GanttLeftRow';
 import { useTaskStore } from '../store/taskStore';
+import { useToastStore } from '../store/toastStore';
 import type { Task } from '../types/task';
 
 afterEach(() => { cleanup(); });
@@ -661,5 +662,41 @@ describe('GanttLeftRow i18n（locale="en"）', () => {
     const select = screen.getByRole('combobox') as HTMLSelectElement;
     const labels = Array.from(select.options).map(o => o.text);
     expect(labels).toEqual(['Critical', 'High', 'Medium', 'Low']);
+  });
+});
+
+describe('GanttLeftRow 日付入力の検証', () => {
+  beforeEach(() => { useToastStore.setState({ toasts: [] }); });
+
+  it('終了日に年6桁の不正値を入力して blur → 保存せずエラートーストを表示', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask(), onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-05-10'));
+    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '202610-10-21' } });
+    fireEvent.blur(input);
+    expect(onInlineUpdate).not.toHaveBeenCalled();
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0].type).toBe('error');
+  });
+
+  it('正しい日付は従来どおり保存される', () => {
+    const onInlineUpdate = vi.fn();
+    renderRow(makeTask(), onInlineUpdate);
+    fireEvent.click(screen.getByText('2026-05-10'));
+    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '2026-06-01' } });
+    fireEvent.blur(input);
+    expect(onInlineUpdate).toHaveBeenCalledWith('t1', { endDate: '2026-06-01' });
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it('日付入力に min/max 属性が付く', () => {
+    renderRow(makeTask({ startDate: null, endDate: null }));
+    fireEvent.click(screen.getAllByText('—')[0]);
+    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+    expect(input.min).toBe('1000-01-01');
+    expect(input.max).toBe('9999-12-31');
   });
 });

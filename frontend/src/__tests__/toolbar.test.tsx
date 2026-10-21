@@ -868,3 +868,21 @@ describe('Toolbar 担当者フィルタ ピン留め', () => {
     });
   });
 });
+
+describe('Toolbar 表示開始日の検証', () => {
+  it('不正な日付（年6桁）では ganttStartDate を更新しない', () => {
+    renderToolbar();
+    const input = screen.getByLabelText('開始日') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '202610-10-21' } });
+    expect(useTaskStore.getState().ganttStartDate).toBe('');
+  });
+
+  it('正しい日付は反映され、min/max 属性が付く', () => {
+    renderToolbar();
+    const input = screen.getByLabelText('開始日') as HTMLInputElement;
+    expect(input.min).toBe('1000-01-01');
+    expect(input.max).toBe('9999-12-31');
+    fireEvent.change(input, { target: { value: '2026-10-21' } });
+    expect(useTaskStore.getState().ganttStartDate).toBe('2026-10-21');
+  });
+});
