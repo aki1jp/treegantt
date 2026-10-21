@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
 import { showToast } from '../../store/toastStore';
-import { isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX, getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { isValidOptionalDate, DATE_INPUT_MIN, DATE_INPUT_MAX, getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
 import { useTranslation } from '../../i18n/useTranslation';
 
 interface Props {
@@ -76,7 +76,7 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
     e.preventDefault();
     if (!title.trim()) return;
     if (task && !isDirty) { onClose(); return; }
-    if (date && !isValidDateStr(date)) {
+    if (!isValidOptionalDate(date)) {
       showToast(t('common.invalidDate'), 'error');
       return;
     }

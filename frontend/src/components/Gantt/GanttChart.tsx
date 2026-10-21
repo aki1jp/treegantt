@@ -201,8 +201,8 @@ export function GanttChart({
   // range の min/max は Date オブジェクトで全 GanttBar に渡るため、
   // 値（時刻）が同じなら前回の参照を維持して React.memo の無効化を防ぐ
   const rangeRaw = useMemo(
-    () => calcGanttRange(sorted, start, period, zoomLevel),
-    [sorted, start, period, zoomLevel],
+    () => calcGanttRange(start, period, zoomLevel),
+    [start, period, zoomLevel],
   );
   const rangeRef = useRef(rangeRaw);
   if (
@@ -213,8 +213,8 @@ export function GanttChart({
   }
   const { min, max } = rangeRef.current;
   const totalWidth = useMemo(
-    () => ganttTotalWidth(sorted, zoomLevel, start, period),
-    [sorted, zoomLevel, start, period],
+    () => ganttTotalWidth(zoomLevel, start, period),
+    [zoomLevel, start, period],
   );
   const dowLabels = useDowLabels();
   const headerRows = useMemo(

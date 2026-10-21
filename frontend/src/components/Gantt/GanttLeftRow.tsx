@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
-import { addDays, calcDuration, isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX } from '../../utils/ganttCalc';
+import { addDays, calcDuration, isValidOptionalDate, DATE_INPUT_MIN, DATE_INPUT_MAX } from '../../utils/ganttCalc';
 import { titlePaddingLeft, wbsColWidth, TOGGLE_W, TOGGLE_GAP, type WbsColSizes } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 import { TaskTooltip } from './TaskTooltip';
@@ -105,7 +105,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   }
 
   function commit(field: string, myVal: string | number | null) {
-    if ((field === 'startDate' || field === 'endDate') && myVal && !isValidDateStr(String(myVal))) {
+    if ((field === 'startDate' || field === 'endDate') && !isValidOptionalDate(myVal == null ? null : String(myVal))) {
       showToast(t('common.invalidDate'), 'error');
       setEditField(null);
       return;

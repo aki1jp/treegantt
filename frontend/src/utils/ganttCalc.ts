@@ -43,10 +43,9 @@ export function defaultGanttStart(zoom: ZoomLevel): string {
 /**
  * ガントの描画範囲。手動モード（startDate 指定）は startDate + period、
  * 自動モードは既定開始日 + period ちょうど。どちらもタスク日付は範囲に影響しない
- * （期間外・不正な日付による過大描画を防ぐ）。`_tasks` は呼び出し側互換のため残している。
+ * （期間外・不正な日付による過大描画を防ぐ）。
  */
 export function calcGanttRange(
-  _tasks: Task[],
   startDate?: string,
   period?: GanttPeriod,
   zoom?: ZoomLevel,
@@ -90,6 +89,11 @@ export const DATE_INPUT_MAX = '9999-12-31';
 /** YYYY-MM-DD（年4桁）かつ実在する日付なら true（§5.1）。 */
 export function isValidDateStr(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && dayjs(s).format('YYYY-MM-DD') === s;
+}
+
+/** 空（''/null/undefined）は許容し、値があるときだけ isValidDateStr で検証する。 */
+export function isValidOptionalDate(s: string | null | undefined): boolean {
+  return !s || isValidDateStr(s);
 }
 
 /** 期限超過（§8.3 / §9.3）: 期限日が今日より前で、かつ完了・保留でないタスク。
@@ -273,8 +277,8 @@ export function calcDuration(task: Task): number | null {
   return days >= 1 ? days : null;
 }
 
-export function ganttTotalWidth(tasks: Task[], zoom: ZoomLevel, startDate?: string, period?: GanttPeriod): number {
-  const range = calcGanttRange(tasks, startDate, period);
+export function ganttTotalWidth(zoom: ZoomLevel, startDate?: string, period?: GanttPeriod): number {
+  const range = calcGanttRange(startDate, period, zoom);
   const { dayWidth } = ZOOM_CONFIG[zoom];
   const days = Math.ceil((range.max.getTime() - range.min.getTime()) / 86400000);
   return days * dayWidth;

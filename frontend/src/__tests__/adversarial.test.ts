@@ -90,10 +90,7 @@ describe('フロントエンド 悪意テスト — ganttCalc 境界値・不正
   });
 
   it('1000 件タスクでも ganttTotalWidth はクラッシュしない', () => {
-    const tasks = Array.from({ length: 1000 }, (_, i) =>
-      makeTask({ id: `t${i}`, startDate: '2020-01-01', endDate: '2030-12-31' }),
-    );
-    expect(() => ganttTotalWidth(tasks, 'day')).not.toThrow();
+    expect(() => ganttTotalWidth('day')).not.toThrow();
   });
 
   it('XSS ペイロードのタイトルを含むタスクでも calcLightningPoints はクラッシュしない', () => {
@@ -102,13 +99,12 @@ describe('フロントエンド 悪意テスト — ganttCalc 境界値・不正
   });
 
   it('タスクなしで calcGanttRange は today ベースの範囲を返す', () => {
-    const { min, max } = calcGanttRange([]);
+    const { min, max } = calcGanttRange();
     expect(max.getTime()).toBeGreaterThan(min.getTime());
   });
 
   it('10 年スパンのタスク範囲でもクラッシュしない', () => {
-    const tasks = [makeTask({ startDate: '2020-01-01', endDate: '2030-12-31' })];
-    expect(() => ganttTotalWidth(tasks, 'month')).not.toThrow();
+    expect(() => ganttTotalWidth('month')).not.toThrow();
   });
 });
 

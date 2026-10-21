@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MarkdownBody } from '../MarkdownBody/MarkdownBody';
 import type { Task, TaskStatus, TaskPriority, RefProject } from '../../types/task';
 import { showToast } from '../../store/toastStore';
-import { isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX, getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { isValidOptionalDate, DATE_INPUT_MIN, DATE_INPUT_MAX, getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
 import { parseDuration, formatMinutes, HARDCODED_CAPACITY_MINUTES } from '../../utils/duration';
 import { isReadonlyTask } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -121,7 +121,7 @@ export function TaskModal({
     e.preventDefault();
     if (!title.trim()) return;
     if (task && !isDirty) { onClose(); return; }
-    if ((startDate && !isValidDateStr(startDate)) || (endDate && !isValidDateStr(endDate))) {
+    if (!isValidOptionalDate(startDate) || !isValidOptionalDate(endDate)) {
       showToast(t('common.invalidDate'), 'error');
       return;
     }

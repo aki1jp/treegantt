@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import dayjs from 'dayjs';
-import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, normalizeDateStr, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder, isValidDateStr } from '../utils/ganttCalc';
+import { calcGanttRange, calcTodayX, calcNowX, calcLightningPoints, calcVertexX, normalizeDateStr, ganttTotalWidth, ZOOM_CONFIG, calcCriticalPath, calcDuration, ROW_HEIGHT_PX, addDays, buildMultiLevelHeaders, defaultGanttStart, todayStr, dateToX, xToDateStr, getUniqueAssignees, buildCollapsedCriticalParents, isAncestorOf, isAncestorOrDescendant, calcParentSpanMap, computeInsertOrder, isValidDateStr, isValidOptionalDate } from '../utils/ganttCalc';
 import { DOW_LABELS_JA } from '../i18n/dow';
 import type { Task } from '../types/task';
 
@@ -30,7 +30,7 @@ afterEach(() => { vi.useRealTimers(); _seq = 0; });
 
 describe('calcGanttRange', () => {
   it('タスクがない場合は今日を中心に最低90日表示する', () => {
-    const { min, max } = calcGanttRange([]);
+    const { min, max } = calcGanttRange();
     const span = (max.getTime() - min.getTime()) / 86400000;
     expect(span).toBeGreaterThanOrEqual(90);
     expect(min.getTime()).toBeLessThanOrEqual(TODAY.getTime());
@@ -38,17 +38,13 @@ describe('calcGanttRange', () => {
   });
 
   it('タスクの endDate を max が含む', () => {
-    const tasks = [
-      makeTask({ startDate: '2026-04-01', endDate: '2026-07-31' }),
-    ];
-    const { max } = calcGanttRange(tasks);
+    const { max } = calcGanttRange();
     expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-07-31').getTime());
   });
 
   it('最低90日のスパンを保証する', () => {
     // 開始〜終了が1日しかないタスクでも90日以上表示
-    const tasks = [makeTask({ startDate: '2026-05-21', endDate: '2026-05-22' })];
-    const { min, max } = calcGanttRange(tasks);
+    const { min, max } = calcGanttRange();
     const span = (max.getTime() - min.getTime()) / 86400000;
     expect(span).toBeGreaterThanOrEqual(90);
   });
@@ -71,28 +67,22 @@ describe('defaultGanttStart', () => {
 
 describe('calcGanttRange + zoom', () => {
   it('タスクがなく zoom=week のとき min が先週頭以前になる', () => {
-    const { min } = calcGanttRange([], undefined, undefined, 'week');
+    const { min } = calcGanttRange(undefined, undefined, 'week');
     expect(min.getTime()).toBeLessThanOrEqual(new Date(2026, 4, 10).getTime());
   });
   it('タスクがなく zoom=month のとき min が前月1日以前になる', () => {
-    const { min } = calcGanttRange([], undefined, undefined, 'month');
+    const { min } = calcGanttRange(undefined, undefined, 'month');
     expect(min.getTime()).toBeLessThanOrEqual(new Date('2026-04-01').getTime());
   });
-  it('タスクの有無に関わらず min が defaultGanttStart と一致する', () => {
-    const tasks = [makeTask({ startDate: '2026-06-01', endDate: '2026-06-30' })];
-    const { min } = calcGanttRange(tasks, undefined, undefined, 'week');
-    expect(min.getTime()).toBe(new Date(2026, 4, 10).getTime());
-  });
-  it('タスクが defaultGanttStart より前にあっても min は defaultGanttStart のまま', () => {
-    const tasks = [makeTask({ startDate: '2026-01-01', endDate: '2026-01-31' })];
-    const { min } = calcGanttRange(tasks, undefined, undefined, 'week');
+  it('min が defaultGanttStart と一致する（タスク日付は引数に取らず影響しない）', () => {
+    const { min } = calcGanttRange(undefined, undefined, 'week');
     expect(min.getTime()).toBe(new Date(2026, 4, 10).getTime());
   });
 });
 
 describe('calcTodayX', () => {
   it('今日のX座標を正しく計算する（weekズーム）', () => {
-    const { min } = calcGanttRange([]);
+    const { min } = calcGanttRange();
     const x = calcTodayX(min, 'week');
     const dayWidth = ZOOM_CONFIG['week'].dayWidth;
     const expectedDays = Math.round((TODAY.getTime() - min.getTime()) / 86400000);
@@ -368,14 +358,14 @@ describe('calcDuration', () => {
 
 describe('ganttTotalWidth', () => {
   it('タスクがなくても正の幅を返す', () => {
-    const w = ganttTotalWidth([], 'week');
+    const w = ganttTotalWidth('week');
     expect(w).toBeGreaterThan(0);
   });
 
   it('ズームレベルによって幅が変わる', () => {
-    const wDay   = ganttTotalWidth([], 'day');
-    const wWeek  = ganttTotalWidth([], 'week');
-    const wMonth = ganttTotalWidth([], 'month');
+    const wDay   = ganttTotalWidth('day');
+    const wWeek  = ganttTotalWidth('week');
+    const wMonth = ganttTotalWidth('month');
     expect(wDay).toBeGreaterThan(wWeek);
     expect(wWeek).toBeGreaterThan(wMonth);
   });
@@ -493,14 +483,14 @@ describe('buildMultiLevelHeaders', () => {
 describe('日付座標系の一貫性', () => {
   // calcGanttRange が返す min はローカル 0 時であること（UTC midnight ではない）
   it('calcGanttRange の min はローカル午前0時の Date を返す', () => {
-    const { min } = calcGanttRange([], '2026-05-20', undefined, 'day');
+    const { min } = calcGanttRange('2026-05-20', undefined, 'day');
     // dayjs('YYYY-MM-DD').toDate() はローカル 0 時。new Date('YYYY-MM-DD') は UTC 0 時なので
     // UTC 以外のタイムゾーンでは異なる値になる。min はローカル 0 時であるべき
     expect(min.getTime()).toBe(dayjs('2026-05-20').toDate().getTime());
   });
 
   it('dateToX の座標が buildMultiLevelHeaders の day セル x と一致する', () => {
-    const { min, max } = calcGanttRange([], '2026-05-20', '3m', 'day');
+    const { min, max } = calcGanttRange('2026-05-20', '3m', 'day');
     const dayWidth = ZOOM_CONFIG['day'].dayWidth;
     const headers = buildMultiLevelHeaders(min, max, 'day', { year: false, month: false, week: false, day: true }, DOW_LABELS_JA);
     const dayRow = headers.find(r => r.level === 'day')!;
@@ -883,5 +873,17 @@ describe('isValidDateStr', () => {
     for (const s of ['202610-10-21', '2026/10/21', '2026-1-5', '2026-02-30', '']) {
       expect(isValidDateStr(s)).toBe(false);
     }
+  });
+});
+
+describe('isValidOptionalDate', () => {
+  it.each(['', null, undefined])('空（%s）は true', (v) => {
+    expect(isValidOptionalDate(v)).toBe(true);
+  });
+  it('6桁年は false', () => {
+    expect(isValidOptionalDate('202610-10-21')).toBe(false);
+  });
+  it('正しい日付は true', () => {
+    expect(isValidOptionalDate('2026-10-21')).toBe(true);
   });
 });
