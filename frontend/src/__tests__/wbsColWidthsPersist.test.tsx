@@ -33,9 +33,9 @@ describe('WBS 列幅はプロジェクト切替（GanttChart の再マウント�
     expect(useTaskStore.getState().wbsColWidths.title).toBe(230);
   });
 
-  it('非永続（localStorage に保存しない）', () => {
+  it('永続化される（localStorage に保存する）', () => {
     useTaskStore.setState({ wbsColWidths: { title: 300, assignee: 76 } });
-    expect(localStorage.getItem('treegantt-ui') ?? '').not.toContain('wbsColWidths');
-    expect(JSON.stringify(Object.entries(localStorage))).not.toContain('wbsColWidths');
+    expect(JSON.parse(localStorage.getItem('treegantt-ui') ?? '{}').state?.wbsColWidths)
+      .toEqual({ title: 300, assignee: 76 });
   });
 });

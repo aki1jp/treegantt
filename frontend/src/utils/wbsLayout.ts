@@ -54,3 +54,15 @@ export function leadingWidth(visibleCols: readonly { key: string }[], sizes: Wbs
 export function textStartX(depth: number, leading: number): number {
   return leading + TITLE_PAD + TOGGLE_W + TOGGLE_GAP + depth * INDENT;
 }
+
+/** WBS の title/assignee 列の既定幅（store 初期値・リセット・復元時検証の既定値で共有） */
+export const DEFAULT_WBS_COL_WIDTHS = { title: 180, assignee: 76 } as const;
+
+/** WBS の title/assignee 列のリサイズ下限（GanttChart のドラッグ下限・復元時検証で共有） */
+export const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
+
+/** localStorage から復元した列幅を検証する。有限 number でない／下限未満の列だけ既定値にする。 */
+export function sanitizeWbsColWidths(raw: unknown): { title: number; assignee: number } {
+  // TODO: スタブ（失敗テスト確認用。実装で置き換える）
+  return raw as { title: number; assignee: number };
+}
