@@ -20,6 +20,13 @@ export interface ToolDefinition {
 // タスクの共通フィールド（作成・更新で共有）。api/src/routes/tasks.ts の
 // TASK_BODY_PROPERTIES と同じドメイン制約を持たせる（titleColor/titleBgColor/order は
 // 装飾・手動並び順のためスコープ外。docs/ai_integration_policy.md §4.2）。
+// 日付は YYYY-MM-DD のみ（api の DATE_PROP と同じ制約）。null は日付クリア。
+const dateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, '日付は YYYY-MM-DD 形式で指定してください')
+  .nullable()
+  .optional();
+
 const taskWritableFields = {
   parentId: z.string().nullable().optional(),
   summary: z.string().optional(),
@@ -28,8 +35,8 @@ const taskWritableFields = {
   priority: z.enum(['critical', 'high', 'medium', 'low']).optional(),
   progress: z.number().min(0).max(100).optional(),
   assignee: z.string().optional(),
-  startDate: z.string().nullable().optional(),
-  endDate: z.string().nullable().optional(),
+  startDate: dateString,
+  endDate: dateString,
   isMilestone: z.boolean().optional(),
   predecessors: z.array(z.string()).optional(),
   estimateMinutes: z.number().min(0).nullable().optional(),

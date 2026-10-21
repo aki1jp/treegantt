@@ -141,9 +141,8 @@ describe('§4.3 ズームレベル', () => {
   });
 
   it('ganttTotalWidth はズームが細かいほど幅が広い', () => {
-    const tasks = [makeTask({ startDate: '2026-05-01', endDate: '2026-07-31' })];
-    expect(ganttTotalWidth(tasks, 'day')).toBeGreaterThan(ganttTotalWidth(tasks, 'week'));
-    expect(ganttTotalWidth(tasks, 'week')).toBeGreaterThan(ganttTotalWidth(tasks, 'month'));
+    expect(ganttTotalWidth('day')).toBeGreaterThan(ganttTotalWidth('week'));
+    expect(ganttTotalWidth('week')).toBeGreaterThan(ganttTotalWidth('month'));
   });
 });
 
@@ -153,93 +152,69 @@ describe('§4.3 ズームレベル', () => {
 describe('§4.4 表示期間コントロール', () => {
   describe('自動モード — タスクなし', () => {
     it('今日を含む範囲を返す', () => {
-      const { min, max } = calcGanttRange([]);
+      const { min, max } = calcGanttRange();
       expect(min.getTime()).toBeLessThanOrEqual(TODAY.getTime());
       expect(max.getTime()).toBeGreaterThan(TODAY.getTime());
     });
 
     it('デフォルト期間（3ヶ月）以上の幅を確保する', () => {
-      const { min, max } = calcGanttRange([]);
+      const { min, max } = calcGanttRange();
       const days = (max.getTime() - min.getTime()) / 86400000;
       expect(days).toBeGreaterThanOrEqual(PERIOD_DAYS['3m']);
     });
 
     it('期間 3m → 91 日以上', () => {
-      const { min, max } = calcGanttRange([], undefined, '3m');
+      const { min, max } = calcGanttRange(undefined, '3m');
       expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['3m']);
     });
 
     it('期間 6m → 183 日以上', () => {
-      const { min, max } = calcGanttRange([], undefined, '6m');
+      const { min, max } = calcGanttRange(undefined, '6m');
       expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['6m']);
     });
   });
 
-  describe('自動モード — タスクあり（タスク日付は範囲に影響しない）', () => {
-    const FAR = [
-      makeTask({ startDate: '2099-01-01', endDate: '2099-12-31' }),
-      makeTask({ startDate: '202610-10-21', endDate: '202610-10-21' }),
-    ];
-
+  describe('自動モード — 幅は period ちょうど（タスク日付は引数に取らないため影響しない）', () => {
     it.each(['3m', '6m', '12m', '24m'] as const)('期間外の日付があっても幅は PERIOD_DAYS[%s] ちょうど', (period) => {
-      const { min, max } = calcGanttRange(FAR, undefined, period);
+      const { min, max } = calcGanttRange(undefined, period);
       expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS[period]);
     });
 
     it.each(['day', 'week', 'month'] as const)('zoom=%s でも期間外の日付で伸びない', (zoom) => {
-      const { min, max } = calcGanttRange(FAR, undefined, '6m', zoom);
+      const { min, max } = calcGanttRange(undefined, '6m', zoom);
       expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['6m']);
     });
 
-    it('startDate のみ持つ期間外タスクでも幅は period ちょうど', () => {
-      const tasks = [makeTask({ startDate: '2099-08-01', endDate: null })];
-      const { min, max } = calcGanttRange(tasks, undefined, '3m');
-      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['3m']);
-    });
-
-    it('タスクあり/なしで min/max が同一になる', () => {
-      const a = calcGanttRange(FAR, undefined, '12m', 'week');
-      const b = calcGanttRange([], undefined, '12m', 'week');
-      expect(a.min.getTime()).toBe(b.min.getTime());
-      expect(a.max.getTime()).toBe(b.max.getTime());
-    });
-
     it('6桁年のタスクでも ganttTotalWidth は PERIOD_DAYS[3m] * dayWidth', () => {
-      expect(ganttTotalWidth(FAR, 'day', undefined, '3m')).toBe(PERIOD_DAYS['3m'] * ZOOM_CONFIG.day.dayWidth);
+      expect(ganttTotalWidth('day', undefined, '3m')).toBe(PERIOD_DAYS['3m'] * ZOOM_CONFIG.day.dayWidth);
     });
   });
 
   describe('手動モード — startDate 指定', () => {
     it('指定した日付が min になる', () => {
-      const { min } = calcGanttRange([], '2026-06-01', '3m');
+      const { min } = calcGanttRange('2026-06-01', '3m');
       expect(min.getTime()).toBe(new Date(2026, 5, 1).getTime()); // ローカル0時（TZ非依存）
     });
 
     it('min から period 分だけの固定範囲を返す', () => {
-      const { min, max } = calcGanttRange([], '2026-06-01', '3m');
-      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['3m']);
-    });
-
-    it('タスクの日付は無視する（手動モード優先）', () => {
-      const tasks = [makeTask({ startDate: '2025-01-01', endDate: '2027-12-31' })];
-      const { min, max } = calcGanttRange(tasks, '2026-06-01', '3m');
+      const { min, max } = calcGanttRange('2026-06-01', '3m');
       expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['3m']);
     });
 
     it('期間 12m で正確に 365 日', () => {
-      const { min, max } = calcGanttRange([], '2026-06-01', '12m');
+      const { min, max } = calcGanttRange('2026-06-01', '12m');
       expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['12m']);
     });
 
     it('期間 6m で正確に 183 日', () => {
-      const { min, max } = calcGanttRange([], '2026-01-01', '6m');
+      const { min, max } = calcGanttRange('2026-01-01', '6m');
       expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['6m']);
     });
   });
 
   describe('ganttTotalWidth / dateToX', () => {
     it('タスクがなくても正の幅を返す', () => {
-      expect(ganttTotalWidth([], 'week')).toBeGreaterThan(0);
+      expect(ganttTotalWidth('week')).toBeGreaterThan(0);
     });
 
     it('dateToX: minDate と同日は 0', () => {
@@ -253,7 +228,7 @@ describe('§4.4 表示期間コントロール', () => {
     });
 
     it('calcTodayX: 今日の X を正しく計算する', () => {
-      const { min } = calcGanttRange([]);
+      const { min } = calcGanttRange();
       const x = calcTodayX(min, 'week');
       const days = Math.round((TODAY.getTime() - min.getTime()) / 86400000);
       expect(x).toBe(days * ZOOM_CONFIG['week'].dayWidth);

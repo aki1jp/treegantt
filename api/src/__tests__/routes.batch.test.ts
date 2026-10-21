@@ -243,4 +243,24 @@ describe('Tasks Batch API — POST /projects/:id/tasks/batch', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  it.each(['202610-10-21', '2026/10/21', '2026-1-5'])('日付形式不正 %s は 400', async (bad) => {
+    for (const field of ['startDate', 'endDate']) {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/v1/projects/${projectId}/tasks/batch`,
+        payload: { parentId: null, tasks: [{ title: 'Bad date', [field]: bad }] },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+  });
+
+  it('正しい YYYY-MM-DD と null の日付は成功する', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/tasks/batch`,
+      payload: { parentId: null, tasks: [{ title: 'OK', startDate: '2026-10-21', endDate: null }] },
+    });
+    expect(res.statusCode).toBe(201);
+  });
 });

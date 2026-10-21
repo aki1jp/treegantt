@@ -19,6 +19,9 @@ import {
 } from '../services/taskService.js';
 import { notifyRoom } from '../ws/wsRoom.js';
 
+// 日付は YYYY-MM-DD のみ許可（null は日付クリア）。
+const DATE_PROP = { type: ['string', 'null'], pattern: '^\\d{4}-\\d{2}-\\d{2}$' } as const;
+
 const TASK_BODY_PROPERTIES = {
   parentId:     { type: ['string', 'null'] },
   title:        { type: 'string', minLength: 1, maxLength: 200 },
@@ -28,8 +31,8 @@ const TASK_BODY_PROPERTIES = {
   priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
   progress:     { type: 'number', minimum: 0, maximum: 100 },
   assignee:     { type: 'string' },
-  startDate:    { type: ['string', 'null'] },
-  endDate:      { type: ['string', 'null'] },
+  startDate:    DATE_PROP,
+  endDate:      DATE_PROP,
   isMilestone:  { type: 'boolean' },
   predecessors: { type: 'array', items: { type: 'string' } },
   titleColor:   { type: ['string', 'null'] },
@@ -359,8 +362,8 @@ export async function taskRoutes(fastify: FastifyInstance) {
                   priority:     { type: 'string', enum: ['critical', 'high', 'medium', 'low'] },
                   progress:     { type: 'number', minimum: 0, maximum: 100 },
                   assignee:     { type: 'string' },
-                  startDate:    { type: ['string', 'null'] },
-                  endDate:      { type: ['string', 'null'] },
+                  startDate:    DATE_PROP,
+                  endDate:      DATE_PROP,
                   isMilestone:  { type: 'boolean' },
                   order:        { type: 'number' },
                   titleColor:   { type: ['string', 'null'] },

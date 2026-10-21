@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.7** |
-| ドキュメント版 | 0.2.184 |
+| ドキュメント版 | 0.2.185 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -264,6 +264,7 @@ interface TaskRef {
 - ベース URL：`/api/v1`（`/health` のみ prefix 外）。
 - リクエスト/レスポンス：JSON。バリデーションは Fastify JSON スキーマ。
 - **日付は ISO `YYYY-MM-DD` で保持・比較する**。インポート（CSV/JSON）時に `normalizeDateStr`（`ganttCalc.ts`、dayjs ベース）で ISO 化する。日付の大小比較は文字列順序に依存するため、`/` 区切り等の非 ISO 形式が混ざると誤判定する（`'2026/01/10' < '2026-06-16'` が false 等）ことを防ぐ。比較箇所（期限超過・遅延・親スパン集計）でも正規化してから比較する。
+- **日付フィールドの形式検証**：タスクの作成・更新・一括更新 API の `startDate`/`endDate` は JSON スキーマ `pattern: '^\d{4}-\d{2}-\d{2}$'`（または `null`）で検証し、年が 4 桁でない値（例: `202610-10-21`）等の不正形式は 400 で拒否する。フロントは全日付入力（`type="date"`）に `min="1000-01-01"`・`max="9999-12-31"` を既定として付け（ブラウザ上で年欄を 4 桁に制限）、保存前に `isValidDateStr`（`ganttCalc.ts`：上記形式かつ実在する日付）で検証して不正なら保存せずエラートーストで通知する。ツールバーの表示開始日は不正値なら反映しない。インポートは本検証の対象外（`normalizeDateStr` による ISO 化のみ）。
 - リクエストの `Content-Type: application/json` は**ボディがある時のみ**付与する。空ボディに付けると Fastify が `FST_ERR_CTP_EMPTY_JSON_BODY`（400）を返すため（ボディを持たない DELETE 等が該当）。クライアント `apiFetch` は `init.body` の有無で自動制御する。
 - 圧縮：`@fastify/compress`（`global:true, threshold:1024, encodings:[br,gzip]`）。1KB 未満は非圧縮。
 - CORS：`CORS_ORIGIN`（既定 `*`）。**許可メソッドを明示**（`GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS`）。@fastify/cors の既定は `GET,HEAD,POST` のみで PATCH/PUT/DELETE が含まれず、クロスオリジン（フロント:3000/3001 → API:4000）の PATCH/DELETE がプリフライトで弾かれるため。設定は `plugins/cors.ts` の `corsOptions` に集約。
@@ -942,7 +943,7 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | `update_task` | `PATCH /api/v1/tasks/:id` | タスク部分更新 |
 | `delete_task` | `DELETE /api/v1/tasks/:id`（`mode=subtree\|single`） | タスク削除 |
 
-書き込みツールの入力スキーマ（zod）は `api` の `TASK_BODY_PROPERTIES`（`api/src/routes/tasks.ts`）と同じ制約（`status`/`priority` enum・`progress` 0–100・`title` 1–200文字）を持つ。`titleColor`/`titleBgColor`/`order`（装飾・手動並び順）はツール入力に含めない。詳細な設計判断は `docs/ai_integration_policy.md` §4.2 を参照。
+書き込みツールの入力スキーマ（zod）は `api` の `TASK_BODY_PROPERTIES`（`api/src/routes/tasks.ts`）と同じ制約（`status`/`priority` enum・`progress` 0–100・`title` 1–200文字・`startDate`/`endDate` は `YYYY-MM-DD` 形式または null）を持つ。`titleColor`/`titleBgColor`/`order`（装飾・手動並び順）はツール入力に含めない。詳細な設計判断は `docs/ai_integration_policy.md` §4.2 を参照。
 
 ### 18.3 スコープ外（現時点）
 
@@ -1071,3 +1072,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.182 | 2026/10 | §5.2 の shift API に、非 ISO 日付（`YYYY/M/D`・時刻付き）の解釈と ISO への正規化、解釈不能な日付の据え置き、子孫列挙のプロジェクト内限定を明記。 |
 | 0.2.183 | 2026/10 | プロジェクト切替中に旧プロジェクトのタスクを参照タスク（淡色＋🔗）として表示しない仕様を追加（§5.8・§7.3）。`tasks` にも `refOwnerProjectId` と同様の持ち主照合（非永続スロット `tasksOwnerProjectId`、`setTasks(tasks, ownerProjectId)`、読み出し口 `useProjectTaskData` が `{ tasks, loaded }` を返す）を設け、切替中は旧タスクを描画しない。読み込み中は 250ms 遅延の読み込み表示を出し、その間ガント本体の編集は不可・空状態メッセージも出さない。 |
 | 0.2.184 | 2026/10 | §8.1 に描画範囲の仕様を明記し、開始日が空（自動）のときもタスク日付で範囲を伸ばさず「既定開始日＋表示期間」ちょうどで打ち切るよう変更した（従来は期間を最低幅としてタスクの最遅日付＋5日まで伸ばしていた）。手動指定時と同じ規則に揃え、描画量を最大 730 日分に抑える。製品バージョンは変更なし。 |
+| 0.2.185 | 2026/10 | §5.1 に日付フィールドの形式検証を追加。タスク作成・更新・一括更新 API は `startDate`/`endDate` を `YYYY-MM-DD`（または null）に限定し不正形式を 400 で拒否、MCP 書き込みツールの zod スキーマも同じ制約に揃える（§18.2）。フロントは日付入力に `min`/`max` 既定値を付けて年を 4 桁に制限し、保存前に `isValidDateStr` で検証して不正ならトーストで通知し保存しない。製品バージョンは変更なし。 |

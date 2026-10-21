@@ -6,6 +6,7 @@ export const ja = {
   'common.save': '保存',
   'common.delete': '削除',
   'common.close': '閉じる',
+  'common.invalidDate': '日付が不正です（YYYY-MM-DD、年は4桁で入力してください）',
 
   'theme.light': 'ライトモード',
   'theme.dark': 'ダークモード',
