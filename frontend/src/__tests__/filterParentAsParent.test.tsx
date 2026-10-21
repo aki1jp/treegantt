@@ -5,9 +5,10 @@
  */
 import type { Mock } from 'vitest';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, cleanup, screen, fireEvent, within } from '@testing-library/react';
+import { render, cleanup, screen, fireEvent, within, act } from '@testing-library/react';
 import { GanttChart } from '../components/Gantt/GanttChart';
 import { useTaskStore } from '../store/taskStore';
+import { useToastStore } from '../store/toastStore';
 import type { Task } from '../types/task';
 
 const NOOP = vi.fn();
@@ -36,6 +37,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-01T00:00:00.000Z'));
   localStorage.clear();
+  useToastStore.getState().clearToasts();
   useTaskStore.setState({
     tasks: [], needsReload: false,
     filterStatus: '', filterAssignee: '', filterPriority: '', filterOverdue: '', filterSearch: '',
@@ -73,10 +75,31 @@ function family() {
 }
 
 describe('フィルタで子が全て非表示の親（§9.3）', () => {
-  it('折りたたみトグルが表示される', () => {
+  it('件数入りの ▶ 固定トグルが表示される', () => {
     renderChart(family(), { filterStatus: '!done' });
     const wbs = screen.getByTestId('wbs-panel');
-    expect(within(wbs).getByRole('button', { name: '折りたたむ' })).toBeTruthy();
+    const btn = within(wbs).getByRole('button', { name: '子タスク 2 件はフィルタで非表示' });
+    expect(btn.textContent).toBe('▶');
+  });
+
+  it('トグルを押すと info トースト、フィルタ解除で子が表示される（collapsed に入らない）', () => {
+    renderChart(family(), { filterStatus: '!done' });
+    const wbs = screen.getByTestId('wbs-panel');
+    fireEvent.click(within(wbs).getByRole('button', { name: '子タスク 2 件はフィルタで非表示' }));
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0].type).toBe('info');
+    expect(toasts[0].message).toContain('2');
+    expect(within(wbs).queryByText('Child1')).toBeNull();
+    act(() => { useTaskStore.setState({ filterStatus: '' }); });
+    expect(within(wbs).getByText('Child1')).toBeTruthy();
+    expect(within(wbs).getByText('Child2')).toBeTruthy();
+  });
+
+  it('タイトルの右に +N の件数バッジが表示される', () => {
+    renderChart(family(), { filterStatus: '!done' });
+    const badge = within(screen.getByTestId('wbs-panel')).getByTestId('hidden-children-badge');
+    expect(badge.textContent).toBe('+2');
   });
 
   it('開始日/終了日は読み取り専用で全子孫の派生期間を表示する', () => {
@@ -111,6 +134,13 @@ describe('子の一部だけ表示されている親（§9.3）', () => {
     const wbs = screen.getByTestId('wbs-panel');
     const cells = within(wbs).getAllByTestId('date-readonly');
     expect(cells.map(c => c.textContent)).toEqual(['2026-10-01', '2026-10-10']);
+  });
+
+  it('バッジは無く、トグルは通常の「折りたたむ」', () => {
+    renderChart(family(), { filterAssignee: 'A' });
+    const wbs = screen.getByTestId('wbs-panel');
+    expect(within(wbs).queryByTestId('hidden-children-badge')).toBeNull();
+    expect(within(wbs).getByRole('button', { name: '折りたたむ' }).textContent).toBe('▼');
   });
 });
 
