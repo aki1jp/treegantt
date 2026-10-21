@@ -102,6 +102,15 @@ describe('フィルタで子が全て非表示の親（§9.3）', () => {
     expect(badge.textContent).toBe('+2');
   });
 
+  it('件数バッジは親タスクの配色で強調する（両テーマでコントラストを確保）', () => {
+    renderChart(family(), { filterStatus: '!done' });
+    const badge = within(screen.getByTestId('wbs-panel')).getByTestId('hidden-children-badge');
+    expect(badge.style.background).toBe('var(--th-bg-parent)');
+    expect(badge.style.color).toBe('var(--th-text-parent)');
+    expect(badge.style.border).toBe('1px solid var(--th-border-strong)');
+    expect(badge.style.fontWeight).toBe('700');
+  });
+
   it('開始日/終了日は読み取り専用で全子孫の派生期間を表示する', () => {
     renderChart(family(), { filterStatus: '!done' });
     const wbs = screen.getByTestId('wbs-panel');
