@@ -40,8 +40,13 @@ export function defaultGanttStart(zoom: ZoomLevel): string {
   return d.subtract(7, 'day').format('YYYY-MM-DD');
 }
 
+/**
+ * ガントの描画範囲。手動モード（startDate 指定）は startDate + period、
+ * 自動モードは既定開始日 + period ちょうど。どちらもタスク日付は範囲に影響しない
+ * （期間外・不正な日付による過大描画を防ぐ）。`_tasks` は呼び出し側互換のため残している。
+ */
 export function calcGanttRange(
-  tasks: Task[],
+  _tasks: Task[],
   startDate?: string,
   period?: GanttPeriod,
   zoom?: ZoomLevel,
@@ -54,23 +59,11 @@ export function calcGanttRange(
     return { min: new Date(minTime), max: new Date(minTime + periodDays * 86400000) };
   }
 
-  // 自動モード: タスク日付から範囲を計算し、最低でも period 分を確保
-  const dates = tasks.flatMap(t => [t.startDate, t.endDate]).filter(Boolean) as string[];
-  const defaultStart = zoom
+  // 自動モード: タスク日付は範囲に影響させず、min + period ちょうどで打ち切る
+  const minTime = zoom
     ? parseDateStr(defaultGanttStart(zoom)).getTime()
     : dayjs().subtract(7, 'day').startOf('day').valueOf();
-  let minTime: number;
-  let maxTime: number;
-
-  if (dates.length === 0) {
-    minTime = defaultStart;
-    maxTime = minTime + periodDays * 86400000;
-  } else {
-    const times = dates.map(d => parseDateStr(d).getTime());
-    minTime = defaultStart;
-    const taskMaxEnd = Math.max(...times) + 5 * 86400000;
-    maxTime = Math.max(taskMaxEnd, minTime + periodDays * 86400000);
-  }
+  const maxTime = minTime + periodDays * 86400000;
 
   return { min: new Date(minTime), max: new Date(maxTime) };
 }
