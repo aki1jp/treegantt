@@ -7,6 +7,7 @@ export const en = {
   'common.save': 'Save',
   'common.delete': 'Delete',
   'common.close': 'Close',
+  'common.invalidDate': 'Invalid date (use YYYY-MM-DD with a 4-digit year)',
 
   'theme.light': 'Light mode',
   'theme.dark': 'Dark mode',

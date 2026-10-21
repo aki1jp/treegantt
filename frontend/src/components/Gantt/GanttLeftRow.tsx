@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import type { Task, TaskStatus, TaskPriority } from '../../types/task';
-import { addDays, calcDuration } from '../../utils/ganttCalc';
+import { addDays, calcDuration, isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX } from '../../utils/ganttCalc';
 import { titlePaddingLeft, wbsColWidth, TOGGLE_W, TOGGLE_GAP, type WbsColSizes } from '../../utils/wbsLayout';
 import { ConflictDialog } from '../ConflictDialog/ConflictDialog';
 import { TaskTooltip } from './TaskTooltip';
 import { STATUS_COLOR, PRIORITY_COLOR } from '../../utils/taskColors';
 import { isRefGroupId } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
+import { showToast } from '../../store/toastStore';
 
 export interface GanttLeftRowProps {
   task: Task;
@@ -104,6 +105,11 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   }
 
   function commit(field: string, myVal: string | number | null) {
+    if ((field === 'startDate' || field === 'endDate') && myVal && !isValidDateStr(String(myVal))) {
+      showToast(t('common.invalidDate'), 'error');
+      setEditField(null);
+      return;
+    }
     const currentVal = String(task[field as keyof Task] ?? '');
     if (currentVal !== editStartVal) {
       setConflict({ field, theirVal: currentVal, myVal: String(myVal ?? '') });
@@ -342,7 +348,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       {show('startDate') && <div style={{ ...CELL, width: wbsColWidth('startDate', sizes) }}>
         {!hasChildren && editField === 'startDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
-            max={task.endDate || undefined}
+            min={DATE_INPUT_MIN} max={task.endDate || DATE_INPUT_MAX}
             onChange={e => setEditVal(e.target.value)}
             onBlur={() => commit('startDate', editVal || null)}
             onKeyDown={e => onKey(e, 'startDate', editVal || null)} />
@@ -364,7 +370,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       {show('endDate') && <div style={{ ...CELL, width: wbsColWidth('endDate', sizes) }}>
         {!endLocked && editField === 'endDate' ? (
           <input ref={inputRef} style={INPUT_S} type="date" value={editVal}
-            min={task.startDate || undefined}
+            min={task.startDate || DATE_INPUT_MIN} max={DATE_INPUT_MAX}
             onChange={e => setEditVal(e.target.value)}
             onBlur={() => commit('endDate', editVal || null)}
             onKeyDown={e => onKey(e, 'endDate', editVal || null)} />

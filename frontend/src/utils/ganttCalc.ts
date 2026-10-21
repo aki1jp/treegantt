@@ -83,6 +83,15 @@ export function normalizeDateStr(s: string): string {
   return d.isValid() ? d.format('YYYY-MM-DD') : s;
 }
 
+/** 日付入力の範囲属性の既定値。max があると Chrome の date 入力は年欄が4桁に制限される（§5.1）。 */
+export const DATE_INPUT_MIN = '1000-01-01';
+export const DATE_INPUT_MAX = '9999-12-31';
+
+/** YYYY-MM-DD（年4桁）かつ実在する日付なら true（§5.1）。 */
+export function isValidDateStr(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) && dayjs(s).format('YYYY-MM-DD') === s;
+}
+
 /** 期限超過（§8.3 / §9.3）: 期限日が今日より前で、かつ完了・保留でないタスク。
  *  日付は ISO 正規化してから辞書順比較する（§5.1）。 */
 export function isOverdueTask(task: Pick<Task, 'endDate' | 'status'>, today = todayStr()): boolean {

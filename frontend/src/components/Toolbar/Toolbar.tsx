@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
 import type { ZoomLevel, TaskStatus, TaskPriority } from '../../types/task';
 import type { GanttPeriod } from '../../utils/ganttCalc';
-import { todayStr, getUniqueAssignees, getUniqueTaskColors } from '../../utils/ganttCalc';
+import { isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX, todayStr, getUniqueAssignees, getUniqueTaskColors } from '../../utils/ganttCalc';
 import { useTaskStore } from '../../store/taskStore';
 import { useTranslation } from '../../i18n/useTranslation';
 import { useProjectTaskData } from '../../hooks/useProjectTaskData';
@@ -373,8 +373,8 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
           <div style={FILTER_GROUP}>
             <span style={LABEL}>{t('toolbar.filter.startDateLabel')}</span>
             <input type="date" style={{ ...SELECT, fontSize: 11 }} aria-label={t('toolbar.filter.startDateLabel')}
-              value={ganttStartDate}
-              onChange={e => setGanttRange(e.target.value, ganttPeriod)} />
+              value={ganttStartDate} min={DATE_INPUT_MIN} max={DATE_INPUT_MAX}
+              onChange={e => { const v = e.target.value; if (v && !isValidDateStr(v)) return; setGanttRange(v, ganttPeriod); }} />
             {ganttStartDate ? (
               <button style={{ ...BTN, padding: '3px 7px', fontSize: 11, color: 'var(--th-text-muted)' }}
                 onClick={() => setGanttRange('', ganttPeriod)} title={t('toolbar.startDateReset')} aria-label={t('toolbar.startDateReset')}>✕</button>

@@ -274,7 +274,8 @@ describe('MilestoneModal — 日付形式の検証', () => {
     const onSave = vi.fn();
     render(<MilestoneModal task={makeMilestone()} allTasks={[]} onSave={onSave} onClose={NOOP} />);
     fireEvent.change(screen.getByLabelText('日付'), { target: { value: '202610-10-21' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    // min/max 属性によりブラウザ標準の制約検証が submit を止めるため、form を直接 submit して handleSubmit の検証を確認する
+    fireEvent.submit(screen.getByRole('button', { name: '保存' }).closest('form') as HTMLFormElement);
     expect(onSave).not.toHaveBeenCalled();
     expect(useToastStore.getState().toasts[0]?.type).toBe('error');
   });

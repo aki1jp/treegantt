@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Task } from '../../types/task';
-import { getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { showToast } from '../../store/toastStore';
+import { isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX, getUniqueAssignees, isAncestorOrDescendant, wouldCreateDepCycle } from '../../utils/ganttCalc';
 import { useTranslation } from '../../i18n/useTranslation';
 
 interface Props {
@@ -75,6 +76,10 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
     e.preventDefault();
     if (!title.trim()) return;
     if (task && !isDirty) { onClose(); return; }
+    if (date && !isValidDateStr(date)) {
+      showToast(t('common.invalidDate'), 'error');
+      return;
+    }
 
     if (!task) {
       onSave({
@@ -156,7 +161,7 @@ export function MilestoneModal({ task, allTasks, initialParentId, onSave, onClos
 
           <div data-field="date" {...shakeProps(dirtyFields.date)}>
             <label style={LABEL}>{t('milestoneModal.dateLabel')}</label>
-            <input style={INPUT} type="date" aria-label={t('milestoneModal.dateLabel')} value={date ?? ''}
+            <input style={INPUT} type="date" aria-label={t('milestoneModal.dateLabel')} value={date ?? ''} min={DATE_INPUT_MIN} max={DATE_INPUT_MAX}
               onChange={e => setDate(e.target.value)} />
           </div>
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { MarkdownBody } from '../MarkdownBody/MarkdownBody';
 import type { Task, TaskStatus, TaskPriority, RefProject } from '../../types/task';
-import { getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
+import { showToast } from '../../store/toastStore';
+import { isValidDateStr, DATE_INPUT_MIN, DATE_INPUT_MAX, getUniqueAssignees, isAncestorOrDescendant, isAncestorOf, wouldCreateDepCycle } from '../../utils/ganttCalc';
 import { parseDuration, formatMinutes, HARDCODED_CAPACITY_MINUTES } from '../../utils/duration';
 import { isReadonlyTask } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
@@ -120,6 +121,10 @@ export function TaskModal({
     e.preventDefault();
     if (!title.trim()) return;
     if (task && !isDirty) { onClose(); return; }
+    if ((startDate && !isValidDateStr(startDate)) || (endDate && !isValidDateStr(endDate))) {
+      showToast(t('common.invalidDate'), 'error');
+      return;
+    }
     let sd = startDate || null;
     let ed = endDate || null;
     if (sd && ed && ed < sd) { [sd, ed] = [ed, sd]; }
@@ -334,7 +339,7 @@ export function TaskModal({
               <label style={LABEL}>
                 {t('taskModal.startDateLabel')}{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>{t('taskModal.autoSuffix')}</span>}
               </label>
-              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label={t('taskModal.startDateLabel')} value={startDate}
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label={t('taskModal.startDateLabel')} value={startDate} min={DATE_INPUT_MIN} max={DATE_INPUT_MAX}
                 disabled={hasChildren || isReadOnly}
                 onChange={e => setStartDate(e.target.value)}
                 title={hasChildren ? t('taskModal.autoDateTitle') : undefined} />
@@ -343,7 +348,7 @@ export function TaskModal({
               <label style={LABEL}>
                 {t('taskModal.endDateLabel')}{hasChildren && <span style={{ fontSize: 10, color: 'var(--th-text-muted)', marginLeft: 4 }}>{t('taskModal.autoSuffix')}</span>}
               </label>
-              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label={t('taskModal.endDateLabel')} value={endDate}
+              <input style={{ ...INPUT, opacity: hasChildren ? 0.5 : 1 }} type="date" aria-label={t('taskModal.endDateLabel')} value={endDate} min={DATE_INPUT_MIN} max={DATE_INPUT_MAX}
                 disabled={hasChildren || isReadOnly}
                 onChange={e => setEndDate(e.target.value)}
                 title={hasChildren ? t('taskModal.autoDateTitle') : undefined} />
