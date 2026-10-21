@@ -263,7 +263,9 @@ export const GanttLeftRow = memo(function GanttLeftRow({
           {allChildrenHidden && (
             <span data-testid="hidden-children-badge" title={hiddenLabel} style={{
               flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
-              borderRadius: 8, color: 'var(--th-text-ph)', border: '1px solid var(--th-border)',
+              // 親タスクの配色で強調（両テーマでコントラスト比 4.5:1 以上, §9.3）
+              borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
+              border: '1px solid var(--th-border-strong)', fontWeight: 700,
             }}>+{hiddenChildCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
