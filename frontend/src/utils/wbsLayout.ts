@@ -63,6 +63,11 @@ export const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 
 
 /** localStorage から復元した列幅を検証する。有限 number でない／下限未満の列だけ既定値にする。 */
 export function sanitizeWbsColWidths(raw: unknown): { title: number; assignee: number } {
-  // TODO: スタブ（失敗テスト確認用。実装で置き換える）
-  return raw as { title: number; assignee: number };
+  const src = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const pick = (key: 'title' | 'assignee'): number => {
+    const v = src[key];
+    return typeof v === 'number' && Number.isFinite(v) && v >= COL_MIN_WIDTHS[key]
+      ? v : DEFAULT_WBS_COL_WIDTHS[key];
+  };
+  return { title: pick('title'), assignee: pick('assignee') };
 }

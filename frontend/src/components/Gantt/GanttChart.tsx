@@ -27,9 +27,7 @@ import { useBarDrag } from './useBarDrag';
 import { useLinkDrag } from './useLinkDrag';
 import { WbsPanel } from './WbsPanel';
 import { HEADER_ROW_H, WBS_COL_LABEL_KEYS } from './ganttChartConstants';
-import { WBS_COL_DEFS, wbsColWidth, leadingWidth, type WbsColSizes } from '../../utils/wbsLayout';
-
-const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
+import { WBS_COL_DEFS, COL_MIN_WIDTHS, wbsColWidth, leadingWidth, type WbsColSizes } from '../../utils/wbsLayout';
 
 // バー移動/リサイズ/作成ドラッグ・依存リンクドラッグの状態は useBarDrag/useLinkDrag に分離（D4）。
 // CREATE_DRAG_THRESHOLD_PX は既存の import 元（テスト等）互換のためここから再エクスポートする。
