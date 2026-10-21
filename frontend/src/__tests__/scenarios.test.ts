@@ -175,32 +175,37 @@ describe('§4.4 表示期間コントロール', () => {
     });
   });
 
-  describe('自動モード — タスクあり', () => {
-    it('タスクの endDate を max が含む', () => {
-      const tasks = [makeTask({ startDate: '2026-03-01', endDate: '2026-08-31' })];
-      const { max } = calcGanttRange(tasks);
-      expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-08-31').getTime());
+  describe('自動モード — タスクあり（タスク日付は範囲に影響しない）', () => {
+    const FAR = [
+      makeTask({ startDate: '2099-01-01', endDate: '2099-12-31' }),
+      makeTask({ startDate: '202610-10-21', endDate: '202610-10-21' }),
+    ];
+
+    it.each(['3m', '6m', '12m', '24m'] as const)('期間外の日付があっても幅は PERIOD_DAYS[%s] ちょうど', (period) => {
+      const { min, max } = calcGanttRange(FAR, undefined, period);
+      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS[period]);
     });
 
-    it('タスクの期間が period より短くても最低 period 分を確保する', () => {
-      const tasks = [makeTask({ startDate: '2026-05-22', endDate: '2026-05-23' })];
+    it.each(['day', 'week', 'month'] as const)('zoom=%s でも期間外の日付で伸びない', (zoom) => {
+      const { min, max } = calcGanttRange(FAR, undefined, '6m', zoom);
+      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['6m']);
+    });
+
+    it('startDate のみ持つ期間外タスクでも幅は period ちょうど', () => {
+      const tasks = [makeTask({ startDate: '2099-08-01', endDate: null })];
       const { min, max } = calcGanttRange(tasks, undefined, '3m');
-      expect((max.getTime() - min.getTime()) / 86400000).toBeGreaterThanOrEqual(PERIOD_DAYS['3m']);
+      expect((max.getTime() - min.getTime()) / 86400000).toBe(PERIOD_DAYS['3m']);
     });
 
-    it('startDate のみ持つタスクの日付が max 計算に使われる', () => {
-      const tasks = [makeTask({ startDate: '2026-08-01', endDate: null })];
-      const { max } = calcGanttRange(tasks);
-      expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-08-01').getTime());
+    it('タスクあり/なしで min/max が同一になる', () => {
+      const a = calcGanttRange(FAR, undefined, '12m', 'week');
+      const b = calcGanttRange([], undefined, '12m', 'week');
+      expect(a.min.getTime()).toBe(b.min.getTime());
+      expect(a.max.getTime()).toBe(b.max.getTime());
     });
 
-    it('複数タスクで max は最大の endDate を含む', () => {
-      const tasks = [
-        makeTask({ startDate: '2026-06-01', endDate: '2026-06-30' }),
-        makeTask({ startDate: '2026-03-01', endDate: '2026-09-30' }),
-      ];
-      const { max } = calcGanttRange(tasks);
-      expect(max.getTime()).toBeGreaterThanOrEqual(new Date('2026-09-30').getTime());
+    it('6桁年のタスクでも ganttTotalWidth は PERIOD_DAYS[3m] * dayWidth', () => {
+      expect(ganttTotalWidth(FAR, 'day', undefined, '3m')).toBe(PERIOD_DAYS['3m'] * ZOOM_CONFIG.day.dayWidth);
     });
   });
 
