@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[TreeGantt 開発フロー（厳守）] 1.設計書(docs/treegantt_design.md)更新→docsコミット 2.失敗するテストを書く 3.失敗を確認→testコミット 4.実装 5.全テスト通過(typecheck/lint含む)→fixまたはfeatコミット 6.リファクタリング（挙動不変・テスト期待値は変えない。不要ならその理由を報告） 7.全テスト通過→refactorコミット。実装は失敗テスト確認後のみ。違反に気づいたら中断して設計書→テストからやり直す。'"
+            "command": "echo '[TreeGantt 開発フロー（厳守）] 1.設計書(docs/treegantt_design.md)更新→docsコミット 2.失敗するテストを書く 3.失敗を確認→testコミット 4.実装 5.全テスト通過(typecheck/lint含む)→fixまたはfeatコミット 6.リファクタリング（挙動不変・テスト期待値は変えない。不要ならその理由を報告） 7.全テスト通過→refactorコミット。実装は失敗テスト確認後のみ。違反に気づいたら中断して設計書→テストからやり直す。詳細な進め方は spec-tdd-flow skill に従う（本プロジェクト固有の値は CLAUDE.md を優先）。'"
           }
         ]
       }
