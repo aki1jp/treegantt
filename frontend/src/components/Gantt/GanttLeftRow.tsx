@@ -181,6 +181,8 @@ export const GanttLeftRow = memo(function GanttLeftRow({
   // ヘッダー・LEFT_TOTAL と基準を揃えるため hiddenCols だけは尊重する。
   const showAlways = (key: string) => !hiddenCols.includes(key);
 
+  // 子が全てフィルタで非表示の親（§9.3）: トグルは ▶ 固定・押しても折りたたまず通知のみ
+  const allChildrenHidden = hasChildren && hiddenChildCount > 0;
   const hiddenLabel = t('wbs.row.hiddenChildren', { n: hiddenChildCount });
   const isRootParent = depth === 0 && hasChildren;
   const indent = titlePaddingLeft(depth);
@@ -216,32 +218,23 @@ export const GanttLeftRow = memo(function GanttLeftRow({
       {/* タイトル */}
       {wbsPanelOpen && <div style={{ ...CELL, width: wbsColWidth('title', sizes), paddingLeft: indent }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: TOGGLE_GAP, width: '100%', overflow: 'hidden' }}>
-          {hasChildren && hiddenChildCount > 0 ? (
+          {hasChildren ? (
             <button
-              aria-label={hiddenLabel}
-              title={hiddenLabel}
+              aria-label={allChildrenHidden ? hiddenLabel : isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
+              title={allChildrenHidden ? hiddenLabel : undefined}
               onClick={e => {
                 e.stopPropagation();
+                if (!allChildrenHidden) { onToggleCollapse(task.id); return; }
                 // フィルタ前から折りたたまれていた親は、フィルタ解除だけでは子が見えないため案内を変える
                 const msg = t(isCollapsed ? 'wbs.row.hiddenChildrenToastCollapsed' : 'wbs.row.hiddenChildrenToast', { n: hiddenChildCount });
                 // 連打で同じ通知が積み重ならないよう、表示中なら出さない
                 if (!useToastStore.getState().toasts.some(x => x.message === msg)) showToast(msg, 'info');
               }} style={{
               width: TOGGLE_W, height: TOGGLE_W, border: 'none', background: 'none', cursor: 'pointer',
-              padding: 0, fontSize: 9, color: 'var(--th-text-ph)', flexShrink: 0,
+              padding: 0, fontSize: 9, color: allChildrenHidden ? 'var(--th-text-ph)' : 'var(--th-text-muted)', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              ▶
-            </button>
-          ) : hasChildren ? (
-            <button
-              aria-label={isCollapsed ? t('wbs.row.expand') : t('wbs.row.collapse')}
-              onClick={e => { e.stopPropagation(); onToggleCollapse(task.id); }} style={{
-              width: TOGGLE_W, height: TOGGLE_W, border: 'none', background: 'none', cursor: 'pointer',
-              padding: 0, fontSize: 9, color: 'var(--th-text-muted)', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              {isCollapsed ? '▶' : '▼'}
+              {allChildrenHidden || isCollapsed ? '▶' : '▼'}
             </button>
           ) : depth > 0 ? (
             <span style={{ width: TOGGLE_W, flexShrink: 0, textAlign: 'center', color: 'var(--th-text-ph)', fontSize: 11, userSelect: 'none' }}>└</span>
@@ -267,7 +260,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               {task.title}
             </span>
           )}
-          {hasChildren && hiddenChildCount > 0 && (
+          {allChildrenHidden && (
             <span data-testid="hidden-children-badge" title={hiddenLabel} style={{
               flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
               borderRadius: 8, color: 'var(--th-text-ph)', border: '1px solid var(--th-border)',

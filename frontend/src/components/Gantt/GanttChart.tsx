@@ -300,14 +300,14 @@ export function GanttChart({
       effectiveProgress: progressMap.get(r.task.id) ?? 0,
       hasChildren: (childCount.get(r.task.id) ?? 0) > 0,
       // 表示中の子が無い親（子が全てフィルタで非表示）は、子が頂点を描かないので折りたたみ時と同様に親自身で頂点を持つ
-      isCollapsed: collapsed.has(r.task.id) || (treeChildCount.get(r.task.id) ?? 0) === 0,
+      isCollapsed: collapsed.has(r.task.id) || hiddenChildCount.has(r.task.id),
       effectiveStart: effStartDate(r.task),
       effectiveEnd:   effEndDate(r.task),
     })),
     min,
     zoomLevel,
     uiRowHeight,
-  ), [flatRows, progressMap, childCount, treeChildCount, collapsed, effStartDate, effEndDate, min, zoomLevel, uiRowHeight]);
+  ), [flatRows, progressMap, childCount, hiddenChildCount, collapsed, effStartDate, effEndDate, min, zoomLevel, uiRowHeight]);
 
   // クリティカルパス（現プロジェクトのみ, §5.8）
   const criticalSet = useMemo(
