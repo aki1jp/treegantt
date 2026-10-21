@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Task } from '../../types/task';
-import { textStartX, wbsColWidth, type WbsColSizes } from '../../utils/wbsLayout';
+import { textStartX, wbsColWidth, type WbsColSizes, type WbsColWidths } from '../../utils/wbsLayout';
 import { isReadonlyTask } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
 import { GanttLeftRow } from './GanttLeftRow';
@@ -30,7 +30,7 @@ interface Props {
   visibleLeftCols: LeftCol[];
   /** WBS パネル左端から title 列までの実測オフセット（列レイアウトの導出, §9.2）。 */
   titleLeadingWidth: number;
-  colWidths: { title: number; assignee: number };
+  colWidths: WbsColWidths;
   setColResize: (v: { key: string; startX: number; startWidth: number } | null) => void;
   dateColWidth: number;
   ganttHeaderH: number;

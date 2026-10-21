@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Task, TaskStatus, ZoomLevel, RefProject } from '../types/task';
 import type { GanttPeriod, DepArrowStyle } from '../utils/ganttCalc';
 import type { ThemeMode } from '../utils/theme';
-import { DEFAULT_WBS_COL_WIDTHS, sanitizeWbsColWidths } from '../utils/wbsLayout';
+import { DEFAULT_WBS_COL_WIDTHS, sanitizeWbsColWidths, type WbsColWidths } from '../utils/wbsLayout';
 
 export type GanttHeaderLevels = { year: boolean; month: boolean; week: boolean; day: boolean };
 
@@ -51,8 +51,8 @@ interface TaskStore {
   pinnedAssignees:    Record<string, string[]>;
   depArrowStyle:      DepArrowStyle;
   // WBS のタイトル・担当者列の幅。GanttChart がプロジェクト切替でアンマウントされても維持するため store に置く。永続化（全プロジェクト共通）し、resetUi で既定値に戻す。
-  wbsColWidths:       { title: number; assignee: number };
-  setWbsColWidths:    (updater: (prev: { title: number; assignee: number }) => { title: number; assignee: number }) => void;
+  wbsColWidths:       WbsColWidths;
+  setWbsColWidths:    (updater: (prev: WbsColWidths) => WbsColWidths) => void;
   setTasks:               (tasks: Task[], ownerProjectId?: string | null) => void;
   upsertTask:             (task: Task) => void;
   setRefData:             (refTasks: Task[], refProjects: RefProject[], ownerProjectId: string | null) => void;
@@ -100,7 +100,7 @@ const uiInitialState = {
   resourceViewHeight: 220,
   ganttHeaderLevels: { year: false, month: true, week: false, day: true } as GanttHeaderLevels,
   depArrowStyle:     'bezier' as DepArrowStyle,
-  wbsColWidths:      { ...DEFAULT_WBS_COL_WIDTHS } as { title: number; assignee: number },
+  wbsColWidths:      { ...DEFAULT_WBS_COL_WIDTHS } as WbsColWidths,
 };
 
 export const useTaskStore = create<TaskStore>()(

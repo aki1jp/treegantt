@@ -13,8 +13,11 @@ export function titlePaddingLeft(depth: number): number {
   return TITLE_PAD + depth * INDENT;
 }
 
+/** WBS の title/assignee 列の幅（ユーザーリサイズ値） */
+export type WbsColWidths = { title: number; assignee: number };
+
 export type WbsColSizes = {
-  colWidths: { title: number; assignee: number };
+  colWidths: WbsColWidths;
   dateColWidth: number;
 };
 
@@ -62,7 +65,7 @@ export const DEFAULT_WBS_COL_WIDTHS = { title: 180, assignee: 76 } as const;
 export const COL_MIN_WIDTHS: Record<string, number> = { title: 80, assignee: 50 };
 
 /** localStorage から復元した列幅を検証する。有限 number でない／下限未満の列だけ既定値にする。 */
-export function sanitizeWbsColWidths(raw: unknown): { title: number; assignee: number } {
+export function sanitizeWbsColWidths(raw: unknown): WbsColWidths {
   const src = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
   const pick = (key: 'title' | 'assignee'): number => {
     const v = src[key];
