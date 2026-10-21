@@ -39,3 +39,24 @@ describe('WBS 列幅はプロジェクト切替（GanttChart の再マウント�
       .toEqual({ title: 300, assignee: 76 });
   });
 });
+
+describe('列リサイズの上限とドラッグ中のアニメーション停止', () => {
+  it('window.innerWidth を超えてドラッグしても innerWidth で止まる', () => {
+    const { container } = mount();
+    const handle = container.querySelector('[style*="col-resize"]') as HTMLElement;
+    fireEvent.mouseDown(handle, { clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 100 + window.innerWidth * 3 });
+    fireEvent.mouseUp(window);
+    expect(useTaskStore.getState().wbsColWidths.title).toBe(window.innerWidth);
+  });
+
+  it('ドラッグ中は WBS パネルの transition が none、終了後は width 0.15s ease', () => {
+    const { container, getByTestId } = mount();
+    expect(getByTestId('wbs-panel').style.transition).toBe('width 0.15s ease');
+    const handle = container.querySelector('[style*="col-resize"]') as HTMLElement;
+    fireEvent.mouseDown(handle, { clientX: 100 });
+    expect(getByTestId('wbs-panel').style.transition).toBe('none');
+    fireEvent.mouseUp(window);
+    expect(getByTestId('wbs-panel').style.transition).toBe('width 0.15s ease');
+  });
+});

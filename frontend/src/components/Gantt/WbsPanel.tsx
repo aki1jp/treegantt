@@ -25,6 +25,8 @@ interface Props {
   currentProjectId?: string;
   // レイアウト・列
   wbsPanelOpen: boolean;
+  /** 列幅ドラッグ中か（true の間は width のアニメーションを止める） */
+  colResizing: boolean;
   setWbsPanelOpen: (open: boolean) => void;
   leftTotal: number;
   visibleLeftCols: LeftCol[];

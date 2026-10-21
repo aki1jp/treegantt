@@ -76,3 +76,9 @@ export function sanitizeWbsColWidths(raw: unknown): WbsColWidths {
   };
   return { title: pick('title'), assignee: pick('assignee') };
 }
+
+/** 列幅を [最小幅, maxWidth] に収める。上限が最小幅より小さい場合は最小幅を優先する。 */
+export function clampWbsColWidth(key: keyof WbsColWidths, v: number, maxWidth: number): number {
+  void key; void maxWidth;
+  return v; // スタブ（実装前）
+}

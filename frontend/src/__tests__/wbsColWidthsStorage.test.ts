@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useTaskStore } from '../store/taskStore';
-import { sanitizeWbsColWidths, DEFAULT_WBS_COL_WIDTHS, COL_MIN_WIDTHS } from '../utils/wbsLayout';
+import { sanitizeWbsColWidths, clampWbsColWidth, DEFAULT_WBS_COL_WIDTHS, COL_MIN_WIDTHS } from '../utils/wbsLayout';
 
 const DEF = { title: 180, assignee: 76 };
 
@@ -37,6 +37,31 @@ describe('sanitizeWbsColWidths', () => {
   });
   it.each([[null], [undefined], ['str'], [42], [[]]])('非オブジェクト(%s)は全列既定値', (raw) => {
     expect(sanitizeWbsColWidths(raw)).toEqual(DEF);
+  });
+});
+
+describe('clampWbsColWidth', () => {
+  it('範囲内はそのまま', () => { expect(clampWbsColWidth('title', 300, 1000)).toBe(300); });
+  it('上限超は上限', () => { expect(clampWbsColWidth('title', 1500, 1000)).toBe(1000); });
+  it('最小未満は最小', () => {
+    expect(clampWbsColWidth('title', 10, 1000)).toBe(80);
+    expect(clampWbsColWidth('assignee', 10, 1000)).toBe(50);
+  });
+  it('上限が最小より小さければ最小を優先', () => { expect(clampWbsColWidth('title', 200, 60)).toBe(80); });
+});
+
+describe('sanitizeWbsColWidths の上限（表示領域の幅）', () => {
+  it('上限超は上限まで縮める（既定値には戻さない）', () => {
+    expect(sanitizeWbsColWidths({ title: 1500, assignee: 999 }, 1000)).toEqual({ title: 1000, assignee: 999 });
+  });
+  it('上限ちょうどは許容', () => {
+    expect(sanitizeWbsColWidths({ title: 1000, assignee: 1000 }, 1000)).toEqual({ title: 1000, assignee: 1000 });
+  });
+  it('上限が最小幅より小さければ最小幅', () => {
+    expect(sanitizeWbsColWidths({ title: 200, assignee: 100 }, 60).title).toBe(80);
+  });
+  it('不正値は上限に関わらず既定値', () => {
+    expect(sanitizeWbsColWidths({ title: 'x', assignee: 10 }, 1000)).toEqual(DEF);
   });
 });
 

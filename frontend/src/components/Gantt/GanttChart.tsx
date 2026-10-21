@@ -567,6 +567,7 @@ export function GanttChart({
       <WbsPanel
         currentProjectId={projectId}
         wbsPanelOpen={wbsPanelOpen}
+        colResizing={!!colResize}
         setWbsPanelOpen={setWbsPanelOpen}
         leftTotal={LEFT_TOTAL}
         visibleLeftCols={visibleLeftCols}
