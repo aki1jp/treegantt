@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Task } from '../../types/task';
-import { textStartX, wbsColWidth, type WbsColSizes, type WbsColWidths } from '../../utils/wbsLayout';
+import { DEFAULT_WBS_COL_WIDTHS, textStartX, wbsColWidth, type WbsColSizes, type WbsColWidths } from '../../utils/wbsLayout';
 import { isReadonlyTask } from '../../utils/refTasks';
 import { useTranslation } from '../../i18n/useTranslation';
 import { GanttLeftRow } from './GanttLeftRow';
@@ -14,7 +14,8 @@ import { HEADER_ROW_H, WBS_COL_TOGGLE_LABEL_KEYS } from './ganttChartConstants';
 // 分かりやすさを優先するため）。
 const HIDEABLE_COL_KEYS = ['status', 'priority', 'progress', 'assignee', 'startDate', 'endDate', 'duration'] as const;
 
-const RESIZABLE_COL_KEYS = new Set(['title', 'assignee']);
+// リサイズ可能な列は既定幅（＝最小幅・上限の対象）を持つ列に限る（キー集合を1か所から導出）
+const RESIZABLE_COL_KEYS: ReadonlySet<string> = new Set(Object.keys(DEFAULT_WBS_COL_WIDTHS));
 
 type LeftCol = { key: string; label: string; width: number };
 type FlatRow = { task: Task; depth: number };

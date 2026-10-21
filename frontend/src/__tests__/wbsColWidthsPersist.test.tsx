@@ -50,6 +50,16 @@ describe('列リサイズの上限とドラッグ中のアニメーション停�
     expect(useTaskStore.getState().wbsColWidths.title).toBe(window.innerWidth);
   });
 
+  it('担当者列も window.innerWidth を超えてドラッグすると innerWidth で止まる', () => {
+    const { container } = mount();
+    const handles = container.querySelectorAll('[style*="col-resize"]');
+    expect(handles.length).toBe(2);
+    fireEvent.mouseDown(handles[1] as HTMLElement, { clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 100 + window.innerWidth * 3 });
+    fireEvent.mouseUp(window);
+    expect(useTaskStore.getState().wbsColWidths.assignee).toBe(window.innerWidth);
+  });
+
   it('ドラッグ中は WBS パネルの transition が none、終了後は width 0.15s ease', () => {
     const { container, getByTestId } = mount();
     expect(getByTestId('wbs-panel').style.transition).toBe('width 0.15s ease');

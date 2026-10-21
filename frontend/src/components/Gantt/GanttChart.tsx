@@ -159,10 +159,10 @@ export function GanttChart({
   const handleColMouseMove = useCallback((e: MouseEvent) => {
     const cr = colResizeRef.current;
     if (!cr) return;
-    setColWidths(prev => ({
-      ...prev,
-      [cr.key]: clampWbsColWidth(cr.key as keyof WbsColWidths, cr.startWidth + e.clientX - cr.startX, window.innerWidth),
-    }));
+    const key = cr.key as keyof WbsColWidths;
+    const next = clampWbsColWidth(key, cr.startWidth + e.clientX - cr.startX, window.innerWidth);
+    // 上限・下限に張り付いて値が変わらないときは同じ参照を返し、購読側の再描画を起こさない
+    setColWidths(prev => (prev[key] === next ? prev : { ...prev, [key]: next }));
   }, [setColWidths]);
 
   const handleColMouseUp = useCallback(() => setColResize(null), []);
