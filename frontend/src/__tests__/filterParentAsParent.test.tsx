@@ -155,3 +155,38 @@ describe('イナズマ線（§9.3）', () => {
     expect(ys).toEqual([18, 54]); // P（0 行目）と Q（1 行目）の行中央
   });
 });
+
+describe('非表示の子の通知（§9.3）', () => {
+  const LABEL = '子タスク 2 件はフィルタで非表示';
+
+  it('同じ通知が表示中なら重ねて出さない', () => {
+    renderChart(family(), { filterStatus: '!done' });
+    const btn = within(screen.getByTestId('wbs-panel')).getByRole('button', { name: LABEL });
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(useToastStore.getState().toasts).toHaveLength(1);
+  });
+
+  it('フィルタ前から折りたたまれていた親は「展開すると表示されます」と案内する', () => {
+    renderChart(family(), {});
+    const wbs = screen.getByTestId('wbs-panel');
+    fireEvent.click(within(wbs).getByRole('button', { name: '折りたたむ' }));
+    act(() => { useTaskStore.setState({ filterStatus: '!done' }); });
+    fireEvent.click(within(wbs).getByRole('button', { name: LABEL }));
+    expect(useToastStore.getState().toasts[0].message).toContain('展開すると表示されます');
+  });
+
+  it('英語表示では子が 1 件でも不自然な複数形にならない', () => {
+    const p = makeTask({ id: 'P', title: 'Parent', status: 'wip' });
+    const c = makeTask({ id: 'C', parentId: 'P', title: 'Child', status: 'done',
+      startDate: '2026-10-01', endDate: '2026-10-05' });
+    try {
+      renderChart([p, c], { filterStatus: '!done', locale: 'en' });
+      const wbs = screen.getByTestId('wbs-panel');
+      expect(within(wbs).getByRole('button', { name: 'Child tasks hidden by filter: 1' })).toBeTruthy();
+    } finally {
+      act(() => { useTaskStore.setState({ locale: 'ja' }); });
+    }
+  });
+});
