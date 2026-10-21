@@ -8,7 +8,7 @@ import {
   buildMultiLevelHeaders, dateToX, getUniqueAssignees,
   calcParentSpanMap, assignMilestoneLanes, isMilestoneXVisible, measureMilestoneLabel,
 } from '../../utils/ganttCalc';
-import { buildTree, flattenTree, buildRowNumberMap, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
+import { buildTree, buildChildCountMap, flattenTree, buildRowNumberMap, calcAllEffectiveProgress, includeAncestors, resolveVisibleId } from '../../utils/taskTree';
 import type { TreeNode } from '../../utils/taskTree';
 import { milestoneColorOf } from '../../utils/taskColors';
 import { mergeRefTasks } from '../../utils/refTasks';
@@ -182,10 +182,12 @@ export function GanttChart({
   // 「概念上のツリー全ノード」であり、resolveVisibleId の親チェーン遡り（§8.5）は折りたたみで
   // 隠れているノードも辿る必要があるため、taskById もここから構築する（flatRows からは作らない）。
   const treeTasks = useMemo(() => includeAncestors(sorted, displayTasks), [sorted, displayTasks]);
-  const { roots, childCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
+  const { roots, childCount: treeChildCount } = useMemo(() => buildTree(treeTasks), [treeTasks]);
+  // 親判定（子を持つか）はフィルタ前の全タスク基準（§9.3）。ツリー構造・表示行は上のフィルタ後ベースのまま。
+  const childCount = useMemo(() => buildChildCountMap(displayTasks), [displayTasks]);
   const flatRows = useMemo(() => flattenTree(roots, collapsed), [roots, collapsed]);
 
-  const collapseAll    = () => setCollapsed(new Set(childCount.keys()));
+  const collapseAll    = () => setCollapsed(new Set(treeChildCount.keys()));
   const expandAll      = () => setCollapsed(new Set());
   const expandToDepth  = (depth: number) => {
     const acc = new Set<string>();
@@ -272,8 +274,9 @@ export function GanttChart({
   const totalHeaderH = headerRows.length * HEADER_ROW_H + milestoneHeaderH + 2;
 
   // 親タスクの進捗・表示スパン事前計算（O(N) 1パス版）
-  const progressMap   = useMemo(() => calcAllEffectiveProgress(sorted), [sorted]);
-  const parentSpanMap = useMemo(() => calcParentSpanMap(sorted), [sorted]);
+  // フィルタ前の全タスク基準（§9.3）: 非表示の子も集計に含める。
+  const progressMap   = useMemo(() => calcAllEffectiveProgress(displayTasks), [displayTasks]);
+  const parentSpanMap = useMemo(() => calcParentSpanMap(displayTasks), [displayTasks]);
 
   // 実効日付ヘルパー: 親タスク（子を持つ）は表示スパン（parentSpanMap）、葉は生値を返す。
   // ガントバー・依存矢印・コネクタドット等の座標を親サマリーバーの描画位置と一致させる。
