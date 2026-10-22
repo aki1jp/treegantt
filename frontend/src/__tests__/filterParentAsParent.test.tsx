@@ -43,6 +43,7 @@ beforeEach(() => {
     filterStatus: '', filterAssignee: '', filterPriority: '', filterOverdue: '', filterSearch: '',
     zoomLevel: 'week', ganttStartDate: '2026-10-01', ganttPeriod: '3m',
     showLightningLine: false, showWeekend: false, showCriticalPath: false, showResourceView: false,
+    showChildCountBadge: true,
     uiFontSize: 13, uiRowHeight: 36,
     ganttHeaderLevels: { year: false, month: false, week: false, day: false },
     theme: 'auto', ganttBarOpen: true,
@@ -253,5 +254,17 @@ describe('子が表示されている親の子件数バッジ（§9.3）', () =>
     } finally {
       act(() => { useTaskStore.setState({ locale: 'ja' }); });
     }
+  });
+});
+
+describe('子件数バッジの表示切替（§9.3 showChildCountBadge）', () => {
+  it('OFF にすると子件数バッジ「N」を表示しない', () => {
+    renderChart(family(), { showChildCountBadge: false });
+    expect(within(screen.getByTestId('wbs-panel')).queryAllByTestId('child-count-badge')).toHaveLength(0);
+  });
+
+  it('OFF でも子がすべてフィルタで非表示の親の「+N」バッジは表示する', () => {
+    renderChart(family(), { showChildCountBadge: false, filterStatus: '!done' });
+    expect(within(screen.getByTestId('wbs-panel')).getByTestId('hidden-children-badge').textContent).toBe('+2');
   });
 });

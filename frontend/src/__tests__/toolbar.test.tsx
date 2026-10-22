@@ -447,6 +447,13 @@ describe('Toolbar 表示トグル', () => {
     expect(useTaskStore.getState().showTodayLine).toBe(!before);
   });
 
+  it('「子件数」ボタンをクリックすると showChildCountBadge が切り替わる', () => {
+    renderToolbar();
+    const before = useTaskStore.getState().showChildCountBadge;
+    fireEvent.click(screen.getByTitle('親タスクに子タスクの件数バッジを表示'));
+    expect(useTaskStore.getState().showChildCountBadge).toBe(!before);
+  });
+
   it('「マイル強調」トグルボタンは存在しない（常時表示のため）', () => {
     renderToolbar();
     expect(screen.queryByTitle('マイルストーンの列ハイライト・ヘッダー行を表示')).toBeNull();
