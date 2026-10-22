@@ -136,6 +136,8 @@ export const en = {
   'toolbar.criticalPath.title': 'Highlight critical path',
   'toolbar.resourceView.label': 'Resource View',
   'toolbar.resourceView.title': 'Show assignee swim lanes',
+  'toolbar.childCount.label': 'Child Count',
+  'toolbar.childCount.title': 'Show child task count badges on parent tasks',
 
   'toolbar.size.label': 'Size',
   'toolbar.size.fontLabel': 'Font',
