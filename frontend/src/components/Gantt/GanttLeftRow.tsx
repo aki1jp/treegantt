@@ -15,8 +15,12 @@ export interface GanttLeftRowProps {
   rowNumber?: number;
   depth: number;
   hasChildren: boolean;
+  /** 直接の子の件数（フィルタ前の全タスク基準, §9.3）。 */
+  childCount?: number;
   /** 全子がフィルタで非表示のときの直接の子の件数（それ以外は 0, §9.3）。 */
   hiddenChildCount?: number;
+  /** 子件数バッジ「N」の表示（「+N」はこの設定に依らず表示, §9.3）。 */
+  showChildCountBadge?: boolean;
   isCollapsed: boolean;
   effectiveProgress: number;
   fontSize: number;
@@ -37,10 +41,17 @@ export interface GanttLeftRowProps {
   onRowContextMenu: (x: number, y: number, taskId: string) => void;
 }
 
+// タイトル右の子件数バッジ「N」／「+N」共通: 親タスクの配色で強調（両テーマでコントラスト比 4.5:1 以上, §9.3）
+const CHILD_BADGE_STYLE: React.CSSProperties = {
+  flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
+  borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
+  border: '1px solid var(--th-border-strong)', fontWeight: 700,
+};
+
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttLeftRow = memo(function GanttLeftRow({
-  task, rowNumber = 0, depth, hasChildren, hiddenChildCount = 0, isCollapsed, effectiveProgress, fontSize, rowHeight,
+  task, rowNumber = 0, depth, hasChildren, childCount = 0, hiddenChildCount = 0, showChildCountBadge = true, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
@@ -261,12 +272,10 @@ export const GanttLeftRow = memo(function GanttLeftRow({
             </span>
           )}
           {allChildrenHidden && (
-            <span data-testid="hidden-children-badge" title={hiddenLabel} style={{
-              flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
-              // 親タスクの配色で強調（両テーマでコントラスト比 4.5:1 以上, §9.3）
-              borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
-              border: '1px solid var(--th-border-strong)', fontWeight: 700,
-            }}>+{hiddenChildCount}</span>
+            <span data-testid="hidden-children-badge" title={hiddenLabel} style={CHILD_BADGE_STYLE}>+{hiddenChildCount}</span>
+          )}
+          {showChildCountBadge && childCount > 0 && !allChildrenHidden && (
+            <span data-testid="child-count-badge" title={t('wbs.row.childCount', { n: childCount })} style={CHILD_BADGE_STYLE}>{childCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>

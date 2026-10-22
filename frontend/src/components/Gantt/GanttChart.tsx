@@ -83,7 +83,7 @@ export function GanttChart({
   const {
     filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
     zoomLevel, ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, showChildCountBadge, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     wbsPanelOpen, wbsHiddenCols,
     resourceViewHeight, setResourceViewHeight,
     setWbsPanelOpen, setWbsHiddenCols,
@@ -590,6 +590,7 @@ export function GanttChart({
         setWbsHiddenCols={setWbsHiddenCols}
         childCount={childCount}
         hiddenChildCount={hiddenChildCount}
+        showChildCountBadge={showChildCountBadge}
         collapseAll={collapseAll}
         expandToDepth={expandToDepth}
         expandAll={expandAll}

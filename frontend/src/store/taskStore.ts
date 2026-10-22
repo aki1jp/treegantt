@@ -36,6 +36,7 @@ interface TaskStore {
   showResourceView:   boolean;
   showTodayLine:      boolean;
   showMilestones:     boolean;
+  showChildCountBadge: boolean;
   milestoneHighlightColor: string;
   uiFontSize:         number;
   uiRowHeight:        number;
@@ -69,6 +70,7 @@ interface TaskStore {
   setShowResourceView:    (show: boolean) => void;
   setShowTodayLine:       (show: boolean) => void;
   setShowMilestones:      (show: boolean) => void;
+  setShowChildCountBadge: (show: boolean) => void;
   setMilestoneHighlightColor:  (color: string) => void;
   setUiFontSize:          (size: number) => void;
   setUiRowHeight:         (height: number) => void;
@@ -94,6 +96,7 @@ const uiInitialState = {
   showResourceView:  false,
   showTodayLine:     true,
   showMilestones:    true,
+  showChildCountBadge: true,
   milestoneHighlightColor: '#8b5cf6',
   uiFontSize:        13,
   uiRowHeight:       36,
@@ -172,6 +175,7 @@ export const useTaskStore = create<TaskStore>()(
       setShowResourceView:    (showResourceView) => set({ showResourceView }),
       setShowTodayLine:       (showTodayLine) => set({ showTodayLine }),
       setShowMilestones:      (showMilestones) => set({ showMilestones }),
+      setShowChildCountBadge: (showChildCountBadge) => set({ showChildCountBadge }),
       setMilestoneHighlightColor:  (milestoneHighlightColor) => set({ milestoneHighlightColor }),
       setUiFontSize:          (uiFontSize) => set({ uiFontSize }),
       setUiRowHeight:         (uiRowHeight) => set({ uiRowHeight }),
@@ -216,6 +220,7 @@ export const useTaskStore = create<TaskStore>()(
         showResourceView:  s.showResourceView,
         showTodayLine:      s.showTodayLine,
         showMilestones:     s.showMilestones,
+        showChildCountBadge: s.showChildCountBadge,
         milestoneHighlightColor: s.milestoneHighlightColor,
         uiFontSize:        s.uiFontSize,
         uiRowHeight:       s.uiRowHeight,

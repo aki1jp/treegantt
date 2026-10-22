@@ -211,6 +211,11 @@ describe('UI設定の永続化', () => {
     expect(getSaved().ganttStartDate).toBe('2026-06-01');
   });
 
+  it('showChildCountBadge が localStorage に保存される', () => {
+    useTaskStore.getState().setShowChildCountBadge(false);
+    expect(getSaved().showChildCountBadge).toBe(false);
+  });
+
   it('showLightningLine が localStorage に保存される', () => {
     useTaskStore.getState().setShowLightningLine(false);
     expect(getSaved().showLightningLine).toBe(false);
@@ -356,6 +361,7 @@ describe('resetUi', () => {
     st.setShowWeekend(false);
     st.setShowCriticalPath(true);
     st.setShowResourceView(false);
+    st.setShowChildCountBadge(false);
 
     useTaskStore.getState().resetUi();
 
@@ -370,6 +376,11 @@ describe('resetUi', () => {
     expect(s.showWeekend).toBe(true);
     expect(s.showCriticalPath).toBe(false);
     expect(s.showResourceView).toBe(false);
+    expect(s.showChildCountBadge).toBe(true);
+  });
+
+  it('子件数バッジの表示（showChildCountBadge）は既定で ON', () => {
+    expect(useTaskStore.getInitialState().showChildCountBadge).toBe(true);
   });
 });
 

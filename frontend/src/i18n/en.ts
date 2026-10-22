@@ -136,6 +136,8 @@ export const en = {
   'toolbar.criticalPath.title': 'Highlight critical path',
   'toolbar.resourceView.label': 'Resource View',
   'toolbar.resourceView.title': 'Show assignee swim lanes',
+  'toolbar.childCount.label': 'Child Count',
+  'toolbar.childCount.title': 'Show child task count badges on parent tasks',
 
   'toolbar.size.label': 'Size',
   'toolbar.size.fontLabel': 'Font',
@@ -228,6 +230,7 @@ export const en = {
 
   'wbs.row.expand': 'Expand',
   'wbs.row.collapse': 'Collapse',
+  'wbs.row.childCount': 'Child tasks: {n}',
   'wbs.row.hiddenChildren': 'Child tasks hidden by filter: {n}',
   'wbs.row.hiddenChildrenToast': 'Child tasks hidden by the filter: {n}. Clear the filter to show them.',
   'wbs.row.hiddenChildrenToastCollapsed': 'Child tasks hidden by the filter: {n}. Clear the filter and expand the task to show them.',

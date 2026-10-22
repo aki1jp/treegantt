@@ -135,6 +135,8 @@ export const ja = {
   'toolbar.criticalPath.title': 'クリティカルパスをハイライト表示',
   'toolbar.resourceView.label': 'リソースビュー',
   'toolbar.resourceView.title': '担当者別スイムレーンを表示',
+  'toolbar.childCount.label': '子件数',
+  'toolbar.childCount.title': '親タスクに子タスクの件数バッジを表示',
 
   'toolbar.size.label': 'サイズ',
   'toolbar.size.fontLabel': '文字',
@@ -227,6 +229,7 @@ export const ja = {
 
   'wbs.row.expand': '展開',
   'wbs.row.collapse': '折りたたむ',
+  'wbs.row.childCount': '子タスク {n} 件',
   'wbs.row.hiddenChildren': '子タスク {n} 件はフィルタで非表示',
   'wbs.row.hiddenChildrenToast': '子タスク {n} 件はフィルタで非表示です。フィルタを解除すると表示されます',
   'wbs.row.hiddenChildrenToastCollapsed': '子タスク {n} 件はフィルタで非表示です。フィルタを解除してから展開すると表示されます',

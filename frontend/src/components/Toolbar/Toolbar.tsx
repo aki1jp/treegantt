@@ -93,10 +93,10 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
   const {
     zoomLevel, filterStatus, filterAssignee, filterPriority, filterColor, filterOverdue, filterSearch,
     ganttStartDate, ganttPeriod,
-    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
+    showLightningLine, showWeekend, showCriticalPath, showResourceView, showTodayLine, showMilestones, showChildCountBadge, milestoneHighlightColor, uiFontSize, uiRowHeight, ganttHeaderLevels, depArrowStyle,
     ganttBarOpen,
     setZoomLevel, setFilter, setGanttRange, resetUi,
-    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setShowMilestones, setMilestoneHighlightColor, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
+    setShowLightningLine, setShowWeekend, setShowCriticalPath, setShowResourceView, setShowTodayLine, setShowMilestones, setShowChildCountBadge, setMilestoneHighlightColor, setUiFontSize, setUiRowHeight, setGanttHeaderLevels,
     setDepArrowStyle, setGanttBarOpen,
   } = useTaskStore();
   const { t } = useTranslation();
@@ -453,6 +453,12 @@ export function Toolbar({ onAddTask, onAddMilestone, onImport, onRestore, onExpo
             label={t('toolbar.resourceView.label')}
             title={t('toolbar.resourceView.title')}
             onClick={() => setShowResourceView(!showResourceView)}
+          />
+          <ToggleBtn
+            active={showChildCountBadge}
+            label={t('toolbar.childCount.label')}
+            title={t('toolbar.childCount.title')}
+            onClick={() => setShowChildCountBadge(!showChildCountBadge)}
           />
 
           <div style={DIVIDER} />
