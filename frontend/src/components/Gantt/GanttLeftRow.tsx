@@ -39,6 +39,13 @@ export interface GanttLeftRowProps {
   onRowContextMenu: (x: number, y: number, taskId: string) => void;
 }
 
+// タイトル右の子件数バッジ「N」／「+N」共通: 親タスクの配色で強調（両テーマでコントラスト比 4.5:1 以上, §9.3）
+const CHILD_BADGE_STYLE: React.CSSProperties = {
+  flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
+  borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
+  border: '1px solid var(--th-border-strong)', fontWeight: 700,
+};
+
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttLeftRow = memo(function GanttLeftRow({
@@ -263,20 +270,10 @@ export const GanttLeftRow = memo(function GanttLeftRow({
             </span>
           )}
           {allChildrenHidden && (
-            <span data-testid="hidden-children-badge" title={hiddenLabel} style={{
-              flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
-              // 親タスクの配色で強調（両テーマでコントラスト比 4.5:1 以上, §9.3）
-              borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
-              border: '1px solid var(--th-border-strong)', fontWeight: 700,
-            }}>+{hiddenChildCount}</span>
+            <span data-testid="hidden-children-badge" title={hiddenLabel} style={CHILD_BADGE_STYLE}>+{hiddenChildCount}</span>
           )}
           {hasChildren && !allChildrenHidden && childCount > 0 && (
-            <span data-testid="child-count-badge" title={t('wbs.row.childCount', { n: childCount })} style={{
-              flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
-              // 「+N」と同じ親タスクの配色（§9.3）
-              borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
-              border: '1px solid var(--th-border-strong)', fontWeight: 700,
-            }}>{childCount}</span>
+            <span data-testid="child-count-badge" title={t('wbs.row.childCount', { n: childCount })} style={CHILD_BADGE_STYLE}>{childCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>
