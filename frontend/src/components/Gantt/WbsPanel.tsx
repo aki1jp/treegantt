@@ -268,6 +268,7 @@ export function WbsPanel(props: Props) {
                     rowNumber={rowNumberMap.get(task.id) ?? 0}
                     depth={depth}
                     hasChildren={(childCount.get(task.id) ?? 0) > 0}
+                    childCount={childCount.get(task.id) ?? 0}
                     hiddenChildCount={hiddenChildCount.get(task.id) ?? 0}
                     isCollapsed={collapsed.has(task.id)}
                     effectiveProgress={progressMap.get(task.id) ?? task.progress}

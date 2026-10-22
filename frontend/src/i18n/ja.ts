@@ -227,6 +227,7 @@ export const ja = {
 
   'wbs.row.expand': '展開',
   'wbs.row.collapse': '折りたたむ',
+  'wbs.row.childCount': '子タスク {n} 件',
   'wbs.row.hiddenChildren': '子タスク {n} 件はフィルタで非表示',
   'wbs.row.hiddenChildrenToast': '子タスク {n} 件はフィルタで非表示です。フィルタを解除すると表示されます',
   'wbs.row.hiddenChildrenToastCollapsed': '子タスク {n} 件はフィルタで非表示です。フィルタを解除してから展開すると表示されます',

@@ -15,6 +15,8 @@ export interface GanttLeftRowProps {
   rowNumber?: number;
   depth: number;
   hasChildren: boolean;
+  /** 直接の子の件数（フィルタ前の全タスク基準, §9.3）。 */
+  childCount?: number;
   /** 全子がフィルタで非表示のときの直接の子の件数（それ以外は 0, §9.3）。 */
   hiddenChildCount?: number;
   isCollapsed: boolean;
@@ -40,7 +42,7 @@ export interface GanttLeftRowProps {
 // React.memo: 全行が親の再レンダリングごとに再描画されるのを防ぐ。
 // コールバック props は全行共有の安定参照（GanttChart 側 useCallback）であることが前提
 export const GanttLeftRow = memo(function GanttLeftRow({
-  task, rowNumber = 0, depth, hasChildren, hiddenChildCount = 0, isCollapsed, effectiveProgress, fontSize, rowHeight,
+  task, rowNumber = 0, depth, hasChildren, childCount = 0, hiddenChildCount = 0, isCollapsed, effectiveProgress, fontSize, rowHeight,
   titleWidth, assigneeWidth, dateColWidth,
   isDragging = false,
   hiddenCols = [], wbsPanelOpen = true,
@@ -267,6 +269,14 @@ export const GanttLeftRow = memo(function GanttLeftRow({
               borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
               border: '1px solid var(--th-border-strong)', fontWeight: 700,
             }}>+{hiddenChildCount}</span>
+          )}
+          {hasChildren && !allChildrenHidden && childCount > 0 && (
+            <span data-testid="child-count-badge" title={t('wbs.row.childCount', { n: childCount })} style={{
+              flexShrink: 0, userSelect: 'none', fontSize: 10, lineHeight: '14px', padding: '0 6px',
+              // 「+N」と同じ親タスクの配色（§9.3）
+              borderRadius: 8, background: 'var(--th-bg-parent)', color: 'var(--th-text-parent)',
+              border: '1px solid var(--th-border-strong)', fontWeight: 700,
+            }}>{childCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
         </div>
