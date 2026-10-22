@@ -274,7 +274,7 @@ export const GanttLeftRow = memo(function GanttLeftRow({
           {allChildrenHidden && (
             <span data-testid="hidden-children-badge" title={hiddenLabel} style={CHILD_BADGE_STYLE}>+{hiddenChildCount}</span>
           )}
-          {showChildCountBadge && hasChildren && !allChildrenHidden && childCount > 0 && (
+          {showChildCountBadge && childCount > 0 && !allChildrenHidden && (
             <span data-testid="child-count-badge" title={t('wbs.row.childCount', { n: childCount })} style={CHILD_BADGE_STYLE}>{childCount}</span>
           )}
           <TaskTooltip task={task} pos={tooltipPos} visible={tooltipVisible} />
