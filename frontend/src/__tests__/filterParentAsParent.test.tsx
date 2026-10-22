@@ -199,3 +199,59 @@ describe('非表示の子の通知（§9.3）', () => {
     }
   });
 });
+
+describe('子が表示されている親の子件数バッジ（§9.3）', () => {
+  const badgesIn = () => within(screen.getByTestId('wbs-panel')).queryAllByTestId('child-count-badge');
+
+  it('フィルタなしでも親のタイトル右に直接の子の件数 N を表示し、子（リーフ）には出さない', () => {
+    renderChart(family(), {});
+    const badges = badgesIn();
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toBe('2');
+    expect(badges[0].title).toBe('子タスク 2 件');
+  });
+
+  it('直接の子のみを数える（孫は含めない）', () => {
+    const g = makeTask({ id: 'G', parentId: 'C1', title: 'Grand', status: 'done',
+      startDate: '2026-10-01', endDate: '2026-10-02' });
+    renderChart([...family(), g], {});
+    expect(badgesIn().map(b => b.textContent)).toEqual(['2', '1']);
+  });
+
+  it('折りたたみ中も表示する', () => {
+    renderChart(family(), {});
+    fireEvent.click(within(screen.getByTestId('wbs-panel')).getByRole('button', { name: '折りたたむ' }));
+    expect(badgesIn().map(b => b.textContent)).toEqual(['2']);
+  });
+
+  it('子の一部だけ表示されている時も全タスク基準の件数を表示する', () => {
+    renderChart(family(), { filterAssignee: 'A' });
+    expect(badgesIn().map(b => b.textContent)).toEqual(['2']);
+  });
+
+  it('子がすべてフィルタで非表示の親には出さず「+N」バッジのみ', () => {
+    renderChart(family(), { filterStatus: '!done' });
+    expect(badgesIn()).toHaveLength(0);
+    expect(within(screen.getByTestId('wbs-panel')).getByTestId('hidden-children-badge')).toBeTruthy();
+  });
+
+  it('「+N」バッジと同じ親タスクの配色で強調する（両テーマでコントラストを確保）', () => {
+    renderChart(family(), {});
+    const badge = badgesIn()[0];
+    expect(badge).toBeTruthy();
+    expect(badge.style.background).toBe('var(--th-bg-parent)');
+    expect(badge.style.color).toBe('var(--th-text-parent)');
+    expect(badge.style.border).toBe('1px solid var(--th-border-strong)');
+    expect(badge.style.fontWeight).toBe('700');
+  });
+
+  it('英語表示のツールチップは「Child tasks: N」', () => {
+    try {
+      renderChart(family(), { locale: 'en' });
+      expect(badgesIn()).toHaveLength(1);
+      expect(badgesIn()[0].title).toBe('Child tasks: 2');
+    } finally {
+      act(() => { useTaskStore.setState({ locale: 'ja' }); });
+    }
+  });
+});
