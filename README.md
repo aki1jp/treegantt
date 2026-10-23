@@ -90,6 +90,8 @@ bash start.sh        # API + フロントエンドを一括起動
 docker compose build
 docker compose up -d
 ```
+`docker compose up` は本番構成（`docker-compose.yml`）だけで起動します。Docker で開発構成（HMR・ソースのマウント）を使う場合は `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` と明示してください。
+
 `http://<サーバーIP>:3000` でアクセス。API/WS の接続先はブラウザの `window.location.hostname` から自動検出されるため、設定変更なしで動作します。データは `api/data/treegantt.db`（ホストにマウント）へ永続化されます。
 
 > 設定（ポート等）の変更は下記 **「⚙️ 設定」** を参照。
@@ -254,7 +256,7 @@ CI（GitHub Actions）・ESLint・E2E(Playwright) の自動化・a11y の基本�
 ## 🛠 DB 管理（開発用）
 
 ```bash
-docker compose --profile dev-tools up db-ui   # → http://localhost:8888
+docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev-tools up db-ui   # → http://localhost:8888
 ```
 SQLite の中身をブラウザで確認できます（**本番では無効化**してください／無認証のため）。
 
