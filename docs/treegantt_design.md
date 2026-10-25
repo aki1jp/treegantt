@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.8** |
-| ドキュメント版 | 0.2.194 |
+| ドキュメント版 | 0.2.195 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -73,11 +73,11 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 - API→WS：API はタスク変更時に `notifyRoom(projectId, message)` を呼び、WS サーバーが同一プロセス内の room へ broadcast する（API と WS は同一 Node プロセスで起動し、`wsRoom.ts` の `notifyRoom` を直接呼ぶ）。
 
 ### 2.2 コンテナ構成
-`docker-compose.yml`（本番）と `docker-compose.override.yml`（開発）の 2 ファイル。
+`docker-compose.yml`（本番）と `docker-compose.dev.yml`（開発）の 2 ファイル。**`docker compose up` は本番構成だけで起動する**（Compose が自動で重ねて読み込む `docker-compose.override.yml` という名前は使わない。本番のつもりで開発構成が起動する事故を防ぐため）。開発構成は `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` で明示的に重ねる。開発構成の `api`・`frontend` はコンテナ起動時に必要なら `npm ci` を実行し、**`npm ci` が失敗したら `npm run dev` へ進まず停止する**（失敗を握りつぶして二次的な `tsx: not found` 等を出さない）。
 
 - `frontend`：Vite（dev は HMR、本番はビルド済み静的配信）。ポート `${FRONTEND_PORT:-3000}`。
 - `api`：REST(4000)+WS(4001)。`./api/data` を `/app/data` にボリュームマウント（SQLite 永続化）。
-- `db-ui`（任意・`profiles` でオプトイン）：`coleifer/sqlite-web` を 8888 で起動し DB を閲覧。**本番では無効にすること**（無認証）。
+- `db-ui`（任意・開発構成のみ・`profiles` でオプトイン）：`coleifer/sqlite-web` を 8888 で起動し DB を閲覧。**本番では無効にすること**（無認証）。
 
 ### 2.3 データフロー
 1. クライアント起動 → `/health` でバックエンド版取得 → プロジェクト一覧取得 → 選択プロジェクトのタスクをページング取得（`fetchAllTasks`、1000件/ページ）。
@@ -739,7 +739,7 @@ Import/Export の `version` フィールドは**書き出すだけで、イン�
 
 ### 13.2 Docker
 - `api/Dockerfile`：多段（dev / builder / runtime）。builder で `tsc` ビルド＋`npm prune --omit=dev`。runtime は `node:20-slim` に `node_modules`/`dist`/**`package.json`**（/health のバージョン用）をコピー。
-- コマンド：開発 `bash start.sh`（API+フロント同時起動）、本番 `docker compose build && docker compose up -d`。
+- コマンド：開発 `bash start.sh`（API+フロント同時起動）、本番 `docker compose build && docker compose up -d`（`docker-compose.yml` のみ。§2.2）。Docker で開発構成を使う場合は `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`。
 - **`api` の healthcheck**：`docker-compose.yml` に既存 `/health` を叩く `healthcheck` を設定（`node -e "fetch('http://localhost:4000/health')..."` で判定。`node:20-slim` に `curl` が同梱されていないため、イメージに確実に存在する Node.js 組み込みの `fetch` を使う）。`frontend` は `depends_on.api.condition: service_healthy` で、API の起動完了（DB マイグレーション等を含む）を待ってから起動する。
 
 ### 13.3 主要依存ライブラリ（再実装の基準）
@@ -1085,3 +1085,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.192 | 2026/10 | §9.3 の非表示の子の件数バッジ「+N」を淡色から親タスクの配色（`--th-bg-parent`／`--th-border-strong`／`--th-text-parent`・太字）に変更し、両テーマでコントラスト比 4.5:1 以上とする。製品バージョンは変更なし。 |
 | 0.2.193 | 2026/10 | §9.3 に、子が1件以上表示されている親（フィルタなし時を含む）のタイトル右へ子件数バッジ「N」（直接の子の件数・全タスク基準、「+N」と同じ親タスクの配色）を常時表示する仕様を追加。子がすべてフィルタで非表示の親の「+N」バッジは従来どおり。製品バージョンは変更なし。 |
 | 0.2.194 | 2026/10 | §9.3・§7.1 に、子件数バッジ「N」の表示／非表示を切り替えるツールバーの「子件数」トグル（`showChildCountBadge`、既定 ON、`localStorage` に永続化、`resetUi` で ON に戻す）を追加。「+N」バッジはトグルに依らず常に表示。製品バージョンは変更なし。 |
+| 0.2.195 | 2026/10 | §2.2・§13.2 の Docker 構成を変更：開発用 compose を `docker-compose.override.yml` から `docker-compose.dev.yml` に改め、`docker compose up` が本番構成だけで起動するようにした（従来は override が自動で重なり、本番手順のつもりで開発構成が起動していた）。開発構成は `-f` で明示的に重ねる。開発構成の起動コマンドは `npm ci` 失敗時に停止する。製品バージョンは変更なし。 |

@@ -1,12 +1,14 @@
-# 開発用オーバーライド（docker compose up で自動マージ）
-# 本番のみで起動する場合: docker compose -f docker-compose.yml up
+# 開発用の追加構成（自動では読み込まれない。§2.2）
+#   起動: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   本番は docker compose up（docker-compose.yml のみ）
+# command は npm ci が失敗したら npm run dev へ進まず停止する（失敗の握りつぶし防止）
 services:
   frontend:
     image: treegantt-frontend:dev
     build:
       context: ./frontend
       target: dev
-    command: sh -c "[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; npm run dev"
+    command: sh -c "{ [ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; } && npm run dev"
     volumes:
       - ./frontend:/app
       - fe_node_modules:/app/node_modules
@@ -19,12 +21,12 @@ services:
     build:
       context: ./api
       target: dev
-    command: sh -c "[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; npm run dev"
+    command: sh -c "{ [ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; } && npm run dev"
     volumes:
       - ./api:/app
       - api_node_modules:/app/node_modules
 
-  # 開発ツール（docker compose --profile dev-tools up）
+  # 開発ツール（docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile dev-tools up db-ui）
   db-ui:
     image: coleifer/sqlite-web
     ports:

@@ -1,4 +1,4 @@
-# ── 開発（docker compose up） ─────────────────────────
+# ── 開発（docker-compose.dev.yml を重ねて起動） ───────
 FROM node:20-alpine AS dev
 WORKDIR /app
 COPY package*.json ./
