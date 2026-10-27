@@ -2,12 +2,12 @@
 
 | 項目 | 内容 |
 |------|------|
-| 製品バージョン | **1.9.8** |
-| ドキュメント版 | 0.2.197 |
+| 製品バージョン | **1.9.9** |
+| ドキュメント版 | 0.2.198 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
-| ステータス | リリース（1.9.8） |
+| ステータス | リリース（1.9.9） |
 
 > 本書は **TreeGantt 1.0 の完全仕様書**である。本書のみを参照して現行アプリを再実装できることを目標とし、
 > 設計・仕様は各章の本文に記述する。巻末の「改訂履歴」は版数と設計上の要点の一覧であり、
@@ -110,7 +110,7 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 │   │   ├── ws/wsRoom.ts       WebSocketServer・room 管理・notifyRoom
 │   │   └── types/task.ts      Task / Project 型
 │   ├── Dockerfile            多段ビルド（dev / builder / runtime）
-│   └── package.json          version=1.9.8（/health が返す）
+│   └── package.json          version=1.9.9（/health が返す）
 ├── frontend/                 React SPA
 │   ├── src/
 │   │   ├── App.tsx           画面統合・オーケストレーション
@@ -120,7 +120,7 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 │   │   ├── store/taskStore.ts zustand（永続化付き）
 │   │   ├── types/task.ts     Task / Project 型
 │   │   └── utils/            ganttCalc / taskTree / api / importExport ほか
-│   └── package.json          version=1.9.8
+│   └── package.json          version=1.9.9
 ├── mcp/                      AI連携用 MCP サーバー（api/frontendとは独立。詳細は §18）
 │   ├── src/
 │   │   ├── index.ts          McpServer 起動・ツール登録・stdio transport 接続
@@ -1091,3 +1091,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.195 | 2026/10 | §2.2・§13.2 の Docker 構成を変更：開発用 compose を `docker-compose.override.yml` から `docker-compose.dev.yml` に改め、`docker compose up` が本番構成だけで起動するようにした（従来は override が自動で重なり、本番手順のつもりで開発構成が起動していた）。開発構成は `-f` で明示的に重ねる。開発構成の起動コマンドは `npm ci` 失敗時に停止する。製品バージョンは変更なし。 |
 | 0.2.196 | 2026/10 | §2.2 に社内プロキシ下での Docker ビルドを追加：`docker-compose.yml` の `build.args` に `HTTP_PROXY`・`HTTPS_PROXY`・`NO_PROXY`（小文字版含む）を値なしで列挙し、`.env` への記述有無だけでプロキシ内外を切り替える（yaml に環境固有の値を書かない）。製品バージョンは変更なし。 |
 | 0.2.197 | 2026/10 | §1.3・§13.2・§13.3 の前提 Node.js を 20（2026-04 EOL）から 26（LTS）に変更：Docker イメージ（`node:26-slim` / `node:26-alpine`）と CI の Node 版を 26 に揃え、Node 26 用ビルド済みバイナリのある `better-sqlite3` ^12.11 に更新。§16.5 に frontend テストワーカーで Node 組み込み Web Storage を無効化する設定を追記。製品バージョンは変更なし。 |
+| 0.2.198 | 2026/10 | 製品バージョンを **1.9.9** に更新（ヘッダー・ステータス・構成図）。WBS 列幅の永続化と上限（0.2.187・0.2.188）、フィルタ中の親判定・集計の全タスク基準化と子が全て非表示の親の表示（0.2.189〜0.2.192）、子件数バッジ「N」と表示トグル（0.2.193・0.2.194）、`docker compose up` の本番構成限定（0.2.195）、プロキシ下の Docker ビルド（0.2.196）、Node.js 26 への更新（0.2.197）、依存の脆弱性解消をまとめてパッチリリースとして `CHANGELOG.md` の `[1.9.9]` に記録。**パッチのみのバンプのため§15「現行リリース」は変更なし**。 |
