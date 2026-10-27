@@ -12,6 +12,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Node 25+ の組み込み Web Storage（--localstorage-file 未指定だと undefined）が
+    // jsdom の localStorage を覆い隠すため、テストワーカーでは無効化する（§16.5）
+    execArgv: ['--no-experimental-webstorage'],
     coverage: {
       // istanbul を使う: vitest(内部 vite8/oxc) と dev/build(vite5/babel) の混在下で
       // v8 provider が一部ファイルを計上漏れするため。istanbul は計測をコードへ埋め込み正確。
