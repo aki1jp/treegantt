@@ -92,3 +92,29 @@ describe('プロキシ下のビルドは .env の記述だけで切り替える�
     }
   });
 });
+
+describe('Node.js の版は 26（LTS）に揃える（§1.3・§13.3）', () => {
+  const NODE_MAJOR = '26';
+
+  for (const file of ['api/Dockerfile', 'frontend/Dockerfile']) {
+    it(`${file} の全ステージが node:${NODE_MAJOR} 系イメージを使う`, () => {
+      const froms = read(file).split('\n').filter(l => /^FROM\s/.test(l));
+      expect(froms.length).toBeGreaterThan(0);
+      for (const from of froms) {
+        expect(from).toMatch(new RegExp(`^FROM node:${NODE_MAJOR}-`));
+      }
+    });
+  }
+
+  it(`CI の全ジョブが Node ${NODE_MAJOR} で実行する`, () => {
+    const versions = [...read('.github/workflows/ci.yml').matchAll(/node-version:\s*'?(\d+)'?/g)].map(m => m[1]);
+    expect(versions.length).toBeGreaterThan(0);
+    expect(new Set(versions)).toEqual(new Set([NODE_MAJOR]));
+  });
+
+  it('better-sqlite3 は Node 26 用ビルド済みバイナリのある 12.10 以降を使う', () => {
+    const range: string = JSON.parse(read('api/package.json')).dependencies['better-sqlite3'];
+    const [major, minor] = range.replace(/^[\^~]/, '').split('.').map(Number);
+    expect(major > 12 || (major === 12 && minor >= 10)).toBe(true);
+  });
+});
