@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.8** |
-| ドキュメント版 | 0.2.196 |
+| ドキュメント版 | 0.2.197 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -53,7 +53,7 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 ### 1.3 前提・制約
 - 単一 SQLite ファイルをデータストアとする（`better-sqlite3`、同期 API）。
 - 認可・マルチテナント分離は未実装（projectId を知る全クライアントが全プロジェクトを操作可能）。
-- 既存の社内 Docker 環境にデプロイする。Node.js 20 を前提とする。
+- 既存の社内 Docker 環境にデプロイする。Node.js 26（LTS）を前提とする。
 
 ---
 
@@ -740,9 +740,9 @@ Import/Export の `version` フィールドは**書き出すだけで、イン�
 | `VITE_API_URL` / `VITE_WS_URL` | host:4000 / host:4001 | フロントの接続先上書き |
 
 ### 13.2 Docker
-- `api/Dockerfile`：多段（dev / builder / runtime）。builder で `tsc` ビルド＋`npm prune --omit=dev`。runtime は `node:20-slim` に `node_modules`/`dist`/**`package.json`**（/health のバージョン用）をコピー。
+- `api/Dockerfile`：多段（dev / builder / runtime）。builder で `tsc` ビルド＋`npm prune --omit=dev`。runtime は `node:26-slim` に `node_modules`/`dist`/**`package.json`**（/health のバージョン用）をコピー。
 - コマンド：開発 `bash start.sh`（API+フロント同時起動）、本番 `docker compose build && docker compose up -d`（`docker-compose.yml` のみ。§2.2）。Docker で開発構成を使う場合は `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`。
-- **`api` の healthcheck**：`docker-compose.yml` に既存 `/health` を叩く `healthcheck` を設定（`node -e "fetch('http://localhost:4000/health')..."` で判定。`node:20-slim` に `curl` が同梱されていないため、イメージに確実に存在する Node.js 組み込みの `fetch` を使う）。`frontend` は `depends_on.api.condition: service_healthy` で、API の起動完了（DB マイグレーション等を含む）を待ってから起動する。
+- **`api` の healthcheck**：`docker-compose.yml` に既存 `/health` を叩く `healthcheck` を設定（`node -e "fetch('http://localhost:4000/health')..."` で判定。`node:26-slim` に `curl` が同梱されていないため、イメージに確実に存在する Node.js 組み込みの `fetch` を使う）。`frontend` は `depends_on.api.condition: service_healthy` で、API の起動完了（DB マイグレーション等を含む）を待ってから起動する。
 
 ### 13.3 主要依存ライブラリ（再実装の基準）
 
@@ -757,18 +757,18 @@ Import/Export の `version` フィールドは**書き出すだけで、イン�
 | frontend | vitest | ^4 | テスト |
 | api | fastify | ^5.8 | REST フレームワーク |
 | api | @fastify/cors / @fastify/compress | ^11 / ^9 | CORS・圧縮（fastify5 対応ライン） |
-| api | better-sqlite3 | ^9.4 | SQLite（同期 API） |
+| api | better-sqlite3 | ^12.12 | SQLite（同期 API。Node 26 用ビルド済みバイナリは 12.10 以降） |
 | api | uuid | ^11.1 | UUID v4 採番 |
 | api | ws | ^8.20 | WebSocket サーバー |
 | api | ldapjs | ^3.0 | LDAP（将来拡張・現状未使用） |
 | api | vitest | ^4 | テスト |
 | e2e | @playwright/test | — | E2E |
 
-Node.js 20 を前提（fastify5 の要件・Docker は `node:20-slim`）。
+Node.js 26（LTS、サポート期限 2029-04）を前提（Node 20 は 2026-04 に EOL。Docker は api が `node:26-slim`、frontend が `node:26-alpine`。CI も同じ版で実行する）。
 
 ### 13.4 バックアップ・リストア
 
-- **方式**：`api` プロセス内で `better-sqlite3` のオンラインバックアップ API（`db.backup(destPath)`、Promise を返す）を使い、稼働中の DB から一貫性のあるスナップショット（WAL の内容を統合済みの単一ファイル）を取得する。`sqlite3` CLI は `node:20-slim` に同梱されないため使用しない。
+- **方式**：`api` プロセス内で `better-sqlite3` のオンラインバックアップ API（`db.backup(destPath)`、Promise を返す）を使い、稼働中の DB から一貫性のあるスナップショット（WAL の内容を統合済みの単一ファイル）を取得する。`sqlite3` CLI は `node:26-slim` に同梱されないため使用しない。
 - **タイミング**：API 起動時に1回 ＋ `BACKUP_INTERVAL_HOURS`（既定 24、`0` で無効）ごと。`api/src/index.ts` が `api/src/db/backup.ts` の `scheduleBackups()` を明示的に呼び出して起動する（`db/client.ts`・`ws/wsRoom.ts` のような import 時副作用にはしない。テスト容易性のため）。
 - **保存先・世代管理**：`BACKUP_DIR`（既定：DB ファイルと同じディレクトリ配下の `backups/`）に `treegantt-<YYYYMMDDTHHMMSS>.db` の形式で保存する。`BACKUP_RETENTION`（既定 7）を超える古い世代はファイル名（＝タイムスタンプ）昇順で削除する。
 - **失敗時の扱い**：バックアップ取得・削除に失敗してもプロセスを落とさず、`fastify.log.error` に記録して継続する（次回のスケジュール実行は継続される）。
@@ -1089,3 +1089,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.194 | 2026/10 | §9.3・§7.1 に、子件数バッジ「N」の表示／非表示を切り替えるツールバーの「子件数」トグル（`showChildCountBadge`、既定 ON、`localStorage` に永続化、`resetUi` で ON に戻す）を追加。「+N」バッジはトグルに依らず常に表示。製品バージョンは変更なし。 |
 | 0.2.195 | 2026/10 | §2.2・§13.2 の Docker 構成を変更：開発用 compose を `docker-compose.override.yml` から `docker-compose.dev.yml` に改め、`docker compose up` が本番構成だけで起動するようにした（従来は override が自動で重なり、本番手順のつもりで開発構成が起動していた）。開発構成は `-f` で明示的に重ねる。開発構成の起動コマンドは `npm ci` 失敗時に停止する。製品バージョンは変更なし。 |
 | 0.2.196 | 2026/10 | §2.2 に社内プロキシ下での Docker ビルドを追加：`docker-compose.yml` の `build.args` に `HTTP_PROXY`・`HTTPS_PROXY`・`NO_PROXY`（小文字版含む）を値なしで列挙し、`.env` への記述有無だけでプロキシ内外を切り替える（yaml に環境固有の値を書かない）。製品バージョンは変更なし。 |
+| 0.2.197 | 2026/10 | §1.3・§13.2・§13.3 の前提 Node.js を 20（2026-04 EOL）から 26（LTS）に変更：Docker イメージ（`node:26-slim` / `node:26-alpine`）と CI の Node 版を 26 に揃え、Node 26 用ビルド済みバイナリのある `better-sqlite3` ^12.12 に更新。製品バージョンは変更なし。 |
