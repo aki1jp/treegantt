@@ -757,7 +757,7 @@ Import/Export の `version` フィールドは**書き出すだけで、イン�
 | frontend | vitest | ^4 | テスト |
 | api | fastify | ^5.8 | REST フレームワーク |
 | api | @fastify/cors / @fastify/compress | ^11 / ^9 | CORS・圧縮（fastify5 対応ライン） |
-| api | better-sqlite3 | ^12.12 | SQLite（同期 API。Node 26 用ビルド済みバイナリは 12.10 以降） |
+| api | better-sqlite3 | ^12.11 | SQLite（同期 API。Node 26 用ビルド済みバイナリは 12.10 以降） |
 | api | uuid | ^11.1 | UUID v4 採番 |
 | api | ws | ^8.20 | WebSocket サーバー |
 | api | ldapjs | ^3.0 | LDAP（将来拡張・現状未使用） |
@@ -853,6 +853,7 @@ Node.js 26（LTS、サポート期限 2029-04）を前提（Node 20 は 2026-04 
   - `frontend`：実測 statements 86.6% / branches 85.38% / functions 78.53% / lines 89.06% → 閾値 statements 84 / branches 80 / functions 75 / lines 86。
   - vitest はカバレッジ計測時（`--coverage`）に閾値未達だと `exit 1` になる仕様のため、CI 側の追加実装は不要。ただし平常の `npm test`（CI の既存ステップ）はカバレッジを計測しないため、`frontend` にも `api` と同様の `"test:coverage": "vitest run --coverage"` npm script を追加したうえで、CI（`.github/workflows/ci.yml`）の `api`/`frontend` ジョブの `npm test` ステップを `npm run test:coverage` に置き換えてゲート化した（`--run` 相当は `vitest run` に既に含まれる）。
 - **ESLint `@typescript-eslint/no-floating-promises`**：`api`/`frontend` の `eslint.config.js` に追加。型情報が必要なため、`tsconfig` の `include` 範囲（`api`: `src/**/*.ts`、`frontend`: `src/**/*.{ts,tsx}`）に `files` を絞った設定ブロックで `languageOptions.parserOptions.projectService: true` を有効化し、その範囲にのみ型ありリンティングを適用する（`eslint.config.js` 自身や `vitest.config.ts` 等の設定ファイルは対象外＝tsconfig の対象範囲外のファイルで型情報エラーになるのを避ける）。導入時、`api` は既存コードに違反なし。`frontend` は8ファイル・12箇所検出：いずれも実バグではなく、呼び出し先が内部で `.catch()` 済みで例外を送出しない意図的な fire-and-forget（`useProjectRefs` の `load`/`refresh`、`App.tsx` の `handleReorder`/`handleCopyInsert` 呼び出し側、`QuickAddRow` の `submit`、全プロジェクトのタスク件数集計 `Promise.all`）だったため、`// eslint-disable-line` ではなく `void` 演算子で明示した（型チェッカーが安全と認識できる形を優先する方針）。テストコード1箇所（`useProjectRefs.test.ts`）は `await` に変更しテストの決定性を上げた。
+- **frontend テストワーカーの Web Storage**：Node 25 以降は組み込みの Web Storage が既定で有効で、`--localstorage-file` 未指定時は `globalThis.localStorage` が `undefined` になり jsdom の `localStorage` を覆い隠す（全テストが `localStorage.clear()` 等で失敗する）。`vite.config.ts` の `test.execArgv` に `--no-experimental-webstorage` を指定し、テストワーカーでは jsdom 実装を使う。
 
 ---
 
@@ -1089,4 +1090,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.194 | 2026/10 | §9.3・§7.1 に、子件数バッジ「N」の表示／非表示を切り替えるツールバーの「子件数」トグル（`showChildCountBadge`、既定 ON、`localStorage` に永続化、`resetUi` で ON に戻す）を追加。「+N」バッジはトグルに依らず常に表示。製品バージョンは変更なし。 |
 | 0.2.195 | 2026/10 | §2.2・§13.2 の Docker 構成を変更：開発用 compose を `docker-compose.override.yml` から `docker-compose.dev.yml` に改め、`docker compose up` が本番構成だけで起動するようにした（従来は override が自動で重なり、本番手順のつもりで開発構成が起動していた）。開発構成は `-f` で明示的に重ねる。開発構成の起動コマンドは `npm ci` 失敗時に停止する。製品バージョンは変更なし。 |
 | 0.2.196 | 2026/10 | §2.2 に社内プロキシ下での Docker ビルドを追加：`docker-compose.yml` の `build.args` に `HTTP_PROXY`・`HTTPS_PROXY`・`NO_PROXY`（小文字版含む）を値なしで列挙し、`.env` への記述有無だけでプロキシ内外を切り替える（yaml に環境固有の値を書かない）。製品バージョンは変更なし。 |
-| 0.2.197 | 2026/10 | §1.3・§13.2・§13.3 の前提 Node.js を 20（2026-04 EOL）から 26（LTS）に変更：Docker イメージ（`node:26-slim` / `node:26-alpine`）と CI の Node 版を 26 に揃え、Node 26 用ビルド済みバイナリのある `better-sqlite3` ^12.12 に更新。製品バージョンは変更なし。 |
+| 0.2.197 | 2026/10 | §1.3・§13.2・§13.3 の前提 Node.js を 20（2026-04 EOL）から 26（LTS）に変更：Docker イメージ（`node:26-slim` / `node:26-alpine`）と CI の Node 版を 26 に揃え、Node 26 用ビルド済みバイナリのある `better-sqlite3` ^12.11 に更新。§16.5 に frontend テストワーカーで Node 組み込み Web Storage を無効化する設定を追記。製品バージョンは変更なし。 |
