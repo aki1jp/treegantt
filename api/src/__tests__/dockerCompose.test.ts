@@ -43,3 +43,38 @@ describe('開発構成の起動コマンド（§2.2）', () => {
     }
   });
 });
+
+describe('プロキシ下のビルドは .env の記述だけで切り替える（§2.2）', () => {
+  const PROXY_ARGS = ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy'];
+
+  // services 直下（インデント2）のサービス名ごとにブロックを切り出す
+  const serviceBlock = (src: string, name: string) => {
+    const lines = src.split('\n');
+    const start = lines.findIndex(l => l === `  ${name}:`);
+    if (start < 0) return '';
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex(l => /^ {0,2}\S/.test(l));
+    return rest.slice(0, end < 0 ? undefined : end).join('\n');
+  };
+
+  for (const service of ['api', 'frontend']) {
+    it(`docker-compose.yml の ${service} の build.args にプロキシ変数を値なしで列挙する`, () => {
+      const block = serviceBlock(read('docker-compose.yml'), service);
+      for (const arg of PROXY_ARGS) {
+        expect(block).toMatch(new RegExp(`^\\s+- ${arg}\\s*(#.*)?$`, 'm'));
+      }
+    });
+  }
+
+  it('compose ファイルにプロキシの具体値を書かない', () => {
+    for (const file of ['docker-compose.yml', 'docker-compose.dev.yml']) {
+      expect(read(file)).not.toMatch(/_proxy\s*[:=]/i);
+    }
+  });
+
+  it('.env.example にプロキシ設定のコメントアウト例がある', () => {
+    for (const arg of ['HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY']) {
+      expect(read('.env.example')).toMatch(new RegExp(`^# ${arg}=`, 'm'));
+    }
+  });
+});
