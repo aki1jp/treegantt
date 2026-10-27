@@ -1,7 +1,16 @@
 services:
   frontend:
     image: treegantt-frontend:prod
-    build: ./frontend
+    build:
+      context: ./frontend
+      # 社内プロキシ下では .env に HTTP_PROXY 等を書く（未設定なら渡さない。§2.2）
+      args:
+        - HTTP_PROXY
+        - HTTPS_PROXY
+        - NO_PROXY
+        - http_proxy
+        - https_proxy
+        - no_proxy
     ports:
       - '${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}'
     environment:
@@ -12,7 +21,16 @@ services:
 
   api:
     image: treegantt-api:prod
-    build: ./api
+    build:
+      context: ./api
+      # 社内プロキシ下では .env に HTTP_PROXY 等を書く（未設定なら渡さない。§2.2）
+      args:
+        - HTTP_PROXY
+        - HTTPS_PROXY
+        - NO_PROXY
+        - http_proxy
+        - https_proxy
+        - no_proxy
     ports:
       - '${PORT:-4000}:${PORT:-4000}'
       - '${WS_PORT:-4001}:${WS_PORT:-4001}'
