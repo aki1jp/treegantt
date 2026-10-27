@@ -129,6 +129,7 @@ PORT=5000 WS_PORT=5001 FRONTEND_PORT=3005 bash start.sh
 | `BACKUP_INTERVAL_HOURS` | `24` | バックアップ間隔（時間）。`0` で定期実行を無効化（起動時の1回は実行される） |
 | `BACKUP_RETENTION` | `7` | 保持するバックアップ世代数（超過分は古い順に削除） |
 | `LDAP_ENABLED` | `false` | LDAP 認証（将来用・未使用） |
+| `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`（小文字版も可） | 未設定 | 社内プロキシ下で `docker compose build` するときだけ設定（ビルド時の `npm ci` に渡る）。プロキシ外ではコメントアウトするだけで元に戻る。`--build-arg` は不要 |
 
 > ⚠️ **`PORT` / `WS_PORT` を変えたら `VITE_API_URL` / `VITE_WS_URL` も合わせてください。**
 > フロントは既定で `:4000` / `:4001` に接続するため、API ポートだけ変えると繋がりません。
