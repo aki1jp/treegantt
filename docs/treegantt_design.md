@@ -755,7 +755,7 @@ Import/Export の `version` フィールドは**書き出すだけで、イン�
 | frontend | papaparse | ^5.4 | CSV パース（インポート） |
 | frontend | vite / @vitejs/plugin-react | ^5 / ^4 | ビルド・dev サーバー |
 | frontend | vitest | ^4 | テスト |
-| api | fastify | ^5.8 | REST フレームワーク |
+| api | fastify | ^5.12.7 | REST フレームワーク（5.12.4 以下は既知脆弱性あり） |
 | api | @fastify/cors / @fastify/compress | ^11 / ^9 | CORS・圧縮（fastify5 対応ライン） |
 | api | better-sqlite3 | ^12.11 | SQLite（同期 API。Node 26 用ビルド済みバイナリは 12.10 以降） |
 | api | uuid | ^11.1 | UUID v4 採番 |
@@ -835,7 +835,7 @@ Node.js 26（LTS、サポート期限 2029-04）を前提（Node 20 は 2026-04 
 5. **React プラグインは変換エンジンと対で選ぶ**：esbuild なら `@vitejs/plugin-react`、oxc なら `@vitejs/plugin-react-oxc`。これを外すと 16.1 の警告が出る。
 
 ### 16.4 既知の保留課題
-- **frontend の dev 専用依存の既知脆弱性**：`npm audit`（全依存）に残る（現状: high 2件［vite・undici］・moderate 1件［esbuild］・low 1件［@babel/core]）。いずれも **dev サーバー/テストツールチェーン専用**で本番ビルド成果物（`dist/`）には非同梱のため実害なし。修正には vite のメジャー更新（破壊的）が必要なため、16.3 の統一に合わせて解消する。CI の `npm audit` ゲート（§16.5）は `--omit=dev` で本番依存のみを対象とし、これら dev 専用の既知項目で CI が落ちないようにしている。
+- **frontend の dev 専用依存の既知脆弱性**：`npm audit`（全依存）に残る（現状: high 1件［vite］・moderate 1件［esbuild］。いずれも vite 5 が依存する esbuild 0.24 以下に起因。`npm audit fix` で解消できる項目は解消済み）。いずれも **dev サーバー/テストツールチェーン専用**で本番ビルド成果物（`dist/`）には非同梱のため実害なし。修正には vite のメジャー更新（破壊的）が必要なため、16.3 の統一に合わせて解消する。CI の `npm audit` ゲート（§16.5）は `--omit=dev` で本番依存のみを対象とし、これら dev 専用の既知項目で CI が落ちないようにしている。
 - **`App.tsx` のユニットテスト**：オーケストレーション層のユニットテスト（`app.test.tsx`）を追加済み。主要な CRUD/トースト配線・行 D&D 等を検証し、カバレッジは約50%（複雑な分岐やモーダル配線は引き続き E2E で補完）。
 
 ### 16.5 自動ゲート（CI・ESLint・型チェック）

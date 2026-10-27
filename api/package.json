@@ -20,7 +20,7 @@
     "@fastify/swagger": "^9.7.0",
     "@fastify/swagger-ui": "^6.0.0",
     "better-sqlite3": "^12.11.1",
-    "fastify": "^5.8.5",
+    "fastify": "^5.12.7",
     "ldapjs": "^3.0.0",
     "uuid": "^11.1.1",
     "ws": "^8.21.0"
@@ -30,12 +30,12 @@
     "@types/ldapjs": "^2.2.0",
     "@types/node": "^26.6.5",
     "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^10.6.0",
     "prettier": "^3.9.4",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
     "typescript-eslint": "^8.62.1",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.12"
   }
 }
