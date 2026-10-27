@@ -1,19 +1,19 @@
 # ── 開発（docker-compose.dev.yml を重ねて起動） ───────
-FROM node:20-alpine AS dev
+FROM node:26-alpine AS dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 CMD ["npm", "run", "dev"]
 
 # ── 本番ビルド ─────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:26-alpine
 WORKDIR /app
 RUN npm install -g serve
 COPY --from=builder /app/dist ./dist

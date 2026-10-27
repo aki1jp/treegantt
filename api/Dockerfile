@@ -1,12 +1,12 @@
 # ── 開発（docker-compose.dev.yml を重ねて起動） ───────
-FROM node:20-slim AS dev
+FROM node:26-slim AS dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 CMD ["npm", "run", "dev"]
 
 # ── 本番ビルド ─────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -14,7 +14,7 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
-FROM node:20-slim
+FROM node:26-slim
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist

@@ -67,7 +67,7 @@
 ## 🚀 クイックスタート
 
 ### 前提
-- Node.js **20 以上** / npm
+- Node.js **26 以上**（LTS） / npm
 
 ### 開発（ホットリロード）
 ```bash
@@ -197,7 +197,7 @@ Docker イメージ化はしていない。本番の TreeGantt を参照した�
 | API | **Fastify 5** / TypeScript / better-sqlite3 |
 | リアルタイム | WebSocket（`ws`）broadcast 方式 |
 | テスト | Vitest / Testing Library / **Playwright（E2E）** |
-| 配信 | Docker multi-stage（`node:20-slim`） |
+| 配信 | Docker multi-stage（`node:26-slim`） |
 
 ---
 
