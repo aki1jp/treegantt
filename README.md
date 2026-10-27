@@ -9,7 +9,7 @@
 ![version](https://img.shields.io/badge/version-1.9.8-2563eb)
 [![CI](https://github.com/aki1jp/treegantt/actions/workflows/ci.yml/badge.svg)](https://github.com/aki1jp/treegantt/actions/workflows/ci.yml)
 ![license](https://img.shields.io/badge/license-MIT-22c55e)
-![node](https://img.shields.io/badge/node-20+-3c873a)
+![node](https://img.shields.io/badge/node-26+-3c873a)
 ![React](https://img.shields.io/badge/React-18-61dafb)
 ![Fastify](https://img.shields.io/badge/Fastify-5-000000)
 
