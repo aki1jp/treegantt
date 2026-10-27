@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |------|------|
 | 製品バージョン | **1.9.8** |
-| ドキュメント版 | 0.2.195 |
+| ドキュメント版 | 0.2.196 |
 | 作成日 | 2025年 |
 | 最終更新 | 2026年8月 |
 | 対象読者 | 開発者・アーキテクト |
@@ -74,6 +74,8 @@ TreeGantt は、ツリー構造（親子）に対応したガントチャート�
 
 ### 2.2 コンテナ構成
 `docker-compose.yml`（本番）と `docker-compose.dev.yml`（開発）の 2 ファイル。**`docker compose up` は本番構成だけで起動する**（Compose が自動で重ねて読み込む `docker-compose.override.yml` という名前は使わない。本番のつもりで開発構成が起動する事故を防ぐため）。開発構成は `docker compose -f docker-compose.yml -f docker-compose.dev.yml up` で明示的に重ねる。開発構成の `api`・`frontend` はコンテナ起動時に必要なら `npm ci` を実行し、**`npm ci` が失敗したら `npm run dev` へ進まず停止する**（失敗を握りつぶして二次的な `tsx: not found` 等を出さない）。
+
+**プロキシ下でのビルド**：`docker-compose.yml` の `api`・`frontend` の `build.args` には `HTTP_PROXY`・`HTTPS_PROXY`・`NO_PROXY` とその小文字版を**値なしで列挙する**（値は yaml に書かない）。Compose は値なしの引数を環境変数・`.env` から解決し、**未設定なら渡さない**。したがって社内プロキシ下では `.env` に `HTTP_PROXY=http://proxy.example.co.jp:8080` 等を書くだけで `docker compose build` の `npm ci` がプロキシ経由になり、プロキシ外では同じ行をコメントアウトするだけで従来どおりのビルドになる（`--build-arg` の手入力は不要。yaml はプロキシ内外で共通）。これらは Docker の定義済みビルド引数のため Dockerfile に `ARG` は宣言せず、イメージ履歴にも値は残らない。実行時のコンテナ環境変数には渡さない。開発構成（`-f docker-compose.dev.yml`）を重ねても `build` はキー単位でマージされ、`args` はそのまま有効。なお `start.sh` は `.env` を環境変数として読み込むため、開発時の `npm install` も同じプロキシ設定を使う。
 
 - `frontend`：Vite（dev は HMR、本番はビルド済み静的配信）。ポート `${FRONTEND_PORT:-3000}`。
 - `api`：REST(4000)+WS(4001)。`./api/data` を `/app/data` にボリュームマウント（SQLite 永続化）。
@@ -1086,3 +1088,4 @@ CI・ESLint・`typecheck` npm script・`npm audit`（依存脆弱性チェック
 | 0.2.193 | 2026/10 | §9.3 に、子が1件以上表示されている親（フィルタなし時を含む）のタイトル右へ子件数バッジ「N」（直接の子の件数・全タスク基準、「+N」と同じ親タスクの配色）を常時表示する仕様を追加。子がすべてフィルタで非表示の親の「+N」バッジは従来どおり。製品バージョンは変更なし。 |
 | 0.2.194 | 2026/10 | §9.3・§7.1 に、子件数バッジ「N」の表示／非表示を切り替えるツールバーの「子件数」トグル（`showChildCountBadge`、既定 ON、`localStorage` に永続化、`resetUi` で ON に戻す）を追加。「+N」バッジはトグルに依らず常に表示。製品バージョンは変更なし。 |
 | 0.2.195 | 2026/10 | §2.2・§13.2 の Docker 構成を変更：開発用 compose を `docker-compose.override.yml` から `docker-compose.dev.yml` に改め、`docker compose up` が本番構成だけで起動するようにした（従来は override が自動で重なり、本番手順のつもりで開発構成が起動していた）。開発構成は `-f` で明示的に重ねる。開発構成の起動コマンドは `npm ci` 失敗時に停止する。製品バージョンは変更なし。 |
+| 0.2.196 | 2026/10 | §2.2 に社内プロキシ下での Docker ビルドを追加：`docker-compose.yml` の `build.args` に `HTTP_PROXY`・`HTTPS_PROXY`・`NO_PROXY`（小文字版含む）を値なしで列挙し、`.env` への記述有無だけでプロキシ内外を切り替える（yaml に環境固有の値を書かない）。製品バージョンは変更なし。 |
