@@ -51,18 +51,32 @@ describe('プロキシ下のビルドは .env の記述だけで切り替える�
   const serviceBlock = (src: string, name: string) => {
     const lines = src.split('\n');
     const start = lines.findIndex(l => l === `  ${name}:`);
-    if (start < 0) return '';
+    if (start < 0) return [];
     const rest = lines.slice(start + 1);
-    const end = rest.findIndex(l => /^ {0,2}\S/.test(l));
-    return rest.slice(0, end < 0 ? undefined : end).join('\n');
+    // 次のサービス（またはトップレベル）で終わる。インデントの浅いコメント行では切らない
+    const end = rest.findIndex(l => /^ {0,2}[^\s#]/.test(l));
+    return rest.slice(0, end < 0 ? undefined : end);
+  };
+
+  // build: 直下の args: に続くリスト項目（environment: 等の同名項目と区別する）
+  const buildArgs = (src: string, name: string) => {
+    const lines = serviceBlock(src, name);
+    const build = lines.findIndex(l => l === '    build:');
+    if (build < 0) return [];
+    const args = lines.findIndex((l, i) => i > build && l === '      args:');
+    if (args < 0) return [];
+    const items: string[] = [];
+    for (const l of lines.slice(args + 1)) {
+      const m = l.match(/^ {8}- (\S+)\s*(#.*)?$/);
+      if (!m) break;
+      items.push(m[1]);
+    }
+    return items;
   };
 
   for (const service of ['api', 'frontend']) {
     it(`docker-compose.yml の ${service} の build.args にプロキシ変数を値なしで列挙する`, () => {
-      const block = serviceBlock(read('docker-compose.yml'), service);
-      for (const arg of PROXY_ARGS) {
-        expect(block).toMatch(new RegExp(`^\\s+- ${arg}\\s*(#.*)?$`, 'm'));
-      }
+      expect(buildArgs(read('docker-compose.yml'), service)).toEqual(expect.arrayContaining(PROXY_ARGS));
     });
   }
 
